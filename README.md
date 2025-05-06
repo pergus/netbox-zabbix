@@ -1,6 +1,6 @@
 # NetBox Zabbix Plugin
 
-NetBox plugin for Zabbix.
+NetBox plugin for Zabbix. DEMO DEMO DEMO
 
 
 * Free software: Apache-2.0
