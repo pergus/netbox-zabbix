@@ -1,0 +1,84 @@
+Metadata-Version: 2.4
+Name: netbox-zabbix
+Version: 0.1.0
+Summary: NetBox plugin for Zabbix.
+Author-email: pergus <pergus@axis.com>
+Project-URL: Documentation, https://github.com/pergus/netbox-zabbix/blob/main/README.md
+Project-URL: Source, https://github.com/pergus/netbox-zabbix
+Project-URL: Tracker, https://github.com/pergus/netbox-zabbix/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: test
+Requires-Dist: black==24.3.0; extra == "test"
+Requires-Dist: check-manifest==0.49; extra == "test"
+Requires-Dist: flake8; extra == "test"
+Requires-Dist: flake8-pyproject; extra == "test"
+Requires-Dist: pre-commit==3.7.0; extra == "test"
+Requires-Dist: pytest==8.1.1; extra == "test"
+Dynamic: license-file
+
+# netbox-zabbix
+
+NetBox plugin for Zabbix.
+
+
+* Free software: MIT
+* Documentation: https://pergus.github.io/netbox-zabbix/
+
+
+## Features
+
+The features the plugin provides should be listed here.
+
+## Compatibility
+
+| NetBox Version | Plugin Version |
+|----------------|----------------|
+|     4.0        |      0.1.0     |
+
+## Installing
+
+For adding to a NetBox Docker setup see
+[the general instructions for using netbox-docker with plugins](https://github.com/netbox-community/netbox-docker/wiki/Using-Netbox-Plugins).
+
+While this is still in development and not yet on pypi you can install with pip:
+
+```bash
+pip install git+https://github.com/pergus/netbox-zabbix
+```
+
+or by adding to your `local_requirements.txt` or `plugin_requirements.txt` (netbox-docker):
+
+```bash
+git+https://github.com/pergus/netbox-zabbix
+```
+
+Enable the plugin in `/opt/netbox/netbox/netbox/configuration.py`,
+ or if you use netbox-docker, your `/configuration/plugins.py` file :
+
+```python
+PLUGINS = [
+    'netbox-zabbix'
+]
+
+PLUGINS_CONFIG = {
+    "netbox-zabbix": {},
+}
+```
+
+## Credits
+
+Based on the NetBox plugin tutorial:
+
+- [demo repository](https://github.com/netbox-community/netbox-plugin-demo)
+- [tutorial](https://github.com/netbox-community/netbox-plugin-tutorial)
+
+This package was created with [Cookiecutter](https://github.com/audreyr/cookiecutter) and the [`netbox-community/cookiecutter-netbox-plugin`](https://github.com/netbox-community/cookiecutter-netbox-plugin) project template.

@@ -1,0 +1,24 @@
+{% extends 'generic/object.html' %}
+{% load render_table from django_tables2 %}
+
+{% load custom_filters %}
+
+{% block content %}
+<div class="row">
+  <div class="col col-md-12">
+    <div class="card">
+      <h5 class="card-header">Zabbix Configuration</h5>
+      <div class="card-body">
+        <table class="table table-hover attr-table">
+          {% for label, field in fields %}
+          <tr>
+            <th scope="row">{{ label }}</th>
+            <td>{{ object|get_value:field }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
