@@ -1,0 +1,89 @@
+{% extends 'generic/object_edit.html' %}
+{% load static %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="form">
+    {% csrf_token %}
+
+    <div class="field-group mb-4">
+        <div class="row">
+            <div class="col-md-6">
+                {{ form.host.label_tag }} {{ form.host }}
+            </div>
+            <div class="col-md-6">
+                {{ form.interfaceid.label_tag }} {{ form.interfaceid }}
+            </div>
+        </div>
+    </div>
+
+    <div class="field-group mb-4">
+        <div class="row">
+            <div class="col-md-4">
+                {{ form.ip.label_tag }} {{ form.ip }}
+            </div>
+            <div class="col-md-4">
+                {{ form.dns.label_tag }} {{ form.dns }}
+            </div>
+        </div>
+    </div>
+
+    <div class="field-group mb-4">
+        <div class="row">
+            <div class="col-md-6">
+                {{ form.useip.label_tag }} {{ form.useip }}
+            </div>
+            <div class="col-md-6">
+                {{ form.main.label_tag }} {{ form.main }}
+            </div>
+        </div>
+    </div>
+
+    <div class="panel panel-default mb-4">
+        <div class="panel-heading">
+            <strong>Interface Configuration</strong>
+        </div>
+        <div class="panel-body">
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" role="tab"
+                        hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=Agent"
+                        hx-target="#snmp-fields" hx-swap="innerHTML" hx-trigger="load, click">Agent</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" role="tab"
+                        hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=SNMPv3"
+                        hx-target="#snmp-fields" hx-swap="innerHTML">SNMPv3</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" role="tab"
+                        hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=SNMPv1"
+                        hx-target="#snmp-fields" hx-swap="innerHTML">SNMPv1</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" role="tab"
+                        hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=SNMPv2c"
+                        hx-target="#snmp-fields" hx-swap="innerHTML">SNMPv2c</a>
+                </li>
+            </ul>
+
+            <div id="snmp-fields" class="pt-3">
+                {% include 'netbox_zabbix/snmp_fields.html' %}
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Submit</button>
+        <a href="{{ return_url }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+
+<script>
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function () {
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+</script>
+{% endblock %}

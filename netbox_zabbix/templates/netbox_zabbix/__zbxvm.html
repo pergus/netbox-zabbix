@@ -1,0 +1,45 @@
+{% extends 'generic/object.html' %}
+{% load render_table from django_tables2 %}
+{% load plugins %}
+{% block content %}
+<div class="row mb-3">
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">Zabbix Settings</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">VM</th>
+                        <td>{{ object.vm.name }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Zabbix Host ID</th>
+                        <td>{{ object.zbx_host_id }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Status</th>
+                        <td>{{ object.status }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Interface</th>
+                        <td>{{ object.interface }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Templates</th>
+                        <td>
+                            {% for tmpl in object.templates.all %}
+                            {% badge tmpl.name %}
+                            {% endfor %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        {% include 'inc/panels/custom_fields.html' %}
+    </div>
+    <div class=" col col-md-6">
+        {% include 'inc/panels/tags.html' %}
+        {% include 'inc/panels/comments.html' %}
+    </div>
+</div>
+{% endblock content %}

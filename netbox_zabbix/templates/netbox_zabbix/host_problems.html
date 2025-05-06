@@ -1,0 +1,55 @@
+{% extends 'generic/object_list.html' %}
+{% load static %}
+
+{% block title %}Problems for Host: {{ name }}{% endblock %}
+
+{% block content %}
+
+<div class="card mt-3">
+    <div class="card-body">
+        {% if problems %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Event ID</th>
+                    <th>Severity</th>
+                    <th>Acknowledged</th>
+                    <th>Name</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for problem in problems %}
+                <tr>
+                    <td>{{ problem.eventid }}</td>
+                    <td>
+                        {% if problem.severity == '0' %}
+                        <span class="badge bg-secondary">Not classified</span>
+                        {% elif problem.severity == '1' %}
+                        <span class="badge bg-info">Information</span>
+                        {% elif problem.severity == '2' %}
+                        <span class="badge bg-warning">Warning</span>
+                        {% elif problem.severity == '3' %}
+                        <span class="badge bg-primary">Average</span>
+                        {% elif problem.severity == '4' %}
+                        <span class="badge bg-danger">High</span>
+                        {% elif problem.severity == '5' %}
+                        <span class="badge bg-dark">Disaster</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Unknown</span>
+                        {% endif %}
+                    </td>
+                    <td>{% if problem.acknowledged == '1' %}Yes{% else %}No{% endif %}</td>
+                    <td>{{ problem.name }}</td>
+                    <td>{{ problem.clock }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No problems found for this host.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock content %}

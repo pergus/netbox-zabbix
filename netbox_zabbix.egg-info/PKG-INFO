@@ -1,3 +1,30 @@
+Metadata-Version: 2.4
+Name: netbox-zabbix
+Version: 0.1.0
+Summary: NetBox plugin for Zabbix.
+Author-email: John Doe <john.doe@netbox.com>
+Project-URL: Documentation, https://github.com//netbox-zabbix/blob/main/README.md
+Project-URL: Source, https://github.com//netbox-zabbix
+Project-URL: Tracker, https://github.com//netbox-zabbix/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: test
+Requires-Dist: black==24.3.0; extra == "test"
+Requires-Dist: check-manifest==0.49; extra == "test"
+Requires-Dist: flake8; extra == "test"
+Requires-Dist: flake8-pyproject; extra == "test"
+Requires-Dist: pre-commit==3.7.0; extra == "test"
+Requires-Dist: pytest==8.1.1; extra == "test"
+Dynamic: license-file
+
 # NetBox Zabbix Plugin
 
 NetBox plugin for Zabbix.

@@ -1,0 +1,23 @@
+Bugs
+----
+
+Seach isn't working everywhere
+
+TODO
+----
+
+REST API for all models (serialize the pk/id).
+
+Table for ZBXInterface
+
+Sync host both directions.
+
+Hosts menu option should contiain 4 options: 
+List all ZHosts.
+List all Hosts in NB that has a host in Z with the same name.
+List all Hosts in Z that are unique to Z.
+List all Hosts in NB that are unuque to NB.
+
+
+Add two custom fields to all Platforms, one for default SNMP templates
+and the other with the default Agent templates.

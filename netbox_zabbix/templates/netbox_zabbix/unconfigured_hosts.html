@@ -1,0 +1,64 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+
+{% block title %}Unconfigured Hosts{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">Unconfigured Devices</h5>
+            <div class="card-body table-responsive">
+                {% if unconfigured_devices %}
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for device in unconfigured_devices %}
+                        <tr>
+                            <td><a
+                                    href="{% url 'plugins:netbox_zabbix:zbxhost_add' %}?content_type={{ device_ct.pk }}&host_id={{ device.id }}">
+                                    {{ device.name }}</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>No unconfigured Devices found.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">Unconfigured Virtual Machines</h5>
+            <div class="card-body table-responsive">
+                {% if unconfigured_vms %}
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vm in unconfigured_vms %}
+                        <tr>
+                            <td> <a
+                                    href="{% url 'plugins:netbox_zabbix:zbxhost_add' %}?content_type={{ vm_ct.pk }}&host_id={{ vm.id }}">
+                                    {{ vm.name }} </a> </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>No unconfigured Virtual Machines found.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

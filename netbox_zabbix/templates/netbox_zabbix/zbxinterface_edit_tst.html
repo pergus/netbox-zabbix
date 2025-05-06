@@ -1,0 +1,112 @@
+{% extends 'generic/object_edit.html' %}
+{% load form_helpers %}
+{% load static %}
+
+{% block form %}
+
+
+{% render_field form.host %}
+
+{% for fieldset in form.fieldsets %}
+{% render_fieldset form fieldset %}
+{% endfor %}
+
+{# SNMP Interface Tabs - styled to align with fieldsets #}
+<div class="row mb-3">
+    <label class="col col-3 col-form-label text-lg-end"></label>
+    <div class="col">
+        <ul class=" nav nav-tabs mt-2" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" role="tab"
+                    hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=Agent"
+                    hx-target="#snmp-fields" hx-swap="innerHTML" hx-trigger="load, click">
+                    Agent
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" role="tab"
+                    hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=SNMPv3"
+                    hx-target="#snmp-fields" hx-swap="innerHTML" hx-trigger="click">
+                    SNMPv3
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" role="tab"
+                    hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=SNMPv1"
+                    hx-target="#snmp-fields" hx-swap="innerHTML" hx-trigger="click">
+                    SNMPv1
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" role="tab"
+                    hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=SNMPv2c"
+                    hx-target="#snmp-fields" hx-swap="innerHTML" hx-trigger="click">
+                    SNMPv2c
+                </a>
+            </li>
+        </ul>
+
+        <div id="snmp-fields" class="p-3 border border-top-0 rounded-bottom bg-light-subtle">
+            {% include 'netbox_zabbix/snmp_tab_fields.html' %}
+        </div>
+    </div>
+</div>
+<!--
+<div class="form-group mb-3 ps-3">
+
+    <div class="row mb-3">
+        <label class="form-label fw-bold">Interface Configuration</label>
+
+        <ul class="nav nav-tabs mt-2" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" role="tab"
+                    hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=Agent"
+                    hx-target="#snmp-fields" hx-swap="innerHTML" hx-trigger="load, click">
+                    Agent
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" role="tab"
+                    hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=SNMPv3"
+                    hx-target="#snmp-fields" hx-swap="innerHTML" hx-trigger="click">
+                    SNMPv3
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" role="tab"
+                    hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=SNMPv1"
+                    hx-target="#snmp-fields" hx-swap="innerHTML" hx-trigger="click">
+                    SNMPv1
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" role="tab"
+                    hx-get="{% url 'plugins:netbox_zabbix:interface-snmp-form-tst' %}?type=SNMPv2c"
+                    hx-target="#snmp-fields" hx-swap="innerHTML" hx-trigger="click">
+                    SNMPv2c
+                </a>
+            </li>
+        </ul>
+
+        <div id="snmp-fields" class="p-3 border border-top-0 rounded-bottom bg-light-subtle">
+            {% include 'netbox_zabbix/snmp_tab_fields.html' %}
+        </div>
+    </div>
+</div>
+-->
+{% endblock form %}
+
+{% block javascript %}
+<script>
+    document.addEventListener('click', function (e) {
+        const clickedTab = e.target.closest('.nav-link');
+        if (!clickedTab) return;
+
+        const tabContainer = clickedTab.closest('.nav-tabs');
+        if (!tabContainer) return;
+
+        tabContainer.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+        clickedTab.classList.add('active');
+    });
+</script>
+{% endblock %}
