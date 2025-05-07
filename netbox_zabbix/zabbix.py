@@ -2,6 +2,8 @@ from pyzabbix import ZabbixAPI
 from netbox_zabbix import models
 from django.utils import timezone
 from django.conf import settings
+from dcim.models import Device
+from virtualization.models import VirtualMachine
 
 import logging
 
@@ -90,3 +92,40 @@ def synchronize_templates(api_endpoint, token, max_deletions=None):
     
     return added_templates, deleted_templates
 
+
+
+def get_zabbix_hostnames(api_endpoint, token):
+    """
+     Retrieve a list of hostnames from Zabbix.
+    
+     Returns:
+         list: A list of dictionaries containing Zabbix host names (e.g., [{'name': 'host1'}, {'name': 'host2'}]).
+               Returns an empty list if an error occurs during the API call.
+     """
+    z = ZabbixAPI( api_endpoint )
+    z.login( api_token=token )
+
+    try:
+        hostnames = z.host.get( output=["name"], sortfield=["name"] )
+    except Exception as e:
+        logger.error( f"Get Zabbix hostnames from {api_endpoint} failed: {e}" )
+        return []
+    
+    return hostnames
+
+
+def get_zabbix_only_hostnames( api_endpoint, token ):
+    """
+      Identify Zabbix hosts that do not exist in NetBox.
+    
+      Returns:
+          list: A list of dictionaries representing hostnames that exist in Zabbix but are missing in NetBox.
+                Compares Zabbix hostnames to names of NetBox Devices and Virtual Machines.
+    """
+    try:
+        zabbix_hostnames = get_zabbix_hostnames( api_endpoint, token )
+    except Exception as e:
+        raise e
+    
+    netbox_hostnames = set( Device.objects.values_list( 'name', flat=True ) ).union( VirtualMachine.objects.values_list( 'name', flat=True ) )
+    return [ h for h in zabbix_hostnames if h[ "name" ] not in netbox_hostnames ]

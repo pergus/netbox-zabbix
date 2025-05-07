@@ -11,6 +11,7 @@ netbox_zabbix/navigation.py
 netbox_zabbix/tables.py
 netbox_zabbix/urls.py
 netbox_zabbix/views.py
+netbox_zabbix/zabbix.py
 netbox_zabbix.egg-info/PKG-INFO
 netbox_zabbix.egg-info/SOURCES.txt
 netbox_zabbix.egg-info/dependency_links.txt
@@ -20,6 +21,13 @@ netbox_zabbix/api/__init__.py
 netbox_zabbix/api/serializers.py
 netbox_zabbix/api/urls.py
 netbox_zabbix/api/views.py
-netbox_zabbix/templates/netbox_zabbix/zconfig.html
+netbox_zabbix/migrations/0001_initial.py
+netbox_zabbix/migrations/__init__.py
+netbox_zabbix/templates/netbox_zabbix/config.html
+netbox_zabbix/templates/netbox_zabbix/host.html
+netbox_zabbix/templates/netbox_zabbix/template.html
+netbox_zabbix/templates/netbox_zabbix/template_list.html
+netbox_zabbix/templates/netbox_zabbix/template_review_deletions.html
+netbox_zabbix/templatetags/custom_filters.py
 tests/__init__.py
 tests/test_netbox_zabbix.py

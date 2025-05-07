@@ -40,15 +40,22 @@ urlpatterns = (
     path( "hosts/<int:pk>/delete/",     views.HostDeleteView.as_view(),       name="host_delete" ),
     path( "hosts/<int:pk>/changelog/",  ObjectChangeLogView.as_view(),        name="host_changelog", kwargs={"model": models.Host},  ),
 
-    # Hosts in NetBox that also exist in Zabbix, but are not synchronized
-    path( "hosts/unsynced_hosts",    views.unsynced_hosts,    name="unsynced_hosts" ),
 
-    # Hosts that exist in NetBox but do not exist in Zabbix (NetBox-only)
-    path( "hosts/orphaned_nb_hosts", views.orphaned_nb_hosts, name="orphaned_nb_hosts" ),
-
-    # Hosts that exist in Zabbix but do not exist in NetBox (Zabbix-only)
-    path( "hosts/orphaned_zb_hosts", views.orphaned_zb_hosts, name="orphaned_zb_hosts" ),
-
+    # Important: If the URL paths below start with a "hosts/" prefix, 
+    # NetBox will always highlight the "Synced Hosts" menu item due to URL prefix matching.
+    # As a workaround, we avoid the "hosts/" prefix to ensure correct menu highlighting.
+    
+    # Devices in NetBox but are not yet synchronized with Zabbix
+    path("unsynced_devices/",    views.UnsyncedDeviceListView.as_view(),    name="unsynced_devices"),
+    
+    # Virtual machines in NetBox but are not yet synchronized with Zabbix
+    path("unsynced_vms/",        views.UnsyncedVMListView.as_view(),        name="unsynced_vms"),
+    
+    # Hosts that exist in NetBox but not in Zabbix (NetBox-only)
+    path("netbox_only_hosts/", views.NetBoxOnlyHostnameListView.as_view(),  name="netbox_only_hosts"),
+    
+    # Hosts that exist in Zabbix but not in NetBox (Zabbix-only)
+    path("zabbix_only_hosts/", views.ZabbixOnlyHostnameListView.as_view(),  name="zabbix_only_hosts"),
 
     # Interfaces
 
