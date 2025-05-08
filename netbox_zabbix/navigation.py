@@ -1,4 +1,4 @@
-from netbox.plugins import PluginMenu, PluginMenuItem
+from netbox.plugins import PluginMenu, PluginMenuItem, PluginMenuButton
 
 menu = PluginMenu(
     label = "Zabbix",
@@ -6,18 +6,28 @@ menu = PluginMenu(
     groups = (
         ( "Admin",
             (
-                PluginMenuItem( link="plugins:netbox_zabbix:config_list",       link_text="Config",    permissions=["netbox_zabbix.view_config"] ),
-                PluginMenuItem( link="plugins:netbox_zabbix:template_list",     link_text="Templates", permissions=["netbox_zabbix.view_config"] ),
+                PluginMenuItem( link="plugins:netbox_zabbix:config_list", link_text="Config",    permissions=["netbox_zabbix.view_config"] ),
+                PluginMenuItem( link="plugins:netbox_zabbix:template_list", link_text="Templates", permissions=["netbox_zabbix.view_config"] ),
             ),
         ),
-        ( "Hosts",
+        ( "Devices",
             (
-                PluginMenuItem( link="plugins:netbox_zabbix:host_list",         link_text="Synced Hosts", ),
-                PluginMenuItem( link="plugins:netbox_zabbix:unsynced_devices",  link_text="Unsynced Devices" ),
-                PluginMenuItem( link="plugins:netbox_zabbix:unsynced_vms",      link_text="Unsynced VMs" ),                
-                PluginMenuItem( link="plugins:netbox_zabbix:netbox_only_hosts", link_text="NetBox Only Hosts", ),
-                PluginMenuItem( link="plugins:netbox_zabbix:zabbix_only_hosts", link_text="Zabbix Only Hosts", ),
+                PluginMenuItem( link="plugins:netbox_zabbix:devicehost_list", link_text="Device Hosts", 
+                               buttons=(  PluginMenuButton( "plugins:netbox_zabbix:devicehost_add", "Add", "mdi mdi-plus-thick" ), ),
+                ),
             )        
+        ),
+        ( "Virtual Machines",
+            (
+                PluginMenuItem( link="plugins:netbox_zabbix:vmhost_list", link_text="VM Hosts", 
+                               buttons=(  PluginMenuButton( "plugins:netbox_zabbix:vmhost_add", "Add", "mdi mdi-plus-thick" ), ),),
+            )        
+        ),
+
+        ( "Hosts", 
+            ( 
+                PluginMenuItem( link="plugins:netbox_zabbix:base_hosts", link_text="Hosts" ), 
+            )
         ),
     ),
 )

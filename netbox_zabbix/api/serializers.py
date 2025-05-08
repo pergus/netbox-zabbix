@@ -29,25 +29,17 @@ class TemplateSerializer(NetBoxModelSerializer):
 # Hosts
 #
 
-class HostSerializer(NetBoxModelSerializer):
+class DeviceHostSerializer(NetBoxModelSerializer):
     class Meta:
-        model = models.Host
-        fields = (
-            'id',
-            'content_type',
-            'object_id',
-            'associated_object',
-            'zabbix_host_id',
-            'status',
-            'templates',
-        )
+        model = models.DeviceHost
+        fields = ( 'zabbix_host_id', 'status', 'templates', )
     
-    content_type      = serializers.SlugRelatedField( slug_field='model', queryset=ContentType.objects.all() )
     templates         = TemplateSerializer( many=True, read_only=True )
-    associated_object = serializers.SerializerMethodField()
-    
-    def get_associated_object(self, obj):
-        try:
-            return str(obj.associated_object)
-        except Exception:
-            return None
+
+
+class VMHostSerializer(NetBoxModelSerializer):
+    class Meta:
+        model = models.VMHost
+        fields = ( 'zabbix_host_id', 'status', 'templates', )
+        
+    templates = TemplateSerializer( many=True, read_only=True )

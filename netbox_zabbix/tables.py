@@ -1,10 +1,11 @@
 import django_tables2 as tables
 from netbox.tables import NetBoxTable, columns
-from netbox_zabbix import models
-from django_tables2 import TemplateColumn
-from dcim.models import Device
-from virtualization.models import VirtualMachine
+from netbox.tables.columns import ActionsColumn
+from django.utils.safestring import mark_safe
 
+from netbox_zabbix import models
+
+from django.urls import reverse
 
 # ------------------------------------------------------------------------------
 # Configuration
@@ -58,77 +59,73 @@ class TemplateTable(NetBoxTable):
 # Hosts
 #
 
-class HostTable(NetBoxTable):
+class DeviceHostTable(NetBoxTable):
     name = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
-    object = tables.Column( accessor='content_object', verbose_name='Host', linkify=True )
+    device = tables.Column( accessor='device', verbose_name='Device', linkify=True )
     status = tables.Column()
     zabbix_host_id = tables.Column( verbose_name='Zabbix Host ID' )
     templates = tables.ManyToManyColumn(linkify_item=True)
     
     class Meta(NetBoxTable.Meta):
-        model = models.Host
-        fields = ('object', 'name', 'zabbix_host_id', 'status', 'templates')
-
-
-class UnsyncedDeviceTable(NetBoxTable):
-    name = tables.Column( linkify=True )
-    actions = TemplateColumn(
-        template_code='''
-        <a href="{% url 'plugins:netbox_zabbix:host_add' %}?content_type={{ device_ct.pk }}&host_id={{ record.id }}"
-           class="btn btn-sm btn-primary">Add Host</a>
-        ''',
-        orderable=False,
-        verbose_name="Actions"
-    )
-
-    class Meta(NetBoxTable.Meta):
-        model = Device
-        fields = ("name",)
-
-class UnsyncedVMTable(NetBoxTable):
-    name = tables.Column( linkify=True )
-    actions = TemplateColumn(
-        template_code='''
-        <a href="{% url 'plugins:netbox_zabbix:host_add' %}?content_type={{ vm_ct.pk }}&host_id={{ record.id }}"
-           class="btn btn-sm btn-primary">Add Host</a>
-        ''',
-        orderable=False,
-        verbose_name="Actions"
-    )
-
-    class Meta(NetBoxTable.Meta):
-        model = VirtualMachine
-        fields = ("name",)
-
-
-class NetBoxOnlyHostnameTable(tables.Table):
-    name = TemplateColumn(
-        template_code='''
-        {% if record.url %}
-            <a href="{{ record.url }}">{{ record.name }}</a>
-        {% else %}
-            {{ record.name }}
-        {% endif %}
-        ''',
-        verbose_name="Name"
-    )
-
-    class Meta:
-        attrs = {"class": "table table-hover"}
-        default_columns = ("name")
-
-class ZabbixOnlyHostnameTable(tables.Table):
-    name = TemplateColumn(
-            template_code='''
-            <a href="{{ zabbix_web_address }}/zabbix.php?action=host.edit&hostid={{ record.hostid }}">
-                {{ record.name }}
-            </a>
-            ''',
-            verbose_name="Name"
-        )
+        model = models.DeviceHost
+        fields = ('name', 'device', 'status', 'zabbix_host_id', 'templates')
+        default_columns = ('name', 'device', 'status', 'templates')
     
-    #hostid = tables.Column(linkify=False, verbose_name="Host ID")
 
-    class Meta:
-        attrs = {"class": "table table-hover"}
-        default_columns = ("name")
+class VMHostTable(NetBoxTable):
+    name = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
+    virtual_machine = tables.Column( accessor='virtual_machine', verbose_name='VM', linkify=True )
+    status = tables.Column()
+    zabbix_host_id = tables.Column( verbose_name='Zabbix Host ID' )
+    templates = tables.ManyToManyColumn(linkify_item=True)
+    
+    class Meta(NetBoxTable.Meta):
+        model = models.VMHost
+        fields = ('name', 'virtual_machine', 'status', 'zabbix_host_id',  'templates')
+        default_columns = ('name', 'virtual_machine', 'status', 'templates')
+
+        
+class BaseHostActionsColumn(ActionsColumn):
+
+    def get_actions(self, record):
+        actions = []
+    
+        if isinstance( record, models.DeviceHost ):
+            prefix = 'devicehost'
+        elif isinstance( record, models.VMHost ):
+            prefix = 'vmhost'
+        else:
+            return []
+    
+        for action in ['edit', 'delete']:
+            url = reverse( f'plugins:netbox_zabbix:{prefix}_{action}', args=[record.pk] )
+            actions.append( (action, url) )
+    
+        return actions
+
+
+class BaseHostTable(NetBoxTable):
+    name = tables.Column( accessor='get_name', verbose_name='Host Name', linkify=True )
+    type = tables.Column( empty_values=(), verbose_name='Type', order_by=('device__name', 'virtual_machine__name') )
+    zabbix_host_id = tables.Column( verbose_name='Zabbix Host ID' )
+    status = tables.Column()
+    object = tables.Column( empty_values=(), verbose_name='NetBox Object', order_by=('device__name', 'virtual_machine__name') )
+
+    actions = BaseHostActionsColumn()
+    
+    class Meta(NetBoxTable.Meta):
+        model = models.BaseHost
+        fields = ('name', 'object', 'status', 'type', 'zabbix_host_id', 'status', 'templates' )
+        default_columns = ('name', 'object', 'status', 'templates', 'type' )
+
+    def render_type(self, record):
+        return 'Device' if isinstance( record, models.DeviceHost ) else 'VM'
+
+
+    def render_object(self, record):
+           if isinstance(record, models.DeviceHost):
+               # Return the device link
+               return mark_safe( f'<a href="{record.device.get_absolute_url()}">{record.device}</a>' )
+           else:
+               # Return the virtual machine link
+               return mark_safe( f'<a href="{record.virtual_machine.get_absolute_url()}">{record.virtual_machine}</a>' )

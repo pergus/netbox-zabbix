@@ -1,19 +1,18 @@
-from django.contrib.contenttypes.models import ContentType
 from django.template.defaultfilters import pluralize, capfirst
 from django.views.decorators.http import require_POST
 from django.utils.safestring import mark_safe
-from django.views.generic import TemplateView as GenericTemplateView
 from django.shortcuts import redirect, render
-from django.db.models import Count
 from django.contrib import messages
 from django.utils import timezone
 from django.conf import settings
 
-from django_tables2 import RequestConfig
+from django_tables2 import RequestConfig, SingleTableView
+from django.views import View
+from django.http import Http404
+
 from utilities.paginator import EnhancedPaginator, get_paginate_count
 
-from virtualization.models import VirtualMachine
-from dcim.models import Device
+
 
 from netbox_zabbix import zabbix as z
 from netbox_zabbix import filtersets, forms, models, tables
@@ -100,7 +99,7 @@ class TemplateView(generic.ObjectView):
 
 
 class TemplateListView(generic.ObjectListView):
-    queryset = models.Template.objects.annotate( host_count = Count( 'host' ) )
+    queryset = models.Template.objects.all() # annotate( host_count = Count( 'host' ) )
     filterset = filtersets.TemplateFilterSet
     filterset_form = forms.TemplateFilterForm
     table = tables.TemplateTable    
@@ -180,169 +179,99 @@ def sync_zabbix_templates(request):
 # Hosts
 #
 
-class HostView(generic.ObjectView):
-    queryset = models.Host.objects.all()
-
-    def get_extra_context(self, request, instance):
-        excluded_fields = [ 'created', 'last_updated', 'custom_field_data', 'content_type', 'object_id' ]
-        fields = [ ( capfirst(field.verbose_name), field.name )  for field in instance._meta.fields if field.name not in excluded_fields ]
-        return {'fields': fields}
+class DeviceHostView(generic.ObjectView):
+    queryset = models.DeviceHost.objects.all()
 
 
-class HostListView(generic.ObjectListView):
-    queryset = models.Host.objects.all()
-    filterset = filtersets.HostFilterSet
-    filterset_form = forms.HostFilterForm
-    table = tables.HostTable
+class DeviceHostListView(generic.ObjectListView):
+    queryset = models.DeviceHost.objects.all()
+    filterset = filtersets.DeviceHostFilterSet
+    filterset_form = forms.DeviceHostFilterForm
+    table = tables.DeviceHostTable
 
 
-class HostEditView(generic.ObjectEditView):
-    queryset = models.Host.objects.all()
-    form = forms.HostForm
+class DeviceHostEditView(generic.ObjectEditView):
+    queryset = models.DeviceHost.objects.all()
+    form = forms.DeviceHostForm
 
 
-class HostDeleteView(generic.ObjectDeleteView):
-    queryset = models.Host.objects.all()
-
-class UnsyncedDeviceListView(generic.ObjectListView):
-    # Add a check to make sure the host exists in Zabbix
-    queryset = Device.objects.none()
-    table = tables.UnsyncedDeviceTable
-    template_name = "netbox_zabbix/unsynced_devices.html"
-    actions = []
-
-    def get_queryset(self, request):
-        device_ct = ContentType.objects.get( app_label='dcim', model='device' )
-        linked_device_ids = models.Host.objects.filter( content_type=device_ct ).values_list( 'object_id', flat=True )
-        self.device_ct = device_ct
-        return Device.objects.exclude(id__in=linked_device_ids )
-
-    def get_extra_context(self, request, instance=None):
-        return {
-            "device_ct": self.device_ct
-        }
+class DeviceHostDeleteView(generic.ObjectDeleteView):
+    queryset = models.DeviceHost.objects.all()
 
 
-class UnsyncedVMListView(generic.ObjectListView):
-    # Add a check to make sure the host exists in Zabbix
-    queryset = VirtualMachine.objects.none()
-    table = tables.UnsyncedVMTable
-    template_name = "netbox_zabbix/unsynced_vms.html"
-    actions = []
-
-    def get_queryset(self, request):
-        vm_ct = ContentType.objects.get( app_label='virtualization', model='virtualmachine' )
-        linked_vm_ids = models.Host.objects.filter( content_type=vm_ct ).values_list( 'object_id', flat=True )
-        self.vm_ct = vm_ct
-
-        return VirtualMachine.objects.exclude( id__in=linked_vm_ids )
-
-    def get_extra_context(self, request, instance=None):
-        return { "vm_ct": self.vm_ct }
+class VMHostView(generic.ObjectView):
+    queryset = models.VMHost.objects.all()
 
 
-class NetBoxOnlyHostnameListView(GenericTemplateView):
-    template_name = "netbox_zabbix/netbox_only_hostname_list.html"
+class VMHostListView(generic.ObjectListView):
+    queryset = models.VMHost.objects.all()
+    filterset = filtersets.VMHostFilterSet
+    filterset_form = forms.VMHostFilterForm
+    table = tables.VMHostTable
+
+
+class VMHostEditView(generic.ObjectEditView):
+    queryset = models.VMHost.objects.all()
+    form = forms.VMHostForm
+
+
+class VMHostDeleteView(generic.ObjectDeleteView):
+    queryset = models.VMHost.objects.all()
+
+    
+class BaseHostsListView(SingleTableView):
+    template_name = 'netbox_zabbix/host_list.html'
+    table_class = tables.BaseHostTable
+    
+    def get_queryset(self):
+        return list( models.DeviceHost.objects.all() ) + list( models.VMHost.objects.all() )
+    
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        request = self.request
-        cfg = models.Config.objects.first()
-        zabbix_hostnames = set()
-
-        # Fetch Zabbix hostnames
-        if cfg:
-            try:
-                zabbix_hostnames = set( h["name"] for h in z.get_zabbix_hostnames( cfg.api_endpoint, cfg.token ) )
-            except Exception as e:
-                logger.error( f"Failed to fetch Zabbix-only hostnames: {e}" )
-
-        # Fetch NetBox hostnames (from Device and VirtualMachine models)
-        netbox_hostnames = set( Device.objects.values_list( 'name', flat=True ) ).union( VirtualMachine.objects.values_list( 'name', flat=True ) )
-
-        # Compute the difference between NetBox hostnames and Zabbix hostnames
-        hostnames_only_in_netbox = netbox_hostnames - zabbix_hostnames
-
-        # Convert to table-compatible format
-        data = []
-        for hostname in hostnames_only_in_netbox:
-            # Check if it's a device or virtual machine and create the correct URL
-            device = Device.objects.filter(name=hostname).first()
-            virtual_machine = VirtualMachine.objects.filter(name=hostname).first()
-                    
-            url = None
-            if device:
-                url = device.get_absolute_url()  # Assuming Device model has get_absolute_url() method
-            elif virtual_machine:
-                url = virtual_machine.get_absolute_url()  # Assuming VirtualMachine model has get_absolute_url() method
-        
-            data.append({"name": hostname, "url": url})
-        
-#        { "name": hostname } for hostname in hostnames_only_in_netbox ]
-
-        # Create the table
-        table = tables.NetBoxOnlyHostnameTable( data )
-
-        # Pagination
-        RequestConfig( request, { 'paginator_class': EnhancedPaginator, 'per_page': get_paginate_count(request)} ).configure( table )
-
-        context.update({ "table": table })
-
+        table = self.table_class(self.get_queryset(), user=self.request.user)
+        RequestConfig(
+            self.request, {
+                'paginator_class': EnhancedPaginator,
+                'per_page': get_paginate_count(self.request),
+            }
+        ).configure(table)
+        context['table'] = table
         return context
-    
 
-class ZabbixOnlyHostnameListView(GenericTemplateView):
-    template_name = "netbox_zabbix/zabbix_only_hostname_list.html"
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        request = self.request
-        cfg = models.Config.objects.first()
-        zabbix_only_hostnames = []
+class BaseHostEditView(View):
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            return redirect('plugins:netbox_zabbix:devicehost_edit', pk=models.DeviceHost.objects.get(pk=pk).pk)
+        except models.DeviceHost.DoesNotExist:
+            pass
 
-        if cfg:
-            try:
-                zabbix_only_hostnames = z.get_zabbix_only_hostnames( cfg.api_endpoint, cfg.token )
-            except Exception as e:
-                logger.error(f"Failed to fetch Zabbix-only hostnames: {e}")
+        try:
+            return redirect('plugins:netbox_zabbix:vmhost_edit', pk=models.VMHost.objects.get(pk=pk).pk)
+        except models.VMHost.DoesNotExist:
+            pass
 
-        # Convert to table-compatible format
-        data = [ {"name": h["name"], "hostid": h["hostid"] } for h in zabbix_only_hostnames ]
+        raise Http404("Host not found")    
 
-        # Create the table
-        table = tables.ZabbixOnlyHostnameTable(data)
+class BaseHostDeleteView(View):
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            models.DeviceHost.objects.get(pk=pk)
+            return redirect('plugins:netbox_zabbix:devicehost_delete', pk=pk)
+        except models.DeviceHost.DoesNotExist:
+            pass
 
-        # Pagination
-        RequestConfig( request, { 'paginator_class': EnhancedPaginator, 'per_page': get_paginate_count(request)} ).configure( table )
+        try:
+            models.VMHost.objects.get(pk=pk)
+            return redirect('plugins:netbox_zabbix:vmhost_delete', pk=pk)
+        except models.VMHost.DoesNotExist:
+            pass
 
-        context.update({ "table": table, "zabbix_web_address": cfg.web_address if cfg else None })
+        raise Http404("Host not found")
 
-        return context
-    
+
 # ------------------------------------------------------------------------------
 # Interfaces
 #
-
-def agent_interface_add(request):
-    redirect_url = request.META.get( 'HTTP_REFERER', '/' )
-    logger.info( "agent_interface_add" )
-    return redirect( redirect_url )
-
-
-def snmpv3_interface_add(request):
-    redirect_url = request.META.get( 'HTTP_REFERER', '/' )
-    logger.info( "snmpv3_interface_add" )
-    return redirect( redirect_url )
-
-
-def snmpv1_interface_add(request):
-    redirect_url = request.META.get( 'HTTP_REFERER', '/' )
-    logger.info( "snmpv1_interface_add" )
-    return redirect( redirect_url )
-
-
-def snmpv2c_interface_add(request):
-    redirect_url = request.META.get('HTTP_REFERER', '/')
-    logger.info( "snmpv2c_interface_add" )
-    return redirect(redirect_url)
 

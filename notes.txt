@@ -7,3 +7,71 @@ vm = VirtualMachine.objects.first()
 vnic = vm.interfaces.all()[0]
 
 AgentInterface.objects.create( host=h, name="eth0-agent", useip=1, main=1, content_type=ContentType.objects.get_for_model(VMInterface), object_id=vnic.id )
+
+
+devicehost.html:
+
+{% block extra_controls %}
+
+<div class="dropdown">
+    <button id="add-components" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown"
+        aria-expanded="false">
+        <i class="mdi mdi-plus-thick" aria-hidden="true"></i> Add Components
+    </button>
+    <ul class="dropdown-menu" aria-labeled-by="add-components">
+        <li><a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:agent_interface_add' %}?host={{ object.pk }}">
+                Agent Interface
+            </a></li>
+        <li><a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:snmpv3_interface_add' %}?host={{ object.pk }}">
+                SNMPv3 Interface
+            </a></li>
+        <li><a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:snmpv1_interface_add' %}?host={{ object.pk }}">
+                SNMPv1 Interface
+            </a></li>
+        <li><a class="dropdown-item"
+                href="{% url 'plugins:netbox_zabbix:snmpv2c_interface_add' %}?host={{ object.pk }}">
+                SNMPv2c Interface
+            </a></li>
+    </ul>
+
+</div>
+
+{% endblock %}
+
+{% extends 'generic/object.html' %}
+{% load render_table from django_tables2 %}
+
+{% load custom_filters %}
+
+{% block content %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">Device Host</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Name</th>
+                        <td>{{ object.get_name }}</td>
+                    </tr>
+                    {% for label, field in fields %}
+                    <tr>
+                        <th scope="row">{{ label }}</th>
+                        <td>{{ object|get_value:field }}</td>
+                    </tr>
+                    {% endfor %}
+
+                    <tr>
+                        <th>Templates</th>
+                        <td>
+                            {% for tmpl in object.templates.all %}
+                            <span class="badge text-bg-secondary">{{ tmpl.name }}</span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

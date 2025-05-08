@@ -31,7 +31,12 @@ class TemplateFilterSet(NetBoxModelFilterSet):
 # Hosts
 #
 
-class HostFilterSet(NetBoxModelFilterSet):
+class DeviceHostFilterSet(NetBoxModelFilterSet):
     class Meta:
-        model = models.Host
-        fields = [ 'zabbix_host_id', 'status', 'templates' ]
+        model = models.DeviceHost
+        fields = ['status', 'templates']
+
+class VMHostFilterSet(NetBoxModelFilterSet):
+    class Meta:
+        model = models.DeviceHost
+        fields = ['status', 'templates']

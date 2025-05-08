@@ -35,6 +35,12 @@ class TemplateViewSet(NetBoxModelViewSet):
 # Hosts
 #
 
-class HostViewSet(NetBoxModelViewSet):
-    queryset = models.Host.objects.all()
-    serializer_class = serializers.HostSerializer
+
+class DeviceHostViewSet(NetBoxModelViewSet):
+    queryset = models.DeviceHost.objects.all()
+    serializer_class = serializers.DeviceHostSerializer
+
+
+class VMHostViewSet(NetBoxModelViewSet):
+    queryset = models.VMHost.objects.all()
+    serializer_class = serializers.VMHostSerializer
