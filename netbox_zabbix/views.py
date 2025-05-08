@@ -1,6 +1,7 @@
 from django.template.defaultfilters import pluralize, capfirst
 from django.views.decorators.http import require_POST
 from django.utils.safestring import mark_safe
+from django.db.models import Count, F
 from django.shortcuts import redirect, render
 from django.contrib import messages
 from django.utils import timezone
@@ -98,8 +99,19 @@ class TemplateView(generic.ObjectView):
         return {'fields': fields}
 
 
-class TemplateListView(generic.ObjectListView):
-    queryset = models.Template.objects.all() # annotate( host_count = Count( 'host' ) )
+class TemplateListView(generic.ObjectListView):    
+    queryset = (
+       models.Template.objects
+       .annotate(
+           # Count the related VMHosts and DeviceHosts separately
+           vmhost_count=Count('vmhost'),
+           devicehost_count=Count('devicehost')
+       )
+       .annotate(
+           # Add the two counts together to get the total host count
+           host_count=F('vmhost_count') + F('devicehost_count')
+       )
+    )
     filterset = filtersets.TemplateFilterSet
     filterset_form = forms.TemplateFilterForm
     table = tables.TemplateTable    
@@ -253,6 +265,7 @@ class BaseHostEditView(View):
             pass
 
         raise Http404("Host not found")    
+
 
 class BaseHostDeleteView(View):
     def get(self, request, pk, *args, **kwargs):

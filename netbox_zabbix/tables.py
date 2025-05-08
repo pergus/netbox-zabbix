@@ -45,7 +45,7 @@ class ConfigTable(NetBoxTable):
 class TemplateTable(NetBoxTable):
     name = tables.Column( linkify=True )
     host_count = columns.LinkedCountColumn( 
-         viewname='plugins:netbox_zabbix:host_list',
+         viewname='plugins:netbox_zabbix:base_hosts',
          url_params={'templates': 'pk'},
          verbose_name="Hosts" )
     
