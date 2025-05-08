@@ -1,0 +1,9 @@
+from django.contrib.contenttypes.models import ContentType
+from netbox_zabbix.models import Host
+from netbox_zabbix.models import AgentInterface
+
+h = Host.objects.first()
+vm = VirtualMachine.objects.first()
+vnic = vm.interfaces.all()[0]
+
+AgentInterface.objects.create( host=h, name="eth0-agent", useip=1, main=1, content_type=ContentType.objects.get_for_model(VMInterface), object_id=vnic.id )

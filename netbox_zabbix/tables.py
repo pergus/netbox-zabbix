@@ -59,10 +59,10 @@ class TemplateTable(NetBoxTable):
 #
 
 class HostTable(NetBoxTable):
-    name = tables.Column(accessor='get_name', verbose_name='Name', linkify=True)
-    object = tables.Column(accessor='content_object', verbose_name='Host', linkify=True)
+    name = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
+    object = tables.Column( accessor='content_object', verbose_name='Host', linkify=True )
     status = tables.Column()
-    zabbix_host_id = tables.Column(verbose_name='Zabbix Host ID')
+    zabbix_host_id = tables.Column( verbose_name='Zabbix Host ID' )
     templates = tables.ManyToManyColumn(linkify_item=True)
     
     class Meta(NetBoxTable.Meta):
@@ -71,7 +71,7 @@ class HostTable(NetBoxTable):
 
 
 class UnsyncedDeviceTable(NetBoxTable):
-    name = tables.Column(linkify=True)
+    name = tables.Column( linkify=True )
     actions = TemplateColumn(
         template_code='''
         <a href="{% url 'plugins:netbox_zabbix:host_add' %}?content_type={{ device_ct.pk }}&host_id={{ record.id }}"
@@ -86,7 +86,7 @@ class UnsyncedDeviceTable(NetBoxTable):
         fields = ("name",)
 
 class UnsyncedVMTable(NetBoxTable):
-    name = tables.Column(linkify=True)
+    name = tables.Column( linkify=True )
     actions = TemplateColumn(
         template_code='''
         <a href="{% url 'plugins:netbox_zabbix:host_add' %}?content_type={{ vm_ct.pk }}&host_id={{ record.id }}"
@@ -127,8 +127,8 @@ class ZabbixOnlyHostnameTable(tables.Table):
             verbose_name="Name"
         )
     
-    hostid = tables.Column(linkify=False, verbose_name="Host ID")
+    #hostid = tables.Column(linkify=False, verbose_name="Host ID")
 
     class Meta:
         attrs = {"class": "table table-hover"}
-        default_columns = ("name", "hostid")
+        default_columns = ("name")
