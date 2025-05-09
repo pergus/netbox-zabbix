@@ -214,7 +214,6 @@ class DeviceHostDeleteView(generic.ObjectDeleteView):
 class VMHostView(generic.ObjectView):
     queryset = models.VMHost.objects.all()
 
-
 class VMHostListView(generic.ObjectListView):
     queryset = models.VMHost.objects.all()
     filterset = filtersets.VMHostFilterSet
@@ -288,3 +287,21 @@ class BaseHostDeleteView(View):
 # Interfaces
 #
 
+class DeviceAgentInterfaceView(generic.ObjectView):
+    queryset = models.DeviceAgentInterface.objects.all()
+
+
+class DeviceAgentInterfaceListView(generic.ObjectListView):
+    queryset = models.DeviceAgentInterface.objects.all()
+#    filterset = filtersets.DeviceAgentInterfaceFilterSet
+#    filterset_form = forms.DeviceAgentInterfaceFilterForm
+    table = tables.DeviceAgentInterfaceTable
+
+
+class DeviceAgentInterfaceEditView(generic.ObjectEditView):
+    queryset = models.DeviceAgentInterface.objects.all()
+    form = forms.DeviceAgentInterfaceForm
+
+
+class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
+    queryset = models.DeviceAgentInterface.objects.all()

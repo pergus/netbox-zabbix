@@ -1,5 +1,3 @@
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey
 from django.urls import reverse
 from django.db import models
 
@@ -93,3 +91,65 @@ class VMHost(BaseHost):
 # ------------------------------------------------------------------------------
 # Interface
 #
+
+class UseIPChoices(models.IntegerChoices):
+    DNS = (0, 'DNS Name')
+    IP = (1, 'IP Address')
+
+class MainChoices(models.IntegerChoices):
+    NO = (0, 'No')
+    YES = (1, 'Yes')
+
+
+class HostInterface(NetBoxModel):
+    class Meta:
+        abstract = True
+    
+    name = models.CharField( max_length=255, blank=False, null=False )
+    zabbix_host_id = models.IntegerField( blank=True, null=True )
+    zabbix_interface_id = models.IntegerField( blank=True, null=True )
+    available = models.IntegerField( default=1 )
+    useip = models.IntegerField( choices=UseIPChoices, default=UseIPChoices.IP )
+    main = models.IntegerField( choices=MainChoices, default=MainChoices.YES )
+
+
+class DeviceAgentInterface(HostInterface):
+    class Meta:
+        verbose_name = "Device Agent Interface"
+        verbose_name_plural = "Device Agent Interfaces"
+    
+    port = models.IntegerField( default=10050 )
+    host = models.ForeignKey( to="DeviceHost", on_delete=models.CASCADE, related_name="agent_interfaces" )
+    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="device_interface" )
+
+#class DeviceSNMPv1(HostInterface):
+#    class Meta:
+#        verbose_name = "Device SNMPv1 Interface"
+#        verbose_name_plural = "Device SNMPv1 Interfaces"
+#    
+#    port = models.IntegerField( default=161 )
+#    host = models.OneToOneField( to='DeviceHost', on_delete=models.CASCADE, related_name='snmpv1_interfaces' )
+#
+#
+#class VMAgentInterface(HostInterface):
+#    class Meta:
+#        verbose_name = "VM Agent Interface"
+#        verbose_name_plural = "VM Agent Interfaces"
+#
+#    port = models.IntegerField( default=10050 )
+#    host = models.OneToOneField( to='VMHost', on_delete=models.CASCADE, related_name='agent_interfaces' )
+#
+#
+#class VMSNMPv1(HostInterface):
+#    class Meta:
+#        verbose_name = "VM SNMPv1 Interface"
+#        verbose_name_plural = "VM SNMPv1 Interfaces"
+#        
+#    port = models.IntegerField( default=161 )
+#    host = models.OneToOneField( to='VMHost', on_delete=models.CASCADE, related_name='snmpv1_interfaces' )
+
+
+from dcim.models import Interface
+class AvailableDeviceInterface(Interface):
+    class Meta:
+        proxy = True

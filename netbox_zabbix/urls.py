@@ -57,4 +57,14 @@ urlpatterns = (
     path( "hosts/delete/<int:pk>/",     views.BaseHostDeleteView.as_view(),  name="basehost_delete" ),
     path( "hosts/<int:pk>/changelog/",  ObjectChangeLogView.as_view(),       name="basehost_changelog", kwargs={"model": models.BaseHost} ),
     
+
+    # Interfaces
+    path( "deviceagentinterfaces/",                     views.DeviceAgentInterfaceListView.as_view(),       name="deviceagentinterface_list" ),
+    path( "deviceagentinterfaces/add/",                 views.DeviceAgentInterfaceEditView.as_view(),       name="deviceagentinterface_add" ),
+    path( "deviceagentinterfaces/<int:pk>/",            views.DeviceAgentInterfaceView.as_view(),           name="deviceagentinterface" ),
+    path( "deviceagentinterfaces/<int:pk>/edit/",       views.DeviceAgentInterfaceEditView.as_view(),       name="deviceagentinterface_edit" ),
+    path( "deviceagentinterfaces/<int:pk>/delete/",     views.DeviceAgentInterfaceDeleteView.as_view(),     name="deviceagentinterface_delete" ),
+    path( "deviceagentinterfaces/<int:pk>/changelog/",  ObjectChangeLogView.as_view(),                      name="deviceagentinterface_changelog", kwargs={"model": models.DeviceAgentInterface} ),
+
+    
 )

@@ -44,3 +44,27 @@ class DeviceHostViewSet(NetBoxModelViewSet):
 class VMHostViewSet(NetBoxModelViewSet):
     queryset = models.VMHost.objects.all()
     serializer_class = serializers.VMHostSerializer
+
+# ------------------------------------------------------------------------------
+# Interfaces
+#
+
+
+from dcim.models import Interface
+
+class AvailableDeviceInterfaceFilter(filters.FilterSet):
+    device_id = filters.NumberFilter(method='filter_device_id')
+
+    class Meta:
+        model = Interface
+        fields = ['device_id']
+
+    def filter_device_id(self, queryset, name, value):
+        used_ids = models.DeviceAgentInterface.objects.values_list( 'interface_id', flat=True )
+        return queryset.filter( device_id=value ).exclude( id__in=used_ids )
+
+
+class AvailableDeviceInterfaceViewSet(NetBoxModelViewSet):
+    queryset = Interface.objects.all()
+    serializer_class = serializers.AvailableDeviceInterfaceSerializer
+    filterset_class = AvailableDeviceInterfaceFilter

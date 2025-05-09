@@ -36,6 +36,16 @@
                             {% endfor %}
                         </td>
                     </tr>
+
+                    <tr>
+                        <th>Agent Interfaces</th>
+                        <td>
+                            {% for interface in object.agent_interfaces.all %}
+                            <span class="badge text-bg-secondary">{{ interface.name }}</span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+
                 </table>
             </div>
         </div>

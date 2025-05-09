@@ -15,6 +15,11 @@ menu = PluginMenu(
                 PluginMenuItem( link="plugins:netbox_zabbix:devicehost_list", link_text="Device Hosts", 
                                buttons=(  PluginMenuButton( "plugins:netbox_zabbix:devicehost_add", "Add", "mdi mdi-plus-thick" ), ),
                 ),
+
+                PluginMenuItem( link="plugins:netbox_zabbix:deviceagentinterface_list", link_text="Agent Interfaces", 
+                               buttons=(  PluginMenuButton( "plugins:netbox_zabbix:deviceagentinterface_add", "Add", "mdi mdi-plus-thick" ), ),
+                ),
+                
             )        
         ),
         ( "Virtual Machines",

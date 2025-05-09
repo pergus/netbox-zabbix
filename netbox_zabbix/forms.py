@@ -5,7 +5,7 @@ from django.utils.timezone import now
 from django.conf import settings
 from django import forms
 
-from dcim.models import Device
+from dcim.models import Device, Interface
 from virtualization.models import VirtualMachine
 
 from netbox_zabbix import models
@@ -184,3 +184,28 @@ class VMHostFilterForm(NetBoxModelFilterSetForm):
         zabbix_host_ids = models.VMHost.objects.order_by( 'zabbix_host_id' ).distinct( 'zabbix_host_id' ).values_list( 'zabbix_host_id', flat=True )
         choices = [("", "---------")] + [(zid, zid) for zid in zabbix_host_ids if zid is not None]
         self.fields["zabbix_host_id"].choices = choices
+
+
+# ------------------------------------------------------------------------------
+# Interface
+#
+from utilities.forms.fields import DynamicModelChoiceField
+
+class DeviceAgentInterfaceForm(NetBoxModelForm):
+    class Meta:
+        model = models.DeviceAgentInterface
+        fields = ('name', 'available', 'useip', 'useip', 'main', 'port', 'host', 'interface' )
+
+    name = forms.CharField( max_length=255, required=False )
+    available = forms.IntegerField( required=False )
+    useip = forms.ChoiceField( choices=models.UseIPChoices )
+    main = forms.ChoiceField( choices=models.MainChoices )
+    port = forms.IntegerField( required=False )
+    host = forms.ModelChoiceField( queryset=models.DeviceHost.objects.all(), required=True )
+    
+    #interface = DynamicModelChoiceField( queryset=Interface.objects.all(), query_params={ "device_id": "$host" } )
+    interface = DynamicModelChoiceField(
+        queryset = models.AvailableDeviceInterface.objects.all(),
+        query_params={"device_id": "$host"},
+        null_option="---------"
+    )

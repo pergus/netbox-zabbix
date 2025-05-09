@@ -43,3 +43,19 @@ class VMHostSerializer(NetBoxModelSerializer):
         fields = ( 'zabbix_host_id', 'status', 'templates', )
         
     templates = TemplateSerializer( many=True, read_only=True )
+
+# ------------------------------------------------------------------------------
+# Interface
+#
+
+from dcim.api.serializers import InterfaceSerializer
+class AvailableDeviceInterfaceSerializer(InterfaceSerializer):
+    class Meta(InterfaceSerializer.Meta):
+        model = models.AvailableDeviceInterface
+        fields = '__all__'
+
+
+class DeviceAgentInterfaceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.DeviceAgentInterface
+        fields = '__all__'

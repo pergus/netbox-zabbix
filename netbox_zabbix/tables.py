@@ -129,3 +129,15 @@ class BaseHostTable(NetBoxTable):
            else:
                # Return the virtual machine link
                return mark_safe( f'<a href="{record.virtual_machine.get_absolute_url()}">{record.virtual_machine}</a>' )
+
+# ------------------------------------------------------------------------------
+# Interface
+#
+
+class DeviceAgentInterfaceTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+    
+    class Meta(NetBoxTable.Meta):
+        model = models.DeviceAgentInterface
+        fields = ("name", "host", "interface", "zabbix_host_id", "zabbix_interface_id", "available", "useip", "main",  "port" )
+        default_columns = ("name", "host", "interface", "port" )
