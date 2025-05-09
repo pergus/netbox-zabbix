@@ -194,17 +194,16 @@ from utilities.forms.fields import DynamicModelChoiceField
 class DeviceAgentInterfaceForm(NetBoxModelForm):
     class Meta:
         model = models.DeviceAgentInterface
-        fields = ('name', 'available', 'useip', 'useip', 'main', 'port', 'host', 'interface' )
+        fields = ( 'host', 'interface', 'name', 'available', 'useip', 'useip', 'main', 'port', 'interface' )
 
-    name = forms.CharField( max_length=255, required=False )
-    available = forms.IntegerField( required=False )
-    useip = forms.ChoiceField( choices=models.UseIPChoices )
+    name = forms.CharField( max_length=255, required=True )
+    available = forms.ChoiceField( choices=models.AvailableChoices )
+    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
     main = forms.ChoiceField( choices=models.MainChoices )
-    port = forms.IntegerField( required=False )
+    port = forms.IntegerField( required=True )
     host = forms.ModelChoiceField( queryset=models.DeviceHost.objects.all(), required=True )
-    
-    #interface = DynamicModelChoiceField( queryset=Interface.objects.all(), query_params={ "device_id": "$host" } )
-    interface = DynamicModelChoiceField(
+    interface = DynamicModelChoiceField( 
+        label="Device Interface",
         queryset = models.AvailableDeviceInterface.objects.all(),
         query_params={"device_id": "$host"},
         null_option="---------"

@@ -48,12 +48,28 @@ class VMHostSerializer(NetBoxModelSerializer):
 # Interface
 #
 
+
+# ------------------------------------------------------------------------------
+#
+#
+
 from dcim.api.serializers import InterfaceSerializer
 class AvailableDeviceInterfaceSerializer(InterfaceSerializer):
     class Meta(InterfaceSerializer.Meta):
         model = models.AvailableDeviceInterface
         fields = '__all__'
 
+    def validate(self, data):
+            interface = data.get( 'interface' )
+            host = data.get( 'host' )
+    
+            if models.DeviceAgentInterface.objects.filter( interface=interface ).exclude( pk=self.instance.pk if self.instance else None ).exists():
+                raise serializers.ValidationError({'interface': 'This interface is already assigned to another HostInterface.'})
+    
+            if host.device != interface.device:
+                raise serializers.ValidationError({'interface': 'Selected interface does not belong to the same device as the host.'})
+    
+            return data
 
 class DeviceAgentInterfaceSerializer(serializers.ModelSerializer):
     class Meta:

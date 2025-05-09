@@ -1,5 +1,6 @@
 from django.urls import reverse
 from django.db import models
+from django.core.exceptions import ValidationError
 
 from netbox.models import NetBoxModel
 
@@ -100,6 +101,10 @@ class MainChoices(models.IntegerChoices):
     NO = (0, 'No')
     YES = (1, 'Yes')
 
+class AvailableChoices(models.IntegerChoices):
+    NO = (0, 'No')
+    YES = (1, 'Yes')
+
 
 class HostInterface(NetBoxModel):
     class Meta:
@@ -108,7 +113,7 @@ class HostInterface(NetBoxModel):
     name = models.CharField( max_length=255, blank=False, null=False )
     zabbix_host_id = models.IntegerField( blank=True, null=True )
     zabbix_interface_id = models.IntegerField( blank=True, null=True )
-    available = models.IntegerField( default=1 )
+    available = models.IntegerField( choices=AvailableChoices, default=AvailableChoices.YES )
     useip = models.IntegerField( choices=UseIPChoices, default=UseIPChoices.IP )
     main = models.IntegerField( choices=MainChoices, default=MainChoices.YES )
 
@@ -121,6 +126,23 @@ class DeviceAgentInterface(HostInterface):
     port = models.IntegerField( default=10050 )
     host = models.ForeignKey( to="DeviceHost", on_delete=models.CASCADE, related_name="agent_interfaces" )
     interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="device_interface" )
+
+    def __str__(self):
+        return f"{self.name}"
+    
+    def get_name(self):
+        return f"{self.name}"
+
+    def clean(self):
+        super().clean()
+    
+        # Prevent duplicate use of the interface across HostInterfaces
+        if DeviceAgentInterface.objects.filter( interface=self.interface ).exclude( pk=self.pk ).exists():
+            raise ValidationError({'interface': 'This interface is already assigned to another HostInterface.'})
+    
+        # Optional: ensure interface belongs to the same device as host
+        if self.host.device != self.interface.device:
+            raise ValidationError({'interface': 'Selected interface does not belong to the same device as the host.'})
 
 #class DeviceSNMPv1(HostInterface):
 #    class Meta:
@@ -148,6 +170,10 @@ class DeviceAgentInterface(HostInterface):
 #    port = models.IntegerField( default=161 )
 #    host = models.OneToOneField( to='VMHost', on_delete=models.CASCADE, related_name='snmpv1_interfaces' )
 
+
+# Proxy model so that it is possible to register a ViewSet.
+# The ViewSet is used to filter out interfaces that has already been assoicated
+# with a Device interface.
 
 from dcim.models import Interface
 class AvailableDeviceInterface(Interface):
