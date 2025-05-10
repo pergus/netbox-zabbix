@@ -141,3 +141,12 @@ class DeviceAgentInterfaceTable(NetBoxTable):
         model = models.DeviceAgentInterface
         fields = ("name", "host", "interface", "zabbix_host_id", "zabbix_interface_id", "available", "useip", "main",  "port" )
         default_columns = ("name", "host", "interface", "port" )
+
+
+class DeviceSNMPv3InterfaceTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+    
+    class Meta(NetBoxTable.Meta):
+        model = models.DeviceSNMPv3Interface
+        fields = ("name", "host", "interface", "zabbix_host_id", "zabbix_interface_id", "available", "useip", "main",  "port" )
+        default_columns = ("name", "host", "interface", "port" )

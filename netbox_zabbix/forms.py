@@ -208,3 +208,22 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
         query_params={"device_id": "$host"},
         null_option="---------"
     )
+
+
+class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
+    class Meta:
+        model = models.DeviceAgentInterface
+        fields = ( 'host', 'interface', 'name', 'available', 'useip', 'useip', 'main', 'port', 'interface' )
+
+    name = forms.CharField( max_length=255, required=True )
+    available = forms.ChoiceField( choices=models.AvailableChoices )
+    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
+    main = forms.ChoiceField( choices=models.MainChoices )
+    port = forms.IntegerField( required=True )
+    host = forms.ModelChoiceField( queryset=models.DeviceHost.objects.all(), required=True )
+    interface = DynamicModelChoiceField( 
+        label="Device Interface",
+        queryset = models.AvailableDeviceInterface.objects.all(),
+        query_params={"device_id": "$host"},
+        null_option="---------"
+    )

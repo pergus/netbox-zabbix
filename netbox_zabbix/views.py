@@ -287,6 +287,8 @@ class BaseHostDeleteView(View):
 # Interfaces
 #
 
+# - Agent
+
 class DeviceAgentInterfaceView(generic.ObjectView):
     queryset = models.DeviceAgentInterface.objects.all()
 
@@ -305,3 +307,25 @@ class DeviceAgentInterfaceEditView(generic.ObjectEditView):
 
 class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()
+
+
+# - SNMPv3
+
+class DeviceSNMPv3InterfaceView(generic.ObjectView):
+    queryset = models.DeviceSNMPv3Interface.objects.all()
+
+
+class DeviceSNMPv3InterfaceListView(generic.ObjectListView):
+    queryset = models.DeviceSNMPv3Interface.objects.all()
+#    filterset = filtersets.DeviceSNMPv3InterfaceFilterSet
+#    filterset_form = forms.DeviceSNMPv3InterfaceFilterForm
+    table = tables.DeviceSNMPv3InterfaceTable
+
+
+class DeviceSNMPv3InterfaceEditView(generic.ObjectEditView):
+    queryset = models.DeviceSNMPv3Interface.objects.all()
+    form = forms.DeviceSNMPv3InterfaceForm
+
+
+class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
+    queryset = models.DeviceSNMPv3Interface.objects.all()

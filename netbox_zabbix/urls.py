@@ -66,5 +66,11 @@ urlpatterns = (
     path( "deviceagentinterfaces/<int:pk>/delete/",     views.DeviceAgentInterfaceDeleteView.as_view(),     name="deviceagentinterface_delete" ),
     path( "deviceagentinterfaces/<int:pk>/changelog/",  ObjectChangeLogView.as_view(),                      name="deviceagentinterface_changelog", kwargs={"model": models.DeviceAgentInterface} ),
 
+    path( "devicesnmpv3interfaces/",                     views.DeviceSNMPv3InterfaceListView.as_view(),     name="devicesnmpv3interface_list" ),
+    path( "devicesnmpv3interfaces/add/",                 views.DeviceSNMPv3InterfaceEditView.as_view(),     name="devicesnmpv3interface_add" ),
+    path( "devicesnmpv3interfaces/<int:pk>/",            views.DeviceSNMPv3InterfaceView.as_view(),         name="devicesnmpv3interface" ),
+    path( "devicesnmpv3interfaces/<int:pk>/edit/",       views.DeviceSNMPv3InterfaceEditView.as_view(),     name="devicesnmpv3interface_edit" ),
+    path( "devicesnmpv3interfaces/<int:pk>/delete/",     views.DeviceSNMPv3InterfaceDeleteView.as_view(),   name="devicesnmpv3interface_delete" ),
+    path( "devicesnmpv3interfaces/<int:pk>/changelog/",  ObjectChangeLogView.as_view(),                     name="devicesnmpv3interface_changelog", kwargs={"model": models.DeviceSNMPv3Interface} ),
     
 )

@@ -46,6 +46,15 @@
                         </td>
                     </tr>
 
+                    <tr>
+                        <th>SNMPv3 Interfaces</th>
+                        <td>
+                            {% for interface in object.snmpv3_interfaces.all %}
+                            <span class="badge text-bg-secondary">{{ interface.name }}</span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+
                 </table>
             </div>
         </div>

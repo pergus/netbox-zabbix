@@ -19,7 +19,7 @@ class ConfigViewSet(NetBoxModelViewSet):
 class TemplateFilter(filters.FilterSet):
     # The TemplateFilter class is a filter set designed to filter templates based on the name field.
     # This is required to search for template names in filter forms.
-    q = filters.CharFilter(field_name="name", lookup_expr="icontains", label="Search Template")
+    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Template" )
 
     class Meta:
         model = models.Template
@@ -52,16 +52,26 @@ class VMHostViewSet(NetBoxModelViewSet):
 
 from dcim.models import Interface
 
+import logging
+logger = logging.getLogger('netbox.plugins.netbox_zabbix')
+
+
 class AvailableDeviceInterfaceFilter(filters.FilterSet):
-    device_id = filters.NumberFilter(method='filter_device_id')
+    device_id = filters.NumberFilter( method='filter_device_id' )
 
     class Meta:
         model = Interface
         fields = ['device_id']
-
+    
     def filter_device_id(self, queryset, name, value):
-        used_ids = models.DeviceAgentInterface.objects.values_list( 'interface_id', flat=True )
-        return queryset.filter( device_id=value ).exclude( id__in=used_ids )
+
+        host = models.DeviceHost.objects.get(id=value)
+
+        used_ids_agent = set( models.DeviceAgentInterface.objects.values_list( 'interface_id', flat=True ) )
+        used_ids_snmp = set( models.DeviceSNMPv3Interface.objects.values_list( 'interface_id', flat=True ) )
+        used_ids = used_ids_agent | used_ids_snmp
+
+        return queryset.filter( device_id=host.device_id ).exclude( id__in=used_ids )
 
 
 class AvailableDeviceInterfaceViewSet(NetBoxModelViewSet):

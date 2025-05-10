@@ -34,6 +34,31 @@ NetBox plugin for Zabbix.
 * Documentation: https://pergus.github.io/netbox-zabbix/
 
 
+## Todo
+
+Replace the plugin settings with values in the configuration model.
+
+Hosts
+- Unsynced hosts
+- Orphaned NB only
+- Orphaned ZB only
+
+
+Define interfaces
+ - agent
+ - snmpv3
+ - snmpv2c
+ - snmpv1
+
+Define Jobs
+
+Signals
+
+
+
+
+
+
 ## Features
 
 The features the plugin provides should be listed here.

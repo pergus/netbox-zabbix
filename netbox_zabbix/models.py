@@ -125,7 +125,7 @@ class DeviceAgentInterface(HostInterface):
     
     port = models.IntegerField( default=10050 )
     host = models.ForeignKey( to="DeviceHost", on_delete=models.CASCADE, related_name="agent_interfaces" )
-    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="device_interface" )
+    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="agent_interface" )
 
     def __str__(self):
         return f"{self.name}"
@@ -144,13 +144,32 @@ class DeviceAgentInterface(HostInterface):
         if self.host.device != self.interface.device:
             raise ValidationError({'interface': 'Selected interface does not belong to the same device as the host.'})
 
-#class DeviceSNMPv1(HostInterface):
-#    class Meta:
-#        verbose_name = "Device SNMPv1 Interface"
-#        verbose_name_plural = "Device SNMPv1 Interfaces"
-#    
-#    port = models.IntegerField( default=161 )
-#    host = models.OneToOneField( to='DeviceHost', on_delete=models.CASCADE, related_name='snmpv1_interfaces' )
+class DeviceSNMPv3Interface(HostInterface):
+    class Meta:
+        verbose_name = "Device SNMPv3 Interface"
+        verbose_name_plural = "Device SNMPv3 Interfaces"
+    
+    port = models.IntegerField( default=161 )
+    host = models.ForeignKey( to='DeviceHost', on_delete=models.CASCADE, related_name='snmpv3_interfaces' )
+    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
+
+    def __str__(self):
+        return f"{self.name}"
+    
+    def get_name(self):
+        return f"{self.name}"
+
+    def clean(self):
+        super().clean()
+    
+        # Prevent duplicate use of the interface across HostInterfaces
+        if DeviceSNMPv3Interface.objects.filter( interface=self.interface ).exclude( pk=self.pk ).exists():
+            raise ValidationError({'interface': 'This interface is already assigned to another HostInterface.'})
+    
+        # Optional: ensure interface belongs to the same device as host
+        if self.host.device != self.interface.device:
+            raise ValidationError({'interface': 'Selected interface does not belong to the same device as the host.'})
+
 #
 #
 #class VMAgentInterface(HostInterface):

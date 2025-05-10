@@ -20,6 +20,10 @@ menu = PluginMenu(
                                buttons=(  PluginMenuButton( "plugins:netbox_zabbix:deviceagentinterface_add", "Add", "mdi mdi-plus-thick" ), ),
                 ),
                 
+                PluginMenuItem( link="plugins:netbox_zabbix:devicesnmpv3interface_list", link_text="SNMPv3 Interfaces", 
+                               buttons=(  PluginMenuButton( "plugins:netbox_zabbix:devicesnmpv3interface_add", "Add", "mdi mdi-plus-thick" ), ),
+                ),
+
             )        
         ),
         ( "Virtual Machines",
