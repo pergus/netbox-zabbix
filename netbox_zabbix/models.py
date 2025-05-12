@@ -1,3 +1,4 @@
+from click import version_option
 from django.urls import reverse
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -9,19 +10,32 @@ from netbox.models import NetBoxModel
 # Configuration
 #
 
+class IPAssignmentChoices(models.TextChoices):
+    MANUAL = "manual", "Manual"
+    PRIMARY = "primary", "Primary IPv4 Address"
+
+
+
 class Config(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Configuration"
         verbose_name_plural = "Zabbix Configurations"
     
     name             = models.CharField( max_length=255 )
-    api_endpoint     = models.CharField( max_length=255 )
-    web_address      = models.CharField( max_length=255 )
-    token            = models.CharField( max_length=255 )    
+    api_endpoint     = models.CharField( verbose_name="API Edpoint", max_length=255 )
+    web_address      = models.CharField( verbose_name="WEB Address", max_length=255 )
+    token            = models.CharField( max_length=255 )
     connection       = models.BooleanField( default=False )
     last_checked_at  = models.DateTimeField( null=True, blank=True )
     version          = models.CharField( max_length=255, blank=True, null=True )
     
+    ip_assignment_method = models.CharField(
+        verbose_name="IP Assignment Method",
+        max_length=16,
+        choices=IPAssignmentChoices.choices,
+        default=IPAssignmentChoices.PRIMARY,
+        help_text="Select how to assign IP addresses to host interfaces."
+    )
 
     def __str__(self):
         return self.name
@@ -125,7 +139,8 @@ class DeviceAgentInterface(HostInterface):
     
     port = models.IntegerField( default=10050 )
     host = models.ForeignKey( to="DeviceHost", on_delete=models.CASCADE, related_name="agent_interfaces" )
-    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="agent_interface" )
+    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, blank=True, null=True, related_name="agent_interface" )
+    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="agent_ip" )
 
     def __str__(self):
         return f"{self.name}"
@@ -133,16 +148,32 @@ class DeviceAgentInterface(HostInterface):
     def get_name(self):
         return f"{self.name}"
 
-    def clean(self):
-        super().clean()
+    @property
+    def resolved_dns_name(self):
+        config = Config.objects.first()
+        if config.ip_assignment_method == 'primary':
+            return self.host.device.primary_ip4.dns_name
+        else:
+            return self.ip_address.dns_name
+
+    @property
+    def resolved_ip_address(self):
+        config = Config.objects.first()
+        if config.ip_assignment_method == 'primary':
+            return self.host.device.primary_ip4
+        else:
+            return self.ip_address
     
-        # Prevent duplicate use of the interface across HostInterfaces
-        if DeviceAgentInterface.objects.filter( interface=self.interface ).exclude( pk=self.pk ).exists():
-            raise ValidationError({'interface': 'This interface is already assigned to another HostInterface.'})
-    
-        # Optional: ensure interface belongs to the same device as host
-        if self.host.device != self.interface.device:
-            raise ValidationError({'interface': 'Selected interface does not belong to the same device as the host.'})
+#    def clean(self):
+#        super().clean()
+#    
+#        # Prevent duplicate use of the interface across HostInterfaces
+#        if DeviceAgentInterface.objects.filter( interface=self.interface ).exclude( pk=self.pk ).exists():
+#            raise ValidationError({'interface': 'This interface is already assigned to another HostInterface.'})
+#    
+#        # Optional: ensure interface belongs to the same device as host
+#        if self.host.device != self.interface.device:
+#            raise ValidationError({'interface': 'Selected interface does not belong to the same device as the host.'})
 
 class DeviceSNMPv3Interface(HostInterface):
     class Meta:

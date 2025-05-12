@@ -303,7 +303,12 @@ class DeviceAgentInterfaceListView(generic.ObjectListView):
 class DeviceAgentInterfaceEditView(generic.ObjectEditView):
     queryset = models.DeviceAgentInterface.objects.all()
     form = forms.DeviceAgentInterfaceForm
+    template_name = 'netbox_zabbix/device_agent_interface_edit.html'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["gurka"] = "banan"
+        return context
 
 class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()
@@ -329,3 +334,13 @@ class DeviceSNMPv3InterfaceEditView(generic.ObjectEditView):
 
 class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
+
+
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from ipam.models import IPAddress
+
+def get_dns_name(request, ip_address_id):
+    ip_address = get_object_or_404(IPAddress, id=ip_address_id)
+    # Assuming the IPAddress model has a 'dns_name' field
+    return JsonResponse({'dns_name': ip_address.dns_name})

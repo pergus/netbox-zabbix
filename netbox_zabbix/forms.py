@@ -37,7 +37,7 @@ PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 class ConfigForm(NetBoxModelForm):
     class Meta:
         model = models.Config
-        fields = ('name', 'api_endpoint', 'web_address', 'token')
+        fields = ( 'name', 'api_endpoint', 'web_address', 'token', 'ip_assignment_method' )
 
     def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -190,25 +190,81 @@ class VMHostFilterForm(NetBoxModelFilterSetForm):
 # Interface
 #
 from utilities.forms.fields import DynamicModelChoiceField
+from django.contrib.contenttypes.models import ContentType
+from ipam.models import IPAddress
 
 class DeviceAgentInterfaceForm(NetBoxModelForm):
     class Meta:
         model = models.DeviceAgentInterface
-        fields = ( 'host', 'interface', 'name', 'available', 'useip', 'useip', 'main', 'port', 'interface' )
+        fields = ( 'name', 'host', 'interface', 'ip_address', 'dns_name', 'available', 'useip', 'useip', 'main', 'port' )
 
     name = forms.CharField( max_length=255, required=True )
     available = forms.ChoiceField( choices=models.AvailableChoices )
     useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
     main = forms.ChoiceField( choices=models.MainChoices )
     port = forms.IntegerField( required=True )
+
     host = forms.ModelChoiceField( queryset=models.DeviceHost.objects.all(), required=True )
+
     interface = DynamicModelChoiceField( 
         label="Device Interface",
         queryset = models.AvailableDeviceInterface.objects.all(),
         query_params={"device_id": "$host"},
-        null_option="---------"
+        null_option="---------",
+        required=False,
+    )
+    ip_address = DynamicModelChoiceField(
+        label="IP Address",
+        queryset=IPAddress.objects.all(),
+        query_params={ "interface_id": "$interface" },
+        null_option="---------",
+        required=False,        
+    )
+    dns_name = forms.CharField(
+           label="DNS Name",
+           max_length=255,
+           required=False,
+           disabled=True
     )
 
+    def clean(self, **kwargs):
+
+        print( f"{ self.cleaned_data= }" )
+        cleaned_data = self.cleaned_data
+        config = models.Config.objects.first()
+
+        if config.ip_assignment_method == 'primary':
+            host = cleaned_data["host"] if "host" in cleaned_data else None
+            if host is None:
+                raise forms.ValidationError("Host is required.")
+            
+            if config.ip_assignment_method == 'primary':
+                device = host.device if host.device else None
+                if device:
+                    primary_ip = device.primary_ip4
+                    if primary_ip:
+                        assigned_object_id = primary_ip.assigned_object_id
+                        if assigned_object_id:
+                            try:
+                                interface = Interface.objects.get(id=assigned_object_id)
+                                cleaned_data['interface'] = interface
+                                #cleaned_data['ip_address'] = primary_ip
+                                #cleaned_data['dns_name'] = primary_ip.dns_name if primary_ip else None
+                            except Interface.DoesNotExist:
+                                raise forms.ValidationError(f"Interface with ID {assigned_object_id} does not exist.")
+                        else:
+                            raise forms.ValidationError('The primary IP address does not have an assigned interface.')
+                    else:
+                        raise forms.ValidationError(f"{device} does not have a primary IP address assigned.")
+                else:
+                    raise forms.ValidationError(f"The device {device.name} does not have an associated device.")
+            
+            return cleaned_data
+
+
+#    def save(self, commit=True):
+#        instance = super().save(commit=False)
+#        return super().save(commit)
 
 class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
     class Meta:

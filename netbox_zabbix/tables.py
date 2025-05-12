@@ -31,7 +31,7 @@ EXTRA_BUTTONS = """
 class ConfigTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.Config
-        fields = ('name', 'api_endpoint', 'web_address', 'version', 'connection', 'last_checked_at')
+        fields = ('name', 'api_endpoint', 'web_address', 'version', 'connection', 'last_checked_at', 'ip_assignment_method')
         default_columns = ('name', 'api_endpoint', 'version', 'connection', 'last_checked_at')
 
     name = tables.Column( linkify=True )
@@ -136,11 +136,13 @@ class BaseHostTable(NetBoxTable):
 
 class DeviceAgentInterfaceTable(NetBoxTable):
     name = tables.Column( linkify=True )
-    
+    resolved_ip_address = tables.Column( verbose_name="IP Address" )
+    resolved_dns_name = tables.Column( verbose_name="DNS Name" )
+        
     class Meta(NetBoxTable.Meta):
         model = models.DeviceAgentInterface
-        fields = ("name", "host", "interface", "zabbix_host_id", "zabbix_interface_id", "available", "useip", "main",  "port" )
-        default_columns = ("name", "host", "interface", "port" )
+        fields = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "zabbix_host_id", "zabbix_interface_id", "available", "useip", "main",  "port" )
+        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port" )
 
 
 class DeviceSNMPv3InterfaceTable(NetBoxTable):

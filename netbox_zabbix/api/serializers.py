@@ -11,7 +11,7 @@ from netbox_zabbix import models
 class ConfigSerializer(NetBoxModelSerializer):
     class Meta:
         model = models.Config
-        fields = ( 'name', 'api_endpoint', 'web_address', 'version', 'connection', 'last_checked_at', 'token' )
+        fields = ( 'name', 'api_endpoint', 'web_address', 'version', 'connection', 'last_checked_at', 'token', 'ip_assignment_method')
 
 # ------------------------------------------------------------------------------
 # Templates

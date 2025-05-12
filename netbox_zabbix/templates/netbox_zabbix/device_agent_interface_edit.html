@@ -1,0 +1,36 @@
+{% extends 'generic/object_edit.html' %}
+
+{% block content %}
+{{ block.super }}
+{% endblock %}
+{% block javascript %}
+
+{% if config and config.ip_assignment_method != 'primary' %}
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        const ipAddressField = document.querySelector('#id_ip_address');  // The ip_address field
+        const dnsNameField = document.querySelector('#id_dns_name');      // The dns_name field
+
+        if (ipAddressField && dnsNameField) {
+            ipAddressField.addEventListener('change', function () {
+                const ipAddressId = ipAddressField.value;
+
+                if (ipAddressId) {
+                    // Fetch the DNS name for the selected IP address using AJAX
+                    fetch(`/plugins/netbox_zabbix/get_dns_name/${ipAddressId}/`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.dns_name) {
+                                dnsNameField.value = data.dns_name;  // Update the dns_name field
+                            }
+                        })
+                        .catch(error => console.error('Error fetching DNS name:', error));
+                } else {
+                    dnsNameField.value = '';  // Clear the DNS name if no IP is selected
+                }
+            });
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}
