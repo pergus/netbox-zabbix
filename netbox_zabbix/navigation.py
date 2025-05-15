@@ -35,7 +35,10 @@ menu = PluginMenu(
 
         ( "Hosts", 
             ( 
-                PluginMenuItem( link="plugins:netbox_zabbix:base_hosts", link_text="Hosts" ), 
+                PluginMenuItem( link="plugins:netbox_zabbix:managed_hosts", link_text="Managed Hosts" ), 
+                PluginMenuItem( link="plugins:netbox_zabbix:unmanaged_hosts", link_text="Unmanged Zabbix Hosts" ), 
+                PluginMenuItem( link="plugins:netbox_zabbix:nb_only_hosts", link_text="NetBox-Only Hosts" ), 
+                PluginMenuItem( link="plugins:netbox_zabbix:zbx_only_hosts", link_text="Zabbix-Only Hosts" ), 
             )
         ),
     ),

@@ -68,7 +68,7 @@ class StatusChoices(models.TextChoices):
     ENABLED = 'enabled', 'Enabled'
     DISABLEd = 'disabled', 'Disabled'
 
-class BaseHost(NetBoxModel):
+class ManagedHost(NetBoxModel):
     class Meta:
         abstract = True
 
@@ -77,7 +77,7 @@ class BaseHost(NetBoxModel):
     templates = models.ManyToManyField( Template, blank=True )
 
     
-class DeviceHost(BaseHost):
+class DeviceHost(ManagedHost):
     device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zabbix_device_host' )
 
     def __str__(self):
@@ -90,7 +90,7 @@ class DeviceHost(BaseHost):
         return reverse( "plugins:netbox_zabbix:devicehost", args=[self.pk] )
 
 
-class VMHost(BaseHost):
+class VMHost(ManagedHost):
     virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zabbix_vm_host' )
 
     def __str__(self):
@@ -163,18 +163,7 @@ class DeviceAgentInterface(HostInterface):
             return self.host.device.primary_ip4
         else:
             return self.ip_address
-    
-#    def clean(self):
-#        super().clean()
-#    
-#        # Prevent duplicate use of the interface across HostInterfaces
-#        if DeviceAgentInterface.objects.filter( interface=self.interface ).exclude( pk=self.pk ).exists():
-#            raise ValidationError({'interface': 'This interface is already assigned to another HostInterface.'})
-#    
-#        # Optional: ensure interface belongs to the same device as host
-#        if self.host.device != self.interface.device:
-#            raise ValidationError({'interface': 'Selected interface does not belong to the same device as the host.'})
-
+        
 class DeviceSNMPv3Interface(HostInterface):
     class Meta:
         verbose_name = "Device SNMPv3 Interface"

@@ -230,9 +230,9 @@ class VMHostDeleteView(generic.ObjectDeleteView):
     queryset = models.VMHost.objects.all()
 
     
-class BaseHostsListView(SingleTableView):
+class ManagedHostsListView(SingleTableView):
     template_name = 'netbox_zabbix/host_list.html'
-    table_class = tables.BaseHostTable
+    table_class = tables.ManagedHostTable
     
     def get_queryset(self):
         return list( models.DeviceHost.objects.all() ) + list( models.VMHost.objects.all() )
@@ -251,7 +251,7 @@ class BaseHostsListView(SingleTableView):
         return context
 
 
-class BaseHostEditView(View):
+class ManagedHostEditView(View):
     def get(self, request, pk, *args, **kwargs):
         try:
             return redirect('plugins:netbox_zabbix:devicehost_edit', pk=models.DeviceHost.objects.get(pk=pk).pk)
@@ -266,7 +266,7 @@ class BaseHostEditView(View):
         raise Http404("Host not found")    
 
 
-class BaseHostDeleteView(View):
+class ManagedHostDeleteView(View):
     def get(self, request, pk, *args, **kwargs):
         try:
             models.DeviceHost.objects.get(pk=pk)
@@ -281,6 +281,30 @@ class BaseHostDeleteView(View):
             pass
 
         raise Http404("Host not found")
+
+
+def unmanaged_hosts(request):
+    logger.info("unamanaged_hosts")
+    return redirect( request.META.get( 'HTTP_REFERER', '/' ) )
+
+def nb_only_hosts(request):
+    return redirect( request.META.get( 'HTTP_REFERER', '/' ) )
+
+
+from django.views.generic import TemplateView as GenericTemplateView
+class ZBXOnlyHostsView(GenericTemplateView):
+    template_name = 'netbox_zabbix/zabbix_only_hosts.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        cfg = models.Config.objects.first()
+        context["zabbiz_web_address"] = cfg.web_address
+
+        # Todo: Handle errors
+        hosts = z.get_zabbix_only_hostnames( cfg.api_endpoint, cfg.token )
+        context["zabbix_only_hostnames"] = hosts
+        return context
+
 
 
 # ------------------------------------------------------------------------------
@@ -331,6 +355,10 @@ class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
 
 
+
+#
+# Is this used?
+#
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from ipam.models import IPAddress
@@ -339,3 +367,5 @@ def get_dns_name(request, ip_address_id):
     ip_address = get_object_or_404(IPAddress, id=ip_address_id)
     # Assuming the IPAddress model has a 'dns_name' field
     return JsonResponse({'dns_name': ip_address.dns_name})
+
+

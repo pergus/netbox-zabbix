@@ -1,0 +1,26 @@
+{# templates/netbox_zabbix/zabbix_only_hostnames.html #}
+{% extends 'base/layout.html' %}
+{% block content %}
+<h2>Zabbix Only Hostnames</h2>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Hostname</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for hostname in zabbix_only_hostnames %}
+        <tr>
+            <td><a href="{{ zabbiz_web_address }}/zabbix.php?action=host.edit&hostid={{ hostname.hostid }} ">
+                    {{hostname.name }}
+                </a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="1">All Zabbix hosts has configuration in NetBox</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

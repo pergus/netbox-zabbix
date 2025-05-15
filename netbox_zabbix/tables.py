@@ -45,7 +45,7 @@ class ConfigTable(NetBoxTable):
 class TemplateTable(NetBoxTable):
     name = tables.Column( linkify=True )
     host_count = columns.LinkedCountColumn( 
-         viewname='plugins:netbox_zabbix:base_hosts',
+         viewname='plugins:netbox_zabbix:managed_hosts',
          url_params={'templates': 'pk'},
          verbose_name="Hosts" )
     
@@ -85,7 +85,7 @@ class VMHostTable(NetBoxTable):
         default_columns = ('name', 'virtual_machine', 'status', 'templates')
 
         
-class BaseHostActionsColumn(ActionsColumn):
+class ManagedHostActionsColumn(ActionsColumn):
 
     def get_actions(self, record):
         actions = []
@@ -104,17 +104,17 @@ class BaseHostActionsColumn(ActionsColumn):
         return actions
 
 
-class BaseHostTable(NetBoxTable):
+class ManagedHostTable(NetBoxTable):
     name = tables.Column( accessor='get_name', verbose_name='Host Name', linkify=True )
     type = tables.Column( empty_values=(), verbose_name='Type', order_by=('device__name', 'virtual_machine__name') )
     zabbix_host_id = tables.Column( verbose_name='Zabbix Host ID' )
     status = tables.Column()
     object = tables.Column( empty_values=(), verbose_name='NetBox Object', order_by=('device__name', 'virtual_machine__name') )
 
-    actions = BaseHostActionsColumn()
-    
+    actions = ManagedHostActionsColumn()
+     
     class Meta(NetBoxTable.Meta):
-        model = models.BaseHost
+        model = models.ManagedHost
         fields = ('name', 'object', 'status', 'type', 'zabbix_host_id', 'status', 'templates' )
         default_columns = ('name', 'object', 'status', 'templates', 'type' )
 

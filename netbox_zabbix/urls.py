@@ -51,12 +51,22 @@ urlpatterns = (
     path( "vmhosts/<int:pk>/changelog/",  ObjectChangeLogView.as_view(),        name="vmhost_changelog", kwargs={"model": models.VMHost} ),
     
 
-    # Base hosts is DeviceHosts and VMHosts combied.
-    path( "hosts/",                     views.BaseHostsListView.as_view(),   name="base_hosts" ),
-    path( "hosts/edit/<int:pk>/",       views.BaseHostEditView.as_view(),    name="basehost_edit" ),
-    path( "hosts/delete/<int:pk>/",     views.BaseHostDeleteView.as_view(),  name="basehost_delete" ),
-    path( "hosts/<int:pk>/changelog/",  ObjectChangeLogView.as_view(),       name="basehost_changelog", kwargs={"model": models.BaseHost} ),
+    # Managed Hosts - Hosts in NetBox with Zabbix config and Zabbix presence.
+    path( "hosts/",                     views.ManagedHostsListView.as_view(),   name="managed_hosts" ),
+    path( "hosts/edit/<int:pk>/",       views.ManagedHostEditView.as_view(),    name="managedhost_edit" ),
+    path( "hosts/delete/<int:pk>/",     views.ManagedHostDeleteView.as_view(),  name="managedhost_delete" ),
+    path( "hosts/<int:pk>/changelog/",  ObjectChangeLogView.as_view(),          name="managedhost_changelog", kwargs={"model": models.ManagedHost} ),
     
+
+    # Unmanaged Hosts - Hosts in NetBox that exist in Zabbix but lack Zabbix config in NetBox.
+    path("unmanaged_hosts", views.unmanaged_hosts, name="unmanaged_hosts"),
+
+    # NetBox only hosts - Hosts in NetBox that exist in Zabbix but lack Zabbix config in NetBox
+    path("nb_only_hosts", views.nb_only_hosts, name="nb_only_hosts"),
+
+    # Zabbix only hosts - Hosts that only exist in Zabbix
+    path("zbx_only_hosts", views.ZBXOnlyHostsView.as_view(), name="zbx_only_hosts"),
+
 
     # Interfaces
     path( "deviceagentinterfaces/",                     views.DeviceAgentInterfaceListView.as_view(),       name="deviceagentinterface_list" ),

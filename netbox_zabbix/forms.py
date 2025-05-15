@@ -234,37 +234,12 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
            widget=forms.TextInput(attrs={'data-field': 'dns_name'})
     )
     
-    def clean(self, **kwargs):
-
-        print( f"{ self.cleaned_data= }" )
-        cleaned_data = self.cleaned_data
-        config = models.Config.objects.first()
-
-        if config.ip_assignment_method == 'primary':
-            host = cleaned_data["host"] if "host" in cleaned_data else None
-            if host is None:
-                raise forms.ValidationError("Host is required.")
-            
-            if config.ip_assignment_method == 'primary':
-                device = host.device if host.device else None
-                if device:
-                    primary_ip = device.primary_ip4
-                    if primary_ip:
-                        assigned_object_id = primary_ip.assigned_object_id
-                        if assigned_object_id:
-                            try:
-                                interface = Interface.objects.get( id=assigned_object_id )
-                                cleaned_data['interface'] = interface
-                            except Interface.DoesNotExist:
-                                raise forms.ValidationError(f"Interface with ID {assigned_object_id} does not exist.")
-                        else:
-                            raise forms.ValidationError('The primary IP address does not have an assigned interface.')
-                    else:
-                        raise forms.ValidationError(f"{device} does not have a primary IP address assigned.")
-                else:
-                    raise forms.ValidationError(f"The device {device.name} does not have an associated device.")
-            
-            return cleaned_data
+    def __init__(self, *args, **kwargs):
+          super().__init__(*args, **kwargs)
+    
+          # Set the initial value of the calculated DNS name if editing an existing instance
+          if self.instance.pk:
+              self.fields['dns_name'].initial = self.instance.resolved_dns_name
 
 
 class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
@@ -282,5 +257,4 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
         label="Device Interface",
         queryset = models.AvailableDeviceInterface.objects.all(),
         query_params={"device_id": "$host"},
-        null_option="---------"
     )

@@ -41,6 +41,7 @@ def verify_token( api_endpoint, token ):
 def synchronize_templates(api_endpoint, token, max_deletions=None):
     """
     Synchronize Zabbix templates with the database.
+    From Zabbix to NetBox Sync.
 
     Returns:
         tuple: (added_templates, deleted_templates)
@@ -126,6 +127,6 @@ def get_zabbix_only_hostnames( api_endpoint, token ):
         zabbix_hostnames = get_zabbix_hostnames( api_endpoint, token )
     except Exception as e:
         raise e
-    
+
     netbox_hostnames = set( Device.objects.values_list( 'name', flat=True ) ).union( VirtualMachine.objects.values_list( 'name', flat=True ) )
     return [ h for h in zabbix_hostnames if h[ "name" ] not in netbox_hostnames ]

@@ -9,6 +9,14 @@ NetBox plugin for Zabbix.
 
 ## Todo
 
+Rename Config to Settings.
+Rename Host to Config or something similar.
+Rename the interfaces to something shorter.
+
+Rename router.register( 'availabledeviceinterface', 
+   views.AvailableDeviceInterfaceViewSet, basename='availabledeviceinterface' )
+to something more palatable.
+
 Replace the plugin settings with values in the configuration model.
 
 Hosts
@@ -22,6 +30,9 @@ Define interfaces
  - snmpv3
  - snmpv2c
  - snmpv1
+
+Make 'main' for interfaces work.
+
 
 Define Jobs
 
