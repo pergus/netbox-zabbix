@@ -297,15 +297,23 @@ class ZBXOnlyHostsView(GenericTemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
         cfg = models.Config.objects.first()
-        context["zabbiz_web_address"] = cfg.web_address
+        data = z.get_zabbix_only_hostnames(cfg.api_endpoint, cfg.token)
 
-        # Todo: Handle errors
-        hosts = z.get_zabbix_only_hostnames( cfg.api_endpoint, cfg.token )
-        context["zabbix_only_hostnames"] = hosts
+        table = tables.ZabbixOnlyHostTable(data, orderable=False)
+        RequestConfig(
+            self.request, {
+                'paginator_class': EnhancedPaginator,
+                'per_page': get_paginate_count(self.request),
+            }
+        ).configure(table)
+        
+        context.update({
+            'table': table,
+            'web_address': cfg.web_address,
+        })
         return context
-
-
 
 # ------------------------------------------------------------------------------
 # Interfaces

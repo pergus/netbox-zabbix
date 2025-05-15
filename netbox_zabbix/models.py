@@ -103,6 +103,16 @@ class VMHost(ManagedHost):
         return reverse( "plugins:netbox_zabbix:vmhost", args=[self.pk] )
 
 
+
+# Dummy model to list
+class ZabbixOnlyHost:
+    def __init__(self, hostid, name):
+        self.hostid = hostid
+        self.name = name
+
+    def __str__(self):
+        return self.name
+
 # ------------------------------------------------------------------------------
 # Interface
 #

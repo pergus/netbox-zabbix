@@ -130,6 +130,20 @@ class ManagedHostTable(NetBoxTable):
                # Return the virtual machine link
                return mark_safe( f'<a href="{record.virtual_machine.get_absolute_url()}">{record.virtual_machine}</a>' )
 
+import django_tables2 as tables
+class ZabbixOnlyHostTable(tables.Table):
+    web_address = models.Config.objects.first().web_address
+    name = tables.TemplateColumn(
+        template_code='<a href="{{web_address}}/zabbix.php?action=host.edit&hostid={{ record.hostid }}">{{ record.name }}</a>',
+        verbose_name="Host"
+    )
+    hostid = tables.Column(verbose_name="Zabbix Host ID")
+
+    class Meta:
+        attrs = {'class': 'table table-hover panel-table'}
+        fields = ('name', 'hostid')
+
+
 # ------------------------------------------------------------------------------
 # Interface
 #
