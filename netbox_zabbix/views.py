@@ -305,11 +305,6 @@ class DeviceAgentInterfaceEditView(generic.ObjectEditView):
     form = forms.DeviceAgentInterfaceForm
     template_name = 'netbox_zabbix/device_agent_interface_edit.html'
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["gurka"] = "banan"
-        return context
-
 class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()
 

@@ -35,11 +35,39 @@ class TemplateViewSet(NetBoxModelViewSet):
 # Hosts
 #
 
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
 
 class DeviceHostViewSet(NetBoxModelViewSet):
     queryset = models.DeviceHost.objects.all()
     serializer_class = serializers.DeviceHostSerializer
 
+    @action(detail=True, methods=['get'], url_path='primary-interface-data')
+    def primary_interface_data(self, request, pk=None):
+        host = get_object_or_404(models.DeviceHost, pk=pk)
+        device = host.device
+    
+        if not device.primary_ip4:
+            return Response({})
+    
+        primary_ip = device.primary_ip4
+        if primary_ip:
+            assigned_object_id = primary_ip.assigned_object_id
+            interface = Interface.objects.get( id=assigned_object_id )
+    
+            data = {
+                'name': host.get_name(),
+                'interface': interface.name,
+                'interface_id': interface.pk,
+                'ip_address': str(primary_ip.address),
+                'ip_address_id': primary_ip.pk,
+                'dns_name': str(primary_ip.dns_name or ""),
+            }
+
+            return Response(data)
+        
+        return Response({})
 
 class VMHostViewSet(NetBoxModelViewSet):
     queryset = models.VMHost.objects.all()
@@ -78,3 +106,5 @@ class AvailableDeviceInterfaceViewSet(NetBoxModelViewSet):
     queryset = Interface.objects.all()
     serializer_class = serializers.AvailableDeviceInterfaceSerializer
     filterset_class = AvailableDeviceInterfaceFilter
+
+

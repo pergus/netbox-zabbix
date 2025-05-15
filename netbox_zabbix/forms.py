@@ -6,6 +6,7 @@ from django.conf import settings
 from django import forms
 
 from dcim.models import Device, Interface
+from utilities.forms.widgets.apiselect import APISelect
 from virtualization.models import VirtualMachine
 
 from netbox_zabbix import models
@@ -190,7 +191,7 @@ class VMHostFilterForm(NetBoxModelFilterSetForm):
 # Interface
 #
 from utilities.forms.fields import DynamicModelChoiceField
-from django.contrib.contenttypes.models import ContentType
+from utilities.forms.widgets import APISelect
 from ipam.models import IPAddress
 
 class DeviceAgentInterfaceForm(NetBoxModelForm):
@@ -204,29 +205,35 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
     main = forms.ChoiceField( choices=models.MainChoices )
     port = forms.IntegerField( required=True )
 
-    host = forms.ModelChoiceField( queryset=models.DeviceHost.objects.all(), required=True )
+    host = DynamicModelChoiceField( 
+        label="Zabbix Host",      
+        queryset=models.DeviceHost.objects.all(),
+        required=True,
+    )
+
 
     interface = DynamicModelChoiceField( 
         label="Device Interface",
         queryset = models.AvailableDeviceInterface.objects.all(),
         query_params={"device_id": "$host"},
-        null_option="---------",
-        required=False,
+        required=True,
     )
+
     ip_address = DynamicModelChoiceField(
         label="IP Address",
         queryset=IPAddress.objects.all(),
-        query_params={ "interface_id": "$interface" },
-        null_option="---------",
-        required=False,        
+        query_params={ "interface_id": "$interface" },    
+        required=True,
     )
+
     dns_name = forms.CharField(
            label="DNS Name",
            max_length=255,
            required=False,
-           disabled=True
+           disabled=True,
+           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
     )
-
+    
     def clean(self, **kwargs):
 
         print( f"{ self.cleaned_data= }" )
@@ -246,10 +253,8 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
                         assigned_object_id = primary_ip.assigned_object_id
                         if assigned_object_id:
                             try:
-                                interface = Interface.objects.get(id=assigned_object_id)
+                                interface = Interface.objects.get( id=assigned_object_id )
                                 cleaned_data['interface'] = interface
-                                #cleaned_data['ip_address'] = primary_ip
-                                #cleaned_data['dns_name'] = primary_ip.dns_name if primary_ip else None
                             except Interface.DoesNotExist:
                                 raise forms.ValidationError(f"Interface with ID {assigned_object_id} does not exist.")
                         else:
@@ -261,10 +266,6 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
             
             return cleaned_data
 
-
-#    def save(self, commit=True):
-#        instance = super().save(commit=False)
-#        return super().save(commit)
 
 class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
     class Meta:

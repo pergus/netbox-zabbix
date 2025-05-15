@@ -30,17 +30,26 @@ class TemplateSerializer(NetBoxModelSerializer):
 #
 
 class DeviceHostSerializer(NetBoxModelSerializer):
+    name = serializers.SerializerMethodField()
+    display = serializers.SerializerMethodField()
+
     class Meta:
         model = models.DeviceHost
-        fields = ( 'zabbix_host_id', 'status', 'templates', )
+        fields = ( 'id', 'name', 'display', 'zabbix_host_id', 'status', 'templates', )
     
-    templates         = TemplateSerializer( many=True, read_only=True )
+    templates = TemplateSerializer( many=True, read_only=True )
 
+    def get_display(self, obj):
+        return obj.get_name()
+    
+    def get_name(self, obj):
+        # This method is called to get the value for the `name` field
+        return obj.get_name()
 
 class VMHostSerializer(NetBoxModelSerializer):
     class Meta:
         model = models.VMHost
-        fields = ( 'zabbix_host_id', 'status', 'templates', )
+        fields = ( 'id', 'zabbix_host_id', 'status', 'templates', )
         
     templates = TemplateSerializer( many=True, read_only=True )
 
@@ -58,18 +67,6 @@ class AvailableDeviceInterfaceSerializer(InterfaceSerializer):
     class Meta(InterfaceSerializer.Meta):
         model = models.AvailableDeviceInterface
         fields = '__all__'
-
-#    def validate(self, data):
-#            interface = data.get( 'interface' )
-#            host = data.get( 'host' )
-#    
-#            if models.DeviceAgentInterface.objects.filter( interface=interface ).exclude( pk=self.instance.pk if self.instance else None ).exists():
-#                raise serializers.ValidationError({'interface': 'This interface is already assigned to another HostInterface.'})
-#    
-#            if host.device != interface.device:
-#                raise serializers.ValidationError({'interface': 'Selected interface does not belong to the same device as the host.'})
-#    
-#            return data
 
 class DeviceAgentInterfaceSerializer(serializers.ModelSerializer):
     class Meta:

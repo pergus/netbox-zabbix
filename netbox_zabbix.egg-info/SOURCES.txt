@@ -22,8 +22,10 @@ netbox_zabbix/api/serializers.py
 netbox_zabbix/api/urls.py
 netbox_zabbix/api/views.py
 netbox_zabbix/templates/netbox_zabbix/config.html
+netbox_zabbix/templates/netbox_zabbix/device_agent_interface_edit.html
 netbox_zabbix/templates/netbox_zabbix/deviceagentinterface.html
 netbox_zabbix/templates/netbox_zabbix/devicehost.html
+netbox_zabbix/templates/netbox_zabbix/devicesnmpv3interface.html
 netbox_zabbix/templates/netbox_zabbix/host_list.html
 netbox_zabbix/templates/netbox_zabbix/template.html
 netbox_zabbix/templates/netbox_zabbix/template_list.html
