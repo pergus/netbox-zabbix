@@ -121,6 +121,12 @@ class DeviceHostForm(NetBoxModelForm):
     
         super().__init__(*args, **kwargs)
 
+        # Add specific device 
+        if self.initial.get('device_id'):
+            specific_device_id = self.initial.get('device_id')
+            self.fields['device'].queryset = Device.objects.filter(pk=specific_device_id)
+            return
+
         # Exclude already used devices from the queryset
         if not instance:  
             # Creating a new DeviceHost
@@ -159,7 +165,14 @@ class VMHostForm(NetBoxModelForm):
         instance = kwargs.get('instance', None)
     
         super().__init__(*args, **kwargs)
-    
+
+
+        # Add specific virtual machine 
+        if self.initial.get('vm_id'):
+            specific_vm_id = self.initial.get('vm_id')
+            self.fields['virtual_machine'].queryset = VirtualMachine.objects.filter(pk=specific_vm_id)
+            return
+        
         # Exclude already used virtual machine from the queryset
         if not instance:  
             # Creating a new VMHost

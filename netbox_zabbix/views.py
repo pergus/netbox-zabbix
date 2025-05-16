@@ -1,6 +1,7 @@
 from django.template.defaultfilters import pluralize, capfirst
 from django.views.decorators.http import require_POST
 from django.utils.safestring import mark_safe
+from django.views.generic import TemplateView as GenericTemplateView
 from django.db.models import Count, F
 from django.shortcuts import redirect, render
 from django.contrib import messages
@@ -12,8 +13,8 @@ from django.views import View
 from django.http import Http404
 
 from utilities.paginator import EnhancedPaginator, get_paginate_count
-
-
+from dcim.models import Device
+from virtualization.models import VirtualMachine
 
 from netbox_zabbix import zabbix as z
 from netbox_zabbix import filtersets, forms, models, tables
@@ -231,7 +232,7 @@ class VMHostDeleteView(generic.ObjectDeleteView):
 
     
 class ManagedHostsListView(SingleTableView):
-    template_name = 'netbox_zabbix/host_list.html'
+    template_name = 'netbox_zabbix/managed_hosts_list.html'
     table_class = tables.ManagedHostTable
     
     def get_queryset(self):
@@ -283,37 +284,84 @@ class ManagedHostDeleteView(View):
         raise Http404("Host not found")
 
 
-def unmanaged_hosts(request):
-    logger.info("unamanaged_hosts")
-    return redirect( request.META.get( 'HTTP_REFERER', '/' ) )
+class UnmanagedDeviceListView(generic.ObjectListView):
+    queryset = Device.objects.exclude( id__in = models.DeviceHost.objects.values_list( "device_id", flat=True ) )
+    table = tables.UnmanagedDeviceTable
+    template_name = "netbox_zabbix/unmanaged_device_list.html"
+
+    def post(self, request, *args, **kwargs):
+        if '_import_zabbix' in request.POST:
+            
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = Device.objects.filter( pk__in=selected_ids )
+
+            cfg = models.Config.objects.first()
+            if not cfg:
+                msg = "Missing Zabbix Configuration"
+                logger.error( msg )
+                messages.error( request, msg )
+            else:
+                for device in queryset:
+                    logger.info( f"import {device} from zabbix")
+                    try:
+                        z.import_from_zabbix( cfg.api_endpoint, cfg.token, device )
+                    except Exception as e:
+                        messages.error( request, f"Failed to import {device} from Zabbix" )
+                        return redirect( request.POST.get( 'return_url' ) or request.path )
+
+                messages.success( request, f"{queryset.count()} device(s) imported from Zabbix." )
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+        
+        return super().get( request, *args, **kwargs )
+                 
+
 
 def nb_only_hosts(request):
+    logger.info("nb_only_hosts")
     return redirect( request.META.get( 'HTTP_REFERER', '/' ) )
 
-
-from django.views.generic import TemplateView as GenericTemplateView
 class ZBXOnlyHostsView(GenericTemplateView):
     template_name = 'netbox_zabbix/zabbix_only_hosts.html'
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+        context = super().get_context_data( **kwargs )
 
+        # Check that cfg exists!
         cfg = models.Config.objects.first()
-        data = z.get_zabbix_only_hostnames(cfg.api_endpoint, cfg.token)
-
-        table = tables.ZabbixOnlyHostTable(data, orderable=False)
+        if not cfg:
+            msg = "Missing Zabbix Configuration"
+            logger.error( msg )
+            messages.error( self.request, msg )
+            # Provide an empty valid table
+            empty_table = tables.ZabbixOnlyHostTable([], orderable=False)
+            RequestConfig(self.request).configure(empty_table)
+            context['table'] = empty_table
+            return context          
+        
+        try:
+            data = z.get_zabbix_only_hostnames( cfg.api_endpoint, cfg.token )
+        except Exception as e:
+            messages.error(self.request, f"Failed to fetch data from Zabbix: {str(e)}")
+            empty_table = tables.ZabbixOnlyHostTable([], orderable=False)
+            RequestConfig(self.request).configure(empty_table)
+            context['table'] = empty_table
+            return context
+        
+        table = tables.ZabbixOnlyHostTable( data, orderable=False )
         RequestConfig(
             self.request, {
                 'paginator_class': EnhancedPaginator,
-                'per_page': get_paginate_count(self.request),
+                'per_page': get_paginate_count( self.request ),
             }
-        ).configure(table)
+        ).configure( table )
         
         context.update({
             'table': table,
             'web_address': cfg.web_address,
         })
         return context
+
+
 
 # ------------------------------------------------------------------------------
 # Interfaces

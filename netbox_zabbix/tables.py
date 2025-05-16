@@ -3,6 +3,9 @@ from netbox.tables import NetBoxTable, columns
 from netbox.tables.columns import ActionsColumn
 from django.utils.safestring import mark_safe
 
+from dcim.models import Device
+from virtualization.models import VirtualMachine
+
 from netbox_zabbix import models
 
 from django.urls import reverse
@@ -130,9 +133,25 @@ class ManagedHostTable(NetBoxTable):
                # Return the virtual machine link
                return mark_safe( f'<a href="{record.virtual_machine.get_absolute_url()}">{record.virtual_machine}</a>' )
 
-import django_tables2 as tables
+
+class UnmanagedDeviceTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+
+    class Meta(NetBoxTable.Meta):
+        model = Device
+        fields = ("name", "device_role", "site", "status")
+        default_columns = ("name", "device_role", "site", "status")
+
+class UnmanagedVMTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+
+    class Meta(NetBoxTable.Meta):
+        model = VirtualMachine
+        fields = ("name", "cluster", "status")
+        default_columns = ("name", "cluster", "status")
+
+
 class ZabbixOnlyHostTable(tables.Table):
-    web_address = models.Config.objects.first().web_address
     name = tables.TemplateColumn(
         template_code='<a href="{{web_address}}/zabbix.php?action=host.edit&hostid={{ record.hostid }}">{{ record.name }}</a>',
         verbose_name="Host"

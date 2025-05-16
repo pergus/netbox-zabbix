@@ -130,3 +130,45 @@ def get_zabbix_only_hostnames( api_endpoint, token ):
 
     netbox_hostnames = set( Device.objects.values_list( 'name', flat=True ) ).union( VirtualMachine.objects.values_list( 'name', flat=True ) )
     return [ h for h in zabbix_hostnames if h[ "name" ] not in netbox_hostnames ]
+
+
+def get_host(api_endpoint, token, hostname):
+    z = ZabbixAPI( api_endpoint )
+    z.login( api_token=token )
+
+    try:
+        hosts = z.host.get(
+            filter={"host": hostname},
+            selectInterfaces="extend",
+            selectParentTemplates="extend",
+            selectTags="extend",
+            selectGroups="extend",
+            selectInventory="extend"
+        )
+    except Exception as e:
+        msg = f"Failed to retrieve host '{hostname}' from Zabbix, error: {e}"
+        logger.error( msg )
+        raise Exception( msg )
+    
+    if not hosts:
+        msg = f"No host named '{hostname}' found in Zabbix"
+        logger.error( msg )
+        raise Exception( msg )
+    
+    if len(hosts) > 1:
+        msg = f"Multiple hosts named '{hostname}' found in Zabbix"
+        logger.error( msg )
+        raise Exception( msg )
+    
+
+    return hosts[0]
+            
+import json
+def import_from_zabbix( api_endpoint, token, device):
+
+    try:
+        zbx_host = get_host( api_endpoint, token, device.name )
+    except Exception as e:
+        raise e
+    logger.info( f"{json.dumps(zbx_host, indent=2)}" )
+    logger.info( f"import_from_zabbix {api_endpoint} {device.name}" )

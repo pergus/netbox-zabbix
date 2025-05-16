@@ -78,6 +78,10 @@ class ManagedHost(NetBoxModel):
 
     
 class DeviceHost(ManagedHost):
+    class Meta:
+        verbose_name = "Device Host"
+        verbose_name_plural = "Device Hosts"
+    
     device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zabbix_device_host' )
 
     def __str__(self):
@@ -91,6 +95,10 @@ class DeviceHost(ManagedHost):
 
 
 class VMHost(ManagedHost):
+    class Meta:
+        verbose_name = "VM Host"
+        verbose_name_plural = "VM Hosts"
+    
     virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zabbix_vm_host' )
 
     def __str__(self):
@@ -104,14 +112,6 @@ class VMHost(ManagedHost):
 
 
 
-# Dummy model to list
-class ZabbixOnlyHost:
-    def __init__(self, hostid, name):
-        self.hostid = hostid
-        self.name = name
-
-    def __str__(self):
-        return self.name
 
 # ------------------------------------------------------------------------------
 # Interface

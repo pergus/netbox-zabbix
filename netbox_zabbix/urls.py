@@ -58,8 +58,8 @@ urlpatterns = (
     path( "hosts/<int:pk>/changelog/",  ObjectChangeLogView.as_view(),          name="managedhost_changelog", kwargs={"model": models.ManagedHost} ),
     
 
-    # Unmanaged Hosts - Hosts in NetBox that exist in Zabbix but lack Zabbix config in NetBox.
-    path("unmanaged_hosts", views.unmanaged_hosts, name="unmanaged_hosts"),
+    # Unmanaged Device Hosts - Devices in NetBox and that exist in Zabbix but lack Zabbix config in NetBox.
+    path("unmanaged_device_list", views.UnmanagedDeviceListView.as_view(), name="unmanaged_device_list"),
 
     # NetBox only hosts - Hosts in NetBox that exist in Zabbix but lack Zabbix config in NetBox
     path("nb_only_hosts", views.nb_only_hosts, name="nb_only_hosts"),
