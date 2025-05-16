@@ -163,12 +163,35 @@ def get_host(api_endpoint, token, hostname):
 
     return hosts[0]
             
-import json
-def import_from_zabbix( api_endpoint, token, device):
 
+from netbox_zabbix.jobb import run, run_as_job
+
+
+import json
+
+def import_from_zabbix_logic( api_endpoint, token, device ):
     try:
         zbx_host = get_host( api_endpoint, token, device.name )
     except Exception as e:
         raise e
     logger.info( f"{json.dumps(zbx_host, indent=2)}" )
-    logger.info( f"import_from_zabbix {api_endpoint} {device.name}" )
+    logger.info( f"import_from_zabbix logic {api_endpoint} {device.name}" )
+
+    return json.dumps(zbx_host, indent=2)
+
+
+# Oops don't pass token as an argument since it can be seen in the job UI.
+def import_from_zabbix( api_endpoint, token, device, is_job=True, user=None):
+    if is_job:
+        logger.info( f"run import from zabbix as job" )
+        try:
+            return run_as_job( import_from_zabbix_logic, name="import from zabbix", user=user, api_endpoint=api_endpoint, token=token, device=device ) 
+        except Exception as e:
+            logger.info( f"import_from_zabbix_logic as job failed {e}" )
+    
+    else:
+        logger.info( f"import from zabbix" )
+        try:
+            run(import_from_zabbix_logic, api_endpoint, token, device)
+        except Exception as e:
+            logger.info( f"import_from_zabbix_logic failed {e}" )
