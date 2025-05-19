@@ -309,7 +309,7 @@ class UnmanagedDeviceListView(generic.ObjectListView):
                         messages.error( request, f"Failed to import {device} from Zabbix" )
                         return redirect( request.POST.get( 'return_url' ) or request.path )
                 if as_job:
-                    messages.success( request, f"Created job with id /extras/jobs/{job.job_id}/ for importing {device.name}" )
+                    messages.success( request, f"Created job with id {job.id} for importing {device.name}" )
                 else:
                     messages.success( request, f"{queryset.count()} device(s) imported from Zabbix." )
             return redirect( request.POST.get( 'return_url' ) or request.path )

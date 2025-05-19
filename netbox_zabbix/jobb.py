@@ -21,7 +21,7 @@ def run_task(task_func, *args, job=None, **kwargs):
         **kwargs: Arguments passed to the task_func.
 
     Returns:
-        str: Success message from the task function.
+        Success message from the task function.
 
     Raises:
         TaskExecutionError: For controlled failures.
@@ -33,10 +33,13 @@ def run_task(task_func, *args, job=None, **kwargs):
 
     try:
         message = task_func( *args, **kwargs )
+        if message is None:
+            message = "Task completed successfully."
+        
         logger.info( f"[{task_name}] Success: {message}" )
 
         if job:
-            job.data = {"status": "ok", "message": message}
+            job.data = { "status": "success", "message": message }
             job.terminate( status=JobStatusChoices.STATUS_COMPLETED )
 
         return message
@@ -51,21 +54,55 @@ def run_task(task_func, *args, job=None, **kwargs):
     except Exception as e:
         logger.exception( f"[{task_name}] Unexpected error: {e}" )
         if job:
-            job.data = {"status": "failed", "error": "Unexpected error"}
+            job.data = {"status": "failed", "error": str(e)}
             job.terminate( status=JobStatusChoices.STATUS_ERRORED, error=str(e) )
         raise
 
 
-def job_wrapper(task_func, **kwargs):
+def job_wrapper(task_func, job=None,  **kwargs):
+    """
+    Wrapper function to execute a task function within the job context.
+    
+    This function is intended to be used by RQ when a task is enqueued.
+    It ensures that the job object is passed to the task execution handler.
+    
+    Args:
+        task_func (callable): The task logic function to run.
+        job (Job, optional): The RQ Job instance provided when the job runs.
+        **kwargs: Additional keyword arguments to pass to the task function.
+    
+    Returns:
+        The return value of the task function.
+    """
     from netbox_zabbix.jobb import run_task
-    return run_task(task_func, **kwargs)
+    return run_task( task_func, job=job, **kwargs )
 
 
 def run(func, *args, **kwargs):
     """
-    Run a task
+    Run a task function immediately (synchronously) without using the job queue.
+    
+    Args:
+        func (callable): The task function to execute.
+        *args: Positional arguments to pass to the task function.
+        **kwargs: Keyword arguments to pass to the task function.
+    
+    Returns:
+        The return value of the task function.
     """
-    return run_task(func, *args, **kwargs)
+    return run_task( func, *args, **kwargs )
 
 def run_as_job(task_func, name, user, **kwargs):
+    """
+    Enqueue a task function to be executed asynchronously by RQ.
+    
+    Args:
+        task_func (callable): The core logic function to run in the job.
+        name (str): Name/description of the job.
+        user (User): A Django User instance associated with the job.
+        **kwargs: Keyword arguments to pass to the task function when executed.
+    
+    Returns:
+        The enqueued RQ Job instance.
+    """
     return Job.enqueue( job_wrapper, name=name, user=user, task_func=task_func, **kwargs )

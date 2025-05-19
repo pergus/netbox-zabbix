@@ -5,6 +5,9 @@ from django.conf import settings
 from dcim.models import Device
 from virtualization.models import VirtualMachine
 
+
+from netbox_zabbix.jobb import run, run_as_job, TaskExecutionError
+
 import logging
 
 
@@ -132,6 +135,7 @@ def get_zabbix_only_hostnames( api_endpoint, token ):
     return [ h for h in zabbix_hostnames if h[ "name" ] not in netbox_hostnames ]
 
 
+
 def get_host(api_endpoint, token, hostname):
     z = ZabbixAPI( api_endpoint )
     z.login( api_token=token )
@@ -160,38 +164,93 @@ def get_host(api_endpoint, token, hostname):
         logger.error( msg )
         raise Exception( msg )
     
-
     return hosts[0]
             
 
-from netbox_zabbix.jobb import run, run_as_job
-
-
 import json
 
+
+class SecretStr(str):
+    """
+    A string subclass that masks its value when represented.
+    
+    This is useful for preventing sensitive information such as API tokens
+    or passwords from being displayed in logs or debug output. The actual
+    value is still accessible as a normal string, but its `repr()` output
+    will be masked.
+    
+    Example:
+        token = SecretStr("super-secret-token")
+        print(token)         # Output: super-secret-token
+        print(repr(token))   # Output: '*******'
+    """
+    def __repr__(self):
+        return "'*******'"
+
+
+
 def import_from_zabbix_logic( api_endpoint, token, device ):
+    """
+      Logic function to retrieve Zabbix host information for a given device.
+    
+      This function calls the Zabbix API using the provided credentials to fetch
+      the host information associated with the given device name. The result is logged
+      and returned in JSON string format.
+    
+      Args:
+          api_endpoint (str): The URL of the Zabbix API endpoint.
+          token (str): The authentication token for accessing the Zabbix API.
+          device (Device): The NetBox device object to retrieve data for.
+    
+      Returns:
+          str: A JSON-formatted string containing the Zabbix host information.
+    
+      Raises:
+          Exception: Any exception raised during the API call or data retrieval.
+      """
     try:
         zbx_host = get_host( api_endpoint, token, device.name )
     except Exception as e:
         raise e
     logger.info( f"{json.dumps(zbx_host, indent=2)}" )
     logger.info( f"import_from_zabbix logic {api_endpoint} {device.name}" )
+    
+    return json.dumps( zbx_host, indent=2 )
 
-    return json.dumps(zbx_host, indent=2)
 
-
-# Oops don't pass token as an argument since it can be seen in the job UI.
+    
 def import_from_zabbix( api_endpoint, token, device, is_job=True, user=None):
+    """
+      Execute the Zabbix import task either synchronously or as a background job.
+    
+      Depending on the `is_job` flag, this function will either run the
+      import logic immediately or enqueue it to be executed as an RQ job.
+      It wraps the import logic and logs the result. The token is wrapped
+      using `SecretStr` to avoid accidental logging of sensitive information.
+    
+      Args:
+          api_endpoint (str): The URL of the Zabbix API endpoint.
+          token (str): The authentication token for the Zabbix API.
+          device (Device): The NetBox device object to retrieve data for.
+          is_job (bool, optional): Whether to run the task as a background job. Defaults to True.
+          user (User, optional): The user under which the job should be executed (required if is_job is True).
+    
+      Returns:
+          Job | None: Returns a Job instance if enqueued, otherwise None.
+    
+      Logs:
+          Success or failure of the import operation.
+      """
     if is_job:
-        logger.info( f"run import from zabbix as job" )
+        logger.info( f"run task import {device.name} from zabbix as job" )
         try:
-            return run_as_job( import_from_zabbix_logic, name="import from zabbix", user=user, api_endpoint=api_endpoint, token=token, device=device ) 
+            return run_as_job( import_from_zabbix_logic, name=f"import {device.name} from zabbix", user=user, api_endpoint=api_endpoint, token=SecretStr(token), device=device ) 
         except Exception as e:
             logger.info( f"import_from_zabbix_logic as job failed {e}" )
     
     else:
-        logger.info( f"import from zabbix" )
+        logger.info( f"runt task import {device.name} from zabbix" )
         try:
-            run(import_from_zabbix_logic, api_endpoint, token, device)
+            run( import_from_zabbix_logic, api_endpoint, SecretStr(token), device )
         except Exception as e:
             logger.info( f"import_from_zabbix_logic failed {e}" )
