@@ -6,7 +6,7 @@ from dcim.models import Device
 from virtualization.models import VirtualMachine
 
 
-from netbox_zabbix.jobb import run, run_as_job, TaskExecutionError
+from netbox_zabbix.job import RaisingJobRunner
 
 import logging
 
@@ -97,7 +97,6 @@ def synchronize_templates(api_endpoint, token, max_deletions=None):
     return added_templates, deleted_templates
 
 
-
 def get_zabbix_hostnames(api_endpoint, token):
     """
      Retrieve a list of hostnames from Zabbix.
@@ -135,7 +134,6 @@ def get_zabbix_only_hostnames( api_endpoint, token ):
     return [ h for h in zabbix_hostnames if h[ "name" ] not in netbox_hostnames ]
 
 
-
 def get_host(api_endpoint, token, hostname):
     z = ZabbixAPI( api_endpoint )
     z.login( api_token=token )
@@ -165,9 +163,6 @@ def get_host(api_endpoint, token, hostname):
         raise Exception( msg )
     
     return hosts[0]
-            
-
-import json
 
 
 class SecretStr(str):
@@ -189,68 +184,76 @@ class SecretStr(str):
 
 
 
-def import_from_zabbix_logic( api_endpoint, token, device ):
-    """
-      Logic function to retrieve Zabbix host information for a given device.
-    
-      This function calls the Zabbix API using the provided credentials to fetch
-      the host information associated with the given device name. The result is logged
-      and returned in JSON string format.
-    
-      Args:
-          api_endpoint (str): The URL of the Zabbix API endpoint.
-          token (str): The authentication token for accessing the Zabbix API.
-          device (Device): The NetBox device object to retrieve data for.
-    
-      Returns:
-          str: A JSON-formatted string containing the Zabbix host information.
-    
-      Raises:
-          Exception: Any exception raised during the API call or data retrieval.
-      """
-    try:
-        zbx_host = get_host( api_endpoint, token, device.name )
-    except Exception as e:
-        raise e
-    logger.info( f"{json.dumps(zbx_host, indent=2)}" )
-    logger.info( f"import_from_zabbix logic {api_endpoint} {device.name}" )
-    
-    return json.dumps( zbx_host, indent=2 )
+from django_rq import get_queue
+from rq.job import Job as RQJob
 
+class ImportFromZabbix( RaisingJobRunner ):
+    """ 
+    A custom NetBox JobRunner implementation to import host data from a
+    Zabbix server.
 
+    This job fetches a device's Zabbix configuration using the provided API
+    endpoint and token, and returns the host configuration data. It raises an
+    exception if any required input is missing or if the Zabbix API call fails.
     
-def import_from_zabbix( api_endpoint, token, device, is_job=True, user=None):
+    This class also works around a known NetBox bug where `JobRunner.handle()`
+    fails to propagate exceptions back to the background task system. By
+    extending RaisingJobRunner, this job ensures that job failures are correctly
+    marked as errored and reported.
+    
+    Meta:
+        name (str): Human-readable job name in the UI.
+        description (str): Description shown in the NetBox UI.
     """
-      Execute the Zabbix import task either synchronously or as a background job.
+    class Meta:
+        name = "Zabbix Importer"
+        description = "Import host settings from Zabbix"
     
-      Depending on the `is_job` flag, this function will either run the
-      import logic immediately or enqueue it to be executed as an RQ job.
-      It wraps the import logic and logs the result. The token is wrapped
-      using `SecretStr` to avoid accidental logging of sensitive information.
-    
-      Args:
-          api_endpoint (str): The URL of the Zabbix API endpoint.
-          token (str): The authentication token for the Zabbix API.
-          device (Device): The NetBox device object to retrieve data for.
-          is_job (bool, optional): Whether to run the task as a background job. Defaults to True.
-          user (User, optional): The user under which the job should be executed (required if is_job is True).
-    
-      Returns:
-          Job | None: Returns a Job instance if enqueued, otherwise None.
-    
-      Logs:
-          Success or failure of the import operation.
-      """
-    if is_job:
-        logger.info( f"run task import {device.name} from zabbix as job" )
+    def run(self, *args, **kwargs):
+        api_endpoint = kwargs.get("api_endpoint")
+        token = kwargs.get("token")
+        device = kwargs.get("device")
+        
+        if not all([api_endpoint, token, device]):
+            raise ValueError("Missing required arguments: api_endpoint, token, or device.")        
+
         try:
-            return run_as_job( import_from_zabbix_logic, name=f"import {device.name} from zabbix", user=user, api_endpoint=api_endpoint, token=SecretStr(token), device=device ) 
+            zbx_host = get_host( api_endpoint, token, device.name )
         except Exception as e:
-            logger.info( f"import_from_zabbix_logic as job failed {e}" )
+            raise e
+        
+        return zbx_host
     
-    else:
-        logger.info( f"runt task import {device.name} from zabbix" )
-        try:
-            run( import_from_zabbix_logic, api_endpoint, SecretStr(token), device )
-        except Exception as e:
-            logger.info( f"import_from_zabbix_logic failed {e}" )
+    @classmethod
+    def run_job(self, api_endpoint, token, device, user, schedule_at=None, interval=None, immediate=False):
+        name =f"Zabbix Import {device.name}"
+        if interval is None:
+            netbox_job = self.enqueue( name=name, 
+                                schedule_at=schedule_at, 
+                                interval=interval, 
+                                immediate=immediate, 
+                                user=user, 
+                                api_endpoint=api_endpoint, 
+                                token=SecretStr(token), 
+                                device=device )
+        else:
+            netbox_job = self.enqueue_once( name=name, 
+                                     schedule_at=schedule_at, 
+                                     interval=interval, 
+                                     immediate=immediate, 
+                                     user=user, 
+                                     api_endpoint=api_endpoint, 
+                                     token=SecretStr(token), 
+                                     device=device )
+
+        # Todo:
+        # Add name to the meta field in the RQ job so that it is possible to
+        # identify the RQ job. I would like to be able to set the func_name
+        # but that doesn't seem to work.
+        #rq_job_id = str(netbox_job.job_id)
+        #rq_job = get_queue().fetch_job(rq_job_id)
+        #if rq_job:
+        #    rq_job.meta = name
+        #    rq_job.save_meta()
+                
+        return netbox_job

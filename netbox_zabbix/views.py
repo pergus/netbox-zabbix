@@ -291,7 +291,6 @@ class UnmanagedDeviceListView(generic.ObjectListView):
 
     def post(self, request, *args, **kwargs):
         if '_import_zabbix' in request.POST:
-            as_job = True
             selected_ids = request.POST.getlist( 'pk' )
             queryset = Device.objects.filter( pk__in=selected_ids )
 
@@ -302,16 +301,15 @@ class UnmanagedDeviceListView(generic.ObjectListView):
                 messages.error( request, msg )
             else:
                 for device in queryset:
-                    logger.info( f"import {device} from zabbix")
                     try:
-                        job = z.import_from_zabbix( cfg.api_endpoint, cfg.token, device, is_job=as_job, user=request.user)
+                        job = z.ImportFromZabbix.run_job( cfg.api_endpoint, cfg.token, device, user=request.user, interval=2 )
+
+                        message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )
+                        messages.success( request, message )
+
                     except Exception as e:
-                        messages.error( request, f"Failed to import {device} from Zabbix" )
-                        return redirect( request.POST.get( 'return_url' ) or request.path )
-                if as_job:
-                    messages.success( request, f"Created job with id {job.id} for importing {device.name}" )
-                else:
-                    messages.success( request, f"{queryset.count()} device(s) imported from Zabbix." )
+                        messages.error( request, f"Failed to create job to import {device} from Zabbix" )
+                    
             return redirect( request.POST.get( 'return_url' ) or request.path )
         
         return super().get( request, *args, **kwargs )
