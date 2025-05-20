@@ -14,11 +14,12 @@ from django.http import Http404
 
 from utilities.paginator import EnhancedPaginator, get_paginate_count
 from dcim.models import Device
-from virtualization.models import VirtualMachine
-
-from netbox_zabbix import zabbix as z
-from netbox_zabbix import filtersets, forms, models, tables
 from netbox.views import generic
+
+
+# NetBox Zabbix Imports
+from netbox_zabbix import zabbix as z
+from netbox_zabbix import filtersets, forms, models, tables, jobs
 
 import logging
 logger = logging.getLogger( 'netbox.plugins.netbox_zabbix' )
@@ -302,7 +303,7 @@ class UnmanagedDeviceListView(generic.ObjectListView):
             else:
                 for device in queryset:
                     try:
-                        job = z.ImportFromZabbix.run_job( cfg.api_endpoint, cfg.token, device, user=request.user, interval=2 )
+                        job = jobs.ImportDeviceFromZabbix.run_job( cfg.api_endpoint, cfg.token, device, user=request.user )
 
                         message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )
                         messages.success( request, message )

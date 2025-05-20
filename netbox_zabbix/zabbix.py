@@ -6,8 +6,6 @@ from dcim.models import Device
 from virtualization.models import VirtualMachine
 
 
-from netbox_zabbix.job import RaisingJobRunner
-
 import logging
 
 
@@ -165,95 +163,3 @@ def get_host(api_endpoint, token, hostname):
     return hosts[0]
 
 
-class SecretStr(str):
-    """
-    A string subclass that masks its value when represented.
-    
-    This is useful for preventing sensitive information such as API tokens
-    or passwords from being displayed in logs or debug output. The actual
-    value is still accessible as a normal string, but its `repr()` output
-    will be masked.
-    
-    Example:
-        token = SecretStr("super-secret-token")
-        print(token)         # Output: super-secret-token
-        print(repr(token))   # Output: '*******'
-    """
-    def __repr__(self):
-        return "'*******'"
-
-
-
-from django_rq import get_queue
-from rq.job import Job as RQJob
-
-class ImportFromZabbix( RaisingJobRunner ):
-    """ 
-    A custom NetBox JobRunner implementation to import host data from a
-    Zabbix server.
-
-    This job fetches a device's Zabbix configuration using the provided API
-    endpoint and token, and returns the host configuration data. It raises an
-    exception if any required input is missing or if the Zabbix API call fails.
-    
-    This class also works around a known NetBox bug where `JobRunner.handle()`
-    fails to propagate exceptions back to the background task system. By
-    extending RaisingJobRunner, this job ensures that job failures are correctly
-    marked as errored and reported.
-    
-    Meta:
-        name (str): Human-readable job name in the UI.
-        description (str): Description shown in the NetBox UI.
-    """
-    class Meta:
-        name = "Zabbix Importer"
-        description = "Import host settings from Zabbix"
-    
-    def run(self, *args, **kwargs):
-        api_endpoint = kwargs.get("api_endpoint")
-        token = kwargs.get("token")
-        device = kwargs.get("device")
-        
-        if not all([api_endpoint, token, device]):
-            raise ValueError("Missing required arguments: api_endpoint, token, or device.")        
-
-        try:
-            zbx_host = get_host( api_endpoint, token, device.name )
-        except Exception as e:
-            raise e
-        
-        return zbx_host
-    
-    @classmethod
-    def run_job(self, api_endpoint, token, device, user, schedule_at=None, interval=None, immediate=False):
-        name =f"Zabbix Import {device.name}"
-        if interval is None:
-            netbox_job = self.enqueue( name=name, 
-                                schedule_at=schedule_at, 
-                                interval=interval, 
-                                immediate=immediate, 
-                                user=user, 
-                                api_endpoint=api_endpoint, 
-                                token=SecretStr(token), 
-                                device=device )
-        else:
-            netbox_job = self.enqueue_once( name=name, 
-                                     schedule_at=schedule_at, 
-                                     interval=interval, 
-                                     immediate=immediate, 
-                                     user=user, 
-                                     api_endpoint=api_endpoint, 
-                                     token=SecretStr(token), 
-                                     device=device )
-
-        # Todo:
-        # Add name to the meta field in the RQ job so that it is possible to
-        # identify the RQ job. I would like to be able to set the func_name
-        # but that doesn't seem to work.
-        #rq_job_id = str(netbox_job.job_id)
-        #rq_job = get_queue().fetch_job(rq_job_id)
-        #if rq_job:
-        #    rq_job.meta = name
-        #    rq_job.save_meta()
-                
-        return netbox_job

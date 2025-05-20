@@ -65,8 +65,8 @@ class Template(NetBoxModel):
 #
 
 class StatusChoices(models.TextChoices):
-    ENABLED = 'enabled', 'Enabled'
-    DISABLEd = 'disabled', 'Disabled'
+    ENABLED = 'enabled', 'Enabled'    # 0 - (default) monitored host
+    DISABLED = 'disabled', 'Disabled' # 1 - unmonitored host.
 
 class ManagedHost(NetBoxModel):
     class Meta:
