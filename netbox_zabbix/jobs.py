@@ -1,7 +1,7 @@
 from django.utils.text import slugify
 
 from ipam.models import IPAddress
-from dcim.models import Device
+from dcim.models import Device, Interface
 from virtualization.models import VirtualMachine
 
 import netaddr
@@ -155,7 +155,7 @@ def create_device_host(zabbix_host, device):
 
     logger.info( f"Create device host for {device.name} setting status to {StatusChoices.DISABLED if status else StatusChoices.ENABLED}")
     
-    # Before templates can be added the host has to have an id, hence the save here
+    # Before templates and interfaces can be added the host has to have an id, hence the save here
     device_host.save()
     
     # Add templates
@@ -175,13 +175,49 @@ def create_device_host(zabbix_host, device):
         if interface["type"] == "1":   # Agent
             print( f"{interface=}" )
 
-            # Look up the IPAddress object in NetBox
+            # 1. Look up the IPAddress object in NetBox
+            #
+            # Zabbix doesn't allow CIDR syntax for IP addresses so we can assume 
+            # that it is safe to add /24 when we search for the IP.
+            # 
+            
+            if  interface["useip"] == "1" and interface["ip"] != "":
+                address = f"{interface['ip']}/23" # Change to /24 !!
+                try:
+                    nb_ip_address = IPAddress.objects.get( address=address )
+                except Exception as e:
+                    raise Exception( f"No IPAddress object with {address} exists in NetBox" )
+                
+            elif interface["useip"] == "0" and interface["dns"] != "":
+                try:
+                    nb_ip_address = IPAddress.objects.get( dns_name=interface["dns"] )
+                except Exception as e:
+                    raise Exception( f"No IPAddress object with DNS Name {interface["dns"]} exists in NetBox" )
+                
+            else:
+                raise Exception( f"Internal error looking for the IPAddress Object for Zabbix interface with interfaceid {interface['interfaceid']}" )
+            
+            # 2. Use the IPAddress to get the Interface
+            nb_interface = Interface.objects.get( id=nb_ip_address.assigned_object_id )
+            
+            #logger.info( f"{nb_interface=}" )
 
-            # 1. Use the ip if it exists
+            # 3. Create DeviceAgentInterface
+            agent_iface = DeviceAgentInterface.objects.create(
+                name=f"{device.name}-agent",
+                zabbix_host_id=zabbix_host_id,
+                zabbix_interface_id= int( interface["interfaceid"] ) ,
+                available = int( interface["available"] ),                                             # Use AvailableChoices.YES if defined
+                useip = int( interface["useip"] ),                                                 # Use UseIPChoices.IP if defined
+                main = int( interface["main"] ),                                                  # Use MainChoices.YES if defined
+                port = int( interface["port"] ),
+                host = device_host,
+                interface = nb_interface,
+                ip_address = nb_ip_address
+            )
 
-            # 2. Use the dns name.
-
-            #DeviceAgentInterface()
+            # Save the agent interface
+            agent_iface.save()
 
         elif interface["type"]  == "2": # SNMP
             print( f"{interface=}" )
