@@ -375,7 +375,6 @@ class ZBXOnlyHostsView(GenericTemplateView):
 class DeviceAgentInterfaceView(generic.ObjectView):
     queryset = models.DeviceAgentInterface.objects.all()
 
-
 class DeviceAgentInterfaceListView(generic.ObjectListView):
     queryset = models.DeviceAgentInterface.objects.all()
 #    filterset = filtersets.DeviceAgentInterfaceFilterSet
