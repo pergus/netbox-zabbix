@@ -66,12 +66,12 @@ class DeviceHostTable(NetBoxTable):
     name = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
     device = tables.Column( accessor='device', verbose_name='Device', linkify=True )
     status = tables.Column()
-    zabbix_host_id = tables.Column( verbose_name='Zabbix Host ID' )
+    hostid = tables.Column( verbose_name='Zabbix Host ID' )
     templates = tables.ManyToManyColumn(linkify_item=True)
     
     class Meta(NetBoxTable.Meta):
         model = models.DeviceHost
-        fields = ('name', 'device', 'status', 'zabbix_host_id', 'templates')
+        fields = ('name', 'device', 'status', 'hostid', 'templates')
         default_columns = ('name', 'device', 'status', 'templates')
     
 
@@ -79,12 +79,12 @@ class VMHostTable(NetBoxTable):
     name = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
     virtual_machine = tables.Column( accessor='virtual_machine', verbose_name='VM', linkify=True )
     status = tables.Column()
-    zabbix_host_id = tables.Column( verbose_name='Zabbix Host ID' )
+    hostid = tables.Column( verbose_name='Zabbix Host ID' )
     templates = tables.ManyToManyColumn(linkify_item=True)
     
     class Meta(NetBoxTable.Meta):
         model = models.VMHost
-        fields = ('name', 'virtual_machine', 'status', 'zabbix_host_id',  'templates')
+        fields = ('name', 'virtual_machine', 'status', 'hostid',  'templates')
         default_columns = ('name', 'virtual_machine', 'status', 'templates')
 
         
@@ -110,7 +110,7 @@ class ManagedHostActionsColumn(ActionsColumn):
 class ManagedHostTable(NetBoxTable):
     name = tables.Column( accessor='get_name', verbose_name='Host Name', linkify=True )
     type = tables.Column( empty_values=(), verbose_name='Type', order_by=('device__name', 'virtual_machine__name') )
-    zabbix_host_id = tables.Column( verbose_name='Zabbix Host ID' )
+    hostid = tables.Column( verbose_name='Zabbix Host ID' )
     status = tables.Column()
     object = tables.Column( empty_values=(), verbose_name='NetBox Object', order_by=('device__name', 'virtual_machine__name') )
 
@@ -118,7 +118,7 @@ class ManagedHostTable(NetBoxTable):
      
     class Meta(NetBoxTable.Meta):
         model = models.ManagedHost
-        fields = ('name', 'object', 'status', 'type', 'zabbix_host_id', 'status', 'templates' )
+        fields = ('name', 'object', 'status', 'type', 'hostid', 'status', 'templates' )
         default_columns = ('name', 'object', 'status', 'templates', 'type' )
 
     def render_type(self, record):
@@ -174,7 +174,7 @@ class DeviceAgentInterfaceTable(NetBoxTable):
         
     class Meta(NetBoxTable.Meta):
         model = models.DeviceAgentInterface
-        fields = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "zabbix_host_id", "zabbix_interface_id", "available", "useip", "main",  "port" )
+        fields = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "hostid", "interfaceid", "available", "useip", "main",  "port" )
         default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port" )
 
 
@@ -183,5 +183,5 @@ class DeviceSNMPv3InterfaceTable(NetBoxTable):
     
     class Meta(NetBoxTable.Meta):
         model = models.DeviceSNMPv3Interface
-        fields = ("name", "host", "interface", "zabbix_host_id", "zabbix_interface_id", "available", "useip", "main",  "port" )
+        fields = ("name", "host", "interface", "hostid", "interfaceid", "available", "useip", "main",  "port" )
         default_columns = ("name", "host", "interface", "port" )

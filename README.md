@@ -13,9 +13,14 @@ Rename Config to Settings.
 Rename Host to Config or something similar.
 Rename the interfaces to something shorter.
 
+
 Rename router.register( 'availabledeviceinterface', 
    views.AvailableDeviceInterfaceViewSet, basename='availabledeviceinterface' )
 to something more palatable.
+
+Decide how exception messages should be handled. 
+ Like Go with no capital letters and no punctuation?
+
 
 Replace the plugin settings with values in the configuration model.
 

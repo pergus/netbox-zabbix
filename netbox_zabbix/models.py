@@ -72,7 +72,7 @@ class ManagedHost(NetBoxModel):
     class Meta:
         abstract = True
 
-    zabbix_host_id = models.PositiveIntegerField( unique=True, blank=True, null=True )
+    hostid = models.PositiveIntegerField( unique=True, blank=True, null=True )
     status = models.CharField( max_length=255, choices=StatusChoices.choices, default='enabled' )
     templates = models.ManyToManyField( Template, blank=True )
 
@@ -82,7 +82,7 @@ class DeviceHost(ManagedHost):
         verbose_name = "Device Host"
         verbose_name_plural = "Device Hosts"
     
-    device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zabbix_device_host' )
+    device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zbx_device_host' )
 
     def __str__(self):
         return f"zbx-{self.device.name}"
@@ -99,7 +99,7 @@ class VMHost(ManagedHost):
         verbose_name = "VM Host"
         verbose_name_plural = "VM Hosts"
     
-    virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zabbix_vm_host' )
+    virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zbx_vm_host' )
 
     def __str__(self):
         return f"zbx-{self.virtual_machine.name}"
@@ -126,30 +126,53 @@ class MainChoices(models.IntegerChoices):
     YES = (1, 'Yes')
 
 class AvailableChoices(models.IntegerChoices):
-    NO = (0, 'No')
-    YES = (1, 'Yes')
+    UNKNOWN = (0, 'Unknown')
+    AVAILABLE = (1, 'Available')
+    UNAVAILABLE = (2, 'Unavailable')
 
+class TypeChoices(models.IntegerChoices):
+    AGENT = (1, 'Agent')
+    SNMP =  (2, 'SNMP')
 
 class HostInterface(NetBoxModel):
     class Meta:
         abstract = True
     
     name = models.CharField( max_length=255, blank=False, null=False )
-    zabbix_host_id = models.IntegerField( blank=True, null=True )
-    zabbix_interface_id = models.IntegerField( blank=True, null=True )
-    available = models.IntegerField( choices=AvailableChoices, default=AvailableChoices.YES )
+
+    # Zabbix Host ID
+    hostid = models.IntegerField( blank=True, null=True )
+
+    # Zabbix Host Interface ID
+    interfaceid = models.IntegerField( blank=True, null=True )
+
+    # Availablility of host interface. 
+    available = models.IntegerField( choices=AvailableChoices, default=AvailableChoices.AVAILABLE )
+
+    # Whether a connection should be made via IP or DNS.
     useip = models.IntegerField( choices=UseIPChoices, default=UseIPChoices.IP )
+
+    # Whether the interface is used as default on the host.
+    # Only one interface of some type can be set as default on a host.
     main = models.IntegerField( choices=MainChoices, default=MainChoices.YES )
 
+        
 
 class DeviceAgentInterface(HostInterface):
     class Meta:
         verbose_name = "Device Agent Interface"
         verbose_name_plural = "Device Agent Interfaces"
     
-    port = models.IntegerField( default=10050 )
     host = models.ForeignKey( to="DeviceHost", on_delete=models.CASCADE, related_name="agent_interfaces" )
     interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, blank=True, null=True, related_name="agent_interface" )
+
+    # Interface type
+    type = models.IntegerField(choices=TypeChoices, default=TypeChoices.AGENT )
+
+    # Port number used by the interface.
+    port = models.IntegerField( default=10050 )
+    
+    # IP address used by the interface. Can be empty if connection is made via DNS.
     ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="agent_ip" )
 
     def __str__(self):
@@ -173,33 +196,75 @@ class DeviceAgentInterface(HostInterface):
             return self.host.device.primary_ip4
         else:
             return self.ip_address
+
+
+    def clean(self):
+        super().clean()
+    
+        interface = self.interface
+        ip_address = self.ip_address
+    
+        # Validate interface/IP match
+        if ip_address and interface:
+            if ip_address.assigned_object != interface:
+                raise ValidationError({ "ip_address": "The selected IP address is not assigned to the selected interface." })
+    
+            
+    def save(self, *args, **kwargs):
+        self.full_clean()
+
+        # Ensure only one agent interface is the the main interface.
+        if self.main == MainChoices.YES:
+            existing_mains = self.host.agent_interfaces.filter( main=MainChoices.YES )
+            if existing_mains.exists():
+                existing_mains.update( main=MainChoices.NO )
         
+        
+        return super().save(*args, **kwargs)
+    
+
 class DeviceSNMPv3Interface(HostInterface):
     class Meta:
         verbose_name = "Device SNMPv3 Interface"
         verbose_name_plural = "Device SNMPv3 Interfaces"
     
-    port = models.IntegerField( default=161 )
     host = models.ForeignKey( to='DeviceHost', on_delete=models.CASCADE, related_name='snmpv3_interfaces' )
     interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
+    
+
+    # Interface type
+    type = models.IntegerField(choices=TypeChoices, default=TypeChoices.SNMP )
+    
+    # Port number used by the interface.
+    port = models.IntegerField( default=161 )
+
+    
+    # IP address used by the interface. Can be empty if connection is made via DNS.
+    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="snmp3_ip" )
+
 
     def __str__(self):
         return f"{self.name}"
     
     def get_name(self):
         return f"{self.name}"
-
-    def clean(self):
-        super().clean()
     
-        # Prevent duplicate use of the interface across HostInterfaces
-        if DeviceSNMPv3Interface.objects.filter( interface=self.interface ).exclude( pk=self.pk ).exists():
-            raise ValidationError({'interface': 'This interface is already assigned to another HostInterface.'})
+    @property
+    def resolved_dns_name(self):
+        config = Config.objects.first()
+        if config.ip_assignment_method == 'primary':
+            return self.host.device.primary_ip4.dns_name
+        else:
+            return self.ip_address.dns_name
     
-        # Optional: ensure interface belongs to the same device as host
-        if self.host.device != self.interface.device:
-            raise ValidationError({'interface': 'Selected interface does not belong to the same device as the host.'})
-
+    @property
+    def resolved_ip_address(self):
+        config = Config.objects.first()
+        if config.ip_assignment_method == 'primary':
+            return self.host.device.primary_ip4
+        else:
+            return self.ip_address
+    
 #
 #
 #class VMAgentInterface(HostInterface):

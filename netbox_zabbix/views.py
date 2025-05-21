@@ -216,6 +216,7 @@ class DeviceHostDeleteView(generic.ObjectDeleteView):
 class VMHostView(generic.ObjectView):
     queryset = models.VMHost.objects.all()
 
+
 class VMHostListView(generic.ObjectListView):
     queryset = models.VMHost.objects.all()
     filterset = filtersets.VMHostFilterSet
@@ -321,6 +322,7 @@ def nb_only_hosts(request):
     logger.info("nb_only_hosts")
     return redirect( request.META.get( 'HTTP_REFERER', '/' ) )
 
+
 class ZBXOnlyHostsView(GenericTemplateView):
     template_name = 'netbox_zabbix/zabbix_only_hosts.html'
 
@@ -410,19 +412,4 @@ class DeviceSNMPv3InterfaceEditView(generic.ObjectEditView):
 
 class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
-
-
-
-#
-# Is this used?
-#
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from ipam.models import IPAddress
-
-def get_dns_name(request, ip_address_id):
-    ip_address = get_object_or_404(IPAddress, id=ip_address_id)
-    # Assuming the IPAddress model has a 'dns_name' field
-    return JsonResponse({'dns_name': ip_address.dns_name})
-
 

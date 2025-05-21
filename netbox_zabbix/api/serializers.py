@@ -35,7 +35,7 @@ class DeviceHostSerializer(NetBoxModelSerializer):
 
     class Meta:
         model = models.DeviceHost
-        fields = ( 'id', 'name', 'display', 'zabbix_host_id', 'status', 'templates', )
+        fields = ( 'id', 'name', 'display', 'hostid', 'status', 'templates', )
     
     templates = TemplateSerializer( many=True, read_only=True )
 
@@ -49,7 +49,7 @@ class DeviceHostSerializer(NetBoxModelSerializer):
 class VMHostSerializer(NetBoxModelSerializer):
     class Meta:
         model = models.VMHost
-        fields = ( 'id', 'zabbix_host_id', 'status', 'templates', )
+        fields = ( 'id', 'hostid', 'status', 'templates', )
         
     templates = TemplateSerializer( many=True, read_only=True )
 

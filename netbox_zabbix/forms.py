@@ -64,7 +64,6 @@ class ConfigForm(NetBoxModelForm):
             self.fields.pop('tags', None)
     
     def clean(self):
-        logger.info("CLEAN")
         super().clean()
     
         # Prevent second config
@@ -141,17 +140,17 @@ class DeviceHostForm(NetBoxModelForm):
 class DeviceHostFilterForm(NetBoxModelFilterSetForm):
     model = models.DeviceHost
 
-    status         = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
-    templates      = forms.ModelMultipleChoiceField( label = "Templates", queryset = models.Template.objects.all(), required = False )
-    zabbix_host_id = forms.ChoiceField( label = "Zabbix Host ID", required = False )
+    status    = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
+    templates = forms.ModelMultipleChoiceField( label = "Templates", queryset = models.Template.objects.all(), required = False )
+    hostid    = forms.ChoiceField( label = "Zabbix Host ID", required = False )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-         # Set zabbix_host_id choices dynamically on instantiation
-        zabbix_host_ids = models.DeviceHost.objects.order_by( 'zabbix_host_id' ).distinct( 'zabbix_host_id' ).values_list( 'zabbix_host_id', flat=True )
-        choices = [("", "---------")] + [(zid, zid) for zid in zabbix_host_ids if zid is not None]
-        self.fields["zabbix_host_id"].choices = choices
+         # Set hostid choices dynamically on instantiation
+        hostids = models.DeviceHost.objects.order_by( 'hostid' ).distinct( 'hostid' ).values_list( 'hostid', flat=True )
+        choices = [("", "---------")] + [(zid, zid) for zid in hostids if zid is not None]
+        self.fields["hostid"].choices = choices
 
 
 class VMHostForm(NetBoxModelForm):
@@ -189,22 +188,22 @@ class VMHostFilterForm(NetBoxModelFilterSetForm):
 
     status         = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
     templates      = forms.ModelMultipleChoiceField( label = "Templates", queryset = models.Template.objects.all(), required = False )
-    zabbix_host_id = forms.ChoiceField( label = "Zabbix Host ID", required = False )
+    hostid = forms.ChoiceField( label = "Zabbix Host ID", required = False )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-         # Set zabbix_host_id choices dynamically on instantiation
-        zabbix_host_ids = models.VMHost.objects.order_by( 'zabbix_host_id' ).distinct( 'zabbix_host_id' ).values_list( 'zabbix_host_id', flat=True )
-        choices = [("", "---------")] + [(zid, zid) for zid in zabbix_host_ids if zid is not None]
-        self.fields["zabbix_host_id"].choices = choices
+         # Set hostid choices dynamically on instantiation
+        hostids = models.VMHost.objects.order_by( 'hostid' ).distinct( 'hostid' ).values_list( 'hostid', flat=True )
+        choices = [("", "---------")] + [(zid, zid) for zid in hostids if zid is not None]
+        self.fields["hostid"].choices = choices
 
 
 # ------------------------------------------------------------------------------
 # Interface
 #
+
 from utilities.forms.fields import DynamicModelChoiceField
-from utilities.forms.widgets import APISelect
 from ipam.models import IPAddress
 
 class DeviceAgentInterfaceForm(NetBoxModelForm):
@@ -223,7 +222,6 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
         queryset=models.DeviceHost.objects.all(),
         required=True,
     )
-
 
     interface = DynamicModelChoiceField( 
         label="Device Interface",
@@ -253,6 +251,29 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
           # Set the initial value of the calculated DNS name if editing an existing instance
           if self.instance.pk:
               self.fields['dns_name'].initial = self.instance.resolved_dns_name
+
+#    def clean(self):
+#        super().clean()
+#
+#        # If the host already have agent interfaces and the newly created 
+#        # interface has 'main' set to 'YES', then the current main interface 
+#        # should change its 'main' setting from 'YES' to 'NO'.
+#        interface =  self.cleaned_data["interface"]
+#        ip_address = self.cleaned_data["ip_address"]
+#
+#        # Validate interface/IP match
+#        if ip_address and interface:
+#            if ip_address.assigned_object != interface:
+#                self.add_error("ip_address", "The selected IP address is not assigned to the selected interface.")
+#        
+#        # If main=YES, check and update others in the view logic or via signal
+#        if main == models.MainChoices.YES:
+#            existing_mains = host.agent_interfaces.filter( main=models.MainChoices.YES )
+#            if existing_mains.exists():
+#                # Warn instead of modifying others automatically (as clean() shouldn't commit changes)
+#                self.add_error("main", "Another main agent interface already exists for this host. You must set that one to 'NO' first.")
+
+
 
 
 class DeviceSNMPv3InterfaceForm(NetBoxModelForm):

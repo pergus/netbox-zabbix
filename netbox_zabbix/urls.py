@@ -83,5 +83,4 @@ urlpatterns = (
     path( "devicesnmpv3interfaces/<int:pk>/delete/",     views.DeviceSNMPv3InterfaceDeleteView.as_view(),   name="devicesnmpv3interface_delete" ),
     path( "devicesnmpv3interfaces/<int:pk>/changelog/",  ObjectChangeLogView.as_view(),                     name="devicesnmpv3interface_changelog", kwargs={"model": models.DeviceSNMPv3Interface} ),
 
-    path( 'get_dns_name/<int:ip_address_id>/', views.get_dns_name, name='get_dns_name' ),   
 )
