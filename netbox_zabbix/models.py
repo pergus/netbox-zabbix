@@ -126,13 +126,46 @@ class MainChoices(models.IntegerChoices):
     YES = (1, 'Yes')
 
 class AvailableChoices(models.IntegerChoices):
-    UNKNOWN = (0, 'Unknown')
-    AVAILABLE = (1, 'Available')
+    UNKNOWN     = (0, 'Unknown')
+    AVAILABLE   = (1, 'Available')
     UNAVAILABLE = (2, 'Unavailable')
 
 class TypeChoices(models.IntegerChoices):
     AGENT = (1, 'Agent')
     SNMP =  (2, 'SNMP')
+
+class SNMPVersionChoices(models.IntegerChoices):
+    SNMPv1  = (1, 'SNMPv1')
+    SNMPv2c = (2, 'SNMPv2c')
+    SNMPv3  = (3, 'SNMPv3')
+
+class SNMPBulkChoices(models.IntegerChoices):
+    NO  = (0, 'No')
+    YES = (1, 'Yes')
+
+class SNMPSecurityLevelChoices(models.IntegerChoices):
+    noAuthNoPriv = (0, 'noAuthNoPriv')
+    authNoPriv   = (1, 'authNoPriv')
+    authPriv     = (2, 'authPriv')
+
+
+class SNMPAuthProtocolChoices(models.IntegerChoices):
+    MD5    = (0, 'MD5')
+    SHA1   = (1, 'SHA1')
+    SHA224 = (2, 'SHA224')
+    SHA256 = (3, 'SHA256')
+    SHA384 = (4, 'SHA384')
+    SHA512 = (5, 'SHA512')
+
+class SNMPPrivProtocolChoices(models.IntegerChoices):
+    DES     = (0, 'DES')
+    AES128  = (1, 'AES128')
+    AES192  = (2, 'AES192')
+    AES256  = (3, 'AES256')
+    AES192C  = (4, 'AES192C')
+    AES256C = (5, 'AES256C')
+    
+
 
 class HostInterface(NetBoxModel):
     class Meta:
@@ -156,7 +189,6 @@ class HostInterface(NetBoxModel):
     # Only one interface of some type can be set as default on a host.
     main = models.IntegerField( choices=MainChoices, default=MainChoices.YES )
 
-        
 
 class DeviceAgentInterface(HostInterface):
     class Meta:
@@ -235,12 +267,41 @@ class DeviceSNMPv3Interface(HostInterface):
     # Interface type
     type = models.IntegerField(choices=TypeChoices, default=TypeChoices.SNMP )
     
-    # Port number used by the interface.
+    # Port number used by the interface
     port = models.IntegerField( default=161 )
-
     
     # IP address used by the interface. Can be empty if connection is made via DNS.
     ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="snmp3_ip" )
+
+    # SNMP interface version
+    snmp_version = models.IntegerField( choices=SNMPVersionChoices, default=SNMPVersionChoices.SNMPv3, blank=True, null=True )
+
+    # Whether to use bulk SNMP requests
+    snmp_bulk = models.IntegerField( choices=SNMPBulkChoices, default=1, blank=True, null=True )
+
+    # Max repetition value for native SNMP bulk requests
+    snmp_max_repetitions = models.IntegerField( default=10, blank=True, null=True )
+
+    # SNMPv3 security name 
+    snmp_securityname = models.CharField( max_length=255, blank=True, null=True )
+
+    # SNMPv3 Secuirty level           
+    snmp_securitylevel = models.IntegerField( choices=SNMPSecurityLevelChoices, default=SNMPSecurityLevelChoices.authPriv, blank=True, null=True )
+    
+    # SNMPv3 authentication passphrase
+    snmp_authpassphrase = models.CharField( max_length=255, default="{$SNMPV3_AUTHPASS}", blank=True, null=True)
+
+    # SNMPv3 privacy passphrase
+    snmp_privpassphrase = models.CharField( max_length=255, default="{$SNMPV3_PRIVPASS}", blank=True, null=True )
+
+    # SNMPv3 authentication protocol
+    snmp_authprotocol = models.IntegerField( choices=SNMPAuthProtocolChoices, default=SNMPAuthProtocolChoices.SHA1, blank=True, null=True )
+
+    # SNMPv3 privacy protocol.
+    snmp_privprotocol = models.IntegerField( choices=SNMPPrivProtocolChoices, default=SNMPPrivProtocolChoices.AES128, blank=True, null=True )
+    
+    # SNMPv3 context name.
+    snmp_contextname = models.CharField( max_length=255, blank=True, null=True )
 
 
     def __str__(self):

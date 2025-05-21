@@ -252,43 +252,71 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
           if self.instance.pk:
               self.fields['dns_name'].initial = self.instance.resolved_dns_name
 
-#    def clean(self):
-#        super().clean()
-#
-#        # If the host already have agent interfaces and the newly created 
-#        # interface has 'main' set to 'YES', then the current main interface 
-#        # should change its 'main' setting from 'YES' to 'NO'.
-#        interface =  self.cleaned_data["interface"]
-#        ip_address = self.cleaned_data["ip_address"]
-#
-#        # Validate interface/IP match
-#        if ip_address and interface:
-#            if ip_address.assigned_object != interface:
-#                self.add_error("ip_address", "The selected IP address is not assigned to the selected interface.")
-#        
-#        # If main=YES, check and update others in the view logic or via signal
-#        if main == models.MainChoices.YES:
-#            existing_mains = host.agent_interfaces.filter( main=models.MainChoices.YES )
-#            if existing_mains.exists():
-#                # Warn instead of modifying others automatically (as clean() shouldn't commit changes)
-#                self.add_error("main", "Another main agent interface already exists for this host. You must set that one to 'NO' first.")
-
 
 
 
 class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
     class Meta:
-        model = models.DeviceAgentInterface
-        fields = ( 'host', 'interface', 'name', 'available', 'useip', 'useip', 'main', 'port', 'interface' )
+        model = models.DeviceSNMPv3Interface
+        fields = ( 'name', 'host', 'interface', 'ip_address', 'dns_name', 
+                   'available', 'useip', 'useip', 'main', 'port',
+                   'snmp_max_repetitions',
+                   'snmp_contextname',
+                   'snmp_securityname',
+                   'snmp_securitylevel',
+                   'snmp_authprotocol',
+                   'snmp_authpassphrase',
+                   'snmp_privprotocol',
+                   'snmp_privpassphrase',
+                   'snmp_bulk' )
 
     name = forms.CharField( max_length=255, required=True )
     available = forms.ChoiceField( choices=models.AvailableChoices )
     useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
     main = forms.ChoiceField( choices=models.MainChoices )
     port = forms.IntegerField( required=True )
-    host = forms.ModelChoiceField( queryset=models.DeviceHost.objects.all(), required=True )
+
+    snmp_max_repetitions = forms.IntegerField( label="Max Repetition Count", initial=10 )
+    snmp_contextname     = forms.CharField( label="Context Name", max_length=255 )    
+    snmp_securityname    = forms.CharField( max_length=255, label="Security Name" )
+    snmp_securitylevel   = forms.ChoiceField( label="Security Level", choices=models.SNMPSecurityLevelChoices, initial=models.SNMPSecurityLevelChoices.authPriv )
+    snmp_authprotocol    = forms.ChoiceField( label="Authentication Protocol", choices=models.SNMPAuthProtocolChoices, initial=models.SNMPAuthProtocolChoices.SHA1 )
+    snmp_authpassphrase  = forms.CharField( max_length=255, label="Authentication Passphrase", initial="{$SNMPV3_AUTHPASS}" )
+    snmp_privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )    
+    snmp_privpassphrase  = forms.CharField( max_length=255, label="Privacy Passphrase", initial="{$SNMPV3_PRIVPASS}" )
+    snmp_bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
+    
+    host = DynamicModelChoiceField( 
+           label="Zabbix Host",      
+           queryset=models.DeviceHost.objects.all(),
+           required=True,
+       )
+    
     interface = DynamicModelChoiceField( 
         label="Device Interface",
         queryset = models.AvailableDeviceInterface.objects.all(),
         query_params={"device_id": "$host"},
+        required=True,
     )
+    
+    ip_address = DynamicModelChoiceField(
+        label="IP Address",
+        queryset=IPAddress.objects.all(),
+        query_params={ "interface_id": "$interface" },    
+        required=True,
+    )
+    
+    dns_name = forms.CharField(
+           label="DNS Name",
+           max_length=255,
+           required=False,
+           disabled=True,
+           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
+    )
+
+    def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+      
+            # Set the initial value of the calculated DNS name if editing an existing instance
+            if self.instance.pk:
+                self.fields['dns_name'].initial = self.instance.resolved_dns_name

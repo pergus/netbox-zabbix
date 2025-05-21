@@ -1,0 +1,91 @@
+{% extends 'generic/object_edit.html' %}
+
+{% block content %}
+{{ block.super }}
+
+{% endblock %}
+{% block javascript %}
+<script type="text/javascript">
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const hostField = document.querySelector('[name=host]');
+        const interfaceField = document.querySelector('[name=interface]');
+        const ipField = document.querySelector('[name=ip_address]');
+        const dnsNameField = document.querySelector('[name=dns_name]');
+
+        const interfaceTS = interfaceField.tomselect;
+        const ipTS = ipField.tomselect;
+
+        interfaceTS.settings.closeAfterSelect = true;
+        ipTS.settings.closeAfterSelect = true;
+
+        function waitAndSet(ts, value) {
+            let retries = 20;
+            function trySet() {
+                if (ts.options.hasOwnProperty(value)) {
+                    ts.setValue(value);
+                    //ts.close();
+                } else if (retries-- > 0) {
+                    setTimeout(trySet, 100);
+                }
+            }
+            trySet();
+        }
+
+
+        ipField.addEventListener('change', function () {
+            const ipId = this.value;
+            if (!ipId) return;
+
+            fetch(`/api/ipam/ip-addresses/${ipId}/`)
+                .then(resp => resp.json())
+                .then(data => {
+                    if (dnsNameField) {
+                        dnsNameField.value = data.dns_name || '';
+                    }
+                })
+                .catch(err => {
+                    console.error("Failed to fetch IP details:", err);
+                    if (dnsNameField) dnsNameField.value = '';
+                });
+        });
+
+        hostField.addEventListener('change', function () {
+            const hostId = this.value;
+            if (!hostId) return;
+
+            fetch(`/api/plugins/netbox_zabbix/devicehost/${hostId}/primary-interface-data/`)
+                .then(resp => resp.json())
+                .then(data => {
+                    // Reset interface and ip selects
+                    interfaceTS.clear(true);
+                    ipTS.clear(true);
+
+                    // Trigger fetch of interface list
+                    interfaceTS.setTextboxValue('');
+
+                    // Set primary interface
+                    waitAndSet(interfaceTS, data.interface_id);
+
+                    // Trigger IP loading after a short delay
+                    setTimeout(() => {
+                        // Trigger fetch of ip list
+                        ipTS.setTextboxValue('');
+
+                        // Set priamry ip
+                        waitAndSet(ipTS, data.ip_address_id);
+
+                        // DNS
+                        if (dnsNameField) {
+                            dnsNameField.value = data.dns_name || '';
+                        }
+                    }, 250); // Delay enough to let interface selection propagate
+                })
+                .catch(function () { });
+        });
+    });
+
+
+</script>
+{% endblock %}

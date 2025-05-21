@@ -408,7 +408,8 @@ class DeviceSNMPv3InterfaceListView(generic.ObjectListView):
 class DeviceSNMPv3InterfaceEditView(generic.ObjectEditView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
     form = forms.DeviceSNMPv3InterfaceForm
-
+    template_name = 'netbox_zabbix/device_snmpv3_interface_edit.html'
+    
 
 class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
