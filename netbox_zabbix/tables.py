@@ -67,7 +67,7 @@ class DeviceHostTable(NetBoxTable):
     device = tables.Column( accessor='device', verbose_name='Device', linkify=True )
     status = tables.Column()
     hostid = tables.Column( verbose_name='Zabbix Host ID' )
-    templates = tables.ManyToManyColumn(linkify_item=True)
+    templates = tables.ManyToManyColumn( linkify_item=True )
     
     class Meta(NetBoxTable.Meta):
         model = models.DeviceHost

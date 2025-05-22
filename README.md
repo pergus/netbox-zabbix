@@ -9,7 +9,7 @@ NetBox plugin for Zabbix.
 
 ## Todo
 
-Rename Config to Settings.
+Rename Config to Settings or something similar.
 Rename Host to Config or something similar.
 Rename the interfaces to something shorter.
 

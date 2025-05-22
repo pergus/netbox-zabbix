@@ -9,7 +9,7 @@ logger = logging.getLogger('netbox.plugins.netbox_zabbix')
 
 
 @receiver(post_delete, sender=DeviceAgentInterface)
-def ensure_main_exists(sender, instance, **kwargs):
+def promot_agent_interface_to_main(sender, instance, **kwargs):
     # If the deleted instance was main, promote another interface
     if instance.main == MainChoices.YES:
         remaining = instance.host.agent_interfaces.exclude( pk=instance.pk )
@@ -21,7 +21,7 @@ def ensure_main_exists(sender, instance, **kwargs):
 
 
 @receiver(post_delete, sender=DeviceSNMPv3Interface)
-def ensure_main_exists(sender, instance, **kwargs):
+def promot_snmpv3_interface_to_main(sender, instance, **kwargs):
     # If the deleted instance was main, promote another interface
     if instance.main == MainChoices.YES:
         remaining = instance.host.snmpv3_interfaces.exclude( pk=instance.pk )
