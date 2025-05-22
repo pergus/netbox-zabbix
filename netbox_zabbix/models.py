@@ -1,4 +1,3 @@
-from click import version_option
 from django.urls import reverse
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -21,10 +20,10 @@ class Config(NetBoxModel):
         verbose_name = "Zabbix Configuration"
         verbose_name_plural = "Zabbix Configurations"
     
-    name             = models.CharField( max_length=255 )
-    api_endpoint     = models.CharField( verbose_name="API Edpoint", max_length=255 )
-    web_address      = models.CharField( verbose_name="WEB Address", max_length=255 )
-    token            = models.CharField( max_length=255 )
+    name             = models.CharField( max_length=255, help_text="Name of the configuration" )
+    api_endpoint     = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to Zabbix API Endpoint" )
+    web_address      = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to Zabbix" )
+    token            = models.CharField( max_length=255, help_text="Zabbix access token" )
     connection       = models.BooleanField( default=False )
     last_checked_at  = models.DateTimeField( null=True, blank=True )
     version          = models.CharField( max_length=255, blank=True, null=True )
@@ -74,7 +73,7 @@ class ManagedHost(NetBoxModel):
 
     hostid = models.PositiveIntegerField( unique=True, blank=True, null=True )
     status = models.CharField( max_length=255, choices=StatusChoices.choices, default='enabled' )
-    templates = models.ManyToManyField( Template, blank=True )
+    templates = models.ManyToManyField( Template, blank=False )
 
     
 class DeviceHost(ManagedHost):

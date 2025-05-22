@@ -3,9 +3,6 @@
 
 {% block title %}Unmanaged {{ model|meta:"verbose_name_plural"|bettertitle }}{% endblock %}
 
-{% block content %}
-{{ block.super }}
-
 {% block bulk_buttons %}
 <div class="bulk-action-buttons">
 
@@ -22,4 +19,7 @@
 </div>
 {% endblock %}
 
+
+{% block content %}
+{{ block.super }}
 {% endblock %}

@@ -61,8 +61,12 @@ urlpatterns = (
     # Unmanaged Device Hosts - Devices in NetBox and that exist in Zabbix but lack Zabbix config in NetBox.
     path("unmanaged_device_list", views.UnmanagedDeviceListView.as_view(), name="unmanaged_device_list"),
 
-    # NetBox only hosts - Hosts in NetBox that exist in Zabbix but lack Zabbix config in NetBox
-    path("nb_only_hosts", views.nb_only_hosts, name="nb_only_hosts"),
+    # Devices exclustive to NetBox, i.e. not present in Zabbix
+    path("devices_exclusive_to_netbox", views.DevicesExclustiveToNetBoxView.as_view(), name="devices_exclusive_to_netbox"),
+
+    # VMs exclustive to NetBox, i.e. not present in Zabbix
+    path("virtual_machines_exclusive_to_netbox", views.VirtualMachinesExclustiveToNetBoxView.as_view(), name="virtual_machines_exclusive_to_netbox"),
+
 
     # Zabbix only hosts - Hosts that only exist in Zabbix
     path("zbx_only_hosts", views.ZBXOnlyHostsView.as_view(), name="zbx_only_hosts"),

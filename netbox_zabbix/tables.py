@@ -2,6 +2,8 @@ import django_tables2 as tables
 from netbox.tables import NetBoxTable, columns
 from netbox.tables.columns import ActionsColumn
 from django.utils.safestring import mark_safe
+from django.utils.html import format_html
+
 
 from dcim.models import Device
 from virtualization.models import VirtualMachine
@@ -139,8 +141,8 @@ class UnmanagedDeviceTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = Device
-        fields = ("name", "device_role", "site", "status")
-        default_columns = ("name", "device_role", "site", "status")
+        fields = ("name", "site", "status", "role" )
+        default_columns = ("name", "site", "status")
 
 class UnmanagedVMTable(NetBoxTable):
     name = tables.Column( linkify=True )
@@ -149,6 +151,39 @@ class UnmanagedVMTable(NetBoxTable):
         model = VirtualMachine
         fields = ("name", "cluster", "status")
         default_columns = ("name", "cluster", "status")
+
+
+from dcim.tables import DeviceTable
+from virtualization.tables import VirtualMachineTable
+
+class DevicesExclusiveToNetBoxTable(DeviceTable):
+
+    def render_actions(self, record):
+           url = reverse('plugins:netbox_zabbix:devicehost_add') + f'?device_id={record.pk}'
+           return format_html(
+               '<a href="{}" class="btn btn-sm btn-success">Create Zabbix Config</a>',
+               url
+           )
+   
+    class Meta(DeviceTable.Meta):
+        model = Device
+        fields = DeviceTable.Meta.fields
+        default_columns = DeviceTable.Meta.default_columns
+
+
+class VirtualMachinesExclusiveToNetBoxTable(VirtualMachineTable):
+
+    def render_actions(self, record):
+           url = reverse('plugins:netbox_zabbix:vmhost_add') + f'?vm_id={record.pk}'
+           return format_html(
+               '<a href="{}" class="btn btn-sm btn-success">Create Zabbix Config</a>',
+               url
+           )
+    
+    class Meta(VirtualMachineTable.Meta):
+        model = VirtualMachine
+        fields = VirtualMachineTable.Meta.fields
+        default_columns = VirtualMachineTable.Meta.default_columns
 
 
 class ZabbixOnlyHostTable(tables.Table):

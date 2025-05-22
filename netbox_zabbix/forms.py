@@ -1,19 +1,18 @@
 from netbox.forms import NetBoxModelForm, NetBoxModelFilterSetForm
 
+from utilities.forms.fields import DynamicModelChoiceField
+from ipam.models import IPAddress
+
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now
 from django.conf import settings
 from django import forms
 
-from dcim.models import Device, Interface
-from utilities.forms.widgets.apiselect import APISelect
+from dcim.models import Device
 from virtualization.models import VirtualMachine
 
 from netbox_zabbix import models
 from netbox_zabbix import zabbix as z
-
-import logging
-logger = logging.getLogger('netbox.plugins.netbox_zabbix')
 
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
@@ -34,6 +33,7 @@ PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 #
 
 # Since only one configuration is allowed there is no need for a FilterForm.
+from django.utils.safestring import mark_safe
 
 class ConfigForm(NetBoxModelForm):
     class Meta:
@@ -72,12 +72,12 @@ class ConfigForm(NetBoxModelForm):
     
         # Check connection/token
         try:
-            z.verify_token(self.cleaned_data['api_endpoint'], self.cleaned_data['token'])
-            self.instance.version = z.get_version(self.cleaned_data['api_endpoint'], self.cleaned_data['token'])
+            z.validate_zabbix_credentials(self.cleaned_data['api_endpoint'], self.cleaned_data['token'])
+            self.instance.version = z.fetch_version_from_credentials(self.cleaned_data['api_endpoint'], self.cleaned_data['token'])
             self.instance.connection = True
             self.instance.last_checked_at = now()
         except Exception:
-            raise ValidationError("Failed to verify connection to Zabbix. Please check the API address and token.")
+            raise ValidationError( mark_safe("Failed to verify connection to Zabbix.<br>Please check the API address and token.") )
 
 # ------------------------------------------------------------------------------
 # Templates
@@ -122,8 +122,9 @@ class DeviceHostForm(NetBoxModelForm):
 
         # Add specific device 
         if self.initial.get('device_id'):
-            specific_device_id = self.initial.get('device_id')
-            self.fields['device'].queryset = Device.objects.filter(pk=specific_device_id)
+            specific_device_id = self.initial.get( 'device_id' )
+            self.fields['device'].queryset = Device.objects.filter( pk=specific_device_id )
+            self.initial['device'] = specific_device_id
             return
 
         # Exclude already used devices from the queryset
@@ -168,8 +169,9 @@ class VMHostForm(NetBoxModelForm):
 
         # Add specific virtual machine 
         if self.initial.get('vm_id'):
-            specific_vm_id = self.initial.get('vm_id')
-            self.fields['virtual_machine'].queryset = VirtualMachine.objects.filter(pk=specific_vm_id)
+            specific_vm_id = self.initial.get( 'vm_id' )
+            self.fields['virtual_machine'].queryset = VirtualMachine.objects.filter( pk=specific_vm_id )
+            self.initial['virtual_machine'] = specific_vm_id
             return
         
         # Exclude already used virtual machine from the queryset
@@ -203,8 +205,6 @@ class VMHostFilterForm(NetBoxModelFilterSetForm):
 # Interface
 #
 
-from utilities.forms.fields import DynamicModelChoiceField
-from ipam.models import IPAddress
 
 class DeviceAgentInterfaceForm(NetBoxModelForm):
     class Meta:
@@ -251,8 +251,6 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
           # Set the initial value of the calculated DNS name if editing an existing instance
           if self.instance.pk:
               self.fields['dns_name'].initial = self.instance.resolved_dns_name
-
-
 
 
 class DeviceSNMPv3InterfaceForm(NetBoxModelForm):

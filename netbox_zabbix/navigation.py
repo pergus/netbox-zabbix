@@ -37,8 +37,9 @@ menu = PluginMenu(
             ( 
                 PluginMenuItem( link="plugins:netbox_zabbix:managed_hosts", link_text="Managed Hosts" ), 
                 PluginMenuItem( link="plugins:netbox_zabbix:unmanaged_device_list", link_text="Unmanged Devices" ), 
-                PluginMenuItem( link="plugins:netbox_zabbix:nb_only_hosts", link_text="NetBox-Only Hosts" ), 
-                PluginMenuItem( link="plugins:netbox_zabbix:zbx_only_hosts", link_text="Zabbix-Only Hosts" ), 
+                PluginMenuItem( link="plugins:netbox_zabbix:devices_exclusive_to_netbox", link_text="NetBox Exclusive Devices" ),
+                PluginMenuItem( link="plugins:netbox_zabbix:virtual_machines_exclusive_to_netbox", link_text="NetBox Exclusive Virtual Machines" ),                 
+                PluginMenuItem( link="plugins:netbox_zabbix:zbx_only_hosts", link_text="Zabbix Exclusive" ), 
             )
         ),
     ),

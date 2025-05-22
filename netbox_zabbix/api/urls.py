@@ -7,6 +7,6 @@ router.register( 'config',                   views.ConfigViewSet )
 router.register( 'templates',                views.TemplateViewSet )
 router.register( 'devicehost',               views.DeviceHostViewSet )
 router.register( 'vmhost',                   views.VMHostViewSet )
-router.register( 'availabledeviceinterface', views.AvailableDeviceInterfaceViewSet, basename='availabledeviceinterface' )
+router.register( 'available-device-interface', views.AvailableDeviceInterfaceViewSet, basename='availabledeviceinterface' )
 
 urlpatterns = router.urls

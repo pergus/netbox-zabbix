@@ -9,43 +9,24 @@ NetBox plugin for Zabbix.
 
 ## Todo
 
-Rename Config to Settings or something similar.
-Rename Host to Config or something similar.
-Rename the interfaces to something shorter.
-
-
-Rename router.register( 'availabledeviceinterface', 
-   views.AvailableDeviceInterfaceViewSet, basename='availabledeviceinterface' )
-to something more palatable.
-
-Decide how exception messages should be handled. 
- Like Go with no capital letters and no punctuation?
-
-
-Replace the plugin settings with values in the configuration model.
-
-Hosts
-- Unsynced hosts
-- Orphaned NB only
-- Orphaned ZB only
-
-
-Define interfaces
- - agent
- - snmpv3
- - snmpv2c
- - snmpv1
-
-Make 'main' for interfaces work.
-
-
-Define Jobs
-
-Signals
-
-
-
-
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| Rename the Config model                                      | Todo          |
+| Rename Hosts to something else                               | Todo          |
+| Rename interfaces to something shorter                       | Todo          |
+| Format for exception and logging messages                    | Todo          |
+| Replace plugin settings with configuration variables         | Todo          |
+| Create Unmanaged Devices                                     | Todo          |
+| Create Unmanaged VMs                                         | Todo          |
+| Create NetBox only Hosts                                     | Todo          |
+| Create Zabbix only Hosts                                     | Done          |
+| Create model and form for Agent interfaces                   | Done          |
+| Create model and form for SNMPv3 interfaces                  | Done          |
+| Create model and form for SNMPv1 interfaces                  | Todo          |
+| Create model and form for SNMPv2c interfaces                 | Todo          |
+| Create class or function to run background jobs              | Done          |
+| Implement signals for create, update and delete              | Todo          |
+| Add Host information as a tab for Device and VM              | Todo          |
 
 
 ## Features

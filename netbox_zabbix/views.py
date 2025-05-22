@@ -14,15 +14,17 @@ from django.http import Http404
 
 from utilities.paginator import EnhancedPaginator, get_paginate_count
 from dcim.models import Device
+from virtualization.models import VirtualMachine
 from netbox.views import generic
 
 
 # NetBox Zabbix Imports
 from netbox_zabbix import zabbix as z
 from netbox_zabbix import filtersets, forms, models, tables, jobs
+from netbox_zabbix.logger import logger
 
-import logging
-logger = logging.getLogger( 'netbox.plugins.netbox_zabbix' )
+import netbox_zabbix.config as config
+
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get( "netbox_zabbix", {} )
 
@@ -62,29 +64,24 @@ class ConfigDeleteView(generic.ObjectDeleteView):
 
 def ConfigCheckConnectionView(request):
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
-    cfg = models.Config.objects.first()
-    
-    if not cfg:
-        msg = "Missing Zabbix Configuration"
-        logger.error( msg )
-        messages.error( request, msg )
-        return redirect( redirect_url )
 
     try:
-        z.verify_token( cfg.api_endpoint, cfg.token )
-        cfg.version = z.get_version( cfg.api_endpoint, cfg.token )
-        cfg.connection = True
-        cfg.last_checked = timezone.now()
-        cfg.save()
+        z.validate_zabbix_credentials_from_config()
+        config.set_version( z.get_version() )
+        config.set_connection( True )
+        config.set_last_checked( timezone.now() )
         messages.success( request, "Connection to Zabbix succeeded" )
 
+    except config.ZabbixConfigNotFound as e:
+        messages.error( request, e )
+        return redirect( redirect_url )
+            
     except Exception as e:
-        error_msg = f"Failed to connect to {cfg.api_endpoint}: {e}"
+        error_msg = f"Failed to connect to {config.get_zabbix_api_endpoint()}: {e}"
         logger.error( error_msg )
         messages.error( request, error_msg )
-        cfg.connection = False
-        cfg.last_checked = timezone.now()
-        cfg.save()
+        config.set_connection( False )
+        config.set_last_checked( timezone.now() )
 
     return redirect( redirect_url )
 
@@ -152,16 +149,9 @@ def sync_zabbix_templates(request):
     View-based wrapper around template synchronization.
     """
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
-    cfg = models.Config.objects.first()
-
-    if not cfg:
-        msg = "Missing Zabbix Configuration"
-        logger.error( msg )
-        messages.error( request, msg )
-        return redirect( redirect_url )
 
     try:
-        added, deleted = z.synchronize_templates( cfg.api_endpoint, cfg.token )
+        added, deleted = z.synchronize_templates()
 
         msg_lines = ["Syncing Zabbix Templates succeeded."]
         if added:
@@ -182,9 +172,8 @@ def sync_zabbix_templates(request):
         error_msg = "Connection to Zabbix failed."
         logger.error( f"{error_msg} {e}" )
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
-        cfg.connection = False
-        cfg.last_checked = timezone.now()
-        cfg.save()
+        config.set_connection = False
+        config.set_last_checked = timezone.now()
 
     return redirect( redirect_url)
 
@@ -296,6 +285,7 @@ class UnmanagedDeviceListView(generic.ObjectListView):
             selected_ids = request.POST.getlist( 'pk' )
             queryset = Device.objects.filter( pk__in=selected_ids )
 
+            # Todo: move this into ImportDeviceFromZabbix            
             cfg = models.Config.objects.first()
             if not cfg:
                 msg = "Missing Zabbix Configuration"
@@ -318,9 +308,42 @@ class UnmanagedDeviceListView(generic.ObjectListView):
                  
 
 
-def nb_only_hosts(request):
-    logger.info("nb_only_hosts")
-    return redirect( request.META.get( 'HTTP_REFERER', '/' ) )
+class DevicesExclustiveToNetBoxView(generic.ObjectListView):
+
+    table = tables.DevicesExclusiveToNetBoxTable
+    filterset = filtersets.DevicesExclusiveToNetBoxFilterSet
+    template_name = "netbox_zabbix/devices_exclusive_to_netbox.html"
+
+    def get_queryset(self, request):
+        try:
+            zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
+        except config.ZabbixConfigNotFound as e:
+            messages.error( request, str( e ) )
+            return Device.objects.none()
+        except Exception as e:
+            messages.error( request, f"Failed to retrieve hostnames from Zabbix: {str(e)}" )
+            return Device.objects.none()
+
+        # Return only devices that are not in Zabbix
+        return Device.objects.exclude( name__in=zabbix_hostnames )
+
+class VirtualMachinesExclustiveToNetBoxView(generic.ObjectListView):
+    table = tables.VirtualMachinesExclusiveToNetBoxTable
+    filterset = filtersets.VirtualMachinesExclusiveToNetBoxFilterSet
+    template_name = "netbox_zabbix/virtual_machines_exclusive_to_netbox.html"
+
+    def get_queryset(self, request):
+        try:
+            zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
+        except config.ZabbixConfigNotFound as e:
+            messages.error( request, str( e ) )
+            return VirtualMachine.objects.none()
+        except Exception as e:
+            messages.error( request, f"Failed to retrieve hostnames from Zabbix: {str(e)}" )
+            return VirtualMachine.objects.none()
+
+        # Return only Virtual Machines that are not in Zabbix
+        return VirtualMachine.objects.exclude( name__in=zabbix_hostnames )
 
 
 class ZBXOnlyHostsView(GenericTemplateView):
@@ -329,22 +352,20 @@ class ZBXOnlyHostsView(GenericTemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data( **kwargs )
 
-        # Check that cfg exists!
-        cfg = models.Config.objects.first()
-        if not cfg:
-            msg = "Missing Zabbix Configuration"
-            logger.error( msg )
-            messages.error( self.request, msg )
-            # Provide an empty valid table
-            empty_table = tables.ZabbixOnlyHostTable([], orderable=False)
-            RequestConfig(self.request).configure(empty_table)
-            context['table'] = empty_table
-            return context          
-        
-        try:
-            data = z.get_zabbix_only_hostnames( cfg.api_endpoint, cfg.token )
+        error_occurred = False        
+        try:            
+            data = z.get_zabbix_only_hostnames()
+            web_address = config.get_zabbix_web_address()
+
+        except config.ZabbixConfigNotFound as e:
+            messages.error(self.request, str(e))
+            error_occurred = True
+
         except Exception as e:
             messages.error(self.request, f"Failed to fetch data from Zabbix: {str(e)}")
+            error_occurred = True
+        
+        if error_occurred:
             empty_table = tables.ZabbixOnlyHostTable([], orderable=False)
             RequestConfig(self.request).configure(empty_table)
             context['table'] = empty_table
@@ -358,9 +379,14 @@ class ZBXOnlyHostsView(GenericTemplateView):
             }
         ).configure( table )
         
+        try:
+            web_address = config.get_zabbix_web_address()
+        except Exception as e:
+            raise e
+        
         context.update({
             'table': table,
-            'web_address': cfg.web_address,
+            'web_address': web_address,
         })
         return context
 

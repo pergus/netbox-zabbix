@@ -3,8 +3,7 @@ from core.choices import JobStatusChoices
 from datetime import timedelta
 from django.db import transaction
 
-import logging
-logger = logging.getLogger( 'netbox.plugins.netbox_zabbix' )
+from netbox_zabbix.logger import logger
 
 class AtomicJobRunner(JobRunner):
     """

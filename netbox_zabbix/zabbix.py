@@ -5,57 +5,160 @@ from django.conf import settings
 from dcim.models import Device
 from virtualization.models import VirtualMachine
 
+from netbox_zabbix.logger import logger
+from netbox_zabbix.config import get_config, get_zabbix_api_endpoint, ZabbixConfigNotFound
 
-import logging
-
-
-logger = logging.getLogger('netbox.plugins.netbox_zabbix')
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 
-
-def get_version( api_endpoint, token ):
-    try:
-        z = ZabbixAPI( api_endpoint )
-        z.login( api_token = token )
-        return z.apiinfo.version()
-    except Exception as e:
-        raise Exception( e )
-
-
-def get_templates( api_endpoint, token ):    
-    try:
-        z = ZabbixAPI( api_endpoint )
-        z.login( api_token = token )
-        return z.template.get(output=["name"], sortfield = "name")
-    except Exception as e:
-        raise Exception( e )
-
-
-def verify_token( api_endpoint, token ):
-    # Apparently a clean installation of Zabbix always includes templates,
-    # which is why get_templates is called here. However any function
-    # that require authentication would do.
-    # Make sure the called function raises an exception on error.
-    get_templates( api_endpoint, token )
-
-
-def synchronize_templates(api_endpoint, token, max_deletions=None):
+def get_zabbix_client():
     """
-    Synchronize Zabbix templates with the database.
-    From Zabbix to NetBox Sync.
-
+    Initializes and returns an authenticated Zabbix API client.
+    
+    Retrieves the Zabbix configuration from the database and uses it to 
+    instantiate and authenticate a ZabbixAPI client. If configuration is missing 
+    or authentication fails, an exception is raised.
+    
     Returns:
-        tuple: (added_templates, deleted_templates)
-
+        ZabbixAPI: An authenticated Zabbix API client instance.
+    
     Raises:
-        RuntimeError: If number of deletions exceeds max_deletions.
-        Exception: On API or DB error.
+        ZabbixConfigNotFound: If the configuration is missing.
+        Exception: If authentication fails or any other error occurs.
     """
     try:
-        templates = get_templates( api_endpoint, token )
+        cfg = get_config()
+        z = ZabbixAPI( cfg.api_endpoint )
+        z.login( api_token=cfg.token )
+        return z
+            
+    except Exception as e:
+        raise e
+
+def validate_zabbix_credentials(api_endpoint, token):
+    """
+    Validates the provided Zabbix API endpoint and API token.
+    
+    Attempts to authenticate with the Zabbix API using the given endpoint and token.
+    If authentication is successful, an authenticated API call (`template.get`) is made
+    to confirm the credentials are valid and usable. This call is chosen because 
+    templates are always present in a default Zabbix installation, making it a reliable test.
+    
+    Raises:
+        Exception: If authentication fails or the API call encounters an error.
+    """
+    try:
+        z = ZabbixAPI( api_endpoint )
+        z.login( api_token=token )
+        z.template.get( output=["name"], sortfield="name" )
+
+    except Exception as e:
+        raise e
+
+
+def fetch_version_from_credentials(api_endpoint, token):
+    """
+    Returns the Zabbix API version using the given endpoint and token.
+    Raises an exception if the API call fails.
+    """
+    try:
+        z = ZabbixAPI( api_endpoint )
+        z.login( api_token=token )
+        return z.apiinfo.version()
+        
+    except Exception as e:
+        raise e
+
+def validate_zabbix_credentials_from_config():
+    """
+    Validate the Zabbix API credentials from the stored configuration.
+    
+    Retrieves the API endpoint and token from the config model and validates
+    them by calling `validate_zabbix_api_credentials`.
+    
+    Raises:
+        ZabbixConfigNotFound: If configuration is missing.
+        Exception: If authentication or the API call fails.
+    """
+    cfg = get_config()
+    validate_zabbix_credentials( cfg.api_endpoint, cfg.token )
+
+
+
+def get_version():
+    """
+    Retrieves the Zabbix server version from the API.
+    
+    Connects to the Zabbix API using the configured client and returns the 
+    version string of the connected Zabbix instance.
+    
+    Returns:
+        str: The version of the Zabbix server.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        Exception: If there is an error communicating with the Zabbix API.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.apiinfo.version()
+    
+    except Exception as e:
+        raise e
+
+
+def get_templates():
+    """
+    Retrieves all Zabbix templates.
+    
+    Connects to the Zabbix API using the configured client and fetches a list of 
+    templates sorted by name.
+    
+    Returns:
+        list: A list of Zabbix templates with their names.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        Exception: If there is an error communicating with the Zabbix API.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.template.get( output=["name"], sortfield = "name" )
+    
+    except Exception as e:
+        raise e
+   
+
+def synchronize_templates(max_deletions=None):
+    """
+    Synchronize templates from Zabbix with the local database.
+    
+    Fetches the list of templates from Zabbix and updates or creates corresponding
+    Template records in the local database. It also deletes templates locally that
+    no longer exist in Zabbix, respecting a maximum number of deletions.
+    
+    Args:
+        max_deletions (int, optional): Maximum number of templates allowed to delete
+            in one synchronization. If None, uses the default from plugin settings.
+    
+    Returns:
+        tuple: A tuple containing two lists:
+            - added_templates: List of newly added template dicts.
+            - deleted_templates: List of tuples (name, templateid) of deleted templates.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        RuntimeError: If the number of templates to delete exceeds max_deletions.
+        Exception: For other errors during fetching or updating templates.
+    """
+    try:
+        templates = get_templates()
+    
+    except ZabbixConfigNotFound as e:
+        raise e
+    
     except Exception as e:
         logger.error( "Failed to fetch Zabbix templates" )
-        raise
+        raise e
         
     template_ids = { item['templateid'] for item in templates }
 
@@ -95,36 +198,48 @@ def synchronize_templates(api_endpoint, token, max_deletions=None):
     return added_templates, deleted_templates
 
 
-def get_zabbix_hostnames(api_endpoint, token):
+def get_zabbix_hostnames():
     """
-     Retrieve a list of hostnames from Zabbix.
+        Retrieve all hostnames from Zabbix.
     
-     Returns:
-         list: A list of dictionaries containing Zabbix host names (e.g., [{'name': 'host1'}, {'name': 'host2'}]).
-               Returns an empty list if an error occurs during the API call.
-     """
-    z = ZabbixAPI( api_endpoint )
-    z.login( api_token=token )
-
+        Connects to the Zabbix API and returns a list of hosts with their names,
+        sorted alphabetically.
+    
+        Returns:
+            list: List of dictionaries representing hosts, each with a "name" key.
+    
+        Raises:
+            ZabbixConfigNotFound: If the Zabbix configuration is missing.
+    
+        Returns empty list on other errors while logging the error.
+    """
+    
     try:
+        z = get_zabbix_client()
         hostnames = z.host.get( output=["name"], sortfield=["name"] )
+        return hostnames
+        
+    except ZabbixConfigNotFound as e:
+        raise e
+     
     except Exception as e:
-        logger.error( f"Get Zabbix hostnames from {api_endpoint} failed: {e}" )
+        logger.error( f"Get Zabbix hostnames from {get_zabbix_api_endpoint()} failed: {e}" )
         return []
     
-    return hostnames
 
 
-def get_zabbix_only_hostnames( api_endpoint, token ):
+def get_zabbix_only_hostnames():
     """
-      Identify Zabbix hosts that do not exist in NetBox.
+        Retrieve hostnames that exist in Zabbix but not in NetBox.
     
-      Returns:
-          list: A list of dictionaries representing hostnames that exist in Zabbix but are missing in NetBox.
-                Compares Zabbix hostnames to names of NetBox Devices and Virtual Machines.
+        Compares hostnames from Zabbix against those in NetBox devices and virtual machines,
+        returning only those that are present in Zabbix but missing in NetBox.
+    
+        Returns:
+            list: List of dictionaries representing Zabbix hosts not found in NetBox.
     """
     try:
-        zabbix_hostnames = get_zabbix_hostnames( api_endpoint, token )
+        zabbix_hostnames = get_zabbix_hostnames()
     except Exception as e:
         raise e
 
@@ -132,11 +247,25 @@ def get_zabbix_only_hostnames( api_endpoint, token ):
     return [ h for h in zabbix_hostnames if h[ "name" ] not in netbox_hostnames ]
 
 
-def get_host(api_endpoint, token, hostname):
-    z = ZabbixAPI( api_endpoint )
-    z.login( api_token=token )
-
+def get_host(hostname):
+    """
+    Retrieves detailed information about a single host from Zabbix by hostname.
+    
+    The returned host includes interfaces, templates, tags, groups, and inventory
+    data. Validates that exactly one host is found.
+    
+    Args:
+        hostname (str): The name of the Zabbix host to retrieve.
+    
+    Returns:
+        dict: A dictionary containing the Zabbix host's details.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        Exception: If no host, multiple hosts, or an API error occurs.
+    """
     try:
+        z = get_zabbix_client()
         hosts = z.host.get(
             filter={"host": hostname},
             selectInterfaces="extend",
@@ -145,6 +274,10 @@ def get_host(api_endpoint, token, hostname):
             selectGroups="extend",
             selectInventory="extend"
         )
+
+    except ZabbixConfigNotFound as e:
+        raise e
+    
     except Exception as e:
         msg = f"Failed to retrieve host '{hostname}' from Zabbix, error: {e}"
         logger.error( msg )

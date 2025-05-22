@@ -11,12 +11,8 @@ from typing import Union
 from netbox_zabbix.job import AtomicJobRunner
 from netbox_zabbix.zabbix import get_host
 from netbox_zabbix.models import DeviceAgentInterface, Template, DeviceHost, StatusChoices
+from netbox_zabbix.logger import logger
 
-
-
-import logging
-
-logger = logging.getLogger('netbox.plugins.netbox_zabbix')
 
 def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine]) -> bool:
     """
