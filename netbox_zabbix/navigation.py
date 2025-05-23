@@ -4,10 +4,17 @@ menu = PluginMenu(
     label = "Zabbix",
     icon_class = "mdi mdi-bell-check",
     groups = (
-        ( "Admin",
+        ( 
+            "Admin",
             (
-                PluginMenuItem( link="plugins:netbox_zabbix:config_list", link_text="Config",    permissions=["netbox_zabbix.view_config"] ),
-                PluginMenuItem( link="plugins:netbox_zabbix:template_list", link_text="Templates", permissions=["netbox_zabbix.view_config"] ),
+                PluginMenuItem(
+                    link="plugins:netbox_zabbix:config_list",
+                    link_text="Configuration"
+                ),
+                PluginMenuItem(
+                    link="plugins:netbox_zabbix:template_list",
+                    link_text="Templates"
+                ),
             ),
         ),
         ( "Devices",
@@ -36,11 +43,17 @@ menu = PluginMenu(
         ( "Hosts", 
             ( 
                 PluginMenuItem( link="plugins:netbox_zabbix:managed_hosts", link_text="Managed Hosts" ), 
-                PluginMenuItem( link="plugins:netbox_zabbix:unmanaged_device_list", link_text="Unmanged Devices" ), 
+                PluginMenuItem( link="plugins:netbox_zabbix:unmanaged_device_list", link_text="Importable Devices" ), 
                 PluginMenuItem( link="plugins:netbox_zabbix:devices_exclusive_to_netbox", link_text="NetBox Exclusive Devices" ),
                 PluginMenuItem( link="plugins:netbox_zabbix:virtual_machines_exclusive_to_netbox", link_text="NetBox Exclusive Virtual Machines" ),                 
-                PluginMenuItem( link="plugins:netbox_zabbix:zbx_only_hosts", link_text="Zabbix Exclusive" ), 
+                 
             )
+        ),
+
+        ( "Zabbix", 
+         (
+             PluginMenuItem( link="plugins:netbox_zabbix:zbx_only_hosts", link_text="Zabbix Only Hosts" ),
+         )
         ),
     ),
 )

@@ -62,7 +62,7 @@ class ConfigDeleteView(generic.ObjectDeleteView):
     queryset = models.Config.objects.all()
 
 
-def ConfigCheckConnectionView(request):
+def ZabbixCheckConnectionView(request):
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
 
     try:
@@ -276,12 +276,29 @@ class ManagedHostDeleteView(View):
 
 
 class UnmanagedDeviceListView(generic.ObjectListView):
-    queryset = Device.objects.exclude( id__in = models.DeviceHost.objects.values_list( "device_id", flat=True ) )
+    #queryset = Device.objects.exclude( id__in = models.DeviceHost.objects.values_list( "device_id", flat=True ) )
     table = tables.UnmanagedDeviceTable
     template_name = "netbox_zabbix/unmanaged_device_list.html"
 
+
+    def get_queryset(self, request):
+        try:
+            zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
+        except Exception as e:
+            messages.error( request, f"Error fetching hostnames from Zabbix: {e}" )
+            return Device.objects.none()
+    
+        # Devices not managed by Zabbix (by name) and not already imported (no DeviceHost)
+        return Device.objects.filter(
+            name__in=zabbix_hostnames
+        ).exclude(
+            id__in=models.DeviceHost.objects.values_list("device_id", flat=True)
+        )
+
     def post(self, request, *args, **kwargs):
         if '_import_zabbix' in request.POST:
+
+            # Add a check to make sure there are any selected hosts, print a warning if not.
             selected_ids = request.POST.getlist( 'pk' )
             queryset = Device.objects.filter( pk__in=selected_ids )
 
@@ -307,7 +324,6 @@ class UnmanagedDeviceListView(generic.ObjectListView):
         return super().get( request, *args, **kwargs )
                  
 
-
 class DevicesExclustiveToNetBoxView(generic.ObjectListView):
 
     table = tables.DevicesExclusiveToNetBoxTable
@@ -326,6 +342,7 @@ class DevicesExclustiveToNetBoxView(generic.ObjectListView):
 
         # Return only devices that are not in Zabbix
         return Device.objects.exclude( name__in=zabbix_hostnames )
+
 
 class VirtualMachinesExclustiveToNetBoxView(generic.ObjectListView):
     table = tables.VirtualMachinesExclusiveToNetBoxTable
@@ -403,7 +420,7 @@ class DeviceAgentInterfaceView(generic.ObjectView):
 
 class DeviceAgentInterfaceListView(generic.ObjectListView):
     queryset = models.DeviceAgentInterface.objects.all()
-#    filterset = filtersets.DeviceAgentInterfaceFilterSet
+    filterset = filtersets.DeviceAgentInterfaceFilterSet
 #    filterset_form = forms.DeviceAgentInterfaceFilterForm
     table = tables.DeviceAgentInterfaceTable
 
@@ -425,7 +442,7 @@ class DeviceSNMPv3InterfaceView(generic.ObjectView):
 
 class DeviceSNMPv3InterfaceListView(generic.ObjectListView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
-#    filterset = filtersets.DeviceSNMPv3InterfaceFilterSet
+    filterset = filtersets.DeviceSNMPv3InterfaceFilterSet
 #    filterset_form = forms.DeviceSNMPv3InterfaceFilterForm
     table = tables.DeviceSNMPv3InterfaceTable
 

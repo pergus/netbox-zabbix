@@ -25,7 +25,7 @@ EXTRA_BUTTONS = """
     <ul class="dropdown-menu" aria-labeled-by="actions">
         <li>
             <a class="dropdown-item"
-                href="{% url 'plugins:netbox_zabbix:config_check_connection' %}">
+                href="{% url 'plugins:netbox_zabbix:check_zabbix_connection' %}">
                 Check Connection
             </a>
         </li>

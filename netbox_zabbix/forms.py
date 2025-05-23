@@ -3,6 +3,7 @@ from netbox.forms import NetBoxModelForm, NetBoxModelFilterSetForm
 from utilities.forms.fields import DynamicModelChoiceField
 from ipam.models import IPAddress
 
+from django.utils.safestring import mark_safe
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now
 from django.conf import settings
@@ -10,6 +11,7 @@ from django import forms
 
 from dcim.models import Device
 from virtualization.models import VirtualMachine
+from utilities.forms.rendering import FieldSet
 
 from netbox_zabbix import models
 from netbox_zabbix import zabbix as z
@@ -29,16 +31,21 @@ PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 
 
 # ------------------------------------------------------------------------------
-# Configuration
+# Settings
 #
 
 # Since only one configuration is allowed there is no need for a FilterForm.
-from django.utils.safestring import mark_safe
 
 class ConfigForm(NetBoxModelForm):
+
+    fieldsets = (
+        FieldSet( 'name', 'ip_assignment_method', name="General"),
+        FieldSet( 'api_endpoint', 'web_address', 'token', name="Zabbix" )
+    )
     class Meta:
         model = models.Config
-        fields = ( 'name', 'api_endpoint', 'web_address', 'token', 'ip_assignment_method' )
+        fields = '__all__'
+        #fields = ( 'name', 'api_endpoint', 'web_address', 'token', 'ip_assignment_method' )
 
     def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -218,7 +225,7 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
     port = forms.IntegerField( required=True )
 
     host = DynamicModelChoiceField( 
-        label="Zabbix Host",      
+        label="Device Host",      
         queryset=models.DeviceHost.objects.all(),
         required=True,
     )
@@ -246,11 +253,18 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
     )
     
     def __init__(self, *args, **kwargs):
-          super().__init__(*args, **kwargs)
-    
-          # Set the initial value of the calculated DNS name if editing an existing instance
-          if self.instance.pk:
-              self.fields['dns_name'].initial = self.instance.resolved_dns_name
+        super().__init__(*args, **kwargs)
+
+        if self.initial.get('device_host_id'):
+            specific_device_host_id = self.initial.get( 'device_host_id' )
+            queryset = models.DeviceHost.objects.filter( pk=specific_device_host_id )
+            self.fields['host'].queryset = queryset
+            self.initial['host'] = specific_device_host_id
+            self.initial['name'] = f"{queryset[0].get_name()}-agent"
+
+        # Set the initial value of the calculated DNS name if editing an existing instance
+        if self.instance.pk:
+            self.fields['dns_name'].initial = self.instance.resolved_dns_name
 
 
 class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
@@ -285,7 +299,7 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
     snmp_bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
     
     host = DynamicModelChoiceField( 
-           label="Zabbix Host",      
+           label="Device Host",      
            queryset=models.DeviceHost.objects.all(),
            required=True,
        )
@@ -313,8 +327,16 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
     )
 
     def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-      
-            # Set the initial value of the calculated DNS name if editing an existing instance
-            if self.instance.pk:
-                self.fields['dns_name'].initial = self.instance.resolved_dns_name
+        super().__init__(*args, **kwargs)
+
+
+        if self.initial.get('device_host_id'):
+            specific_device_host_id = self.initial.get( 'device_host_id' )
+            queryset = models.DeviceHost.objects.filter( pk=specific_device_host_id )
+            self.fields['host'].queryset = queryset
+            self.initial['host'] = specific_device_host_id
+            self.initial['name'] = f"{queryset[0].get_name()}-snmpv3"
+        
+        # Set the initial value of the calculated DNS name if editing an existing instance
+        if self.instance.pk:
+            self.fields['dns_name'].initial = self.instance.resolved_dns_name

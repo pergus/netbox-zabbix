@@ -36,7 +36,7 @@ class TemplateFilterSet(NetBoxModelFilterSet):
 class DeviceHostFilterSet(NetBoxModelFilterSet):
     class Meta:
         model = models.DeviceHost
-        fields = ['status', 'templates']
+        fields = [ 'status', 'templates']
 
 class VMHostFilterSet(NetBoxModelFilterSet):
     class Meta:
@@ -59,3 +59,23 @@ class VirtualMachinesExclusiveToNetBoxFilterSet(NetBoxModelFilterSet):
     class Meta:
         model = VirtualMachine
         fields = [ 'name' ]
+
+
+# ------------------------------------------------------------------------------
+# Interfaces
+#
+
+class DeviceAgentInterfaceFilterSet(django_filters.FilterSet):
+    host_id = django_filters.NumberFilter( field_name='host__id' )
+
+    class Meta:
+        model = models.DeviceAgentInterface
+        fields = ['host_id']
+
+
+class DeviceSNMPv3InterfaceFilterSet(django_filters.FilterSet):
+    host_id = django_filters.NumberFilter( field_name='host__id' )
+
+    class Meta:
+        model = models.DeviceSNMPv3Interface
+        fields = ['host_id']

@@ -6,7 +6,7 @@ from dcim.models import Device
 from virtualization.models import VirtualMachine
 
 from netbox_zabbix.logger import logger
-from netbox_zabbix.config import get_config, get_zabbix_api_endpoint, ZabbixConfigNotFound
+from netbox_zabbix.config import get_zabbix_api_endpoint, get_zabbix_token, ZabbixConfigNotFound
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 
@@ -26,9 +26,8 @@ def get_zabbix_client():
         Exception: If authentication fails or any other error occurs.
     """
     try:
-        cfg = get_config()
-        z = ZabbixAPI( cfg.api_endpoint )
-        z.login( api_token=cfg.token )
+        z = ZabbixAPI( get_zabbix_api_endpoint() )
+        z.login( api_token=get_zabbix_token() )
         return z
             
     except Exception as e:
@@ -79,9 +78,7 @@ def validate_zabbix_credentials_from_config():
         ZabbixConfigNotFound: If configuration is missing.
         Exception: If authentication or the API call fails.
     """
-    cfg = get_config()
-    validate_zabbix_credentials( cfg.api_endpoint, cfg.token )
-
+    validate_zabbix_credentials( get_zabbix_api_endpoint(), get_zabbix_token() )
 
 
 def get_version():

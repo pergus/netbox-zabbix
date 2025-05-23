@@ -29,6 +29,14 @@ NetBox plugin for Zabbix.
 | Add Host information as a tab for Device and VM              | Todo          |
 
 
+Convert the code to the naming standard in [new_urls.py](./new_urls.py) and [new_navigation.py](./new_navigation.py).
+
+
+
+
+
+
+
 ## Features
 
 The features the plugin provides should be listed here.

@@ -16,9 +16,9 @@ urlpatterns = (
     path( "configs/<int:pk>/changelog/", ObjectChangeLogView.as_view(),     name="config_changelog", kwargs={"model": models.Config},  ),
 
     # Check Zabbix Connection
-    path( "configs/check_connection",    views.ConfigCheckConnectionView,   name="config_check_connection" ),
-        
-
+    path("zabbix/check_connection",       views.ZabbixCheckConnectionView,    name="check_zabbix_connection"),
+    
+    
     # Templates
     path( "templates/",                   views.TemplateListView.as_view(),   name="template_list" ),
     path( "templates/add/",               views.TemplateEditView.as_view(),   name="template_add" ),
@@ -31,6 +31,8 @@ urlpatterns = (
 
     # Sync Zabbix Templates
     path( "zabbix/sync_templates",   views.sync_zabbix_templates,   name="sync_zabbix_templates" ),
+
+    
 
     
     # DeviceHosts

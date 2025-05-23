@@ -13,8 +13,6 @@ class IPAssignmentChoices(models.TextChoices):
     MANUAL = "manual", "Manual"
     PRIMARY = "primary", "Primary IPv4 Address"
 
-
-
 class Config(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Configuration"
@@ -194,6 +192,7 @@ class DeviceAgentInterface(HostInterface):
         verbose_name = "Device Agent Interface"
         verbose_name_plural = "Device Agent Interfaces"
     
+    # Rename to device_host??
     host = models.ForeignKey( to="DeviceHost", on_delete=models.CASCADE, related_name="agent_interfaces" )
     interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, blank=True, null=True, related_name="agent_interface" )
 

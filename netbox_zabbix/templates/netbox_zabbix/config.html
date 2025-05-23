@@ -5,20 +5,73 @@
 
 {% block content %}
 <div class="row">
-  <div class="col col-md-12">
+  <div class="col col-md-6">
     <div class="card">
-      <h5 class="card-header">Zabbix Configuration</h5>
+      <h5 class="card-header">General</h5>
       <div class="card-body">
         <table class="table table-hover attr-table">
-          {% for label, field in fields %}
+
           <tr>
-            <th scope="row">{{ label }}</th>
-            <td>{{ object|get_value:field }}</td>
+            <th scope="row">Name</th>
+            <td>{{ object.name }}</td>
           </tr>
-          {% endfor %}
+
+          <tr>
+            <th scope="row">IP Assignment Method</th>
+            <td>{{ object.get_ip_assignment_method_display }}</td>
+          </tr>
+
+
         </table>
       </div>
     </div>
   </div>
+
+  <div class="col col-md-6">
+    <div class="card">
+      <h5 class="card-header">Zabbix</h5>
+      <div class="card-body">
+        <table class="table table-hover attr-table">
+
+          <tr>
+            <th scope="row">Version</th>
+            <td>{{ object.version }}</td>
+          </tr>
+
+
+          <tr>
+            <th scope="row">API Endpoint</th>
+            <td>{{ object.api_endpoint }}</td>
+          </tr>
+
+
+          <tr>
+            <th scope="row">Web Address</th>
+            <td>{{ object.web_address }}</td>
+          </tr>
+
+
+          <tr>
+            <th scope="row">Connection</th>
+            <td>{{ object.connection }}</td>
+          </tr>
+
+
+          <tr>
+            <th scope="row">Last Connection Check</th>
+            <td>{{ object.last_checked_at }}</td>
+          </tr>
+
+
+
+        </table>
+      </div>
+    </div>
+  </div>
+
 </div>
+
+
+
+
 {% endblock %}

@@ -11,6 +11,7 @@ from typing import Union
 from netbox_zabbix.job import AtomicJobRunner
 from netbox_zabbix.zabbix import get_host
 from netbox_zabbix.models import DeviceAgentInterface, Template, DeviceHost, StatusChoices
+from netbox_zabbix.config import get_zabbix_api_endpoint, get_zabbix_token
 from netbox_zabbix.logger import logger
 
 
@@ -224,15 +225,13 @@ class ImportDeviceFromZabbix( AtomicJobRunner ):
     """
 
     def run(self, *args, **kwargs):
-        api_endpoint = kwargs.get("api_endpoint")
-        token = kwargs.get("token")
         device = kwargs.get("device")
         
-        if not all( [api_endpoint, token, device] ):
-            raise ValueError("Missing required arguments: api_endpoint, token, or device.")        
+        if not all( [ device ] ):
+            raise ValueError("Missing required arguments: device.")        
 
         try:
-            zbx_host = get_host( api_endpoint, token, device.name )
+            zbx_host = get_host( get_zabbix_api_endpoint(), get_zabbix_token(), device.name )
             create_device_host ( zbx_host, device )
             
         except Exception as e:
@@ -241,7 +240,7 @@ class ImportDeviceFromZabbix( AtomicJobRunner ):
         return f"imported {device.name} from Zabbix to NetBox"
     
     @classmethod
-    def run_job(self, api_endpoint, token, device, user, schedule_at=None, interval=None, immediate=False):
+    def run_job(self, device, user, schedule_at=None, interval=None, immediate=False):
         name = slugify( f"ZBX Import {device.name}" )
         if interval is None:
             netbox_job = self.enqueue( name=name, 
@@ -249,8 +248,8 @@ class ImportDeviceFromZabbix( AtomicJobRunner ):
                                 interval=interval, 
                                 immediate=immediate, 
                                 user=user, 
-                                api_endpoint=api_endpoint, 
-                                token=SecretStr(token), 
+                                api_endpoint=get_zabbix_api_endpoint(), 
+                                token=SecretStr( get_zabbix_token() ), 
                                 device=device )
         else:
             netbox_job = self.enqueue_once( name=name, 
@@ -258,8 +257,8 @@ class ImportDeviceFromZabbix( AtomicJobRunner ):
                                      interval=interval, 
                                      immediate=immediate, 
                                      user=user, 
-                                     api_endpoint=api_endpoint, 
-                                     token=SecretStr(token), 
+                                     api_endpoint=get_zabbix_api_endpoint(), 
+                                     token=SecretStr( get_zabbix_token() ), 
                                      device=device )
                 
         return netbox_job
