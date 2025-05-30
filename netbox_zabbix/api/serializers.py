@@ -26,15 +26,15 @@ class TemplateSerializer(NetBoxModelSerializer):
         return str( obj.name )
 
 # ------------------------------------------------------------------------------
-# Hosts
+# Zabbix Configs
 #
 
-class DeviceHostSerializer(NetBoxModelSerializer):
+class DeviceZabbixConfigSerializer(NetBoxModelSerializer):
     name = serializers.SerializerMethodField()
     display = serializers.SerializerMethodField()
 
     class Meta:
-        model = models.DeviceHost
+        model = models.DeviceZabbixConfig
         fields = ( 'id', 'name', 'display', 'hostid', 'status', 'templates', )
     
     templates = TemplateSerializer( many=True, read_only=True )
@@ -46,9 +46,9 @@ class DeviceHostSerializer(NetBoxModelSerializer):
         # This method is called to get the value for the `name` field
         return obj.get_name()
 
-class VMHostSerializer(NetBoxModelSerializer):
+class VMZabbixConfigSerializer(NetBoxModelSerializer):
     class Meta:
-        model = models.VMHost
+        model = models.VMZabbixConfig
         fields = ( 'id', 'hostid', 'status', 'templates', )
         
     templates = TemplateSerializer( many=True, read_only=True )

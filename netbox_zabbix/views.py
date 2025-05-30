@@ -102,13 +102,13 @@ class TemplateListView(generic.ObjectListView):
     queryset = (
        models.Template.objects
        .annotate(
-           # Count the related VMHosts and DeviceHosts separately
-           vmhost_count=Count('vmhost'),
-           devicehost_count=Count('devicehost')
+           # Count the related VMZabbixConfigs and DeviceZabbixConfigs separately
+           VMZabbixConfig_count=Count('vmzabbixconfig'),
+           DeviceZabbixConfig_count=Count('devicezabbixconfig')
        )
        .annotate(
            # Add the two counts together to get the total host count
-           host_count=F('vmhost_count') + F('devicehost_count')
+           host_count=F('VMZabbixConfig_count') + F('DeviceZabbixConfig_count')
        )
     )
     filterset = filtersets.TemplateFilterSet
@@ -182,52 +182,53 @@ def sync_zabbix_templates(request):
 # Hosts
 #
 
-class DeviceHostView(generic.ObjectView):
-    queryset = models.DeviceHost.objects.all()
+class DeviceZabbixConfigView(generic.ObjectView):
+    queryset = models.DeviceZabbixConfig.objects.all()
 
 
-class DeviceHostListView(generic.ObjectListView):
-    queryset = models.DeviceHost.objects.all()
-    filterset = filtersets.DeviceHostFilterSet
-    filterset_form = forms.DeviceHostFilterForm
-    table = tables.DeviceHostTable
+class DeviceZabbixConfigListView(generic.ObjectListView):
+    queryset = models.DeviceZabbixConfig.objects.all()
+    filterset = filtersets.DeviceZabbixConfigFilterSet
+    filterset_form = forms.DeviceZabbixConfigFilterForm
+    table = tables.DeviceZabbixConfigTable
 
 
-class DeviceHostEditView(generic.ObjectEditView):
-    queryset = models.DeviceHost.objects.all()
-    form = forms.DeviceHostForm
+class DeviceZabbixConfigEditView(generic.ObjectEditView):
+    queryset = models.DeviceZabbixConfig.objects.all()
+    form = forms.DeviceZabbixConfigForm
 
 
-class DeviceHostDeleteView(generic.ObjectDeleteView):
-    queryset = models.DeviceHost.objects.all()
+class DeviceZabbixConfigDeleteView(generic.ObjectDeleteView):
+    queryset = models.DeviceZabbixConfig.objects.all()
 
 
-class VMHostView(generic.ObjectView):
-    queryset = models.VMHost.objects.all()
+class VMZabbixConfigView(generic.ObjectView):
+    queryset = models.VMZabbixConfig.objects.all()
 
 
-class VMHostListView(generic.ObjectListView):
-    queryset = models.VMHost.objects.all()
-    filterset = filtersets.VMHostFilterSet
-    filterset_form = forms.VMHostFilterForm
-    table = tables.VMHostTable
+class VMZabbixConfigListView(generic.ObjectListView):
+    queryset = models.VMZabbixConfig.objects.all()
+    filterset = filtersets.VMZabbixConfigFilterSet
+    filterset_form = forms.VMZabbixConfigFilterForm
+    table = tables.VMZabbixConfigTable
 
 
-class VMHostEditView(generic.ObjectEditView):
-    queryset = models.VMHost.objects.all()
-    form = forms.VMHostForm
+class VMZabbixConfigEditView(generic.ObjectEditView):
+    queryset = models.VMZabbixConfig.objects.all()
+    form = forms.VMZabbixConfigForm
 
 
-class VMHostDeleteView(generic.ObjectDeleteView):
-    queryset = models.VMHost.objects.all()
+class VMZabbixConfigDeleteView(generic.ObjectDeleteView):
+    queryset = models.VMZabbixConfig.objects.all()
 
-    
-class ManagedHostsListView(SingleTableView):
-    template_name = 'netbox_zabbix/managed_hosts_list.html'
-    table_class = tables.ManagedHostTable
+
+# Zabbix Config(s) (Devices & VMs)
+class ZabbixConfigListView(SingleTableView):
+    template_name = 'netbox_zabbix/zabbixconfig_list.html'
+    table_class = tables.ZabbixConfigTable
     
     def get_queryset(self):
-        return list( models.DeviceHost.objects.all() ) + list( models.VMHost.objects.all() )
+        return list( models.DeviceZabbixConfig.objects.all() ) + list( models.VMZabbixConfig.objects.all() )
     
 
     def get_context_data(self, **kwargs):
@@ -243,42 +244,41 @@ class ManagedHostsListView(SingleTableView):
         return context
 
 
-class ManagedHostEditView(View):
+class ZabbixConfigEditView(View):
     def get(self, request, pk, *args, **kwargs):
         try:
-            return redirect('plugins:netbox_zabbix:devicehost_edit', pk=models.DeviceHost.objects.get(pk=pk).pk)
-        except models.DeviceHost.DoesNotExist:
+            return redirect('plugins:netbox_zabbix:devicezabbixconfig_edit', pk=models.DeviceZabbixConfig.objects.get(pk=pk).pk)
+        except models.DeviceZabbixConfig.DoesNotExist:
             pass
 
         try:
-            return redirect('plugins:netbox_zabbix:vmhost_edit', pk=models.VMHost.objects.get(pk=pk).pk)
-        except models.VMHost.DoesNotExist:
+            return redirect('plugins:netbox_zabbix:vmzabbixconfig_edit', pk=models.VMZabbixConfig.objects.get(pk=pk).pk)
+        except models.VMZabbixConfig.DoesNotExist:
             pass
 
         raise Http404("Host not found")    
 
 
-class ManagedHostDeleteView(View):
+class ZabbixConfigDeleteView(View):
     def get(self, request, pk, *args, **kwargs):
         try:
-            models.DeviceHost.objects.get(pk=pk)
-            return redirect('plugins:netbox_zabbix:devicehost_delete', pk=pk)
-        except models.DeviceHost.DoesNotExist:
+            models.DeviceZabbixConfig.objects.get(pk=pk)
+            return redirect('plugins:netbox_zabbix:devicezabbixconfig_delete', pk=pk)
+        except models.DeviceZabbixConfig.DoesNotExist:
             pass
 
         try:
-            models.VMHost.objects.get(pk=pk)
-            return redirect('plugins:netbox_zabbix:vmhost_delete', pk=pk)
-        except models.VMHost.DoesNotExist:
+            models.VMZabbixConfig.objects.get(pk=pk)
+            return redirect('plugins:netbox_zabbix:vmzabbixconfig_delete', pk=pk)
+        except models.VMZabbixConfig.DoesNotExist:
             pass
 
         raise Http404("Host not found")
 
 
-class UnmanagedDeviceListView(generic.ObjectListView):
-    #queryset = Device.objects.exclude( id__in = models.DeviceHost.objects.values_list( "device_id", flat=True ) )
-    table = tables.UnmanagedDeviceTable
-    template_name = "netbox_zabbix/unmanaged_device_list.html"
+class ImportableDeviceListView(generic.ObjectListView):
+    table = tables.ImportableDeviceTable
+    template_name = "netbox_zabbix/importabledevice_list.html"
 
 
     def get_queryset(self, request):
@@ -288,12 +288,13 @@ class UnmanagedDeviceListView(generic.ObjectListView):
             messages.error( request, f"Error fetching hostnames from Zabbix: {e}" )
             return Device.objects.none()
     
-        # Devices not managed by Zabbix (by name) and not already imported (no DeviceHost)
+        # Devices not managed by Zabbix (by name) and not already imported (no ZabbixConfig)
         return Device.objects.filter(
             name__in=zabbix_hostnames
         ).exclude(
-            id__in=models.DeviceHost.objects.values_list("device_id", flat=True)
+            id__in=models.DeviceZabbixConfig.objects.values_list("device_id", flat=True)
         )
+
 
     def post(self, request, *args, **kwargs):
         if '_import_zabbix' in request.POST:
@@ -302,33 +303,32 @@ class UnmanagedDeviceListView(generic.ObjectListView):
             selected_ids = request.POST.getlist( 'pk' )
             queryset = Device.objects.filter( pk__in=selected_ids )
 
-            # Todo: move this into ImportDeviceFromZabbix            
-            cfg = models.Config.objects.first()
-            if not cfg:
-                msg = "Missing Zabbix Configuration"
-                logger.error( msg )
-                messages.error( request, msg )
-            else:
-                for device in queryset:
-                    try:
-                        job = jobs.ImportDeviceFromZabbix.run_job( cfg.api_endpoint, cfg.token, device, user=request.user )
+            for device in queryset:
+                try:
+                    job = jobs.ImportDeviceFromZabbix.run_job( device, user=request.user )
 
-                        message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )
-                        messages.success( request, message )
+                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )
+                    messages.success( request, message )
 
-                    except Exception as e:
-                        messages.error( request, f"Failed to create job to import {device} from Zabbix" )
-                    
+                except Exception as e:
+                    messages.error( request, f"Failed to create job to import {device} from Zabbix {str(e)}" )
+                    logger.error( f"Failed to create job to import {device} from Zabbix {str(e)}" )
+                    logger.error( f"{request.user=}" )
+
             return redirect( request.POST.get( 'return_url' ) or request.path )
         
         return super().get( request, *args, **kwargs )
-                 
 
-class DevicesExclustiveToNetBoxView(generic.ObjectListView):
 
-    table = tables.DevicesExclusiveToNetBoxTable
-    filterset = filtersets.DevicesExclusiveToNetBoxFilterSet
-    template_name = "netbox_zabbix/devices_exclusive_to_netbox.html"
+class ImportableVMListView(generic.ObjectListView):
+    pass
+
+
+class NetBoxOnlyDevicesView(generic.ObjectListView):
+
+    table = tables.NetBoxOnlyDevicesTable
+    filterset = filtersets.NetBoxOnlyDevicesFilterSet
+    template_name = "netbox_zabbix/netboxonlydevices.html"
 
     def get_queryset(self, request):
         try:
@@ -344,10 +344,10 @@ class DevicesExclustiveToNetBoxView(generic.ObjectListView):
         return Device.objects.exclude( name__in=zabbix_hostnames )
 
 
-class VirtualMachinesExclustiveToNetBoxView(generic.ObjectListView):
-    table = tables.VirtualMachinesExclusiveToNetBoxTable
-    filterset = filtersets.VirtualMachinesExclusiveToNetBoxFilterSet
-    template_name = "netbox_zabbix/virtual_machines_exclusive_to_netbox.html"
+class NetBoxOnlyVMsView(generic.ObjectListView):
+    table = tables.NetBoxOnlyVMsTable
+    filterset = filtersets.NetBoxOnlyVMsFilterSet
+    template_name = "netbox_zabbix/netboxonlyvms.html"
 
     def get_queryset(self, request):
         try:
@@ -363,8 +363,8 @@ class VirtualMachinesExclustiveToNetBoxView(generic.ObjectListView):
         return VirtualMachine.objects.exclude( name__in=zabbix_hostnames )
 
 
-class ZBXOnlyHostsView(GenericTemplateView):
-    template_name = 'netbox_zabbix/zabbix_only_hosts.html'
+class ZabbixOnlyHostsView(GenericTemplateView):
+    template_name = 'netbox_zabbix/zabbixonlyhosts.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data( **kwargs )
@@ -413,7 +413,7 @@ class ZBXOnlyHostsView(GenericTemplateView):
 # Interfaces
 #
 
-# - Agent
+# Device Agent
 
 class DeviceAgentInterfaceView(generic.ObjectView):
     queryset = models.DeviceAgentInterface.objects.all()
@@ -434,7 +434,7 @@ class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()
 
 
-# - SNMPv3
+# Device SNMPv3
 
 class DeviceSNMPv3InterfaceView(generic.ObjectView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
@@ -455,4 +455,56 @@ class DeviceSNMPv3InterfaceEditView(generic.ObjectEditView):
 
 class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
+
+
+# VM Agent
+
+class VMAgentInterfaceView(generic.ObjectView):
+    #queryset = models.DeviceAgentInterface.objects.all()
+    pass
+
+class VMAgentInterfaceListView(generic.ObjectListView):
+    #queryset = models.DeviceAgentInterface.objects.all()
+    #filterset = filtersets.DeviceAgentInterfaceFilterSet
+    #filterset_form = forms.DeviceAgentInterfaceFilterForm
+    #table = tables.DeviceAgentInterfaceTable
+    pass
+
+
+class VMAgentInterfaceEditView(generic.ObjectEditView):
+    #queryset = models.DeviceAgentInterface.objects.all()
+    #form = forms.DeviceAgentInterfaceForm
+    #template_name = 'netbox_zabbix/device_agent_interface_edit.html'
+    pass
+
+class VMAgentInterfaceDeleteView(generic.ObjectDeleteView):
+    #queryset = models.DeviceAgentInterface.objects.all()
+    pass
+
+
+# VM SNMPv3
+
+class VMSNMPv3InterfaceView(generic.ObjectView):
+    #queryset = models.DeviceSNMPv3Interface.objects.all()
+    pass
+
+
+class VMSNMPv3InterfaceListView(generic.ObjectListView):
+    #queryset = models.DeviceSNMPv3Interface.objects.all()
+    #filterset = filtersets.DeviceSNMPv3InterfaceFilterSet
+    #filterset_form = forms.DeviceSNMPv3InterfaceFilterForm
+    #table = tables.DeviceSNMPv3InterfaceTable
+    pass
+
+
+class VMSNMPv3InterfaceEditView(generic.ObjectEditView):
+    #queryset = models.DeviceSNMPv3Interface.objects.all()
+    #form = forms.DeviceSNMPv3InterfaceForm
+    #template_name = 'netbox_zabbix/device_snmpv3_interface_edit.html'
+    pass
+    
+
+class VMSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
+    #queryset = models.DeviceSNMPv3Interface.objects.all()
+    pass
 

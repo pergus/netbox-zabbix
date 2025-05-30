@@ -49,7 +49,7 @@ class AtomicJobRunner(JobRunner):
         except Exception as e:
             job.data = { "status": "failed", "error": str(e), "message": "Database changes have been reverted automatically." }            
             job.terminate( status=JobStatusChoices.STATUS_ERRORED, error=str(e) )
-            logging.error( e )
+            logger.error( e )
             raise
 
         finally:

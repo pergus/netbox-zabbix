@@ -1,8 +1,6 @@
 {% extends 'generic/object.html' %}
 {% load render_table from django_tables2 %}
 
-{% load custom_filters %}
-
 {% block content %}
 <div class="row">
     <div class="col col-md-12">
@@ -37,6 +35,10 @@
                             <span class="badge text-bg-secondary">{{ tmpl.name }}</span>
                             {% endfor %}
                         </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Todo</th>
+                        <td>Copy the code from devicezabbixconfig.html here</td>
                     </tr>
                 </table>
             </div>

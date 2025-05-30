@@ -10,9 +10,10 @@ from typing import Union
 # NetBox Zabbix Imports
 from netbox_zabbix.job import AtomicJobRunner
 from netbox_zabbix.zabbix import get_host
-from netbox_zabbix.models import DeviceAgentInterface, Template, DeviceHost, StatusChoices
+from netbox_zabbix.models import DeviceZabbixConfig, DeviceAgentInterface, Template, StatusChoices
 from netbox_zabbix.config import get_zabbix_api_endpoint, get_zabbix_token
 from netbox_zabbix.logger import logger
+
 
 
 def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine]) -> bool:
@@ -107,9 +108,9 @@ def normalize_interface(iface: dict) -> dict:
         "interfaceid": int(iface["interfaceid"]),
     }
 
-def create_device_host(zabbix_host: dict, device: Device):
+def create_device_zabbix_config(zabbix_host: dict, device: Device):
     """
-    Creates a DeviceHost instance for a given NetBox Device from Zabbix host data.
+    Creates a ZabbixConfig instance for a given NetBox Device from Zabbix host data.
     Assumes `validate_zabbix_host()` has already passed successfully.
     """
 
@@ -120,29 +121,29 @@ def create_device_host(zabbix_host: dict, device: Device):
         raise Exception( f"validation failed: {str(e)}" )
 
     # Does the Device Host already exists?
-    if DeviceHost.objects.filter(device=device).exists():
+    if DeviceZabbixConfig.objects.filter(device=device).exists():
         raise Exception(f"Device host for '{device.name}' already exists")
 
     logger.info(f"Creating device host for {device.name}")
 
 
     # Create the Device Host
-    device_host = DeviceHost(device=device)
+    device_zabbix_config = DeviceZabbixConfig(device=device)
 
-    device_host.hostid = int( zabbix_host["hostid"] )
-    device_host.status = ( StatusChoices.DISABLED if int( zabbix_host.get( "status", 0 ) ) else StatusChoices.ENABLED )
+    device_zabbix_config.hostid = int( zabbix_host["hostid"] )
+    device_zabbix_config.status = ( StatusChoices.DISABLED if int( zabbix_host.get( "status", 0 ) ) else StatusChoices.ENABLED )
 
     # Before Templates and Interfaces can be added the host has to have an id,
     # hence the host has to be saved here.
-    device_host.full_clean()
-    device_host.save()
+    device_zabbix_config.full_clean()
+    device_zabbix_config.save()
 
     # Add templates
     for template in zabbix_host.get( "parentTemplates", [] ):
         template_name = template.get( "name", "" )
         if template_name:
             template_obj = Template.objects.get( name=template_name )
-            device_host.templates.add( template_obj )
+            device_zabbix_config.templates.add( template_obj )
             logger.info(f"Added template '{template_name}' to device host")
 
     # Add interfaces
@@ -170,13 +171,13 @@ def create_device_host(zabbix_host: dict, device: Device):
             # Create DeviceAgentInterface
             agent_iface = DeviceAgentInterface.objects.create( 
                 name=f"{device.name}-agent",
-                hostid=device_host.hostid,
+                hostid=device_zabbix_config.hostid,
                 interfaceid=iface["interfaceid"],
                 available=iface["available"],
                 useip=iface["useip"],
                 main=iface["main"],
                 port=iface["port"],
-                host=device_host,
+                host=device_zabbix_config,
                 interface=nb_interface,
                 ip_address=nb_ip_address,
             )
@@ -231,8 +232,8 @@ class ImportDeviceFromZabbix( AtomicJobRunner ):
             raise ValueError("Missing required arguments: device.")        
 
         try:
-            zbx_host = get_host( get_zabbix_api_endpoint(), get_zabbix_token(), device.name )
-            create_device_host ( zbx_host, device )
+            zbx_host = get_host( device.name )
+            create_device_zabbix_config ( zbx_host, device )
             
         except Exception as e:
             raise e

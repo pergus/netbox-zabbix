@@ -58,14 +58,14 @@ class Template(NetBoxModel):
         return self.name
     
 # ------------------------------------------------------------------------------
-# Host
+# Zabbix Configs
 #
 
 class StatusChoices(models.TextChoices):
     ENABLED = 'enabled', 'Enabled'    # 0 - (default) monitored host
     DISABLED = 'disabled', 'Disabled' # 1 - unmonitored host.
 
-class ManagedHost(NetBoxModel):
+class ZabbixConfig(NetBoxModel):
     class Meta:
         abstract = True
 
@@ -74,12 +74,12 @@ class ManagedHost(NetBoxModel):
     templates = models.ManyToManyField( Template, blank=False )
 
     
-class DeviceHost(ManagedHost):
+class DeviceZabbixConfig(ZabbixConfig):
     class Meta:
-        verbose_name = "Device Host"
-        verbose_name_plural = "Device Hosts"
+        verbose_name = "Zabbix Device Configuration"
+        verbose_name_plural = "Zabbix Device Configurations"
     
-    device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zbx_device_host' )
+    device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zbx_device_config' )
 
     def __str__(self):
         return f"zbx-{self.device.name}"
@@ -88,15 +88,15 @@ class DeviceHost(ManagedHost):
         return f"zbx-{self.device.name}"
 
     def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:devicehost", args=[self.pk] )
+        return reverse( "plugins:netbox_zabbix:devicezabbixconfig", args=[self.pk] )
 
 
-class VMHost(ManagedHost):
+class VMZabbixConfig(ZabbixConfig):
     class Meta:
-        verbose_name = "VM Host"
-        verbose_name_plural = "VM Hosts"
+        verbose_name = "Zabbix VM Configuration"
+        verbose_name_plural = "Zabbix VM Configurations"
     
-    virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zbx_vm_host' )
+    virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zbx_vm_config' )
 
     def __str__(self):
         return f"zbx-{self.virtual_machine.name}"
@@ -105,13 +105,13 @@ class VMHost(ManagedHost):
         return f"zbx-{self.virtual_machine.name}"
 
     def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:vmhost", args=[self.pk] )
+        return reverse( "plugins:netbox_zabbix:vmzabbixconfig", args=[self.pk] )
 
 
 
 
 # ------------------------------------------------------------------------------
-# Interface
+# Interfaces
 #
 
 class UseIPChoices(models.IntegerChoices):
@@ -193,7 +193,7 @@ class DeviceAgentInterface(HostInterface):
         verbose_name_plural = "Device Agent Interfaces"
     
     # Rename to device_host??
-    host = models.ForeignKey( to="DeviceHost", on_delete=models.CASCADE, related_name="agent_interfaces" )
+    host = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
     interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, blank=True, null=True, related_name="agent_interface" )
 
     # Interface type
@@ -258,7 +258,7 @@ class DeviceSNMPv3Interface(HostInterface):
         verbose_name = "Device SNMPv3 Interface"
         verbose_name_plural = "Device SNMPv3 Interfaces"
     
-    host = models.ForeignKey( to='DeviceHost', on_delete=models.CASCADE, related_name='snmpv3_interfaces' )
+    host = models.ForeignKey( to='DeviceZabbixConfig', on_delete=models.CASCADE, related_name='snmpv3_interfaces' )
     interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
     
 

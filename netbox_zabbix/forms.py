@@ -115,11 +115,11 @@ class TemplateFilterForm(NetBoxModelFilterSetForm):
 # Hosts
 #
 
-class DeviceHostForm(NetBoxModelForm):
+class DeviceZabbixConfigForm(NetBoxModelForm):
     device = forms.ModelChoiceField( queryset=Device.objects.all(), label='Device', help_text='Select the NetBox Device to link this Zabbix host to.' )
 
     class Meta:
-        model = models.DeviceHost
+        model = models.DeviceZabbixConfig
         fields = ('device', 'status', 'templates')
 
     def __init__(self, *args, **kwargs):
@@ -136,17 +136,17 @@ class DeviceHostForm(NetBoxModelForm):
 
         # Exclude already used devices from the queryset
         if not instance:  
-            # Creating a new DeviceHost
-            used_device_ids = models.DeviceHost.objects.values_list( 'device_id', flat=True )
+            # Creating a new DeviceZabbixConfig
+            used_device_ids = models.DeviceZabbixConfig.objects.values_list( 'device_id', flat=True )
             self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
         else:  
-            # Editing an existing DeviceHost
-            used_device_ids = models.DeviceHost.objects.exclude( id=instance.id ).values_list( 'device_id', flat=True )
+            # Editing an existing DeviceZabbixConfig
+            used_device_ids = models.DeviceZabbixConfig.objects.exclude( id=instance.id ).values_list( 'device_id', flat=True )
             self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
 
 
-class DeviceHostFilterForm(NetBoxModelFilterSetForm):
-    model = models.DeviceHost
+class DeviceZabbixConfigFilterForm(NetBoxModelFilterSetForm):
+    model = models.DeviceZabbixConfig
 
     status    = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
     templates = forms.ModelMultipleChoiceField( label = "Templates", queryset = models.Template.objects.all(), required = False )
@@ -156,16 +156,16 @@ class DeviceHostFilterForm(NetBoxModelFilterSetForm):
         super().__init__(*args, **kwargs)
 
          # Set hostid choices dynamically on instantiation
-        hostids = models.DeviceHost.objects.order_by( 'hostid' ).distinct( 'hostid' ).values_list( 'hostid', flat=True )
+        hostids = models.DeviceZabbixConfig.objects.order_by( 'hostid' ).distinct( 'hostid' ).values_list( 'hostid', flat=True )
         choices = [("", "---------")] + [(zid, zid) for zid in hostids if zid is not None]
         self.fields["hostid"].choices = choices
 
 
-class VMHostForm(NetBoxModelForm):
+class VMZabbixConfigForm(NetBoxModelForm):
     virtual_machine = forms.ModelChoiceField( queryset=VirtualMachine.objects.all(), label='Virtual Machine', help_text='Select the NetBox Virtual Machine to link this Zabbix host to.' )
 
     class Meta:
-        model = models.VMHost
+        model = models.VMZabbixConfig
         fields = ('virtual_machine', 'status', 'templates')
 
     def __init__(self, *args, **kwargs):
@@ -183,17 +183,17 @@ class VMHostForm(NetBoxModelForm):
         
         # Exclude already used virtual machine from the queryset
         if not instance:  
-            # Creating a new VMHost
-            used_vms_ids = models.VMHost.objects.values_list( 'virtual_machine_id', flat=True )
+            # Creating a new VMZabbixConfig
+            used_vms_ids = models.VMZabbixConfig.objects.values_list( 'virtual_machine_id', flat=True )
             self.fields['virtual_machine'].queryset = VirtualMachine.objects.exclude( id__in=used_vms_ids )
         else:  
-            # Editing an existing VMHost
-            used_vms_ids = models.VMHost.objects.exclude( id=instance.id ).values_list( 'virtual_machine_id', flat=True )
+            # Editing an existing VMZabbixConfig
+            used_vms_ids = models.VMZabbixConfig.objects.exclude( id=instance.id ).values_list( 'virtual_machine_id', flat=True )
             self.fields['virtual_machine'].queryset = VirtualMachine.objects.exclude( id__in=used_vms_ids )
 
 
-class VMHostFilterForm(NetBoxModelFilterSetForm):
-    model = models.DeviceHost
+class VMZabbixConfigFilterForm(NetBoxModelFilterSetForm):
+    model = models.ZabbixConfig
 
     status         = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
     templates      = forms.ModelMultipleChoiceField( label = "Templates", queryset = models.Template.objects.all(), required = False )
@@ -203,7 +203,7 @@ class VMHostFilterForm(NetBoxModelFilterSetForm):
         super().__init__(*args, **kwargs)
 
          # Set hostid choices dynamically on instantiation
-        hostids = models.VMHost.objects.order_by( 'hostid' ).distinct( 'hostid' ).values_list( 'hostid', flat=True )
+        hostids = models.VMZabbixConfig.objects.order_by( 'hostid' ).distinct( 'hostid' ).values_list( 'hostid', flat=True )
         choices = [("", "---------")] + [(zid, zid) for zid in hostids if zid is not None]
         self.fields["hostid"].choices = choices
 
@@ -225,8 +225,8 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
     port = forms.IntegerField( required=True )
 
     host = DynamicModelChoiceField( 
-        label="Device Host",      
-        queryset=models.DeviceHost.objects.all(),
+        label="Device Zabbix Config",      
+        queryset=models.DeviceZabbixConfig.objects.all(),
         required=True,
     )
 
@@ -257,7 +257,7 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
 
         if self.initial.get('device_host_id'):
             specific_device_host_id = self.initial.get( 'device_host_id' )
-            queryset = models.DeviceHost.objects.filter( pk=specific_device_host_id )
+            queryset = models.ZabbixConfig.objects.filter( pk=specific_device_host_id )
             self.fields['host'].queryset = queryset
             self.initial['host'] = specific_device_host_id
             self.initial['name'] = f"{queryset[0].get_name()}-agent"
@@ -299,8 +299,8 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
     snmp_bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
     
     host = DynamicModelChoiceField( 
-           label="Device Host",      
-           queryset=models.DeviceHost.objects.all(),
+           label="Device Zabbix Config",      
+           queryset=models.DeviceZabbixConfig.objects.all(),
            required=True,
        )
     
@@ -332,7 +332,7 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
 
         if self.initial.get('device_host_id'):
             specific_device_host_id = self.initial.get( 'device_host_id' )
-            queryset = models.DeviceHost.objects.filter( pk=specific_device_host_id )
+            queryset = models.ZabbixConfig.objects.filter( pk=specific_device_host_id )
             self.fields['host'].queryset = queryset
             self.initial['host'] = specific_device_host_id
             self.initial['name'] = f"{queryset[0].get_name()}-snmpv3"

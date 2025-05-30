@@ -32,20 +32,20 @@ class TemplateViewSet(NetBoxModelViewSet):
 
 
 # ------------------------------------------------------------------------------
-# Hosts
+# Zabbix Configs
 #
 
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
-class DeviceHostViewSet(NetBoxModelViewSet):
-    queryset = models.DeviceHost.objects.all()
-    serializer_class = serializers.DeviceHostSerializer
+class DeviceZabbixConfigViewSet(NetBoxModelViewSet):
+    queryset = models.DeviceZabbixConfig.objects.all()
+    serializer_class = serializers.DeviceZabbixConfigSerializer
 
     @action(detail=True, methods=['get'], url_path='primary-interface-data')
     def primary_interface_data(self, request, pk=None):
-        host = get_object_or_404(models.DeviceHost, pk=pk)
+        host = get_object_or_404(models.DeviceZabbixConfig, pk=pk)
         device = host.device
     
         if not device.primary_ip4:
@@ -69,9 +69,9 @@ class DeviceHostViewSet(NetBoxModelViewSet):
         
         return Response({})
 
-class VMHostViewSet(NetBoxModelViewSet):
-    queryset = models.VMHost.objects.all()
-    serializer_class = serializers.VMHostSerializer
+class VMZabbixConfigViewSet(NetBoxModelViewSet):
+    queryset = models.VMZabbixConfig.objects.all()
+    serializer_class = serializers.VMZabbixConfigSerializer
 
 # ------------------------------------------------------------------------------
 # Interfaces

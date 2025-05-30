@@ -33,17 +33,17 @@ class TemplateFilterSet(NetBoxModelFilterSet):
 # Hosts
 #
 
-class DeviceHostFilterSet(NetBoxModelFilterSet):
+class DeviceZabbixConfigFilterSet(NetBoxModelFilterSet):
     class Meta:
-        model = models.DeviceHost
+        model = models.DeviceZabbixConfig
         fields = [ 'status', 'templates']
 
-class VMHostFilterSet(NetBoxModelFilterSet):
+class VMZabbixConfigFilterSet(NetBoxModelFilterSet):
     class Meta:
-        model = models.DeviceHost
+        model = models.VMZabbixConfig
         fields = ['status', 'templates']
 
-class DevicesExclusiveToNetBoxFilterSet(NetBoxModelFilterSet):
+class NetBoxOnlyDevicesFilterSet(NetBoxModelFilterSet):
     class Meta:
         model = Device
         fields = ( 'name', )
@@ -55,7 +55,7 @@ class DevicesExclusiveToNetBoxFilterSet(NetBoxModelFilterSet):
 #                    'config_template', 'comments', 'contacts', 'tags', 'created', 'last_updated',
 #                )
 
-class VirtualMachinesExclusiveToNetBoxFilterSet(NetBoxModelFilterSet):
+class NetBoxOnlyVMsFilterSet(NetBoxModelFilterSet):
     class Meta:
         model = VirtualMachine
         fields = [ 'name' ]

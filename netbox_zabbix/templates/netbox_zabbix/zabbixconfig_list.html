@@ -13,12 +13,12 @@
     </button>
     <ul class="dropdown-menu" aria-labeled-by="add-components">
         <li><a class="dropdown-item"
-                href="{% url 'plugins:netbox_zabbix:devicehost_add' %}?return_url={% url 'plugins:netbox_zabbix:managed_hosts'%}">
+                href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?return_url={% url 'plugins:netbox_zabbix:zabbixconfig_list'%}">
                 Device Host
             </a>
         </li>
         <li><a class="dropdown-item"
-                href="{% url 'plugins:netbox_zabbix:vmhost_add' %}?return_url={% url 'plugins:netbox_zabbix:managed_hosts'%}">
+                href="{% url 'plugins:netbox_zabbix:vmzabbixconfig_add' %}?return_url={% url 'plugins:netbox_zabbix:zabbixconfig_list'%}">
                 VM Host
             </a>
         </li>
