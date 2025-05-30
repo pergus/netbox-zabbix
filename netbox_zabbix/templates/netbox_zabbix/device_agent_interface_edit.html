@@ -55,7 +55,7 @@
             const hostId = this.value;
             if (!hostId) return;
 
-            fetch(`/api/plugins/netbox_zabbix/devicehost/${hostId}/primary-interface-data/`)
+            fetch(`/api/plugins/netbox_zabbix/devicezabbixconfig/${hostId}/primary-interface-data/`)
                 .then(resp => resp.json())
                 .then(data => {
                     // Reset interface and ip selects
