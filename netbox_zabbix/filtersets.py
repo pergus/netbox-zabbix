@@ -30,7 +30,7 @@ class TemplateFilterSet(NetBoxModelFilterSet):
         )
     
 # ------------------------------------------------------------------------------
-# Hosts
+# Zabbix Configs
 #
 
 class DeviceZabbixConfigFilterSet(NetBoxModelFilterSet):
@@ -78,4 +78,20 @@ class DeviceSNMPv3InterfaceFilterSet(django_filters.FilterSet):
 
     class Meta:
         model = models.DeviceSNMPv3Interface
+        fields = ['host_id']
+
+
+class VMAgentInterfaceFilterSet(django_filters.FilterSet):
+    host_id = django_filters.NumberFilter( field_name='host__id' )
+
+    class Meta:
+        model = models.VMAgentInterface
+        fields = ['host_id']
+
+
+class VMSNMPv3InterfaceFilterSet(django_filters.FilterSet):
+    host_id = django_filters.NumberFilter( field_name='host__id' )
+
+    class Meta:
+        model = models.VMSNMPv3Interface
         fields = ['host_id']

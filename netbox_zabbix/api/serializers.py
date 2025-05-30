@@ -1,4 +1,5 @@
-from django.contrib.contenttypes.models import ContentType
+from dcim.api.serializers import InterfaceSerializer
+from virtualization.api.serializers import VMInterfaceSerializer
 from rest_framework import serializers
 
 from netbox.api.serializers import NetBoxModelSerializer
@@ -47,33 +48,58 @@ class DeviceZabbixConfigSerializer(NetBoxModelSerializer):
         return obj.get_name()
 
 class VMZabbixConfigSerializer(NetBoxModelSerializer):
+    name = serializers.SerializerMethodField()
+    display = serializers.SerializerMethodField()
+    
     class Meta:
         model = models.VMZabbixConfig
-        fields = ( 'id', 'hostid', 'status', 'templates', )
+        fields = ( 'id', 'name', 'display', 'hostid', 'status', 'templates', )
         
     templates = TemplateSerializer( many=True, read_only=True )
 
+    def get_display(self, obj):
+        return obj.get_name()
+    
+    def get_name(self, obj):
+        # This method is called to get the value for the `name` field
+        return obj.get_name()
+    
 # ------------------------------------------------------------------------------
-# Interface
+# Interfaces
 #
 
 
-# ------------------------------------------------------------------------------
-#
-#
-
-from dcim.api.serializers import InterfaceSerializer
 class AvailableDeviceInterfaceSerializer(InterfaceSerializer):
     class Meta(InterfaceSerializer.Meta):
         model = models.AvailableDeviceInterface
         fields = '__all__'
+
 
 class DeviceAgentInterfaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.DeviceAgentInterface
         fields = '__all__'
 
+
 class DeviceSNMPv3InterfaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.DeviceSNMPv3Interface
+        fields = '__all__'
+
+
+class AvailableVMInterfaceSerializer(VMInterfaceSerializer):
+    class Meta(VMInterfaceSerializer.Meta):
+        model = models.AvailableDeviceInterface
+        fields = '__all__'
+
+
+class VMAgentInterfaceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.VMAgentInterface
+        fields = '__all__'
+
+
+class VMSNMPv3InterfaceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.VMSNMPv3Interface
         fields = '__all__'

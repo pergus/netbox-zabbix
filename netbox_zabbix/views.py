@@ -292,12 +292,12 @@ class ImportableDeviceListView(generic.ObjectListView):
         return Device.objects.filter(
             name__in=zabbix_hostnames
         ).exclude(
-            id__in=models.DeviceZabbixConfig.objects.values_list("device_id", flat=True)
+            id__in=models.DeviceZabbixConfig.objects.values_list( "device_id", flat=True )
         )
 
 
     def post(self, request, *args, **kwargs):
-        if '_import_zabbix' in request.POST:
+        if '_import_device_from_zabbix' in request.POST:
 
             # Add a check to make sure there are any selected hosts, print a warning if not.
             selected_ids = request.POST.getlist( 'pk' )
@@ -305,15 +305,15 @@ class ImportableDeviceListView(generic.ObjectListView):
 
             for device in queryset:
                 try:
-                    job = jobs.ImportDeviceFromZabbix.run_job( device, user=request.user )
+                    job = jobs.ImportFromZabbix.run_job( device_or_vm=device, user=request.user )
 
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )
                     messages.success( request, message )
 
                 except Exception as e:
-                    messages.error( request, f"Failed to create job to import {device} from Zabbix {str(e)}" )
-                    logger.error( f"Failed to create job to import {device} from Zabbix {str(e)}" )
-                    logger.error( f"{request.user=}" )
+                    msg = f"Failed to create job for {request.user} to import device '{device}' from Zabbix {str( e )}"
+                    messages.error( request, msg )
+                    logger.error( msg )
 
             return redirect( request.POST.get( 'return_url' ) or request.path )
         
@@ -321,8 +321,49 @@ class ImportableDeviceListView(generic.ObjectListView):
 
 
 class ImportableVMListView(generic.ObjectListView):
-    pass
-
+    table = tables.ImportableVMTable
+    template_name = "netbox_zabbix/importablevm_list.html"
+    
+    
+    def get_queryset(self, request):
+        try:
+            zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
+        except Exception as e:
+            messages.error( request, f"Error fetching hostnames from Zabbix: {e}" )
+            return VirtualMachine.objects.none()
+    
+        # VMs not managed by Zabbix (by name) and not already imported (no ZabbixConfig)
+        return VirtualMachine.objects.filter(
+            name__in=zabbix_hostnames
+        ).exclude(
+            id__in=models.VMZabbixConfig.objects.values_list( "virtual_machine_id", flat=True )
+        )
+    
+    
+    def post(self, request, *args, **kwargs):
+        if '_import_vm_from_zabbix' in request.POST:
+    
+            # Add a check to make sure there are any selected hosts, print a warning if not.
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = VirtualMachine.objects.filter( pk__in=selected_ids )
+    
+            for vm in queryset:
+                try:
+                    job = jobs.ImportFromZabbix.run_job( device_or_vm=vm, user=request.user )
+    
+                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {vm.name} from Zabbix' )
+                    messages.success( request, message )
+    
+                except Exception as e:
+                    msg = f"Failed to create job for {request.user} to import vm '{vm}' from Zabbix {str( e )}"
+                    messages.error( request, msg )
+                    logger.error( msg )
+    
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+        
+        return super().get( request, *args, **kwargs )
+    
+    
 
 class NetBoxOnlyDevicesView(generic.ObjectListView):
 
@@ -460,51 +501,44 @@ class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
 # VM Agent
 
 class VMAgentInterfaceView(generic.ObjectView):
-    #queryset = models.DeviceAgentInterface.objects.all()
-    pass
+    queryset = models.VMAgentInterface.objects.all()
 
 class VMAgentInterfaceListView(generic.ObjectListView):
-    #queryset = models.DeviceAgentInterface.objects.all()
-    #filterset = filtersets.DeviceAgentInterfaceFilterSet
-    #filterset_form = forms.DeviceAgentInterfaceFilterForm
-    #table = tables.DeviceAgentInterfaceTable
-    pass
+    queryset = models.VMAgentInterface.objects.all()
+    filterset = filtersets.VMAgentInterfaceFilterSet
+    #filterset_form = forms.VMAgentInterfaceFilterForm
+    table = tables.VMAgentInterfaceTable
+    
 
 
 class VMAgentInterfaceEditView(generic.ObjectEditView):
-    #queryset = models.DeviceAgentInterface.objects.all()
-    #form = forms.DeviceAgentInterfaceForm
-    #template_name = 'netbox_zabbix/device_agent_interface_edit.html'
-    pass
+    queryset = models.VMAgentInterface.objects.all()
+    form = forms.VMAgentInterfaceForm
+    template_name = 'netbox_zabbix/vm_agent_interface_edit.html'
 
 class VMAgentInterfaceDeleteView(generic.ObjectDeleteView):
-    #queryset = models.DeviceAgentInterface.objects.all()
-    pass
+    queryset = models.VMAgentInterface.objects.all()
 
 
 # VM SNMPv3
 
 class VMSNMPv3InterfaceView(generic.ObjectView):
-    #queryset = models.DeviceSNMPv3Interface.objects.all()
-    pass
+    queryset = models.VMSNMPv3Interface.objects.all()
 
 
 class VMSNMPv3InterfaceListView(generic.ObjectListView):
-    #queryset = models.DeviceSNMPv3Interface.objects.all()
-    #filterset = filtersets.DeviceSNMPv3InterfaceFilterSet
-    #filterset_form = forms.DeviceSNMPv3InterfaceFilterForm
-    #table = tables.DeviceSNMPv3InterfaceTable
-    pass
+    queryset = models.VMSNMPv3Interface.objects.all()
+    filterset = filtersets.VMSNMPv3InterfaceFilterSet
+    #filterset_form = forms.VMSNMPv3InterfaceFilterForm
+    table = tables.VMSNMPv3InterfaceTable
 
 
 class VMSNMPv3InterfaceEditView(generic.ObjectEditView):
-    #queryset = models.DeviceSNMPv3Interface.objects.all()
-    #form = forms.DeviceSNMPv3InterfaceForm
-    #template_name = 'netbox_zabbix/device_snmpv3_interface_edit.html'
-    pass
+    queryset = models.VMSNMPv3Interface.objects.all()
+    form = forms.VMSNMPv3InterfaceForm
+    template_name = 'netbox_zabbix/vm_snmpv3_interface_edit.html'
     
 
 class VMSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
-    #queryset = models.DeviceSNMPv3Interface.objects.all()
-    pass
+    queryset = models.VMSNMPv3Interface.objects.all()
 

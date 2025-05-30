@@ -8,5 +8,6 @@ router.register( 'templates',                  views.TemplateViewSet )
 router.register( 'devicezabbixconfig',         views.DeviceZabbixConfigViewSet )
 router.register( 'vmzabbixconfig',             views.VMZabbixConfigViewSet )
 router.register( 'available-device-interface', views.AvailableDeviceInterfaceViewSet, basename='availabledeviceinterface' )
+router.register( 'available-vm-interface',     views.AvailableVMInterfaceViewSet, basename='availablevminterface' )
 
 urlpatterns = router.urls

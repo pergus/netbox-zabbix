@@ -24,10 +24,10 @@ menu = PluginMenu(
                  link_text="Importable Devices", 
                  link="plugins:netbox_zabbix:importabledevice_list",
              ),
-             #PluginMenuItem(
-             #    link="plugins:netbox_zabbix:importablevm_list",
-             #    link_text="Importable Virtual Machines",
-             #),                
+             PluginMenuItem(
+                 link="plugins:netbox_zabbix:importablevm_list",
+                 link_text="Importable Virtual Machines",
+             ),                
              
          )
         ),
@@ -80,28 +80,28 @@ menu = PluginMenu(
         ),
         ( "Virtual Machine Components",
             (
-                #PluginMenuItem(
-                #    link="plugins:netbox_zabbix:vmagentinterface_list",
-                #    link_text="Agent Interfaces",
-                #    buttons=(
-                #        PluginMenuButton(
-                #            "plugins:netbox_zabbix:vmagentinterface_add",
-                #            "Add",
-                #            "mdi mdi-plus-thick",
-                #        ),
-                #    ),
-                #),
-                #PluginMenuItem(
-                #    link="plugins:netbox_zabbix:vmsnmpv3interface_list",
-                #    link_text="SNMPv3 Interfaces",
-                #    buttons=(
-                #        PluginMenuButton(
-                #            "plugins:netbox_zabbix:vmsnmpv3interface_add",
-                #            "Add",
-                #            "mdi mdi-plus-thick",
-                #        ),
-                #    ),
-                #),
+                PluginMenuItem(
+                    link="plugins:netbox_zabbix:vmagentinterface_list",
+                    link_text="Agent Interfaces",
+                    buttons=(
+                        PluginMenuButton(
+                            "plugins:netbox_zabbix:vmagentinterface_add",
+                            "Add",
+                            "mdi mdi-plus-thick",
+                        ),
+                    ),
+                ),
+                PluginMenuItem(
+                    link="plugins:netbox_zabbix:vmsnmpv3interface_list",
+                    link_text="SNMPv3 Interfaces",
+                    buttons=(
+                        PluginMenuButton(
+                            "plugins:netbox_zabbix:vmsnmpv3interface_add",
+                            "Add",
+                            "mdi mdi-plus-thick",
+                        ),
+                    ),
+                ),
                 
             )
         ),

@@ -12,13 +12,13 @@
     </button>
     <ul class="dropdown-menu" aria-labeled-by="add-components">
         <li><a class="dropdown-item"
-                href="{% url 'plugins:netbox_zabbix:deviceagentinterface_add' %}?device_host_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}">
+                href="{% url 'plugins:netbox_zabbix:deviceagentinterface_add' %}?device_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}">
 
                 Agent Interface
             </a>
         </li>
         <li><a class="dropdown-item"
-                href="{% url 'plugins:netbox_zabbix:devicesnmpv3interface_add' %}?device_host_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}">
+                href="{% url 'plugins:netbox_zabbix:devicesnmpv3interface_add' %}?device_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}">
                 SNMPv3 Interface
             </a>
         </li>

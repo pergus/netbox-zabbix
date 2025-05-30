@@ -255,11 +255,11 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self.initial.get('device_host_id'):
-            specific_device_host_id = self.initial.get( 'device_host_id' )
-            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_host_id )
+        if self.initial.get('device_zabbix_config_id'):
+            specific_device_zabbix_config_id = self.initial.get( 'device_zabbix_config_id' )
+            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_zabbix_config_id )
             self.fields['host'].queryset = queryset
-            self.initial['host'] = specific_device_host_id
+            self.initial['host'] = specific_device_zabbix_config_id
             self.initial['name'] = f"{queryset[0].get_name()}-agent"
 
         # Set the initial value of the calculated DNS name if editing an existing instance
@@ -330,11 +330,141 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
         super().__init__(*args, **kwargs)
 
 
-        if self.initial.get('device_host_id'):
-            specific_device_host_id = self.initial.get( 'device_host_id' )
-            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_host_id )
+        if self.initial.get('device_zabbix_config_id'):
+            specific_device_zabbix_confighost_id = self.initial.get( 'device_zabbix_config_id' )
+            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_zabbix_confighost_id )
             self.fields['host'].queryset = queryset
-            self.initial['host'] = specific_device_host_id
+            self.initial['host'] = specific_device_zabbix_confighost_id
+            self.initial['name'] = f"{queryset[0].get_name()}-snmpv3"
+        
+        # Set the initial value of the calculated DNS name if editing an existing instance
+        if self.instance.pk:
+            self.fields['dns_name'].initial = self.instance.resolved_dns_name
+
+
+
+class VMAgentInterfaceForm(NetBoxModelForm):
+    class Meta:
+        model = models.DeviceAgentInterface
+        fields = ( 'name', 'host', 'interface', 'ip_address', 'dns_name', 'available', 'useip', 'useip', 'main', 'port' )
+
+    name = forms.CharField( max_length=255, required=True )
+    available = forms.ChoiceField( choices=models.AvailableChoices )
+    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
+    main = forms.ChoiceField( choices=models.MainChoices )
+    port = forms.IntegerField( required=True )
+
+    host = DynamicModelChoiceField( 
+        label="VM Zabbix Config",      
+        queryset=models.VMZabbixConfig.objects.all(),
+        required=True,
+    )
+
+    interface = DynamicModelChoiceField( 
+        label="VM Interface",
+        queryset = models.AvailableVMInterface.objects.all(),
+        query_params={"virtual_machine_id": "$host"},
+        required=True,
+    )
+
+    ip_address = DynamicModelChoiceField(
+        label="IP Address",
+        queryset=IPAddress.objects.all(),
+        query_params={ "vminterface_id": "$interface" },    
+        required=True,
+    )
+
+    dns_name = forms.CharField(
+           label="DNS Name",
+           max_length=255,
+           required=False,
+           disabled=True,
+           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.initial.get('vm_zabbix_config_id'):
+            specific_vm_zabbix_config_id = self.initial.get( 'vm_zabbix_config_id' )
+            queryset = models.VMZabbixConfig.objects.filter( pk=specific_vm_zabbix_config_id )
+            self.fields['host'].queryset = queryset
+            self.initial['host'] = specific_vm_zabbix_config_id
+            self.initial['name'] = f"{queryset[0].get_name()}-agent"
+
+        # Set the initial value of the calculated DNS name if editing an existing instance
+        if self.instance.pk:
+            self.fields['dns_name'].initial = self.instance.resolved_dns_name
+
+
+class VMSNMPv3InterfaceForm(NetBoxModelForm):
+    class Meta:
+        model = models.VMSNMPv3Interface
+        fields = ( 'name', 'host', 'interface', 'ip_address', 'dns_name', 
+                   'available', 'useip', 'useip', 'main', 'port',
+                   'snmp_max_repetitions',
+                   'snmp_contextname',
+                   'snmp_securityname',
+                   'snmp_securitylevel',
+                   'snmp_authprotocol',
+                   'snmp_authpassphrase',
+                   'snmp_privprotocol',
+                   'snmp_privpassphrase',
+                   'snmp_bulk' )
+
+    name = forms.CharField( max_length=255, required=True )
+    available = forms.ChoiceField( choices=models.AvailableChoices )
+    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
+    main = forms.ChoiceField( choices=models.MainChoices )
+    port = forms.IntegerField( required=True )
+
+    snmp_max_repetitions = forms.IntegerField( label="Max Repetition Count", initial=10 )
+    snmp_contextname     = forms.CharField( label="Context Name", max_length=255 )    
+    snmp_securityname    = forms.CharField( max_length=255, label="Security Name" )
+    snmp_securitylevel   = forms.ChoiceField( label="Security Level", choices=models.SNMPSecurityLevelChoices, initial=models.SNMPSecurityLevelChoices.authPriv )
+    snmp_authprotocol    = forms.ChoiceField( label="Authentication Protocol", choices=models.SNMPAuthProtocolChoices, initial=models.SNMPAuthProtocolChoices.SHA1 )
+    snmp_authpassphrase  = forms.CharField( max_length=255, label="Authentication Passphrase", initial="{$SNMPV3_AUTHPASS}" )
+    snmp_privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )    
+    snmp_privpassphrase  = forms.CharField( max_length=255, label="Privacy Passphrase", initial="{$SNMPV3_PRIVPASS}" )
+    snmp_bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
+    
+    host = DynamicModelChoiceField( 
+           label="VM Zabbix Config",      
+           queryset=models.VMZabbixConfig.objects.all(),
+           required=True,
+       )
+    
+    interface = DynamicModelChoiceField( 
+        label="VM Interface",
+        queryset = models.AvailableVMInterface.objects.all(),
+        query_params={"vitual_machine_id": "$host"},
+        required=True,
+    )
+    
+    ip_address = DynamicModelChoiceField(
+        label="IP Address",
+        queryset=IPAddress.objects.all(),
+        query_params={ "vminterface_id": "$interface" },    
+        required=True,
+    )
+    
+    dns_name = forms.CharField(
+           label="DNS Name",
+           max_length=255,
+           required=False,
+           disabled=True,
+           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+        if self.initial.get('vm_zabbix_config_id'):
+            specific_vm_zabbix_config_id = self.initial.get( 'vm_zabbix_config_id' )
+            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_vm_zabbix_config_id )
+            self.fields['host'].queryset = queryset
+            self.initial['host'] = specific_vm_zabbix_config_id
             self.initial['name'] = f"{queryset[0].get_name()}-snmpv3"
         
         # Set the initial value of the calculated DNS name if editing an existing instance

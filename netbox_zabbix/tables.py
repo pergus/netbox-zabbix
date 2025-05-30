@@ -150,6 +150,15 @@ class ImportableDeviceTable(NetBoxTable):
         default_columns = ("name", "site", "status")
 
 
+class ImportableVMTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+
+    class Meta(NetBoxTable.Meta):
+        model = VirtualMachine
+        fields = ("name", "site", "status", "role" )
+        default_columns = ("name", "site", "status")
+
+
 class NetBoxOnlyDevicesTable(DeviceTable):
 
     def render_actions(self, record):
@@ -216,6 +225,42 @@ class DeviceSNMPv3InterfaceTable(NetBoxTable):
     
     class Meta(NetBoxTable.Meta):
         model = models.DeviceSNMPv3Interface
+        fields = ( "name", "host", "interface", 
+                    "resolved_ip_address", "resolved_dns_name", 
+                    "hostid", "interfaceid", "available", "useip", "main",  "port",
+                    "snmp_max_repetitions",
+                    "snmp_contextname",
+                    "snmp_securityname",
+                    "snmp_securitylevel",
+                    "snmp_authprotocol",
+                    "snmp_authpassphrase",
+                    "snmp_privprotocol",
+                    "snmp_privpassphrase",
+                    "snmp_bulk" )
+        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port" )
+
+
+
+class VMAgentInterfaceTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+    interface = tables.Column( linkify=True )
+    resolved_ip_address = tables.Column( verbose_name="IP Address", linkify=True )
+    resolved_dns_name = tables.Column( verbose_name="DNS Name", linkify=True )
+        
+    class Meta(NetBoxTable.Meta):
+        model = models.VMAgentInterface
+        fields = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "hostid", "interfaceid", "available", "useip", "main",  "port" )
+        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port" )
+
+
+class VMSNMPv3InterfaceTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+    interface = tables.Column( linkify=True )
+    resolved_ip_address = tables.Column( verbose_name="IP Address", linkify=True )
+    resolved_dns_name = tables.Column( verbose_name="DNS Name", linkify=True )
+    
+    class Meta(NetBoxTable.Meta):
+        model = models.VMSNMPv3Interface
         fields = ( "name", "host", "interface", 
                     "resolved_ip_address", "resolved_dns_name", 
                     "hostid", "interfaceid", "available", "useip", "main",  "port",

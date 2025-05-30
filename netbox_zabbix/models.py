@@ -2,6 +2,10 @@ from django.urls import reverse
 from django.db import models
 from django.core.exceptions import ValidationError
 
+from dcim.models import Interface
+from virtualization.models import VMInterface
+
+
 from netbox.models import NetBoxModel
 
 
@@ -9,9 +13,11 @@ from netbox.models import NetBoxModel
 # Configuration
 #
 
+
 class IPAssignmentChoices(models.TextChoices):
     MANUAL = "manual", "Manual"
     PRIMARY = "primary", "Primary IPv4 Address"
+
 
 class Config(NetBoxModel):
     class Meta:
@@ -40,9 +46,11 @@ class Config(NetBoxModel):
     def get_absolute_url(self):
         return reverse("plugins:netbox_zabbix:config", args=[self.pk])
 
+
 # ------------------------------------------------------------------------------
 # Templates
 #
+
 
 class Template(NetBoxModel):
     class Meta:
@@ -56,14 +64,17 @@ class Template(NetBoxModel):
      
     def __str__(self):
         return self.name
-    
+
+
 # ------------------------------------------------------------------------------
 # Zabbix Configs
 #
 
+
 class StatusChoices(models.TextChoices):
     ENABLED = 'enabled', 'Enabled'    # 0 - (default) monitored host
     DISABLED = 'disabled', 'Disabled' # 1 - unmonitored host.
+
 
 class ZabbixConfig(NetBoxModel):
     class Meta:
@@ -108,37 +119,42 @@ class VMZabbixConfig(ZabbixConfig):
         return reverse( "plugins:netbox_zabbix:vmzabbixconfig", args=[self.pk] )
 
 
-
-
 # ------------------------------------------------------------------------------
 # Interfaces
 #
+
 
 class UseIPChoices(models.IntegerChoices):
     DNS = (0, 'DNS Name')
     IP = (1, 'IP Address')
 
+
 class MainChoices(models.IntegerChoices):
     NO = (0, 'No')
     YES = (1, 'Yes')
+
 
 class AvailableChoices(models.IntegerChoices):
     UNKNOWN     = (0, 'Unknown')
     AVAILABLE   = (1, 'Available')
     UNAVAILABLE = (2, 'Unavailable')
 
+
 class TypeChoices(models.IntegerChoices):
     AGENT = (1, 'Agent')
     SNMP =  (2, 'SNMP')
+
 
 class SNMPVersionChoices(models.IntegerChoices):
     SNMPv1  = (1, 'SNMPv1')
     SNMPv2c = (2, 'SNMPv2c')
     SNMPv3  = (3, 'SNMPv3')
 
+
 class SNMPBulkChoices(models.IntegerChoices):
     NO  = (0, 'No')
     YES = (1, 'Yes')
+
 
 class SNMPSecurityLevelChoices(models.IntegerChoices):
     noAuthNoPriv = (0, 'noAuthNoPriv')
@@ -154,6 +170,7 @@ class SNMPAuthProtocolChoices(models.IntegerChoices):
     SHA384 = (4, 'SHA384')
     SHA512 = (5, 'SHA512')
 
+
 class SNMPPrivProtocolChoices(models.IntegerChoices):
     DES     = (0, 'DES')
     AES128  = (1, 'AES128')
@@ -162,7 +179,6 @@ class SNMPPrivProtocolChoices(models.IntegerChoices):
     AES192C  = (4, 'AES192C')
     AES256C = (5, 'AES256C')
     
-
 
 class HostInterface(NetBoxModel):
     class Meta:
@@ -203,21 +219,34 @@ class BaseAgentInterface(HostInterface):
     def get_name(self):
         return f"{self.name}"
 
+
+    def _get_primary_ip(self):
+        """
+        Return the primary IP from the host's device or VM, or None.
+        """
+        host = self.host
+        if hasattr(host, "device") and host.device:
+            return host.device.primary_ip4 or host.device.primary_ip6
+        elif hasattr(host, "virtual_machine") and host.virtual_machine:
+            return host.virtual_machine.primary_ip4 or host.virtual_machine.primary_ip6
+        return None
+    
     @property
     def resolved_dns_name(self):
         config = Config.objects.first()
         if config.ip_assignment_method == 'primary':
-            return self.host.device.primary_ip4.dns_name
+            primary_ip = self._get_primary_ip()
+            return primary_ip.dns_name if primary_ip else None
         else:
-            return self.ip_address.dns_name
-
+            return self.ip_address.dns_name if self.ip_address else None
+    
     @property
     def resolved_ip_address(self):
         config = Config.objects.first()
         if config.ip_assignment_method == 'primary':
-            return self.host.device.primary_ip4
+            return self._get_primary_ip()
         else:
-            return self.ip_address
+            return self.ip_addresss
 
 
     def clean(self):
@@ -294,22 +323,34 @@ class BaseSNMPv3Interface(HostInterface):
     def get_name(self):
         return f"{self.name}"
     
+    def _get_primary_ip(self):
+        """
+        Return the primary IP from the host's device or VM, or None.
+        """
+        host = self.host
+        if hasattr(host, "device") and host.device:
+            return host.device.primary_ip4 or host.device.primary_ip6
+        elif hasattr(host, "virtual_machine") and host.virtual_machine:
+            return host.virtual_machine.primary_ip4 or host.virtual_machine.primary_ip6
+        return None
+    
     @property
     def resolved_dns_name(self):
         config = Config.objects.first()
         if config.ip_assignment_method == 'primary':
-            return self.host.device.primary_ip4.dns_name
+            primary_ip = self._get_primary_ip()
+            return primary_ip.dns_name if primary_ip else None
         else:
-            return self.ip_address.dns_name
+            return self.ip_address.dns_name if self.ip_address else None
     
     @property
     def resolved_ip_address(self):
         config = Config.objects.first()
         if config.ip_assignment_method == 'primary':
-            return self.host.device.primary_ip4
+            return self._get_primary_ip()
         else:
-            return self.ip_address
-
+            return self.ip_addresss
+    
 
 class DeviceAgentInterface(BaseAgentInterface):
     class Meta:
@@ -375,7 +416,10 @@ class VMSNMPv3Interface(BaseSNMPv3Interface):
 # The ViewSet is used to filter out interfaces that has already been assoicated
 # with a Device interface. See api/views.py for details.
 
-from dcim.models import Interface
 class AvailableDeviceInterface(Interface):
+    class Meta:
+        proxy = True
+
+class AvailableVMInterface(VMInterface):
     class Meta:
         proxy = True

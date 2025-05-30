@@ -1,11 +1,35 @@
 {% extends 'generic/object.html' %}
 {% load render_table from django_tables2 %}
 
+
+{% block control-buttons %}
+<div class="dropdown">
+    <button id="add-components" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown"
+        aria-expanded="false">
+        <i class="mdi mdi-plus-thick" aria-hidden="true"></i> Add Interface
+    </button>
+    <ul class="dropdown-menu" aria-labeled-by="add-components">
+        <li><a class="dropdown-item"
+                href="{% url 'plugins:netbox_zabbix:vmagentinterface_add' %}?vm_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:vmzabbixconfig' object.id %}">
+
+                Agent Interface
+            </a>
+        </li>
+        <li><a class="dropdown-item"
+                href="{% url 'plugins:netbox_zabbix:vmsnmpv3interface_add' %}?vm_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:vmzabbixconfig' object.id %}">
+                SNMPv3 Interface
+            </a>
+        </li>
+
+    </ul>
+</div>
+{% endblock %}
+
 {% block content %}
 <div class="row">
     <div class="col col-md-12">
         <div class="card">
-            <h5 class="card-header">VM Host</h5>
+            <h5 class="card-header">VM Zabbix Config</h5>
             <div class="card-body">
                 <table class="table table-hover attr-table">
                     <tr>
@@ -15,7 +39,9 @@
 
                     <tr>
                         <th scope="row">Virtual Machine</th>
-                        <td>{{ object.virtual_machine.name }}</td>
+                        <td>
+                            <a href="{{ object.device.get_absolute_url }}">{{ object.virtual_machine.name }}</a>
+                        </td>
                     </tr>
 
                     <tr>
@@ -31,18 +57,52 @@
                     <tr>
                         <th>Templates</th>
                         <td>
-                            {% for tmpl in object.templates.all %}
-                            <span class="badge text-bg-secondary">{{ tmpl.name }}</span>
+                            {% for template in object.templates.all %}
+                            <a href="{{ template.get_absolute_url }}" class="badge text-bg-primary">{{ template.name }}</a>
                             {% endfor %}
                         </td>
                     </tr>
-                    <tr>
-                        <th scope="row">Todo</th>
-                        <td>Copy the code from devicezabbixconfig.html here</td>
-                    </tr>
+
                 </table>
             </div>
         </div>
     </div>
+
+
+    <div class="row">
+        <div class="col col-md-12">
+            <div class="card">
+                <h2 class="card-header">
+                    Agent Interfaces
+                    <div class="card-actions">
+                        <a href="{% url 'plugins:netbox_zabbix:vmagentinterface_add' %}?host={{ object.pk }}"
+                            class="btn btn-ghost-primary btn-sm">
+                            <span class="mdi mdi-plus-thick"></span> Add Agent Interface
+                        </a>
+                    </div>
+                </h2>
+                {% htmx_table 'plugins:netbox_zabbix:vmagentinterface_list' host_id=object.pk %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col col-md-12">
+            <div class="card">
+                <h2 class="card-header">
+                    SNMPv3 Interfaces
+                    <div class="card-actions">
+                        <a href="{% url 'plugins:netbox_zabbix:vmsnmpv3interface_add' %}?host={{ object.pk }}"
+                            class="btn btn-ghost-primary btn-sm">
+                            <span class="mdi mdi-plus-thick"></span> Add SNMPv3 Interface
+                        </a>
+                    </div>
+                </h2>
+                {% htmx_table 'plugins:netbox_zabbix:vmsnmpv3interface_list' host_id=object.pk %}
+            </div>
+        </div>
+    </div>
+
+
 </div>
 {% endblock %}
