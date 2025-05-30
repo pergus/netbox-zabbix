@@ -257,7 +257,7 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
 
         if self.initial.get('device_host_id'):
             specific_device_host_id = self.initial.get( 'device_host_id' )
-            queryset = models.ZabbixConfig.objects.filter( pk=specific_device_host_id )
+            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_host_id )
             self.fields['host'].queryset = queryset
             self.initial['host'] = specific_device_host_id
             self.initial['name'] = f"{queryset[0].get_name()}-agent"
@@ -332,7 +332,7 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
 
         if self.initial.get('device_host_id'):
             specific_device_host_id = self.initial.get( 'device_host_id' )
-            queryset = models.ZabbixConfig.objects.filter( pk=specific_device_host_id )
+            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_host_id )
             self.fields['host'].queryset = queryset
             self.initial['host'] = specific_device_host_id
             self.initial['name'] = f"{queryset[0].get_name()}-snmpv3"
