@@ -93,7 +93,7 @@ class AvailableDeviceInterfaceFilter(filters.FilterSet):
     
     def filter_device_id(self, queryset, name, value):
 
-        host = models.DeviceHost.objects.get(id=value)
+        host = models.DeviceZabbixConfig.objects.get(id=value)
 
         used_ids_agent = set( models.DeviceAgentInterface.objects.values_list( 'interface_id', flat=True ) )
         used_ids_snmp = set( models.DeviceSNMPv3Interface.objects.values_list( 'interface_id', flat=True ) )

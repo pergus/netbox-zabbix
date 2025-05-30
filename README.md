@@ -11,14 +11,12 @@ NetBox plugin for Zabbix.
 
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
-| Rename the Config model                                      | Todo          |
-| Rename Hosts to something else                               | Todo          |
-| Rename interfaces to something shorter                       | Todo          |
+| Rename Hosts to something else                               | Done          |
 | Format for exception and logging messages                    | Todo          |
 | Replace plugin settings with configuration variables         | Todo          |
-| Create Unmanaged Devices                                     | Todo          |
+| Create Unmanaged Devices                                     | Done          |
 | Create Unmanaged VMs                                         | Todo          |
-| Create NetBox only Hosts                                     | Todo          |
+| Create NetBox only Hosts                                     | Done          |
 | Create Zabbix only Hosts                                     | Done          |
 | Create model and form for Agent interfaces                   | Done          |
 | Create model and form for SNMPv3 interfaces                  | Done          |
@@ -27,7 +25,7 @@ NetBox plugin for Zabbix.
 | Create class or function to run background jobs              | Done          |
 | Implement signals for create, update and delete              | Todo          |
 | Add Host information as a tab for Device and VM              | Todo          |
-
+| Add CIDR to the config                                       | Todo          |
 
 Convert the code to the naming standard in [new_urls.py](./new_urls.py) and [new_navigation.py](./new_navigation.py).
 

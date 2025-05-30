@@ -121,14 +121,14 @@ def create_device_zabbix_config(zabbix_host: dict, device: Device):
         raise Exception( f"validation failed: {str(e)}" )
 
     # Does the Device Host already exists?
-    if DeviceZabbixConfig.objects.filter(device=device).exists():
+    if DeviceZabbixConfig.objects.filter( device=device ).exists():
         raise Exception(f"Device host for '{device.name}' already exists")
 
     logger.info(f"Creating device host for {device.name}")
 
 
     # Create the Device Host
-    device_zabbix_config = DeviceZabbixConfig(device=device)
+    device_zabbix_config = DeviceZabbixConfig( device=device )
 
     device_zabbix_config.hostid = int( zabbix_host["hostid"] )
     device_zabbix_config.status = ( StatusChoices.DISABLED if int( zabbix_host.get( "status", 0 ) ) else StatusChoices.ENABLED )
@@ -156,7 +156,7 @@ def create_device_zabbix_config(zabbix_host: dict, device: Device):
             # Since it isn't possible to use cidr notation when specifying
             # the IP address in Zabbix and NetBox require a cidr when
             # searching for an IP, the cidr /24 is added to the Zabbix IP.
-            address = f"{iface['ip']}/24"
+            address = f"{iface['ip']}/23"
             nb_ip_address = IPAddress.objects.get( address=address )
         elif iface["useip"] == 0 and iface["dns"]:
             nb_ip_address = IPAddress.objects.get( dns_name=iface["dns"] )

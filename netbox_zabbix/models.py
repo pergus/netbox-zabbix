@@ -187,24 +187,16 @@ class HostInterface(NetBoxModel):
     main = models.IntegerField( choices=MainChoices, default=MainChoices.YES )
 
 
-class DeviceAgentInterface(HostInterface):
+class BaseAgentInterface(HostInterface):
     class Meta:
-        verbose_name = "Device Agent Interface"
-        verbose_name_plural = "Device Agent Interfaces"
+        abstract = True
     
-    # Rename to device_host??
-    host = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
-    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, blank=True, null=True, related_name="agent_interface" )
-
     # Interface type
     type = models.IntegerField(choices=TypeChoices, default=TypeChoices.AGENT )
 
     # Port number used by the interface.
     port = models.IntegerField( default=10050 )
     
-    # IP address used by the interface. Can be empty if connection is made via DNS.
-    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="agent_ip" )
-
     def __str__(self):
         return f"{self.name}"
     
@@ -253,24 +245,18 @@ class DeviceAgentInterface(HostInterface):
         return super().save(*args, **kwargs)
     
 
-class DeviceSNMPv3Interface(HostInterface):
+class BaseSNMPv3Interface(HostInterface):
     class Meta:
-        verbose_name = "Device SNMPv3 Interface"
-        verbose_name_plural = "Device SNMPv3 Interfaces"
+        abstract = True
     
     host = models.ForeignKey( to='DeviceZabbixConfig', on_delete=models.CASCADE, related_name='snmpv3_interfaces' )
-    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
     
-
     # Interface type
     type = models.IntegerField(choices=TypeChoices, default=TypeChoices.SNMP )
     
     # Port number used by the interface
     port = models.IntegerField( default=161 )
     
-    # IP address used by the interface. Can be empty if connection is made via DNS.
-    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="snmp3_ip" )
-
     # SNMP interface version
     snmp_version = models.IntegerField( choices=SNMPVersionChoices, default=SNMPVersionChoices.SNMPv3, blank=True, null=True )
 
@@ -323,30 +309,71 @@ class DeviceSNMPv3Interface(HostInterface):
             return self.host.device.primary_ip4
         else:
             return self.ip_address
-    
-#
-#
-#class VMAgentInterface(HostInterface):
-#    class Meta:
-#        verbose_name = "VM Agent Interface"
-#        verbose_name_plural = "VM Agent Interfaces"
-#
-#    port = models.IntegerField( default=10050 )
-#    host = models.OneToOneField( to='VMHost', on_delete=models.CASCADE, related_name='agent_interfaces' )
-#
-#
-#class VMSNMPv1(HostInterface):
-#    class Meta:
-#        verbose_name = "VM SNMPv1 Interface"
-#        verbose_name_plural = "VM SNMPv1 Interfaces"
-#        
-#    port = models.IntegerField( default=161 )
-#    host = models.OneToOneField( to='VMHost', on_delete=models.CASCADE, related_name='snmpv1_interfaces' )
 
+
+class DeviceAgentInterface(BaseAgentInterface):
+    class Meta:
+        verbose_name = "Device Agent Interface"
+        verbose_name_plural = "Device Agent Interfaces"
+    
+    # Reference to the Zabbix configuration object for the device this interface belongs to.
+    host = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
+
+    # The physical interface associated with this Agent configuration.
+    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, blank=True, null=True, related_name="agent_interface" )
+
+    # IP address used by tahe interface. Can be empty if connection is made via DNS.
+    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="device_agent_interface" )
+    
+
+class DeviceSNMPv3Interface(BaseSNMPv3Interface):
+    class Meta:
+            verbose_name = "Device SNMPv3 Interface"
+            verbose_name_plural = "Device SNMPv3 Interfaces"
+    
+    # Reference to the Zabbix configuration object for the device this interface belongs to.
+    host = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="snmpv3_interfaces" )
+    
+    # The physical interface associated with this SNMPv3 configuration.
+    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
+    
+    # IP address used by the interface. Can be empty if connection is made via DNS.
+    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="device_snmp3_interface" )
+    
+
+class VMAgentInterface(BaseAgentInterface):
+    class Meta:
+        verbose_name = "VM Agent Interface"
+        verbose_name_plural = "VM Agent Interfaces"
+
+    # Reference to the Zabbix configuration object for the virtual machine this interface belongs to.    
+    host = models.ForeignKey( to="VMZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
+
+    # The interface associated with this Agent configuration.
+    interface = models.OneToOneField( to="virtualization.VMInterface", on_delete=models.CASCADE, blank=True, null=True, related_name="agent_interface" )
+
+    # IP address used by tahe interface. Can be empty if connection is made via DNS.
+    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="vm_agent_interface" )
+    
+
+class VMSNMPv3Interface(BaseSNMPv3Interface):
+    class Meta:
+        verbose_name = "VM SNMPv3 Interface"
+        verbose_name_plural = "VM SNMPv3 Interfaces"
+
+    # Reference to the Zabbix configuration object for the virtual machine this interface belongs to.
+    host = models.ForeignKey( to="VMZabbixConfig", on_delete=models.CASCADE, related_name="snmpv3_interfaces" )
+
+    # The interface associated with this SNMPv3 configuration.
+    interface = models.OneToOneField( to="virtualization.VMInterface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
+    
+    # IP address used by the interface. Can be empty if connection is made via DNS.
+    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="vm_snmp3_interface" )
+    
 
 # Proxy model so that it is possible to register a ViewSet.
 # The ViewSet is used to filter out interfaces that has already been assoicated
-# with a Device interface.
+# with a Device interface. See api/views.py for details.
 
 from dcim.models import Interface
 class AvailableDeviceInterface(Interface):
