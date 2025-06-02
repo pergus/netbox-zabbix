@@ -27,6 +27,11 @@ NetBox plugin for Zabbix.
 | Add Host information as a tab for Device and VM              | Todo          |
 | Add CIDR to the config                                       | Todo          |
 
+The validate button reloads the page which means all vm/device are validated if 
+automatic validation is enabled.
+Should the validate button be hidden if automatic validation is enabled?
+
+
 
 
 ## Features

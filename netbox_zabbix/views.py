@@ -297,16 +297,36 @@ class ImportableDeviceListView(generic.ObjectListView):
 
 
     def post(self, request, *args, **kwargs):
+        if '_validate_device' in request.POST:
+            selected_ids = request.POST.getlist( 'pk' )
+        
+            if not selected_ids:
+                messages.error( request, "Please select a device to validate." )
+            elif len( selected_ids ) > 1:
+                messages.error( request, "Only one device can be validated at a time." )
+            else:
+                device = Device.objects.filter( pk=selected_ids[0] ).first()
+                if device:
+                    try:
+                        logger.info( f"Validating device: {device.name}" )
+                        result = jobs.ValidateDeviceOrVM.run( device_or_vm=device, user=request.user )
+                        messages.success( request, result )
+                    except Exception as e:
+                        messages.error( request, str( e ) )
+        
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+        
         if '_import_device_from_zabbix' in request.POST:
 
             # Add a check to make sure there are any selected hosts, print a warning if not.
+
             selected_ids = request.POST.getlist( 'pk' )
             queryset = Device.objects.filter( pk__in=selected_ids )
 
             for device in queryset:
                 try:
+                    logger.info ( f"importing device {device.name}" )                    
                     job = jobs.ImportFromZabbix.run_job( device_or_vm=device, user=request.user )
-
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )
                     messages.success( request, message )
 
@@ -317,6 +337,8 @@ class ImportableDeviceListView(generic.ObjectListView):
 
             return redirect( request.POST.get( 'return_url' ) or request.path )
         
+
+
         return super().get( request, *args, **kwargs )
 
 
@@ -333,14 +355,38 @@ class ImportableVMListView(generic.ObjectListView):
             return VirtualMachine.objects.none()
     
         # VMs not managed by Zabbix (by name) and not already imported (no ZabbixConfig)
-        return VirtualMachine.objects.filter(
+        queryset = VirtualMachine.objects.filter(
             name__in=zabbix_hostnames
         ).exclude(
             id__in=models.VMZabbixConfig.objects.values_list( "virtual_machine_id", flat=True )
         )
-    
-    
+
+        return queryset
+        
+
     def post(self, request, *args, **kwargs):
+
+        if '_validate_vm' in request.POST:
+            selected_ids = request.POST.getlist( 'pk' )
+        
+            if not selected_ids:
+                messages.error( request, "Please select a VM to validate." )
+            elif len( selected_ids ) > 1:
+                messages.error( request, "Only one VM can be validated at a time." )
+            else:
+                vm = VirtualMachine.objects.filter( pk=selected_ids[0] ).first()
+                if vm:
+                    try:
+                        logger.info( f"Validating VM: {vm.name}" )
+                        result = jobs.ValidateDeviceOrVM.run( device_or_vm=vm, user=request.user )
+                        messages.success( request, result )
+                    except Exception as e:
+                        messages.error( request, str( e ) )
+        
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+            
+        
+
         if '_import_vm_from_zabbix' in request.POST:
     
             # Add a check to make sure there are any selected hosts, print a warning if not.
@@ -349,8 +395,8 @@ class ImportableVMListView(generic.ObjectListView):
     
             for vm in queryset:
                 try:
-                    job = jobs.ImportFromZabbix.run_job( device_or_vm=vm, user=request.user )
-    
+                    logger.info ( f"importing vm {vm.name}" )                    
+                    job = jobs.ImportFromZabbix.run_job( device_or_vm=vm, user=request.user )    
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {vm.name} from Zabbix' )
                     messages.success( request, message )
     

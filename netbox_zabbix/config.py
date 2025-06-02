@@ -50,6 +50,29 @@ def get_zabbix_token():
     """
     return get_config().token
 
+
+def get_auto_validate_importables():
+    """
+    Retrieve the current setting for automatic validation of importable devices and VMs.
+    
+    Returns:
+        bool: True if automatic validation is enabled; False otherwise.
+    """
+    return get_config().auto_validate_importables
+
+
+def get_default_cidr():
+    """
+    Retrieve the default CIDR suffix configured for Zabbix interface IP lookups.
+    
+    This value is used to append a CIDR (e.g., /24) to Zabbix IP addresses
+    when querying NetBox for matching IP addresses, since NetBox requires CIDR notation.
+    
+    Returns:
+        str: The default CIDR suffix (e.g., '/24')
+    """
+    return get_config().default_cidr
+
 def set_version( version ):
     """
     Update the stored Zabbix version in the configuration.

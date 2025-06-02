@@ -39,13 +39,12 @@ PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 class ConfigForm(NetBoxModelForm):
 
     fieldsets = (
-        FieldSet( 'name', 'ip_assignment_method', name="General"),
-        FieldSet( 'api_endpoint', 'web_address', 'token', name="Zabbix" )
+        FieldSet( 'name', 'ip_assignment_method', 'auto_validate_importables', name="General"),
+        FieldSet( 'api_endpoint', 'web_address', 'token', 'default_cidr', name="Zabbix" )
     )
     class Meta:
         model = models.Config
         fields = '__all__'
-        #fields = ( 'name', 'api_endpoint', 'web_address', 'token', 'ip_assignment_method' )
 
     def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)

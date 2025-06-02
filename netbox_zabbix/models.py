@@ -5,7 +5,6 @@ from django.core.exceptions import ValidationError
 from dcim.models import Interface
 from virtualization.models import VMInterface
 
-
 from netbox.models import NetBoxModel
 
 
@@ -17,6 +16,23 @@ from netbox.models import NetBoxModel
 class IPAssignmentChoices(models.TextChoices):
     MANUAL = "manual", "Manual"
     PRIMARY = "primary", "Primary IPv4 Address"
+
+
+class CIDRChoices(models.TextChoices):
+    CIDR_32 = '/32', '/32 (Single IP)'
+    CIDR_30 = '/30', '/30'
+    CIDR_29 = '/29', '/29'
+    CIDR_28 = '/28', '/28'
+    CIDR_27 = '/27', '/27'
+    CIDR_26 = '/26', '/26'
+    CIDR_25 = '/25', '/25'
+    CIDR_24 = '/24', '/24 (Typical subnet)'
+    CIDR_23 = '/23', '/23'
+    CIDR_22 = '/22', '/22'
+    CIDR_21 = '/21', '/21'
+    CIDR_20 = '/20', '/20'
+    CIDR_16 = '/16', '/16 (Large subnet)'
+
 
 
 class Config(NetBoxModel):
@@ -31,7 +47,16 @@ class Config(NetBoxModel):
     connection       = models.BooleanField( default=False )
     last_checked_at  = models.DateTimeField( null=True, blank=True )
     version          = models.CharField( max_length=255, blank=True, null=True )
-    
+    auto_validate_importables = models.BooleanField( default= False )
+
+    default_cidr = models.CharField(
+            verbose_name="Default CIDR",
+            max_length=4,
+            choices=CIDRChoices.choices,
+            default=CIDRChoices.CIDR_24,
+            help_text="Default CIDR suffix to apply to Zabbix interface IPs when looking them up in NetBox."
+        )
+
     ip_assignment_method = models.CharField(
         verbose_name="IP Assignment Method",
         max_length=16,
@@ -234,7 +259,8 @@ class BaseAgentInterface(HostInterface):
     @property
     def resolved_dns_name(self):
         config = Config.objects.first()
-        if config.ip_assignment_method == 'primary':
+        primary_ip = self._get_primary_ip()
+        if config.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
             primary_ip = self._get_primary_ip()
             return primary_ip.dns_name if primary_ip else None
         else:
@@ -243,10 +269,12 @@ class BaseAgentInterface(HostInterface):
     @property
     def resolved_ip_address(self):
         config = Config.objects.first()
-        if config.ip_assignment_method == 'primary':
+        primary_ip = self._get_primary_ip()
+
+        if config.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
             return self._get_primary_ip()
         else:
-            return self.ip_addresss
+            return self.ip_address
 
 
     def clean(self):
@@ -337,7 +365,8 @@ class BaseSNMPv3Interface(HostInterface):
     @property
     def resolved_dns_name(self):
         config = Config.objects.first()
-        if config.ip_assignment_method == 'primary':
+        primary_ip = self._get_primary_ip()
+        if config.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
             primary_ip = self._get_primary_ip()
             return primary_ip.dns_name if primary_ip else None
         else:
@@ -346,10 +375,11 @@ class BaseSNMPv3Interface(HostInterface):
     @property
     def resolved_ip_address(self):
         config = Config.objects.first()
-        if config.ip_assignment_method == 'primary':
+        primary_ip = self._get_primary_ip()
+        if config.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
             return self._get_primary_ip()
         else:
-            return self.ip_addresss
+            return self.ip_address
     
 
 class DeviceAgentInterface(BaseAgentInterface):

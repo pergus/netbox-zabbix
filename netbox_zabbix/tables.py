@@ -3,6 +3,7 @@ from netbox.tables import NetBoxTable, columns
 from netbox.tables.columns import ActionsColumn
 from django.utils.safestring import mark_safe
 from django.utils.html import format_html
+from django.urls import reverse
 
 from dcim.tables import DeviceTable
 from virtualization.tables import VirtualMachineTable
@@ -10,9 +11,9 @@ from virtualization.tables import VirtualMachineTable
 from dcim.models import Device
 from virtualization.models import VirtualMachine
 
-from netbox_zabbix import models
 
-from django.urls import reverse
+from netbox_zabbix import models, jobs, config
+from netbox_zabbix.logger import logger
 
 # ------------------------------------------------------------------------------
 # Configuration
@@ -63,7 +64,7 @@ class TemplateTable(NetBoxTable):
 
 
 # ------------------------------------------------------------------------------
-# Hosts
+# Zabbix Configurations
 #
 
 class DeviceZabbixConfigTable(NetBoxTable):
@@ -143,21 +144,68 @@ class ZabbixConfigTable(NetBoxTable):
 
 class ImportableDeviceTable(NetBoxTable):
     name = tables.Column( linkify=True )
-
+    valid = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
+    reason = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
+    
     class Meta(NetBoxTable.Meta):
         model = Device
-        fields = ("name", "site", "status", "role" )
-        default_columns = ("name", "site", "status")
+        fields = ("name", "site", "status", "role", "valid", "reason" )
+        default_columns = ("name", "site", "status", "valid", "reaon" )
+
+    def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.reasons = {}
+    
+    def render_valid(self, record):
+        if config.get_auto_validate_importables():
+            try:
+                logger.info( f"valdating device {record} ")
+                jobs.ValidateDeviceOrVM.run( device_or_vm = record, user=None )
+                return mark_safe("✔")        
+            except Exception as e:
+                self.reasons[record] = e
+                return mark_safe("✘")
+        else:
+            return mark_safe("-")
+    
+    def render_reason(self, record):
+        if config.get_auto_validate_importables():
+            return self.reasons[record] if record in self.reasons else ""
+        return ""
+    
 
 
 class ImportableVMTable(NetBoxTable):
     name = tables.Column( linkify=True )
+    valid = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
+    reason = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
 
     class Meta(NetBoxTable.Meta):
         model = VirtualMachine
-        fields = ("name", "site", "status", "role" )
-        default_columns = ("name", "site", "status")
+        fields = ("name", "site", "status", "role", "valid", "reason" )
+        default_columns = ("name", "site", "status", "valid", "reason" )
 
+    def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.reasons = {}
+
+    def render_valid(self, record):
+        if config.get_auto_validate_importables():
+            try:
+                logger.info( f"valdating virtual machine '{record}' ")
+                jobs.ValidateDeviceOrVM.run( device_or_vm = record, user=None )
+                return mark_safe("✔")        
+            except Exception as e:
+                self.reasons[record] = e
+                return mark_safe("✘")
+        else:
+            return mark_safe("-")
+    
+    def render_reason(self, record):
+        if config.get_auto_validate_importables():
+            return self.reasons[record] if record in self.reasons else ""
+        return ""
+    
 
 class NetBoxOnlyDevicesTable(DeviceTable):
 

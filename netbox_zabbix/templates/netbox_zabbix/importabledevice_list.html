@@ -10,6 +10,11 @@
         <i class="mdi mdi-database-import-outline"></i> Import from Zabbix
     </button>
 
+    <button type="submit" name="_validate_device" class="btn btn-success">
+        <i class="mdi mdi-database-import-outline"></i> Validate
+    </button>
+
+
     {% if 'bulk_edit' in actions %}
     {% bulk_edit_button model query_params=request.GET %}
     {% endif %}
