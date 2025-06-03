@@ -19,7 +19,7 @@ from netbox_zabbix.logger import logger
 # Configuration
 #
 
-EXTRA_BUTTONS = """
+EXTRA_CONFIG_BUTTONS = """
 <span class="dropdown">
     <button id="actions" type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
         <i class="mdi mdi-plus-thick" aria-hidden="true"></i> Actions
@@ -43,7 +43,7 @@ class ConfigTable(NetBoxTable):
         default_columns = ('name', 'api_endpoint', 'version', 'connection', 'last_checked_at')
 
     name = tables.Column( linkify=True )
-    actions = columns.ActionsColumn( extra_buttons=EXTRA_BUTTONS )
+    actions = columns.ActionsColumn( extra_buttons=EXTRA_CONFIG_BUTTONS )
 
 
 # ------------------------------------------------------------------------------
@@ -174,7 +174,6 @@ class ImportableDeviceTable(NetBoxTable):
         return ""
     
 
-
 class ImportableVMTable(NetBoxTable):
     name = tables.Column( linkify=True )
     valid = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
@@ -207,20 +206,50 @@ class ImportableVMTable(NetBoxTable):
         return ""
     
 
+
+EXTRA_DEVICE_ADD_ACTIONS = """
+<span class="btn-group dropdown">
+
+    <a class="btn btn-sm btn-primary" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}" type="button" aria-label="Add Config">
+    <i class="mdi mdi-pen-plus"></i>
+    </a>
+
+    <a class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="padding-left: 2px" aria-expanded="false">
+        <span class="visually-hidden">Toggle Dropdown</span>
+    </a>
+
+    <ul class="dropdown-menu">
+        <li>
+            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}" class="btn btn-sm btn-info">
+            <i class="mdi mdi-flash-auto""></i>
+            Add Agent
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}" class="btn btn-sm btn-info">
+            <i class="mdi mdi-flash""></i>
+            Add SNMPv3
+            </a>
+        </li>        
+    </ul>
+</span>
+
+"""
 class NetBoxOnlyDevicesTable(DeviceTable):
 
-    def render_actions(self, record):
-           url = reverse('plugins:netbox_zabbix:devicezabbixconfig_add') + f'?device_id={record.pk}'
-           return format_html(
-               '<a href="{}" class="btn btn-sm btn-success">Create Zabbix Config</a>',
-               url
-           )
+    #def render_actions(self, record):
+    #       url = reverse('plugins:netbox_zabbix:devicezabbixconfig_add') + f'?device_id={record.pk}'
+    #       return format_html(
+    #           '<a href="{}" class="btn btn-sm btn-success">Create Zabbix Config</a>',
+    #           url
+    #       )
    
     class Meta(DeviceTable.Meta):
         model = Device
         fields = DeviceTable.Meta.fields
         default_columns = DeviceTable.Meta.default_columns
 
+    actions = columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS )
 
 class NetBoxOnlyVMsTable(VirtualMachineTable):
 

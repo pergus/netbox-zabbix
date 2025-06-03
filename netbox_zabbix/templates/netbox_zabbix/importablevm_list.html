@@ -9,10 +9,11 @@
     <button type="submit" name="_import_vm_from_zabbix" class="btn btn-success">
         <i class="mdi mdi-database-import-outline"></i> Import from Zabbix
     </button>
-
+    {% if validate_button %}
     <button type="submit" name="_validate_vm" class="btn btn-success">
         <i class="mdi mdi-database-import-outline"></i> Validate
     </button>
+    {% endif %}
 
 
     {% if 'bulk_edit' in actions %}

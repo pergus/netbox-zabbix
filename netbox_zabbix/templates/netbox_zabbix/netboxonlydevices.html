@@ -3,8 +3,17 @@
 {% load helpers %}
 
 {% block title %}
-Devices Exclusive To NetBox {{ model|meta:"verbose_name_plural"|bettertitle }}
+{{ model|meta:"verbose_name_plural"|bettertitle }} Exclusive To NetBox
 {% endblock %}
+
+
+{% block extra_table_controls %}
+
+<div class="btn-group" role="group">
+    <a href="">Add Config</a>
+</div>
+{% endblock %}
+
 
 {% block content %}
 {{ block.super }}

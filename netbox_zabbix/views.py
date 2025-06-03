@@ -280,7 +280,11 @@ class ImportableDeviceListView(generic.ObjectListView):
     table = tables.ImportableDeviceTable
     template_name = "netbox_zabbix/importabledevice_list.html"
 
+    def get_extra_context(self, request):
+        super().get_extra_context(request)
 
+        return { "validate_button": config.get_auto_validate_importables() }
+    
     def get_queryset(self, request):
         try:
             zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
@@ -346,6 +350,11 @@ class ImportableVMListView(generic.ObjectListView):
     table = tables.ImportableVMTable
     template_name = "netbox_zabbix/importablevm_list.html"
     
+    
+    def get_extra_context(self, request):
+        super().get_extra_context(request)
+    
+        return { "validate_button": config.get_auto_validate_importables() }
     
     def get_queryset(self, request):
         try:

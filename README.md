@@ -9,14 +9,19 @@ NetBox plugin for Zabbix.
 
 ## Todo
 
+Is it possible to let other views inherit field etc like NetBoxOnlyDevicesView does?
+
+
+### General
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
-| Rename Hosts to something else                               | Done          |
 | Format for exception and logging messages                    | Todo          |
 | Replace plugin settings with configuration variables         | Todo          |
-| Create Unmanaged Devices                                     | Done          |
-| Create Unmanaged VMs                                         | Todo          |
-| Create NetBox only Hosts                                     | Done          |
+| Create Importable Devices/VMs                                | Done          |
+| Create Devices/VM Zabbix configurations                      | Done          |
+| Create Devices/VM components                                 | Done          |
+| Create ALL Zabbix Configurations                             | Done          |
+| Create NetBox only Devices/VMs                               | Done          |
 | Create Zabbix only Hosts                                     | Done          |
 | Create model and form for Agent interfaces                   | Done          |
 | Create model and form for SNMPv3 interfaces                  | Done          |
@@ -24,12 +29,38 @@ NetBox plugin for Zabbix.
 | Create model and form for SNMPv2c interfaces                 | Todo          |
 | Create class or function to run background jobs              | Done          |
 | Implement signals for create, update and delete              | Todo          |
+| Auto hide validate button depending on if automatic validation is enabled or not | Done |
 | Add Host information as a tab for Device and VM              | Todo          |
-| Add CIDR to the config                                       | Todo          |
+| Add filtersets to the views                                  | Todo          |
+| Implement GraphQL                                            | Todo          |
 
-The validate button reloads the page which means all vm/device are validated if 
-automatic validation is enabled.
-Should the validate button be hidden if automatic validation is enabled?
+
+
+### Config
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| Add CIDR to the config                                       | Done          |
+| Add Automatic Validation                                     | Done          |
+| Add Automatic Validation                                     | Done          |
+| Add Background Job for Zabbix Config Sync                    | Done          |
+| Add a limit to how many messages to show when importing multiple Devices/VMs | Todo |
+
+
+### NetBox Only Devices
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| Add action button to create new config                       | Todo          |
+| Add action button to quick add Agent                         | Todo          |
+| Add action button to quick Add SNMPv3                        | Todo          |
+
+### NetBox Only VMs
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| Add action button to create new config                       | Todo          |
+| Add action button to quick add Agent                         | Todo          |
+| Add action button to quick Add SNMPv3                        | Todo          |
+
+
 
 
 
