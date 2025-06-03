@@ -35,9 +35,30 @@ class TemplateViewSet(NetBoxModelViewSet):
     serializer_class = serializers.TemplateSerializer
     filterset_class = TemplateFilter 
 
+# ------------------------------------------------------------------------------
+# Hostgroups
+#
+
+class HostGroupViewSet(NetBoxModelViewSet):
+    queryset = models.HostGroup.objects.all()
+    serializer_class = serializers.HostGroupSerializer
+    filterset_fields = ['groupid', 'name']
+
+
+class HostGroupMappingFilter(filters.FilterSet):
+    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Group Mappings" )
+
+    class Meta:
+        model = models.HostGroupMapping
+        fields = ["q"]
+
+class HostGroupMappingViewSet(NetBoxModelViewSet):
+    queryset = models.HostGroupMapping.objects.all()
+    serializer_class = serializers.HostGroupMappingSerializer
+    filterset_class = HostGroupMappingFilter
 
 # ------------------------------------------------------------------------------
-# Zabbix Configs
+# Zabbix Configurations
 #
 
 from rest_framework.decorators import action

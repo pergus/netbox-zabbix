@@ -64,3 +64,8 @@ class AtomicJobRunner(JobRunner):
                     **kwargs,
                 )
 
+    @classmethod
+    def run_now(cls, *args, **kwargs):
+        with transaction.atomic():
+            return cls.run( *args, **kwargs )
+    

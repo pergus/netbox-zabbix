@@ -16,6 +16,15 @@ menu = PluginMenu(
                     link_text="Templates",                    
                     link="plugins:netbox_zabbix:template_list",
                 ),
+                PluginMenuItem( 
+                    link_text="Hostgroups",                    
+                    link="plugins:netbox_zabbix:hostgroup_list",
+                ),                
+                PluginMenuItem( 
+                    link_text="Hostgroup Mappings",                    
+                    link="plugins:netbox_zabbix:hostgroupmapping_list",
+                ),
+                
             ),
         ),
         ( "Import",

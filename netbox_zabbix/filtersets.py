@@ -30,7 +30,7 @@ class TemplateFilterSet(NetBoxModelFilterSet):
         )
     
 # ------------------------------------------------------------------------------
-# Zabbix Configs
+# Zabbix Configurations
 #
 
 class DeviceZabbixConfigFilterSet(NetBoxModelFilterSet):

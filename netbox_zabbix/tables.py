@@ -62,6 +62,33 @@ class TemplateTable(NetBoxTable):
         fields = ("name", "templateid", "host_count", "last_synced", "marked_for_deletion" )
         default_columns = ("name", "templateid", "host_count", "last_synced", "marked_for_deletion" )
 
+# ------------------------------------------------------------------------------
+# HostGroups
+#
+
+class HostGroupTable(NetBoxTable):
+    name = tables.Column( verbose_name="Name", order_by="name", accessor="name", )
+    groupid = tables.Column( verbose_name="Group ID", order_by="groupid", )
+
+    class Meta(NetBoxTable.Meta):
+        model = models.HostGroup
+        fields = ( "pk", "id", "name", "groupid", )
+        default_columns = ( "pk", "name", "groupid", )
+
+# ------------------------------------------------------------------------------
+# HostGroup Mappings
+#
+
+class HostGroupMappingTable(NetBoxTable):
+    hostgroup = tables.Column( linkify=True )
+    roles = tables.ManyToManyColumn( linkify=True )
+    platforms = tables.ManyToManyColumn( linkify=True )
+    filter_tags = tables.ManyToManyColumn( linkify=True )
+
+    class Meta(NetBoxTable.Meta):
+        model = models.HostGroupMapping
+        fields = ("hostgroup", "roles", "platforms", "filter_tags")
+
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
@@ -141,7 +168,6 @@ class ZabbixConfigTable(NetBoxTable):
             return mark_safe('<span class="text-muted">Unknown</span>')
 
 
-
 class ImportableDeviceTable(NetBoxTable):
     name = tables.Column( linkify=True )
     valid = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
@@ -210,7 +236,7 @@ class ImportableVMTable(NetBoxTable):
 EXTRA_DEVICE_ADD_ACTIONS = """
 <span class="btn-group dropdown">
 
-    <a class="btn btn-sm btn-primary" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}" type="button" aria-label="Add Config">
+    <a class="btn btn-sm btn-primary" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" type="button" aria-label="Add Config">
     <i class="mdi mdi-pen-plus"></i>
     </a>
 
@@ -220,13 +246,13 @@ EXTRA_DEVICE_ADD_ACTIONS = """
 
     <ul class="dropdown-menu">
         <li>
-            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}" class="btn btn-sm btn-info">
+            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_agent' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
             <i class="mdi mdi-flash-auto""></i>
             Add Agent
             </a>
         </li>
         <li>
-            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}" class="btn btn-sm btn-info">
+            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_snmpv3' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
             <i class="mdi mdi-flash""></i>
             Add SNMPv3
             </a>
@@ -250,6 +276,7 @@ class NetBoxOnlyDevicesTable(DeviceTable):
         default_columns = DeviceTable.Meta.default_columns
 
     actions = columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS )
+
 
 class NetBoxOnlyVMsTable(VirtualMachineTable):
 

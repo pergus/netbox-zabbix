@@ -33,6 +33,7 @@ def get_zabbix_client():
     except Exception as e:
         raise e
 
+
 def validate_zabbix_credentials(api_endpoint, token):
     """
     Validates the provided Zabbix API endpoint and API token.
@@ -66,6 +67,7 @@ def fetch_version_from_credentials(api_endpoint, token):
         
     except Exception as e:
         raise e
+
 
 def validate_zabbix_credentials_from_config():
     """
@@ -224,7 +226,6 @@ def get_zabbix_hostnames():
         return []
     
 
-
 def get_zabbix_only_hostnames():
     """
         Retrieve hostnames that exist in Zabbix but not in NetBox.
@@ -293,3 +294,61 @@ def get_host(hostname):
     return hosts[0]
 
 
+def hostgroup_get():
+    """
+    Fetch all hostgroups from Zabbix.
+
+    Returns:
+        list: List of hostgroup dicts from Zabbix.
+    """
+
+    try:
+        z = get_zabbix_client()
+        return z.hostgroup.get(output=["name", "groupid" ], limit=10000)
+    except Exception as e:
+        raise e        
+
+def synchronize_hostgroups(max_deletions=None):
+    """
+    Synchronize Zabbix hostgroups into the local NetBox plugin database.
+
+    Args:
+        max_deletions (int, optional): Max allowed deletions in one run.
+
+    Returns:
+        tuple: (added, deleted) lists of hostgroup names
+    """
+    try:
+        hostgroups = hostgroup_get()
+    except Exception as e:
+        raise RuntimeError( "Zabbix hostgroup sync failed" ) from e
+
+    current = models.HostGroup.objects.all()
+    current_ids = set( current.values_list( "groupid", flat=True ) )
+    new_ids = set( hg["groupid"] for hg in hostgroups )
+    
+    added = []
+    for hg in hostgroups:
+        obj, created = models.HostGroup.objects.update_or_create( groupid=hg["groupid"], defaults={"name": hg["name"]} )
+        if created:
+            logger.info( f"Added hostgroup {hg['name']} ({hg['groupid']})" )
+            added.append( hg["name"] )
+    
+    to_delete = current_ids - new_ids
+    deleted = []
+    
+    for groupid in to_delete:
+        hg = models.HostGroup.objects.get( groupid=groupid )
+        logger.info( f"Deleted hostgroup {hg.name} ({hg.groupid})" )
+        deleted.append( hg.name )
+        hg.delete()
+    
+    return added, deleted
+
+
+def create_host(**host):
+    try:
+        z = get_zabbix_client()
+        z.host.create(**host)
+    except Exception as e:
+        raise e

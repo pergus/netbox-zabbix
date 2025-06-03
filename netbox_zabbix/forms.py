@@ -109,9 +109,54 @@ class TemplateFilterForm(NetBoxModelFilterSetForm):
         templateids = models.Template.objects.order_by('templateid').distinct('templateid').values_list('templateid', flat=True)
         choices = [("", "---------")] + [(zid, zid) for zid in templateids if zid is not None]
         self.fields["templateid"].choices = choices
-    
+
 # ------------------------------------------------------------------------------
-# Hosts
+# Hostgroups
+#
+
+class HostGroupForm(NetBoxModelForm):
+    class Meta:
+        model = models.HostGroup
+        fields = [
+            'name',
+            'groupid',
+        ]
+
+# ------------------------------------------------------------------------------
+# Hostgroup Mappings
+#
+
+class HostGroupMappingForm(forms.ModelForm):
+    roles = forms.ModelMultipleChoiceField( queryset=models.DeviceRole.objects.all(), required=False )
+    platforms = forms.ModelMultipleChoiceField( queryset=models.Platform.objects.all(), required=False )
+    filter_tags = forms.ModelMultipleChoiceField( queryset=models.Tag.objects.all(), required=False )
+
+    class Meta:
+        model = models.HostGroupMapping
+        fields = [
+            'name',
+            'hostgroup',
+            'roles',
+            'platforms',
+            'filter_tags',
+        ]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        roles = cleaned_data.get('roles')
+        platforms = cleaned_data.get('platforms')
+        filter_tags = cleaned_data.get('filter_tags')
+
+        if not (roles.exists() or platforms.exists() or filter_tags.exists()):
+            raise forms.ValidationError(
+                "At least one of roles, platforms, or filter_tags must be set for mapping."
+            )
+
+        return cleaned_data
+
+
+# ------------------------------------------------------------------------------
+# Zabbix Configurations
 #
 
 class DeviceZabbixConfigForm(NetBoxModelForm):
@@ -339,7 +384,6 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
         # Set the initial value of the calculated DNS name if editing an existing instance
         if self.instance.pk:
             self.fields['dns_name'].initial = self.instance.resolved_dns_name
-
 
 
 class VMAgentInterfaceForm(NetBoxModelForm):

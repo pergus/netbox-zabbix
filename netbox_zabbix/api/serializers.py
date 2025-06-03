@@ -26,8 +26,35 @@ class TemplateSerializer(NetBoxModelSerializer):
     def get_display(self, obj):
         return str( obj.name )
 
+
 # ------------------------------------------------------------------------------
-# Zabbix Configs
+# Hostgroups
+#
+
+class HostGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model =models.HostGroup
+        fields = ['id', 'groupid', 'name']
+
+class HostGroupMappingSerializer(serializers.ModelSerializer):
+    hostgroup = HostGroupSerializer(read_only=True)
+    hostgroup_id = serializers.PrimaryKeyRelatedField(
+        queryset=models.HostGroup.objects.all(), source='hostgroup', write_only=True
+    )
+
+    class Meta:
+        model = models.HostGroupMapping
+        fields = [
+            'id',
+            'hostgroup',
+            'hostgroup_id',
+            'roles',
+            'platforms',
+            'filter_tags',
+        ]
+
+# ------------------------------------------------------------------------------
+# Zabbix Configurations
 #
 
 class DeviceZabbixConfigSerializer(NetBoxModelSerializer):

@@ -1,0 +1,12 @@
+{% extends "generic/object_list.html" %}
+
+
+{% block extra_controls %}
+<a href="{% url 'plugins:netbox_zabbix:sync_zabbix_hostgroups' %}" class="btn btn-primary">
+    <i class="mdi mdi-sync"></i> Sync Hostgroups
+</a>
+{% endblock %}
+
+{% block content %}
+{{ block.super }}
+{% endblock %}

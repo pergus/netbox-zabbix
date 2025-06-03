@@ -6,6 +6,7 @@ from django.db.models import Count, F
 from django.shortcuts import redirect, render
 from django.contrib import messages
 from django.utils import timezone
+from django.urls import reverse
 from django.conf import settings
 
 from django_tables2 import RequestConfig, SingleTableView
@@ -148,7 +149,7 @@ def sync_zabbix_templates(request):
     """
     View-based wrapper around template synchronization.
     """
-    redirect_url = request.META.get( 'HTTP_REFERER', '/' )
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
 
     try:
         added, deleted = z.synchronize_templates()
@@ -175,11 +176,99 @@ def sync_zabbix_templates(request):
         config.set_connection = False
         config.set_last_checked = timezone.now()
 
-    return redirect( redirect_url)
+    return redirect( redirect_url )
 
 
 # ------------------------------------------------------------------------------
-# Hosts
+# Hostgroups
+#
+
+class HostGroupView(generic.ObjectView):
+    queryset = models.HostGroup.objects.all()
+
+
+class HostGroupListView(generic.ObjectListView):
+    queryset = models.HostGroup.objects.all()
+    #filterset_fields = ['hostgroup', 'role',  'platform', 'tag']
+    table = tables.HostGroupTable
+    template_name = 'netbox_zabbix/hostgroup_list.html'
+
+class HostGroupEditView(generic.ObjectEditView):
+    queryset = models.HostGroup.objects.all()
+    form = forms.HostGroupForm
+    template_name = 'netbox_zabbix/hostgroup_edit.html'
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:hostgroup_list')
+
+class HostGroupDeleteView(generic.ObjectDeleteView):
+    queryset = models.HostGroup.objects.all()
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:hostgroup_list')
+    
+# ------------------------------------------------------------------------------
+# Hostgroup Mappings
+#
+
+class HostGroupMappingView(generic.ObjectView):
+    queryset = models.HostGroupMapping.objects.all()
+
+class HostGroupMappingListView(generic.ObjectListView):
+    queryset = models.HostGroupMapping.objects.all()
+    #filterset_fields = ['hostgroup', 'role',  'platform', 'tag']
+    table = tables.HostGroupMappingTable
+    template_name = 'netbox_zabbix/hostgroupmapping_list.html'
+
+
+class HostGroupMappingEditView(generic.ObjectEditView):
+    queryset = models.HostGroupMapping.objects.all()
+    form = forms.HostGroupMappingForm
+    template_name = 'netbox_zabbix/hostgroupmapping_edit.html'
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:hostgroupmapping_list')
+
+
+class HostGroupMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.HostGroupMapping.objects.all()
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:hostgroupmapping_list')
+    
+
+def sync_zabbix_hostgroups(request):
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+
+    try:
+        added, deleted = z.synchronize_hostgroups()
+        msg_lines = ["Syncing Zabbix Hostgroups succeeded."]
+        if added:
+            msg_lines.append( f"Added {len( added )} hosgroup{ pluralize( len( added ) )}." )
+        if deleted:
+            msg_lines.append( f"Deleted {len( deleted )} hostgroup{ pluralize( len( deleted ) )}." )
+        if not added and not deleted:
+            msg_lines.append( "No changes detected." )
+        
+        messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
+        
+    except RuntimeError as e:
+        error_msg = "Syncing Zabbix Hostgroups failed."
+        logger.error( f"{error_msg} {e}" )
+        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
+    
+    except Exception as e:
+        error_msg = "Connection to Zabbix failed."
+        logger.error( f"{error_msg} {e}" )
+        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
+        config.set_connection = False
+        config.set_last_checked = timezone.now()
+    
+    return redirect( redirect_url )
+
+
+# ------------------------------------------------------------------------------
+# Zabbix Configurations
 #
 
 class DeviceZabbixConfigView(generic.ObjectView):
@@ -222,7 +311,6 @@ class VMZabbixConfigDeleteView(generic.ObjectDeleteView):
     queryset = models.VMZabbixConfig.objects.all()
 
 
-# Zabbix Config(s) (Devices & VMs)
 class ZabbixConfigListView(SingleTableView):
     template_name = 'netbox_zabbix/zabbixconfig_list.html'
     table_class = tables.ZabbixConfigTable
@@ -283,7 +371,7 @@ class ImportableDeviceListView(generic.ObjectListView):
     def get_extra_context(self, request):
         super().get_extra_context(request)
 
-        return { "validate_button": config.get_auto_validate_importables() }
+        return { "validate_button": not config.get_auto_validate_importables() }
     
     def get_queryset(self, request):
         try:
@@ -313,7 +401,7 @@ class ImportableDeviceListView(generic.ObjectListView):
                 if device:
                     try:
                         logger.info( f"Validating device: {device.name}" )
-                        result = jobs.ValidateDeviceOrVM.run( device_or_vm=device, user=request.user )
+                        result = jobs.ValidateDeviceOrVM.run_now( device_or_vm=device, user=request.user )
                         messages.success( request, result )
                     except Exception as e:
                         messages.error( request, str( e ) )
@@ -354,7 +442,7 @@ class ImportableVMListView(generic.ObjectListView):
     def get_extra_context(self, request):
         super().get_extra_context(request)
     
-        return { "validate_button": config.get_auto_validate_importables() }
+        return { "validate_button": not config.get_auto_validate_importables() }
     
     def get_queryset(self, request):
         try:
@@ -387,7 +475,7 @@ class ImportableVMListView(generic.ObjectListView):
                 if vm:
                     try:
                         logger.info( f"Validating VM: {vm.name}" )
-                        result = jobs.ValidateDeviceOrVM.run( device_or_vm=vm, user=request.user )
+                        result = jobs.ValidateDeviceOrVM.run_now( device_or_vm=vm, user=request.user )
                         messages.success( request, result )
                     except Exception as e:
                         messages.error( request, str( e ) )
@@ -417,7 +505,6 @@ class ImportableVMListView(generic.ObjectListView):
             return redirect( request.POST.get( 'return_url' ) or request.path )
         
         return super().get( request, *args, **kwargs )
-    
     
 
 class NetBoxOnlyDevicesView(generic.ObjectListView):
@@ -504,6 +591,28 @@ class ZabbixOnlyHostsView(GenericTemplateView):
         return context
 
 
+def device_quick_add_agent(request):
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+
+    if request.method == 'GET':
+        device_id = request.GET.get( "device_id" )
+        logger.info( f"{device_id=}")
+        device = Device.objects.filter( pk=device_id ).first()
+        if not device:
+            messages.error( request, f"No Device with id {device_id} found" )
+        else:
+            try:
+                result = jobs.DeviceQuickAddAgent.run_now( device=device, user=request.user )
+                messages.success( request, result )
+            except Exception as e:
+                messages.error( request, str( e ) )
+
+    return redirect( redirect_url )
+
+def device_quick_add_snmpv3(request):
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+    return redirect( redirect_url )    
+    
 
 # ------------------------------------------------------------------------------
 # Interfaces

@@ -7,6 +7,42 @@ NetBox plugin for Zabbix.
 * Documentation: https://pergus.github.io/netbox-zabbix/
 
 
+
+
+
+from django.db.models import Q
+
+def resolve_hostgroup_for_host(host):
+    """
+    Given a NetBox host object (device or VM), find a matching ZabbixHostGroup
+    based on mappings by role, platform, or tags.
+    """
+
+    # Device case
+    if hasattr(host, 'device') and host.device:
+        device = host.device
+        mappings = ZabbixHostGroupMapping.objects.filter(
+            Q(device_role=device.role) |
+            Q(platform=device.platform) |
+            Q(tag__in=device.tags.all())
+        ).select_related('hostgroup').distinct()
+
+    # Virtual Machine case
+    elif hasattr(host, 'virtual_machine') and host.virtual_machine:
+        vm = host.virtual_machine
+        mappings = ZabbixHostGroupMapping.objects.filter(
+            Q(vm_role=vm.role) |
+            Q(platform=vm.platform) |
+            Q(tag__in=vm.tags.all())
+        ).select_related('hostgroup').distinct()
+
+    else:
+        return None
+
+    # Return first matching hostgroup or None
+    return mappings.first().hostgroup if mappings.exists() else None
+
+
 ## Todo
 
 Is it possible to let other views inherit field etc like NetBoxOnlyDevicesView does?

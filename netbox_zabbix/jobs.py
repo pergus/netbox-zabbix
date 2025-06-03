@@ -1,7 +1,8 @@
 from django.utils.text import slugify
+from django.db import transaction
 
 from ipam.models import IPAddress
-from dcim.models import Device, Interface as DeviceInterface
+from dcim.models import Device, Interface as DeviceInterface, Platform, DeviceRole
 from virtualization.models import VirtualMachine, VMInterface
 
 import netaddr
@@ -13,6 +14,11 @@ from netbox_zabbix.zabbix import get_host
 from netbox_zabbix.models import DeviceSNMPv3Interface, DeviceZabbixConfig, DeviceAgentInterface, VMSNMPv3Interface, VMZabbixConfig, VMAgentInterface, Template, StatusChoices
 from netbox_zabbix.config import get_zabbix_api_endpoint, get_zabbix_token, get_default_cidr
 from netbox_zabbix.logger import logger
+
+
+#-------------------------------------------------------------------------------
+# Helper Classes and Functions 
+#
 
 class SecretStr(str):
     """
@@ -94,121 +100,30 @@ def normalize_interface(iface: dict) -> dict:
     return base
 
 
-def validate_zabbix_host_v1(zabbix_host: dict, host: Union[Device, VirtualMachine]) -> bool:
-    """
-    Validates the given Zabbix host data against the NetBox host.
-
-    This includes:
-    - Host name match
-    - Existence of all Zabbix templates in NetBox
-    - Interfaces are of supported type (1=Agent, 2=SNMP)
-    - IPs/DNS names on interfaces exist in NetBox and resolve to IPAddress + Interface
-
-    Args:
-        zabbix_host (dict): Host dict from Zabbix API.
-        host (Device | VirtualMachine): NetBox object.
-
-    Raises:
-        Exception: On any validation failure.
-    """
-
-    # 1. Validate hostname
-    zabbix_name = zabbix_host.get( "host", "" )
-    if host.name != zabbix_name: # This should never happen, but...
-        raise Exception( f"NetBox host name '{host.name}' does not match Zabbix host name '{zabbix_name}'" )
-
-    # 2. Validate templates
-    zabbix_templates = zabbix_host.get( "parentTemplates", [] )
-    if len( zabbix_templates ) == 0:
-        raise Exception( "The Zabbix host has no assigned templates" )
-    
-    for tmpl in zabbix_templates:
-        template_id = tmpl.get( "templateid" )
-        template_name = tmpl.get( "name" )
-        if not Template.objects.filter( templateid=template_id ).exists():
-            raise Exception( f"Template '{template_name}' (ID {template_id}) not found in NetBox" )
-
-    # 3. Validate interfaces
-    valid_interface_types = {1, 2}  # 1 = Agent, 2 = SNMP
-
-    # Determine the correct IPAddress foreign key field based on host type
-    ip_field = "interface" if isinstance(host, Device) else "vminterface"
-    
-
-    netbox_ips = {
-        str( netaddr.IPAddress( ip.address.ip ) ): ip
-        for iface in host.interfaces.all()
-        for ip in IPAddress.objects.filter( **{ip_field: iface} )
-        if ip.address
-    }
-    netbox_dns = {
-        ip.dns_name.lower(): ip
-        for iface in host.interfaces.all()
-        for ip in IPAddress.objects.filter( **{ip_field: iface} )
-        if ip.dns_name
-    }
-
-    interfaces = zabbix_host.get( "interfaces", [] )
-
-    if not interfaces:
-        raise Exception( "The Zabbix host has no interfaces defined" )
-
-    for iface in zabbix_host.get( "interfaces", [] ):
-        try:
-            iface_type = int( iface.get( "type" ) )
-            useip = int( iface.get("useip") )
-        except (TypeError, ValueError):
-            raise Exception( f"Invalid 'type' or 'useip' in Zabbix interface '{ int( iface.get( "interfaceid" ) ) }" )
-
-        if iface_type not in valid_interface_types:
-            raise Exception( f"Unsupported interface type '{iface_type}' in Zabbix interface '{ int( iface.get( "interfaceid" ) ) }" )
-
-        if useip == 1:
-            ip = iface.get( "ip" )
-            if not ip:
-                raise Exception( f"The Zabbix interface is configured to use IP address but is missing an IP address" )
-            if ip not in netbox_ips:
-                raise Exception( f"The IP address {ip} is not associated with '{host.name}' in NetBox" )
-            # Also confirm the related NetBox Interface exists
-            if not netbox_ips[ip].assigned_object_id:
-                raise Exception( f"The IP address {ip} is not associated with an interface in NetBox" )
-
-        elif useip == 0:
-            dns = iface.get( "dns", "" ).lower()
-            if not dns:
-                raise Exception( f"The Zabbix interface is configured to use DNS but is missing DNS" )
-            if dns not in netbox_dns:
-                raise Exception( f"The DNS name '{dns}' is not associated with '{host.name}' in NetBox" )
-            if not netbox_dns[dns].assigned_object_id:
-                raise Exception( f"The DNS name '{dns}' is not associated with an interface in NetBox" )
-
-        else:
-            raise Exception( f"Unsupported 'useip' value {useip} in interface '{ int( iface.get( "interfaceid" ) ) }'" )
-
-    return True
-
-
 def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine]) -> bool:
     """
-    Validates the given Zabbix host data against the NetBox host.
-    
-    This includes:
-    - Host name match
-    - Ensures no existing Zabbix config is present (no interfaces created yet)
-    - Existence of all Zabbix templates in NetBox
-    - Interfaces are of supported type (1=Agent, 2=SNMP)
-    - IPs/DNS names on interfaces exist in NetBox and resolve to IPAddress + Interface
-    - IP+port conflicts between agent and SNMP interfaces
-    - No duplicate agent or SNMP interfaces for the same NetBox interface
-    
-    Args:
-        zabbix_host (dict): Host dict from Zabbix API.
-        host (Device | VirtualMachine): NetBox object.
-    
-    Raises:
-        Exception: On any validation failure.
-    """
+    Validates a Zabbix host definition against a corresponding NetBox Device or VirtualMachine.
 
+    This validation checks for:
+    - Matching hostnames between Zabbix and NetBox
+    - No existing Zabbix configuration already assigned in NetBox
+    - All Zabbix templates used are present in NetBox
+    - Only supported interface types are used (1=Agent, 2=SNMP)
+    - Each Zabbix interface resolves to a valid NetBox IP address or DNS name
+    - Each IP/DNS used maps to a NetBox IP address assigned to an interface
+    - No duplicate use of the same (IP + port) combination within or across interface types
+    - No multiple Agent or SNMP interfaces mapped to the same NetBox interface
+
+    Args:
+        zabbix_host (dict): A Zabbix host object as returned by the Zabbix API.
+        host (Device | VirtualMachine): The corresponding NetBox object to validate against.
+
+    Returns:
+        bool: True if validation is successful.
+
+    Raises:
+        Exception: If any validation rule is violated.
+    """
     # Validate hostname
     zabbix_name = zabbix_host.get( "host", "" )
     if host.name != zabbix_name: # This should never happen, but...
@@ -337,9 +252,10 @@ def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine])
     return True
 
 
-def create_zabbix_config(zabbix_host: dict, instance, config_model, agent_interface_model, snmpv3_interface_model, interface_model, is_vm: bool = False):
+def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interface_model, snmpv3_interface_model, interface_model, is_vm: bool = False):
     """
-    Generic helper to create a ZabbixConfig for either a Device or VirtualMachine.
+    Generic helper to create Device or VirtualMachine Zabbix Configation from
+    a Zabbix Host configuration
     """
     try:
         validate_zabbix_host( zabbix_host, instance )
@@ -452,8 +368,8 @@ def create_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
             raise Exception( f"Unsupported Zabbix interface type {iface['type']}" )
 
 
-def create_device_zabbix_config(zabbix_host: dict, device: Device):
-    create_zabbix_config(
+def import_device_config(zabbix_host: dict, device: Device):
+    import_zabbix_config(
         zabbix_host,
         instance=device,
         config_model=DeviceZabbixConfig,
@@ -464,8 +380,8 @@ def create_device_zabbix_config(zabbix_host: dict, device: Device):
     )
 
 
-def create_vm_zabbix_config(zabbix_host: dict, vm: VirtualMachine):
-    create_zabbix_config(
+def import_vm_config(zabbix_host: dict, vm: VirtualMachine):
+    import_zabbix_config(
         zabbix_host,
         instance=vm,
         config_model=VMZabbixConfig,
@@ -475,6 +391,139 @@ def create_vm_zabbix_config(zabbix_host: dict, vm: VirtualMachine):
         is_vm=True
     )
 
+
+
+def build_zabbix_host_payload_from_config(zcfg: DeviceZabbixConfig) -> dict:
+    """
+    Build a Zabbix API-compatible payload for creating a host from a DeviceZabbixConfig.
+
+    Args:
+        zcfg (DeviceZabbixConfig): Zabbix config object linked to a NetBox device.
+
+    Returns:
+        dict: JSON payload for Zabbix API `host.create`
+
+    Raises:
+        Exception: If required fields like device, agent interface, or templates are missing.
+    """
+    device = zcfg.device
+
+    if not device:
+        raise Exception("Zabbix config is not linked to a device.")
+
+    # 1. Host name
+    host_name = zcfg.get_name()
+
+    # 2. Interfaces
+    interfaces = []
+
+    for agent_iface in zcfg.agent_interfaces.all():
+        interfaces.append({
+            "type": 1,  # Zabbix Agent
+            "main": agent_iface.main,
+            "useip": agent_iface.useip,
+            "ip": str(agent_iface.resolved_ip_address.address.ip) if agent_iface.resolved_ip_address else "",
+            "dns": agent_iface.resolved_dns_name or "",
+            "port": str(agent_iface.port),
+        })
+
+    for snmp_iface in zcfg.snmpv3_interfaces.all():
+        interfaces.append({
+            "type": 2,  # SNMP
+            "main": snmp_iface.main,
+            "useip": snmp_iface.useip,
+            "ip": str(snmp_iface.resolved_ip_address.address.ip) if snmp_iface.resolved_ip_address else "",
+            "dns": snmp_iface.resolved_dns_name or "",
+            "port": str(snmp_iface.port),
+        })
+
+    if not interfaces:
+        raise Exception(f"No interfaces defined for host '{host_name}'")
+
+    # 3. Templates
+    templates = zcfg.templates.all()
+    if not templates:
+        raise Exception(f"No templates assigned to host '{host_name}'")
+
+    template_list = [{ "templateid": t.templateid } for t in templates]
+
+    # 4. Groups (REQUIRED by Zabbix). Adjust this to dynamically assign based on site/role/etc.
+    # For now, use a default group ID (replace this with real logic or lookup)
+    group_list = [{ "groupid": "1" }]
+
+    return {
+        "host": host_name,
+        "interfaces": interfaces,
+        "groups": group_list,
+        "templates": template_list,
+    }
+
+
+# The string "agent_default_templates" should be in Config
+def device_quick_add_agent(device):
+    """
+    Automatically creates a Zabbix configuration and agent interface for the given NetBox device.
+    
+    Steps:
+    - Creates a DeviceZabbixConfig object with ENABLED status.
+    - Adds default agent templates from the platform and role (via custom fields).
+    - Uses the device's primary IPv4 address to create a DeviceAgentInterface.
+    
+    Requirements:
+    - The device must have a primary IPv4 address.
+    - The platform and role must exist and (optionally) define 'agent_default_templates' in custom fields.
+    
+    Raises:
+        Exception: If any step fails due to missing data or validation errors.
+    """
+    # Note:
+    # The Zabbix host ID (zcfg.hostid) and interface ID (iface.interfaceid)
+    # are not available at this stage—they will be set after the corresponding
+    # host and interface are created in Zabbix.
+
+    zcfg = DeviceZabbixConfig( device=device, status=StatusChoices.ENABLED )
+
+    try:
+        zcfg.full_clean()
+        zcfg.save()
+    except Exception as e:
+        raise Exception(f"Failed to create Zabbix configuration: {e}")
+
+    def add_templates_from(source, label):
+        if not source:
+            raise Exception(f"Unable to find {label} for device '{device.name}'")
+
+        for tmpl in source.cf.get("agent_default_templates") or []:
+            zcfg.templates.add(Template.objects.get(name=tmpl.name))
+
+    add_templates_from(device.platform, "platform")
+    add_templates_from(device.role, "role")
+
+
+    ip = device.primary_ip4
+    if ip is None:
+        raise Exception(f"Device '{device.name}' does not have a primary IPv4 address set")
+    
+    interface = ip.assigned_object
+    iface = DeviceAgentInterface( name=f"{device.name}-agent", host=zcfg, interface=interface, ip_address=ip )
+
+    try:
+        iface.full_clean()
+        iface.save()
+    except Exception as e:
+        raise Exception(f"Failed to create agent interface: {e}")
+    
+    try:
+        payload = build_zabbix_host_payload_from_config( zcfg )
+    except Exception as e:
+        raise Exception(f"Failed to create zabbix host payload: {e}")
+
+    logger.info( f"{payload}" )
+
+
+#-------------------------------------------------------------------------------
+# Jobs
+#
 
 class ValidateDeviceOrVM( AtomicJobRunner ):
 
@@ -520,7 +569,6 @@ class ValidateDeviceOrVM( AtomicJobRunner ):
         return netbox_job
     
 
-
 class ImportFromZabbix( AtomicJobRunner ):
     """
     A custom NetBox JobRunner implementation to import host data from a
@@ -537,7 +585,9 @@ class ImportFromZabbix( AtomicJobRunner ):
     marked as errored and reported.
     """
 
-    def run(self, *args, **kwargs):
+
+    @classmethod
+    def run(cls, *args, **kwargs):
         device_or_vm = kwargs.get( "device_or_vm" )
 
         if not device_or_vm:
@@ -548,9 +598,9 @@ class ImportFromZabbix( AtomicJobRunner ):
             
             # Call appropriate create function based on type
             if isinstance( device_or_vm, Device):
-                create_device_zabbix_config( zbx_host, device_or_vm )
+                import_device_config( zbx_host, device_or_vm )
             elif isinstance( device_or_vm, VirtualMachine ):
-                create_vm_zabbix_config( zbx_host, device_or_vm )
+                import_vm_config( zbx_host, device_or_vm )
             else:
                 raise TypeError(f"Unsupported object type: {type(device_or_vm).__name__}")
             
@@ -578,4 +628,46 @@ class ImportFromZabbix( AtomicJobRunner ):
         else:
             netbox_job = cls.enqueue_once(**job_args)
 
+        return netbox_job
+
+
+class DeviceQuickAddAgent( AtomicJobRunner ):
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+        device = kwargs.get( "device" )
+
+        if not device:
+            raise ValueError( "Missing required argument: device." )
+        
+        try:
+            device_quick_add_agent( device )
+        except Exception as e:
+            msg = f"Failed to create Zabbix configuration for device '{device.name}': { str( e ) }"
+            logger.info( msg )
+            raise Exception( msg )
+        
+        return f"Created Zabbix configuration and agent interface for device '{device.name}'"
+            
+    @classmethod
+    def run_job(cls, device, user, schedule_at=None, interval=None, immediate=False):
+
+        name = slugify(f"ZBX Device Quick Add Agent {device.name}")
+        
+        job_args = {
+                    "name": name,
+                    "schedule_at": schedule_at,
+                    "interval": interval,
+                    "immediate": immediate,
+                    "user": user,
+                    "api_endpoint": get_zabbix_api_endpoint(),
+                    "token": SecretStr(get_zabbix_token()),
+                    "device": device,
+                }
+        
+        if interval is None:
+            netbox_job = cls.enqueue(**job_args)
+        else:
+            netbox_job = cls.enqueue_once(**job_args)
+        
         return netbox_job

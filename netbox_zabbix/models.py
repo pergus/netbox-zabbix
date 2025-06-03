@@ -2,8 +2,9 @@ from django.urls import reverse
 from django.db import models
 from django.core.exceptions import ValidationError
 
-from dcim.models import Interface
+from dcim.models import DeviceRole, Platform, Interface
 from virtualization.models import VMInterface
+from extras.models import Tag
 
 from netbox.models import NetBoxModel
 
@@ -90,6 +91,38 @@ class Template(NetBoxModel):
     def __str__(self):
         return self.name
 
+
+# ------------------------------------------------------------------------------
+# HostGroup
+#
+
+class HostGroup(NetBoxModel):
+    class Meta:
+        verbose_name = "Zabbix Hostgroup"
+        verbose_name_plural = "Zabbix Hostgroups"
+    
+    name = models.CharField( max_length=255 )
+    groupid = models.CharField( max_length=255 )
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_zabbix:hostgroup", args=[self.pk])
+
+class HostGroupMapping(NetBoxModel):
+    name = models.CharField( max_length=255, default="hostgroup_mapping" )
+    hostgroup = models.ForeignKey( HostGroup, on_delete=models.CASCADE )
+    roles = models.ManyToManyField( DeviceRole, blank=True )
+    platforms = models.ManyToManyField( Platform, blank=True )
+    filter_tags = models.ManyToManyField( Tag, blank=True, related_name="hostgroup_mapping_filter_tags" )
+    
+    def __str__(self):
+        return self.name
+    
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_zabbix:hostgroupmapping", args=[self.pk])
+    
 
 # ------------------------------------------------------------------------------
 # Zabbix Configs

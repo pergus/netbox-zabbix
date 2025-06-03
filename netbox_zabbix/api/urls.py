@@ -5,6 +5,9 @@ router = DefaultRouter()
 
 router.register( 'config',                     views.ConfigViewSet )
 router.register( 'templates',                  views.TemplateViewSet )
+router.register( 'hostgroups',                 views.HostGroupViewSet )
+router.register( 'hostgroup-mappings',         views.HostGroupMappingViewSet )
+
 router.register( 'devicezabbixconfig',         views.DeviceZabbixConfigViewSet )
 router.register( 'vmzabbixconfig',             views.VMZabbixConfigViewSet )
 router.register( 'available-device-interface', views.AvailableDeviceInterfaceViewSet, basename='availabledeviceinterface' )
