@@ -117,12 +117,6 @@ class TemplateListView(generic.ObjectListView):
     table = tables.TemplateTable    
     template_name = "netbox_zabbix/template_list.html"
 
-    def get_extra_context(self, request):
-        # Hide the default actions since a user isn't supposed to manually add templates.
-        context = super().get_extra_context( request )
-        context['actions'] = []
-        return context
-
 
 class TemplateEditView(generic.ObjectEditView):
     queryset = models.Template.objects.all()
@@ -192,6 +186,9 @@ class HostGroupListView(generic.ObjectListView):
     #filterset_fields = ['hostgroup', 'role',  'platform', 'tag']
     table = tables.HostGroupTable
     template_name = 'netbox_zabbix/hostgroup_list.html'
+    
+
+
 
 class HostGroupEditView(generic.ObjectEditView):
     queryset = models.HostGroup.objects.all()

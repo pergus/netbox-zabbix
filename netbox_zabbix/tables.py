@@ -69,11 +69,15 @@ class TemplateTable(NetBoxTable):
 class HostGroupTable(NetBoxTable):
     name = tables.Column( verbose_name="Name", order_by="name", accessor="name", )
     groupid = tables.Column( verbose_name="Group ID", order_by="groupid", )
+    
+    # Hide the action buttons since it isn't possible to edit the hosts groups
+    # in NetBox, since they are imported from Zabbix.
+    actions = [] 
 
     class Meta(NetBoxTable.Meta):
         model = models.HostGroup
-        fields = ( "pk", "id", "name", "groupid", )
-        default_columns = ( "pk", "name", "groupid", )
+        fields = ( "name", "groupid", )
+        default_columns = ( "name", "groupid", )
 
 # ------------------------------------------------------------------------------
 # HostGroup Mappings
@@ -87,7 +91,7 @@ class HostGroupMappingTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = models.HostGroupMapping
-        fields = ("hostgroup", "roles", "platforms", "filter_tags")
+        fields = ("name", "hostgroup", "roles", "platforms", "filter_tags")
 
 
 # ------------------------------------------------------------------------------

@@ -17,11 +17,11 @@ menu = PluginMenu(
                     link="plugins:netbox_zabbix:template_list",
                 ),
                 PluginMenuItem( 
-                    link_text="Hostgroups",                    
+                    link_text="Host Groups",                    
                     link="plugins:netbox_zabbix:hostgroup_list",
                 ),                
                 PluginMenuItem( 
-                    link_text="Hostgroup Mappings",                    
+                    link_text="Host Group Mappings",                    
                     link="plugins:netbox_zabbix:hostgroupmapping_list",
                 ),
                 

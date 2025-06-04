@@ -111,7 +111,7 @@ class HostGroup(NetBoxModel):
         return reverse("plugins:netbox_zabbix:hostgroup", args=[self.pk])
 
 class HostGroupMapping(NetBoxModel):
-    name = models.CharField( max_length=255, default="hostgroup_mapping" )
+    name = models.CharField( max_length=255 )
     hostgroup = models.ForeignKey( HostGroup, on_delete=models.CASCADE )
     roles = models.ManyToManyField( DeviceRole, blank=True )
     platforms = models.ManyToManyField( Platform, blank=True )
