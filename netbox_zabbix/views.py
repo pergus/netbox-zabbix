@@ -188,8 +188,6 @@ class HostGroupListView(generic.ObjectListView):
     template_name = 'netbox_zabbix/hostgroup_list.html'
     
 
-
-
 class HostGroupEditView(generic.ObjectEditView):
     queryset = models.HostGroup.objects.all()
     form = forms.HostGroupForm
@@ -210,6 +208,89 @@ class HostGroupDeleteView(generic.ObjectDeleteView):
 
 class HostGroupMappingView(generic.ObjectView):
     queryset = models.HostGroupMapping.objects.all()
+    
+    def get_extra_context(self, request, instance):
+        matching_devices = Device.objects.all()
+        matching_vms = VirtualMachine.objects.all()
+
+        if instance.sites.exists():
+            matching_devices = matching_devices.filter( site__in=instance.sites.all() )
+            matching_vms = matching_vms.filter( site__in=instance.sites.all() )
+        
+        if instance.roles.exists():
+            matching_devices = matching_devices.filter( role__in=instance.roles.all() )
+            matching_vms = matching_vms.filter( role__in=instance.roles.all() )
+    
+        if instance.platforms.exists():
+            matching_devices = matching_devices.filter( platform__in=instance.platforms.all() )
+            matching_vms = matching_vms.filter( platform__in=instance.platforms.all() )
+    
+        if instance.tags.exists():
+            for tag in instance.tags.all():
+                matching_devices = matching_devices.filter( tags__in=[tag] )
+                matching_vms = matching_vms.filter( tags__in=[tag] )
+    
+        device_table = tables.MatchingDeviceTable( matching_devices.distinct(), orderable=True )
+        RequestConfig(
+            self.request, {
+                'paginator_class': EnhancedPaginator,
+                'per_page': get_paginate_count( self.request ),
+            }
+        ).configure( device_table )
+        
+        vm_table = tables.MatchingVMTable( matching_vms.distinct(), orderable=True )
+        RequestConfig(
+            self.request, {
+                'paginator_class': EnhancedPaginator,
+                'per_page': get_paginate_count( self.request ),
+            }
+        ).configure( vm_table )
+        
+        return {
+            "matching_device_table": device_table,
+            "matching_vm_table": vm_table,
+        }
+
+"""
+This doesn't work yet!
+from utilities.views import ViewTab
+from utilities.views import register_model_view
+
+@register_model_view(models.HostGroupMapping, 'HostGroupMappingDevicesView')
+class HostGroupMappingDevicesView(generic.ObjectView):
+    queryset = models.HostGroupMapping.objects.all()
+    template_name = 'netbox_zabbix/hostgroupmapping_devices.html'
+    tab = ViewTab( label="Matching Devices" )
+
+    def get_extra_context(self, request, instance):
+        matching_devices = Device.objects.all()
+    
+        if instance.sites.exists():
+            matching_devices = matching_devices.filter( site__in=instance.sites.all() )
+        
+        if instance.roles.exists():
+            matching_devices = matching_devices.filter( role__in=instance.roles.all() )
+    
+        if instance.platforms.exists():
+            matching_devices = matching_devices.filter( platform__in=instance.platforms.all() )
+    
+        if instance.tags.exists():
+            for tag in instance.tags.all():
+                matching_devices = matching_devices.filter( tags__in=[tag] )
+    
+        device_table = tables.MatchingDeviceTable( matching_devices.distinct(), orderable=True )
+        RequestConfig(
+            self.request, {
+                'paginator_class': EnhancedPaginator,
+                'per_page': get_paginate_count( self.request ),
+            }
+        ).configure( device_table )
+        
+        return {
+            "matching_device_table": device_table,
+            "tab": self.tab,
+        }
+"""
 
 class HostGroupMappingListView(generic.ObjectListView):
     queryset = models.HostGroupMapping.objects.all()
@@ -226,13 +307,20 @@ class HostGroupMappingEditView(generic.ObjectEditView):
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:hostgroupmapping_list')
 
-
 class HostGroupMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.HostGroupMapping.objects.all()
 
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:hostgroupmapping_list')
-    
+
+
+class HostGroupMappingBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.HostGroupMapping.objects.all()
+    filterset_class = filtersets.HostGroupMappingFilterSet
+    table = tables.HostGroupMappingTable
+
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:hostgroupmapping_list')
 
 def sync_zabbix_hostgroups(request):
     redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")

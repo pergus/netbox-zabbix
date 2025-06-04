@@ -84,15 +84,30 @@ class HostGroupTable(NetBoxTable):
 #
 
 class HostGroupMappingTable(NetBoxTable):
+    name = tables.Column( linkify=True )
     hostgroup = tables.Column( linkify=True )
-    roles = tables.ManyToManyColumn( linkify=True )
-    platforms = tables.ManyToManyColumn( linkify=True )
-    filter_tags = tables.ManyToManyColumn( linkify=True )
+    roles = tables.ManyToManyColumn(  )
+    platforms = tables.ManyToManyColumn(  )
+    tags = tables.ManyToManyColumn(  )
 
     class Meta(NetBoxTable.Meta):
         model = models.HostGroupMapping
-        fields = ("name", "hostgroup", "roles", "platforms", "filter_tags")
+        fields = ( "pk", "name", "hostgroup", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "hostgroup", "sites", "roles", "platforms", "tags" )
 
+
+
+class MatchingDeviceTable(tables.Table):
+    class Meta:
+        model = Device
+        fields = ("name", "role", "platform", "site")
+        attrs = {"class": "table table-hover object-list"}
+
+class MatchingVMTable(tables.Table):
+    class Meta:
+        model = VirtualMachine
+        fields = ("name", "role", "platform", "site")
+        attrs = {"class": "table table-hover object-list"}
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations

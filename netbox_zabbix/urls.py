@@ -39,17 +39,18 @@ urlpatterns = (
     # Zabbix Hostgroups
     path( 'hostgroups/',                    views.HostGroupListView.as_view(),   name='hostgroup_list' ),
     path( 'hostgroups/add/',                views.HostGroupEditView.as_view(),   name='hostgroup_add' ),
-    path( 'hostgroups/<int:pk>/',           views.HostGroupView.as_view(),        name='hostgroup' ),
+    path( 'hostgroups/<int:pk>/',           views.HostGroupView.as_view(),       name='hostgroup' ),
     path( 'hostgroups/<int:pk>/edit/',      views.HostGroupEditView.as_view(),   name='hostgroup_edit' ),
     path( 'hostgroups/<int:pk>/delete/',    views.HostGroupDeleteView.as_view(), name='hostgroup_delete' ),
     path( "hostgroups/<int:pk>/changelog/", ObjectChangeLogView.as_view(),       name="hostgroup_changelog", kwargs={"model": models.HostGroup},  ),
-    
-    path( 'hostgroup-mappings/',                    views.HostGroupMappingListView.as_view(),   name='hostgroupmapping_list' ),
-    path( 'hostgroup-mappings/add/',                views.HostGroupMappingEditView.as_view(),   name='hostgroupmapping_add' ),
-    path( 'hostgroup-mappings/<int:pk>/',           views.HostGroupMappingView.as_view(),       name='hostgroupmapping' ),
-    path( 'hostgroup-mappings/<int:pk>/edit/',      views.HostGroupMappingEditView.as_view(),   name='hostgroupmapping_edit' ),
-    path( 'hostgroup-mappings/<int:pk>/delete/',    views.HostGroupMappingDeleteView.as_view(), name='hostgroupmapping_delete' ),
-    path( "hostgroup-mappings/<int:pk>/changelog/", ObjectChangeLogView.as_view(),              name="hostgroupmapping_changelog", kwargs={"model": models.HostGroupMapping},  ),
+          
+    path( 'hostgroup-mappings/',                    views.HostGroupMappingListView.as_view(),         name='hostgroupmapping_list' ),
+    path( 'hostgroup-mappings/add/',                views.HostGroupMappingEditView.as_view(),         name='hostgroupmapping_add' ),
+    path( 'hostgroup-mappings/delete/',             views.HostGroupMappingBulkDeleteView.as_view(),   name='hostgroupmapping_bulk_delete' ),        
+    path( 'hostgroup-mappings/<int:pk>/',           views.HostGroupMappingView.as_view(),             name='hostgroupmapping' ),
+    path( 'hostgroup-mappings/<int:pk>/edit/',      views.HostGroupMappingEditView.as_view(),         name='hostgroupmapping_edit' ),
+    path( 'hostgroup-mappings/<int:pk>/delete/',    views.HostGroupMappingDeleteView.as_view(),       name='hostgroupmapping_delete' ),
+    path( "hostgroup-mappings/<int:pk>/changelog/", ObjectChangeLogView.as_view(),                    name="hostgroupmapping_changelog", kwargs={"model": models.HostGroupMapping},  ),
     
     # Sync Zabbix Hostgroups
     path( "zabbix/sync_hostgroup",        views.sync_zabbix_hostgroups,        name="sync_zabbix_hostgroups" ),

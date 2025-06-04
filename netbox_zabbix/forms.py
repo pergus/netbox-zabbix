@@ -16,6 +16,7 @@ from utilities.forms.rendering import FieldSet
 from netbox_zabbix import models
 from netbox_zabbix import zabbix as z
 
+from netbox_zabbix.logger import logger
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 
@@ -126,34 +127,35 @@ class HostGroupForm(NetBoxModelForm):
 # Hostgroup Mappings
 #
 
-class HostGroupMappingForm(forms.ModelForm):
-    roles = forms.ModelMultipleChoiceField( queryset=models.DeviceRole.objects.all(), required=False )
-    platforms = forms.ModelMultipleChoiceField( queryset=models.Platform.objects.all(), required=False )
-    filter_tags = forms.ModelMultipleChoiceField( queryset=models.Tag.objects.all(), required=False )
+class HostGroupMappingForm(NetBoxModelForm):
+        sites = forms.ModelMultipleChoiceField( queryset=models.Site.objects.all(), required=False )
+        roles = forms.ModelMultipleChoiceField( queryset=models.DeviceRole.objects.all(), required=False )
+        platforms = forms.ModelMultipleChoiceField( queryset=models.Platform.objects.all(), required=False )
 
-    class Meta:
-        model = models.HostGroupMapping
-        fields = [
-            'name',
-            'hostgroup',
-            'roles',
-            'platforms',
-            'filter_tags',
-        ]
+        class Meta:
+            model = models.HostGroupMapping
+            fields = [
+                'name',
+                'hostgroup',
+                'sites',
+                'roles',
+                'platforms',
+                'tags',
+            ]
 
-    def clean(self):
-        cleaned_data = super().clean()
-        roles = cleaned_data.get('roles')
-        platforms = cleaned_data.get('platforms')
-        filter_tags = cleaned_data.get('filter_tags')
-
-        if not (roles.exists() or platforms.exists() or filter_tags.exists()):
-            raise forms.ValidationError(
-                "At least one of roles, platforms, or filter_tags must be set for mapping."
-            )
-
-        return cleaned_data
-
+        
+        def clean(self):
+            super().clean()
+            
+            sites = self.cleaned_data['sites']
+            roles = self.cleaned_data['roles']
+            platforms = self.cleaned_data['platforms']
+                
+            if not (sites or roles or platforms):
+                raise forms.ValidationError(
+                    "At least one of sites, roles or platforms must be set for mapping."
+                )
+        
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations

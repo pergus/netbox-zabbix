@@ -48,6 +48,11 @@ def resolve_hostgroup_for_host(host):
 Is it possible to let other views inherit field etc like NetBoxOnlyDevicesView does?
 
 
+Add Tabs for matching Device and matching hosts between "Host Group Mapping"
+and Changlog for Host Group Mappings
+
+
+
 ### General
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |

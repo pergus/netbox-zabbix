@@ -1,0 +1,81 @@
+{% extends "generic/object.html" %}
+{% load render_table from django_tables2 %}
+
+{% load static %}
+
+{% block content %}
+
+<div class="row mb-3">
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">Host Group Mapping: {{ object.name }}</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Name</th>
+                        <td>{{ object.name }}</td>
+                    </tr>
+
+                    {% if object.sites.exists %}
+                    <tr>
+                        <th scope="row">Sites</th>
+                        <td>{{ object.sites.all|join:", " }}</td>
+                    </tr>
+                    {% endif %}
+
+                    {% if object.roles.exists %}
+                    <tr>
+                        <th scope="row">Roles</th>
+                        <td>{{ object.roles.all|join:", " }}</td>
+                    </tr>
+                    {% endif %}
+
+                    {% if object.platforms.exists %}
+                    <tr>
+                        <th scope="row">Platoforms</th>
+                        <td>{{ object.platforms.all|join:", " }}</td>
+                    </tr>
+                    {% endif %}
+
+                    {% if object.tags.exists %}
+                    <tr>
+                        <th scope="row">Platoforms</th>
+                        <td>{{ object.tags.all|join:", " }}</td>
+                    </tr>
+                    {% endif %}
+
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col col-md-12">
+            <div class="card">
+                <h2 class="card-header"> Matching Devices </h2>
+                {% if matching_device_table.rows %}
+                {% render_table matching_device_table %}
+                {% include 'inc/paginator.html' with paginator=matching_device_table.paginator page=matching_device_table.page %}
+                {% else %}
+                <p>No matching devices.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col col-md-12">
+            <div class="card">
+                <h2 class="card-header"> Matching Virtual Machines </h2>
+                {% if matching_vm_table.rows %}
+                {% render_table matching_vm_table %}
+                {% include 'inc/paginator.html' with paginator=matching_vm_table.paginator page=matching_vm_table.page %}
+                {% else %}
+                <p>No matching virtual machines.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

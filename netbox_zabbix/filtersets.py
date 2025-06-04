@@ -28,7 +28,16 @@ class TemplateFilterSet(NetBoxModelFilterSet):
             queryset=models.Template.objects.all(),
             label="Name"
         )
-    
+
+from extras.filters import TagFilter
+class HostGroupMappingFilterSet(NetBoxModelFilterSet):
+    tags = TagFilter()
+
+    class Meta:
+        model = models.HostGroupMapping
+        fields = ['hostgroup', 'sites', 'roles', 'platforms', 'tags']
+
+
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 #

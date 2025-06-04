@@ -37,10 +37,8 @@ class HostGroupSerializer(serializers.ModelSerializer):
         fields = ['id', 'groupid', 'name']
 
 class HostGroupMappingSerializer(serializers.ModelSerializer):
-    hostgroup = HostGroupSerializer(read_only=True)
-    hostgroup_id = serializers.PrimaryKeyRelatedField(
-        queryset=models.HostGroup.objects.all(), source='hostgroup', write_only=True
-    )
+    hostgroup = HostGroupSerializer( read_only=True )
+    hostgroup_id = serializers.PrimaryKeyRelatedField( queryset=models.HostGroup.objects.all(), source='hostgroup', write_only=True )
 
     class Meta:
         model = models.HostGroupMapping
@@ -48,9 +46,10 @@ class HostGroupMappingSerializer(serializers.ModelSerializer):
             'id',
             'hostgroup',
             'hostgroup_id',
+            'sites',
             'roles',
             'platforms',
-            'filter_tags',
+            'tags',
         ]
 
 # ------------------------------------------------------------------------------
