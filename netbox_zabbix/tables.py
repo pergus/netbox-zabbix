@@ -96,19 +96,30 @@ class HostGroupMappingTable(NetBoxTable):
         default_columns = ("pk", "name", "hostgroup", "sites", "roles", "platforms", "tags" )
 
 
+class MatchingDeviceTable(NetBoxTable):
+    zabbix_config = tables.BooleanColumn( accessor='zabbix_config', verbose_name="Zabbix Config", orderable=True )
+    tags = tables.ManyToManyColumn()
 
-class MatchingDeviceTable(tables.Table):
-    class Meta:
+    class Meta(NetBoxTable.Meta):
         model = Device
-        fields = ("name", "role", "platform", "site")
+        fields = ( "name", "site", "role", "platform", "tags", "zabbix_config" )
         attrs = {"class": "table table-hover object-list"}
 
-class MatchingVMTable(tables.Table):
-    class Meta:
+    def render_zabbix_config(self, record):
+        return mark_safe("✔") if  models.DeviceZabbixConfig.objects.filter( device=record ).exists() else mark_safe("✘")
+
+class MatchingVMTable(NetBoxTable):
+    zabbix_config = tables.BooleanColumn( accessor='zabbix_config', verbose_name="Zabbix Config", orderable=False )
+    tags = tables.ManyToManyColumn(  )
+
+    class Meta(NetBoxTable.Meta):
         model = VirtualMachine
-        fields = ("name", "role", "platform", "site")
+        fields = ("name", "site", "role", "platform", "tags", "zabbix_config")
         attrs = {"class": "table table-hover object-list"}
 
+    def render_zabbix_config(self, record):
+        return mark_safe("✔") if  models.VMZabbixConfig.objects.filter( virtual_machine=record ).exists() else mark_safe("✘")
+    
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 #
@@ -206,7 +217,7 @@ class ImportableDeviceTable(NetBoxTable):
             try:
                 logger.info( f"valdating device {record} ")
                 jobs.ValidateDeviceOrVM.run( device_or_vm = record, user=None )
-                return mark_safe("✔")        
+                return mark_safe("✔")     
             except Exception as e:
                 self.reasons[record] = e
                 return mark_safe("✘")

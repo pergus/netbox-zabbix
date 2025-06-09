@@ -5,13 +5,11 @@ from netbox.filtersets import NetBoxModelFilterSet
 from netbox_zabbix import models
 
 from dcim.models import Device
+from dcim.filtersets import DeviceFilterSet
 from virtualization.models import VirtualMachine
+from virtualization.filtersets import VirtualMachineFilterSet
 
-# ------------------------------------------------------------------------------
-# Configuration
-#
- 
-# No filter for the configuration
+# Configuration doesn't have a filterset
 
 # ------------------------------------------------------------------------------
 # Templates
@@ -29,6 +27,11 @@ class TemplateFilterSet(NetBoxModelFilterSet):
             label="Name"
         )
 
+# ------------------------------------------------------------------------------
+# Host Group Mappings
+#
+
+
 from extras.filters import TagFilter
 class HostGroupMappingFilterSet(NetBoxModelFilterSet):
     tags = TagFilter()
@@ -37,6 +40,24 @@ class HostGroupMappingFilterSet(NetBoxModelFilterSet):
         model = models.HostGroupMapping
         fields = ['hostgroup', 'sites', 'roles', 'platforms', 'tags']
 
+# ------------------------------------------------------------------------------
+# Host Group Device
+#
+
+class HostGroupDeviceFilterSet(DeviceFilterSet):
+    class Meta(DeviceFilterSet.Meta):
+        model = Device
+        fields = DeviceFilterSet.Meta.fields
+
+
+# ------------------------------------------------------------------------------
+# Host Group VM
+#
+
+class HostGroupVMFilterSet(VirtualMachineFilterSet):
+    class Meta(VirtualMachineFilterSet.Meta):
+        model = VirtualMachine
+        fields = VirtualMachineFilterSet.Meta.fields
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations

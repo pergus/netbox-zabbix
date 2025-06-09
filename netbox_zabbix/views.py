@@ -2,13 +2,12 @@ from django.template.defaultfilters import pluralize, capfirst
 from django.views.decorators.http import require_POST
 from django.utils.safestring import mark_safe
 from django.views.generic import TemplateView as GenericTemplateView
-from django.db.models import Count, F
+from django.db.models import Count, F, Exists, OuterRef
 from django.shortcuts import redirect, render
 from django.contrib import messages
 from django.utils import timezone
 from django.urls import reverse
 from django.conf import settings
-
 from django_tables2 import RequestConfig, SingleTableView
 from django.views import View
 from django.http import Http404
@@ -321,67 +320,102 @@ def sync_zabbix_hostgroups(request):
 # Hostgroup Mapping Devices
 #
 
+def count_matching_devices(obj):
+    filter_data = {}
+    if obj.sites.exists():
+        filter_data['site_id'] = [s.pk for s in obj.sites.all()]
+    if obj.roles.exists():
+        filter_data['role_id'] = [r.pk for r in obj.roles.all()]
+    if obj.platforms.exists():
+        filter_data['platform_id'] = [p.pk for p in obj.platforms.all()]
+    if obj.tags.exists():
+        filter_data['tag'] = [t.slug for t in obj.tags.all()]
+
+    qs = Device.objects.all()
+    filterset = filtersets.HostGroupDeviceFilterSet( data=filter_data, queryset=qs )
+    return filterset.qs.distinct().count()
+
+
 @register_model_view(models.HostGroupMapping, 'devices')
 class HostGroupMappingDevicesView(generic.ObjectView):
     queryset = models.HostGroupMapping.objects.all()
     template_name = 'netbox_zabbix/hostgroupmapping_devices.html'
-    tab = ViewTab( label="Matching Devices", weight=500 )
-
+    tab = ViewTab( label="Matching Devices",                   
+                  badge=lambda obj: count_matching_devices(obj),
+                  weight=500 )
+    
     def get_extra_context(self, request, instance):
-        matching_devices = Device.objects.all()
-    
+        filter_data = {}
+
         if instance.sites.exists():
-            matching_devices = matching_devices.filter( site__in=instance.sites.all() )
-        
+            filter_data['site_id'] = [s.pk for s in instance.sites.all()]
         if instance.roles.exists():
-            matching_devices = matching_devices.filter( role__in=instance.roles.all() )
-    
+            filter_data['role_id'] = [r.pk for r in instance.roles.all()]
         if instance.platforms.exists():
-            matching_devices = matching_devices.filter( platform__in=instance.platforms.all() )
-    
+            filter_data['platform_id'] = [p.pk for p in instance.platforms.all()]
         if instance.tags.exists():
-            for tag in instance.tags.all():
-                matching_devices = matching_devices.filter( tags__in=[tag] )
+            filter_data['tag'] = [t.slug for t in instance.tags.all()]
     
-        device_table = tables.MatchingDeviceTable( matching_devices.distinct(), orderable=True )
+        qs = Device.objects.annotate( zabbix_config=Exists( models.DeviceZabbixConfig.objects.filter( device=OuterRef( 'pk' ) ) ) )
+        filterset = filtersets.HostGroupDeviceFilterSet( data=filter_data, queryset=qs )    
+        device_table = tables.MatchingDeviceTable( filterset.qs.distinct(), orderable=True )
         RequestConfig(
-            self.request, {
-                'paginator_class': EnhancedPaginator,
-                'per_page': get_paginate_count( self.request ),
+            request,
+            {
+                "paginator_class": EnhancedPaginator,
+                "per_page": get_paginate_count(request),
             }
         ).configure( device_table )
-        
+    
         return {
-            "matching_device_table": device_table,
+            "table": device_table,
         }
 
 # ------------------------------------------------------------------------------
 # Hostgroup Mapping Virtual Machines
 #
 
+def count_matching_vms(obj):
+    filter_data = {}
+    if obj.sites.exists():
+        filter_data['site_id'] = [s.pk for s in obj.sites.all()]
+    if obj.roles.exists():
+        filter_data['role_id'] = [r.pk for r in obj.roles.all()]
+    if obj.platforms.exists():
+        filter_data['platform_id'] = [p.pk for p in obj.platforms.all()]
+    if obj.tags.exists():
+        filter_data['tag'] = [t.slug for t in obj.tags.all()]
+
+    qs = VirtualMachine.objects.all()
+    filterset = filtersets.HostGroupVMFilterSet( data=filter_data, queryset=qs )
+    return filterset.qs.distinct().count()
+
+
 @register_model_view(models.HostGroupMapping, 'vms')
 class HostGroupMappingVMsView(generic.ObjectView):
     queryset = models.HostGroupMapping.objects.all()
     template_name = 'netbox_zabbix/hostgroupmapping_vms.html'
-    tab = ViewTab( label="Matching Virtual Machines", weight=500 )
+    tab = ViewTab( label="Matching Virtual Machines", 
+                  badge=lambda obj: count_matching_vms(obj),
+                  weight=500 )
 
     def get_extra_context(self, request, instance):
-        matching_vms = VirtualMachine.objects.all()
-    
+        filter_data = {}
+
         if instance.sites.exists():
-            matching_vms = matching_vms.filter( site__in=instance.sites.all() )
-        
+            filter_data['site_id'] = [s.pk for s in instance.sites.all()]
         if instance.roles.exists():
-            matching_vms = matching_vms.filter( role__in=instance.roles.all() )
-    
+            filter_data['role_id'] = [r.pk for r in instance.roles.all()]
         if instance.platforms.exists():
-            matching_vms = matching_vms.filter( platform__in=instance.platforms.all() )
-    
+            filter_data['platform_id'] = [p.pk for p in instance.platforms.all()]
         if instance.tags.exists():
-            for tag in instance.tags.all():
-                matching_vms = matching_vms.filter( tags__in=[tag] )
-            
-        vm_table = tables.MatchingVMTable( matching_vms.distinct(), orderable=True )
+            filter_data['tag'] = [t.slug for t in instance.tags.all()]
+        
+        qs = VirtualMachine.objects.annotate( zabbix_config=Exists( models.VMZabbixConfig.objects.filter( virtual_machine=OuterRef( 'pk' ) ) ) )
+        filterset = filtersets.HostGroupDeviceFilterSet( data=filter_data, queryset=qs )    
+        vm_table = tables.MatchingVMTable( filterset.qs.distinct(), orderable=True )
+        
+
         RequestConfig(
             self.request, {
                 'paginator_class': EnhancedPaginator,
@@ -390,7 +424,7 @@ class HostGroupMappingVMsView(generic.ObjectView):
         ).configure( vm_table )
         
         return {
-            "matching_vm_table": vm_table,
+            "table": vm_table,
         }
     
 
