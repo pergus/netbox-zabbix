@@ -207,52 +207,49 @@ class HostGroupDeleteView(generic.ObjectDeleteView):
 # ------------------------------------------------------------------------------
 # Hostgroup Mappings
 #
+from urllib.parse import urlencode
 
 class HostGroupMappingView(generic.ObjectView):
     queryset = models.HostGroupMapping.objects.all()
     
     def get_extra_context(self, request, instance):
-        matching_devices = Device.objects.all()
-        matching_vms = VirtualMachine.objects.all()
-
+        filter_data = {}
         if instance.sites.exists():
-            matching_devices = matching_devices.filter( site__in=instance.sites.all() )
-            matching_vms = matching_vms.filter( site__in=instance.sites.all() )
-        
+            filter_data['site_id'] = [s.pk for s in instance.sites.all()]
         if instance.roles.exists():
-            matching_devices = matching_devices.filter( role__in=instance.roles.all() )
-            matching_vms = matching_vms.filter( role__in=instance.roles.all() )
-    
+            filter_data['role_id'] = [r.pk for r in instance.roles.all()]
         if instance.platforms.exists():
-            matching_devices = matching_devices.filter( platform__in=instance.platforms.all() )
-            matching_vms = matching_vms.filter( platform__in=instance.platforms.all() )
-    
+            filter_data['platform_id'] = [p.pk for p in instance.platforms.all()]
         if instance.tags.exists():
-            for tag in instance.tags.all():
-                matching_devices = matching_devices.filter( tags__in=[tag] )
-                matching_vms = matching_vms.filter( tags__in=[tag] )
+            filter_data['tag'] = [t.slug for t in instance.tags.all()]
     
-        device_table = tables.MatchingDeviceTable( matching_devices.distinct(), orderable=True )
-        RequestConfig(
-            self.request, {
-                'paginator_class': EnhancedPaginator,
-                'per_page': get_paginate_count( self.request ),
-            }
-        ).configure( device_table )
-        
-        vm_table = tables.MatchingVMTable( matching_vms.distinct(), orderable=True )
-        RequestConfig(
-            self.request, {
-                'paginator_class': EnhancedPaginator,
-                'per_page': get_paginate_count( self.request ),
-            }
-        ).configure( vm_table )
-        
+        device_qs = Device.objects.all()
+        filtered_devices = filtersets.HostGroupDeviceFilterSet(data=filter_data, queryset=device_qs).qs.distinct()
+    
+        vm_qs = VirtualMachine.objects.all()
+        filtered_vms = filtersets.HostGroupVMFilterSet(data=filter_data, queryset=vm_qs).qs.distinct()
+    
+        # urlencode the filter_data to add to URL
+        from urllib.parse import urlencode
+        device_filter_query = urlencode(filter_data, doseq=True)
+    
         return {
-            "matching_device_table": device_table,
-            "matching_vm_table": vm_table,
+            "related_models": [
+                {
+                    "queryset": filtered_devices,
+                    "url": reverse('dcim:device_list') + f"?{device_filter_query}",
+                    "label": "devices",
+                    "count": filtered_devices.count(),
+                },
+                {
+                    "queryset": filtered_vms,
+                    "url": reverse('virtualization:virtualmachine_list') + f"?{device_filter_query}",
+                    "label": "virtual machines",
+                    "count": filtered_vms.count(),
+                },
+            ],
         }
-
+    
 
 class HostGroupMappingListView(generic.ObjectListView):
     queryset = models.HostGroupMapping.objects.all()

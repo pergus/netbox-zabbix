@@ -48,8 +48,9 @@ def resolve_hostgroup_for_host(host):
 Is it possible to let other views inherit field etc like NetBoxOnlyDevicesView does?
 
 
-Add Tabs for matching Device and matching hosts between "Host Group Mapping"
-and Changlog for Host Group Mappings
+In "Host Group Mapping" add tabs for matching Devices and matching VMs.
+Should I replace the Tabs for matching Devices and VMs with a "related
+objects" similar to a Device Role??
 
 
 

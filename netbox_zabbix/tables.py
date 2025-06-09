@@ -96,29 +96,35 @@ class HostGroupMappingTable(NetBoxTable):
         default_columns = ("pk", "name", "hostgroup", "sites", "roles", "platforms", "tags" )
 
 
+
 class MatchingDeviceTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+    site = tables.Column( linkify=True )
+    role = tables.Column( linkify=True )
+    platform = tables.Column( linkify=True )
     zabbix_config = tables.BooleanColumn( accessor='zabbix_config', verbose_name="Zabbix Config", orderable=True )
-    tags = tables.ManyToManyColumn()
+    tags = columns.TagColumn( url_name='dcim:device_list' )
 
     class Meta(NetBoxTable.Meta):
         model = Device
-        fields = ( "name", "site", "role", "platform", "tags", "zabbix_config" )
-        attrs = {"class": "table table-hover object-list"}
+        fields = ( "name", "zabbix_config", "site", "role", "platform", "tags" )
 
     def render_zabbix_config(self, record):
         return mark_safe("✔") if  models.DeviceZabbixConfig.objects.filter( device=record ).exists() else mark_safe("✘")
 
+    
 class MatchingVMTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+    site = tables.Column( linkify=True )
+    role = tables.Column( linkify=True )
+    platform = tables.Column( linkify=True )    
     zabbix_config = tables.BooleanColumn( accessor='zabbix_config', verbose_name="Zabbix Config", orderable=False )
-    tags = tables.ManyToManyColumn(  )
+    tags = columns.TagColumn( url_name='virtualization:virtualmachine_list' )
 
     class Meta(NetBoxTable.Meta):
         model = VirtualMachine
-        fields = ("name", "site", "role", "platform", "tags", "zabbix_config")
-        attrs = {"class": "table table-hover object-list"}
+        fields = ("name", "zabbix_config", "site", "role", "platform", "tags")
 
-    def render_zabbix_config(self, record):
-        return mark_safe("✔") if  models.VMZabbixConfig.objects.filter( virtual_machine=record ).exists() else mark_safe("✘")
     
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
