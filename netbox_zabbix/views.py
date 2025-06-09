@@ -231,20 +231,20 @@ class HostGroupMappingView(generic.ObjectView):
     
         # urlencode the filter_data to add to URL
         from urllib.parse import urlencode
-        device_filter_query = urlencode(filter_data, doseq=True)
+        filter_query = urlencode(filter_data, doseq=True)
     
         return {
             "related_models": [
                 {
                     "queryset": filtered_devices,
-                    "url": reverse('dcim:device_list') + f"?{device_filter_query}",
-                    "label": "devices",
+                    "url": reverse('dcim:device_list') + f"?{filter_query}",
+                    "label": "Devices",
                     "count": filtered_devices.count(),
                 },
                 {
                     "queryset": filtered_vms,
-                    "url": reverse('virtualization:virtualmachine_list') + f"?{device_filter_query}",
-                    "label": "virtual machines",
+                    "url": reverse('virtualization:virtualmachine_list') + f"?{filter_query}",
+                    "label": "Virtual Machines",
                     "count": filtered_vms.count(),
                 },
             ],
