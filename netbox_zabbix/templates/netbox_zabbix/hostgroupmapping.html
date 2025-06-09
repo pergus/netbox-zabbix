@@ -32,14 +32,14 @@
 
                     {% if object.platforms.exists %}
                     <tr>
-                        <th scope="row">Platoforms</th>
+                        <th scope="row">Platforms</th>
                         <td>{{ object.platforms.all|join:", " }}</td>
                     </tr>
                     {% endif %}
 
                     {% if object.tags.exists %}
                     <tr>
-                        <th scope="row">Platoforms</th>
+                        <th scope="row">Tags</th>
                         <td>{{ object.tags.all|join:", " }}</td>
                     </tr>
                     {% endif %}
