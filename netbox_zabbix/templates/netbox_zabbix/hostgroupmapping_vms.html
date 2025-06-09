@@ -1,0 +1,12 @@
+{% extends "generic/object.html" %}
+{% load render_table from django_tables2 %}
+
+{% block content %}
+<h2>Matching Virtual Machines</h2>
+{% if matching_vm_table.rows %}
+{% render_table matching_vm_table %}
+{% include 'inc/paginator.html' with paginator=matching_vm_table.paginator page=matching_vm_table.page %}
+{% else %}
+<p>No matching virtual machines.</p>
+{% endif %}
+{% endblock %}

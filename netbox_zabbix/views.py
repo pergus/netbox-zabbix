@@ -13,7 +13,9 @@ from django_tables2 import RequestConfig, SingleTableView
 from django.views import View
 from django.http import Http404
 
+from utilities.views import ViewTab, register_model_view
 from utilities.paginator import EnhancedPaginator, get_paginate_count
+
 from dcim.models import Device
 from virtualization.models import VirtualMachine
 from netbox.views import generic
@@ -196,6 +198,7 @@ class HostGroupEditView(generic.ObjectEditView):
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:hostgroup_list')
 
+
 class HostGroupDeleteView(generic.ObjectDeleteView):
     queryset = models.HostGroup.objects.all()
 
@@ -251,46 +254,6 @@ class HostGroupMappingView(generic.ObjectView):
             "matching_vm_table": vm_table,
         }
 
-"""
-This doesn't work yet!
-from utilities.views import ViewTab
-from utilities.views import register_model_view
-
-@register_model_view(models.HostGroupMapping, 'HostGroupMappingDevicesView')
-class HostGroupMappingDevicesView(generic.ObjectView):
-    queryset = models.HostGroupMapping.objects.all()
-    template_name = 'netbox_zabbix/hostgroupmapping_devices.html'
-    tab = ViewTab( label="Matching Devices" )
-
-    def get_extra_context(self, request, instance):
-        matching_devices = Device.objects.all()
-    
-        if instance.sites.exists():
-            matching_devices = matching_devices.filter( site__in=instance.sites.all() )
-        
-        if instance.roles.exists():
-            matching_devices = matching_devices.filter( role__in=instance.roles.all() )
-    
-        if instance.platforms.exists():
-            matching_devices = matching_devices.filter( platform__in=instance.platforms.all() )
-    
-        if instance.tags.exists():
-            for tag in instance.tags.all():
-                matching_devices = matching_devices.filter( tags__in=[tag] )
-    
-        device_table = tables.MatchingDeviceTable( matching_devices.distinct(), orderable=True )
-        RequestConfig(
-            self.request, {
-                'paginator_class': EnhancedPaginator,
-                'per_page': get_paginate_count( self.request ),
-            }
-        ).configure( device_table )
-        
-        return {
-            "matching_device_table": device_table,
-            "tab": self.tab,
-        }
-"""
 
 class HostGroupMappingListView(generic.ObjectListView):
     queryset = models.HostGroupMapping.objects.all()
@@ -307,6 +270,7 @@ class HostGroupMappingEditView(generic.ObjectEditView):
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:hostgroupmapping_list')
 
+
 class HostGroupMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.HostGroupMapping.objects.all()
 
@@ -321,6 +285,7 @@ class HostGroupMappingBulkDeleteView(generic.BulkDeleteView):
 
     def get_return_url(self, request, obj=None):
             return reverse('plugins:netbox_zabbix:hostgroupmapping_list')
+
 
 def sync_zabbix_hostgroups(request):
     redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
@@ -350,6 +315,84 @@ def sync_zabbix_hostgroups(request):
         config.set_last_checked = timezone.now()
     
     return redirect( redirect_url )
+
+
+# ------------------------------------------------------------------------------
+# Hostgroup Mapping Devices
+#
+
+@register_model_view(models.HostGroupMapping, 'devices')
+class HostGroupMappingDevicesView(generic.ObjectView):
+    queryset = models.HostGroupMapping.objects.all()
+    template_name = 'netbox_zabbix/hostgroupmapping_devices.html'
+    tab = ViewTab( label="Matching Devices", weight=500 )
+
+    def get_extra_context(self, request, instance):
+        matching_devices = Device.objects.all()
+    
+        if instance.sites.exists():
+            matching_devices = matching_devices.filter( site__in=instance.sites.all() )
+        
+        if instance.roles.exists():
+            matching_devices = matching_devices.filter( role__in=instance.roles.all() )
+    
+        if instance.platforms.exists():
+            matching_devices = matching_devices.filter( platform__in=instance.platforms.all() )
+    
+        if instance.tags.exists():
+            for tag in instance.tags.all():
+                matching_devices = matching_devices.filter( tags__in=[tag] )
+    
+        device_table = tables.MatchingDeviceTable( matching_devices.distinct(), orderable=True )
+        RequestConfig(
+            self.request, {
+                'paginator_class': EnhancedPaginator,
+                'per_page': get_paginate_count( self.request ),
+            }
+        ).configure( device_table )
+        
+        return {
+            "matching_device_table": device_table,
+        }
+
+# ------------------------------------------------------------------------------
+# Hostgroup Mapping Virtual Machines
+#
+
+@register_model_view(models.HostGroupMapping, 'vms')
+class HostGroupMappingVMsView(generic.ObjectView):
+    queryset = models.HostGroupMapping.objects.all()
+    template_name = 'netbox_zabbix/hostgroupmapping_vms.html'
+    tab = ViewTab( label="Matching Virtual Machines", weight=500 )
+
+    def get_extra_context(self, request, instance):
+        matching_vms = VirtualMachine.objects.all()
+    
+        if instance.sites.exists():
+            matching_vms = matching_vms.filter( site__in=instance.sites.all() )
+        
+        if instance.roles.exists():
+            matching_vms = matching_vms.filter( role__in=instance.roles.all() )
+    
+        if instance.platforms.exists():
+            matching_vms = matching_vms.filter( platform__in=instance.platforms.all() )
+    
+        if instance.tags.exists():
+            for tag in instance.tags.all():
+                matching_vms = matching_vms.filter( tags__in=[tag] )
+            
+        vm_table = tables.MatchingVMTable( matching_vms.distinct(), orderable=True )
+        RequestConfig(
+            self.request, {
+                'paginator_class': EnhancedPaginator,
+                'per_page': get_paginate_count( self.request ),
+            }
+        ).configure( vm_table )
+        
+        return {
+            "matching_vm_table": vm_table,
+        }
+    
 
 
 # ------------------------------------------------------------------------------

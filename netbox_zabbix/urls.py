@@ -48,9 +48,12 @@ urlpatterns = (
     path( 'hostgroup-mappings/add/',                views.HostGroupMappingEditView.as_view(),         name='hostgroupmapping_add' ),
     path( 'hostgroup-mappings/delete/',             views.HostGroupMappingBulkDeleteView.as_view(),   name='hostgroupmapping_bulk_delete' ),        
     path( 'hostgroup-mappings/<int:pk>/',           views.HostGroupMappingView.as_view(),             name='hostgroupmapping' ),
-    path( 'hostgroup-mappings/<int:pk>/edit/',      views.HostGroupMappingEditView.as_view(),         name='hostgroupmapping_edit' ),
+    path( 'hostgroup-mappings/<int:pk>/edit/',      views.HostGroupMappingEditView.as_view(),         name='hostgroupmapping_edit' ),        
     path( 'hostgroup-mappings/<int:pk>/delete/',    views.HostGroupMappingDeleteView.as_view(),       name='hostgroupmapping_delete' ),
     path( "hostgroup-mappings/<int:pk>/changelog/", ObjectChangeLogView.as_view(),                    name="hostgroupmapping_changelog", kwargs={"model": models.HostGroupMapping},  ),
+    
+    path( 'hostgroup-mappings/<int:pk>/devices/',   views.HostGroupMappingDevicesView.as_view(),  name='hostgroupmapping_devices' ),
+    path( 'hostgroup-mappings/<int:pk>/vms/',       views.HostGroupMappingVMsView.as_view(),      name='hostgroupmapping_vms' ),
     
     # Sync Zabbix Hostgroups
     path( "zabbix/sync_hostgroup",        views.sync_zabbix_hostgroups,        name="sync_zabbix_hostgroups" ),
