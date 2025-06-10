@@ -156,3 +156,23 @@ def get_tls_psk():
     """
     return get_config().tls_psk
 
+
+
+def get_max_deletions():
+    """
+    Retrieves the max deletions from the configuration.
+
+    Returns:
+        The max deletions as specified in the configuration.
+    """
+    return get_config().max_deletions
+
+
+def get_max_success_notifications():
+    """
+    Retrieves the max success notifications from the configuration.
+
+    Returns:
+        The max success notifications as specified in the configuration.
+    """
+    return get_config().max_success_notifications

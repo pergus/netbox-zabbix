@@ -6,9 +6,8 @@ from dcim.models import Device
 from virtualization.models import VirtualMachine
 
 from netbox_zabbix.logger import logger
-from netbox_zabbix.config import get_zabbix_api_endpoint, get_zabbix_token, ZabbixConfigNotFound
+from netbox_zabbix.config import get_zabbix_api_endpoint, get_zabbix_token, get_max_deletions, ZabbixConfigNotFound
 
-PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 
 def get_zabbix_client():
     """
@@ -179,7 +178,7 @@ def synchronize_templates(max_deletions=None):
 
     # Check if there is a limit to the number of templates to delete.
     if max_deletions is None:
-        max_deletions = PLUGIN_SETTINGS.get( "max_template_changes" )
+        max_deletions =  get_max_deletions()
 
     if len( templates_to_delete ) >= max_deletions:
         # Mark the templates as deleted but don't delete them.

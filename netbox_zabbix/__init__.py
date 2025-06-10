@@ -17,11 +17,6 @@ class ZConfiguration(PluginConfig):
     email = __email__
     base_url = "netbox_zabbix"
 
-    default_settings = {
-            'zabbix_host': 'se-zbxtestfe01x.se.axis.com',
-            'max_template_changes': 3
-    }
-
     def ready(self):
             super().ready()
             # Import and register signals

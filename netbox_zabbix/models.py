@@ -49,23 +49,33 @@ class Config(NetBoxModel):
         verbose_name = "Zabbix Configuration"
         verbose_name_plural = "Zabbix Configurations"
     
-    name             = models.CharField( max_length=255, help_text="Name of the configuration" )
-    api_endpoint     = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to Zabbix API Endpoint" )
-    web_address      = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to Zabbix" )
-    token            = models.CharField( max_length=255, help_text="Zabbix access token" )
-    connection       = models.BooleanField( default=False )
-    last_checked_at  = models.DateTimeField( null=True, blank=True )
-    version          = models.CharField( max_length=255, blank=True, null=True )
-    monitored_by     = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitoring hosts" )
-    tls_connect      = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to use for outgoing connections" )
-    tls_accept       = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to accept for incoming connections" )
-    # tls_psk_identity is required if tls_connect is set to PKS
-    tls_psk_identity = models.CharField( max_length=255, help_text="PSK identity", null=True, blank=True )
-    tls_psk          = models.CharField( max_length=255, help_text="Pre-shared key (PSK) must be at least 32 hex digits", null=True, blank=True )
-     
+    name              = models.CharField( max_length=255, help_text="Name of the configuration" )
+    api_endpoint      = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to Zabbix API Endpoint" )
+    web_address       = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to Zabbix" )
+    token             = models.CharField( max_length=255, help_text="Zabbix access token" )
+    connection        = models.BooleanField( default=False )
+    last_checked_at   = models.DateTimeField( null=True, blank=True )
+    version           = models.CharField( max_length=255, blank=True, null=True )
+    monitored_by      = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitoring hosts" )
+    tls_connect       = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to use for outgoing connections" )
+    tls_accept        = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to accept for incoming connections" )
+    tls_psk_identity  = models.CharField( max_length=255, help_text="PSK identity", null=True, blank=True )
+    tls_psk           = models.CharField( max_length=255, help_text="Pre-shared key (PSK) must be at least 32 hex digits", null=True, blank=True )
     
     auto_validate_importables = models.BooleanField( default= False )
+    
+    max_deletions = models.IntegerField( 
+            verbose_name="Max deletions on import", 
+            default=3, 
+            help_text="The maximum number of entries to be deleted automatically when importing settings from Zabbix" 
+    )
 
+    max_success_notifications = models.IntegerField(
+            verbose_name="Maximum Success Notifications",
+            default=3,
+            help_text="Maximum number of success notifications displayed when initiating multiple jobs."
+    )    
+    
     default_cidr = models.CharField(
             verbose_name="Default CIDR",
             max_length=4,

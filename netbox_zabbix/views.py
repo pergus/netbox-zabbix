@@ -30,8 +30,6 @@ from netbox_zabbix.logger import logger
 import netbox_zabbix.config as config
 
 
-PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get( "netbox_zabbix", {} )
-
 # ------------------------------------------------------------------------------
 # Configuration 
 #
@@ -697,18 +695,26 @@ class ImportableDeviceListView(generic.ObjectListView):
 
             selected_ids = request.POST.getlist( 'pk' )
             queryset = Device.objects.filter( pk__in=selected_ids )
-
+            
+            success_counter = 0
+            max_success_messages = config.get_max_success_notifications()
+            
             for device in queryset:
                 try:
                     logger.info ( f"importing device {device.name}" )                    
                     job = jobs.ImportFromZabbix.run_job( device_or_vm=device, user=request.user )
-                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )
-                    messages.success( request, message )
+                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )                    
+                    if success_counter < max_success_messages:
+                        messages.success(request, message)
+                        success_counter += 1
 
                 except Exception as e:
                     msg = f"Failed to create job for {request.user} to import device '{device}' from Zabbix {str( e )}"
                     messages.error( request, msg )
                     logger.error( msg )
+
+            if success_counter == max_success_messages:
+                messages.info(request, f"Queued {len(queryset) - success_counter} more jobs without notifications.")
 
             return redirect( request.POST.get( 'return_url' ) or request.path )
         
@@ -762,7 +768,7 @@ class ImportableVMListView(generic.ObjectListView):
                         messages.success( request, result )
                     except Exception as e:
                         messages.error( request, str( e ) )
-        
+            
             return redirect( request.POST.get( 'return_url' ) or request.path )
             
         
@@ -772,19 +778,27 @@ class ImportableVMListView(generic.ObjectListView):
             # Add a check to make sure there are any selected hosts, print a warning if not.
             selected_ids = request.POST.getlist( 'pk' )
             queryset = VirtualMachine.objects.filter( pk__in=selected_ids )
-    
+
+
+            success_counter = 0
+            max_success_messages = config.get_max_success_notifications()
+
             for vm in queryset:
                 try:
                     logger.info ( f"importing vm {vm.name}" )                    
                     job = jobs.ImportFromZabbix.run_job( device_or_vm=vm, user=request.user )    
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {vm.name} from Zabbix' )
-                    messages.success( request, message )
-    
+                    if success_counter < max_success_messages:
+                        messages.success(request, message)
+                        success_counter += 1    
                 except Exception as e:
                     msg = f"Failed to create job for {request.user} to import vm '{vm}' from Zabbix {str( e )}"
                     messages.error( request, msg )
                     logger.error( msg )
-    
+
+            if success_counter == max_success_messages:
+                messages.info(request, f"Queued {len(queryset) - success_counter} more jobs without notifications.")
+            
             return redirect( request.POST.get( 'return_url' ) or request.path )
         
         return super().get( request, *args, **kwargs )

@@ -7,62 +7,13 @@ NetBox plugin for Zabbix.
 * Documentation: https://pergus.github.io/netbox-zabbix/
 
 
-
-Get templates for a device or vm:
-
-```
-def get_templates( obj ):
-    mappings = TemplateMapping.objects.all()
-    matches = []
-
-    for mapping in mappings:
-        if mapping.sites.exists() and obj.site_id not in mapping.sites.values_list( 'id', flat=True ):
-            continue
-        if mapping.roles.exists() and obj.role_id not in mapping.roles.values_list( 'id', flat=True ):
-            continue
-        if mapping.platforms.exists() and obj.platform_id not in mapping.platforms.values_list( 'id', flat=True ):
-            continue
-        if mapping.tags.exists():
-            obj_tag_slugs = set( obj.tags.values_list( 'slug', flat=True ) )
-            mapping_tag_slugs = set( mapping.tags.values_list( 'slug', flat=True ) )
-            if not mapping_tag_slugs.issubset( obj_tag_slugs ):
-                continue
-        matches.append( mapping )
-    return matches
-```
-
-Get host groups for a device or vm:
-
-```
-def get_hostgroups( obj ):
-    mappings = HostGroupMapping.objects.all()
-    matches = []
-
-    for mapping in mappings:
-        if mapping.sites.exists() and obj.site_id not in mapping.sites.values_list( 'id', flat=True ):
-            continue
-        if mapping.roles.exists() and obj.role_id not in mapping.roles.values_list( 'id', flat=True ):
-            continue
-        if mapping.platforms.exists() and obj.platform_id not in mapping.platforms.values_list( 'id', flat=True ):
-            continue
-        if mapping.tags.exists():
-            obj_tag_slugs = set( obj.tags.values_list( 'slug', flat=True ) )
-            mapping_tag_slugs = set( mapping.tags.values_list( 'slug', flat=True ) )
-            if not mapping_tag_slugs.issubset( obj_tag_slugs ):
-                continue
-        matches.append( mapping )
-    return matches
-```
+## Todo and Questions
 
 
-## Todo
+### Questions
 
 Is it possible to let other views inherit field etc like NetBoxOnlyDevicesView does?
-
-
-In "Host Group Mapping" add tabs for matching Devices and matching VMs.
-Should I replace the Tabs for matching Devices and VMs with a "related
-objects" similar to a Device Role??
+Yes!
 
 Greate one view for device and another for vm that show all added fields such
 as hostgroups, proxies etc.
@@ -103,7 +54,8 @@ as hostgroups, proxies etc.
 | Add Automatic Validation                                     | Done          |
 | Add Automatic Validation                                     | Done          |
 | Add Background Job for Zabbix Config Sync                    | Done          |
-| Add a limit to how many messages to show when importing multiple Devices/VMs | Todo |
+| Add TLS settings                                             | Done          |
+| Add import 'success' counter?                                | Too          |
 
 
 ### NetBox Only Devices
