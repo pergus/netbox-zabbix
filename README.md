@@ -52,6 +52,8 @@ In "Host Group Mapping" add tabs for matching Devices and matching VMs.
 Should I replace the Tabs for matching Devices and VMs with a "related
 objects" similar to a Device Role??
 
+Greate one view for device and another for vm that show all added fields such
+as hostgroups, proxies etc.
 
 
 ### General

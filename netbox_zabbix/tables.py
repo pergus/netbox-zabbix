@@ -118,18 +118,22 @@ class MatchingVMTable(NetBoxTable):
     site = tables.Column( linkify=True )
     role = tables.Column( linkify=True )
     platform = tables.Column( linkify=True )    
-    zabbix_config = tables.BooleanColumn( accessor='zabbix_config', verbose_name="Zabbix Config", orderable=False )
+    zabbix_config = tables.BooleanColumn( accessor='zabbix_config', verbose_name="Zabbix Config", orderable=True )
     tags = columns.TagColumn( url_name='virtualization:virtualmachine_list' )
 
     class Meta(NetBoxTable.Meta):
         model = VirtualMachine
         fields = ("name", "zabbix_config", "site", "role", "platform", "tags")
 
+    def render_zabbix_config(self, record):
+        return mark_safe("✔") if  models.VMZabbixConfig.objects.filter( virtual_machine=record ).exists() else mark_safe("✘")
+    
 
 # ------------------------------------------------------------------------------
 # Device Host Groups
 #
 
+# note(pergus): This code should not be repeated.
 def get_device_hostgroups(device):
     mappings = models.HostGroupMapping.objects.all()
     matches = []
@@ -155,7 +159,7 @@ class DeviceHostGroupTable(DeviceTable):
     site = tables.Column( linkify=True )
     role = tables.Column( linkify=True )
     platform = tables.Column( linkify=True )
-    hostgroups = tables.Column( empty_values=(), verbose_name="Host Groups" )
+    hostgroups = tables.Column( empty_values=(), verbose_name="Host Groups", orderable=False )
     tags = columns.TagColumn( url_name='dcim:device_list' )
 
     class Meta(DeviceTable.Meta):

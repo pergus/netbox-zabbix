@@ -91,6 +91,7 @@ from django_filters import rest_framework as filters
 from netbox_zabbix import models
 from dcim.models import Device
 
+# note(pergus): This code should not be repeated.
 def get_device_hostgroups(device):
     mappings = models.HostGroupMapping.objects.all()
     matches = []
