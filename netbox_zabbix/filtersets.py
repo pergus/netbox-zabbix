@@ -111,9 +111,10 @@ def get_device_hostgroups(device):
         matches.append(mapping)
     return matches
 
-from netbox_zabbix.logger import logger
 
-class DeviceHostGroupFilterSet(filters.FilterSet):
+#class DeviceHostGroupFilterSet(filters.FilterSet):
+class DeviceHostGroupFilterSet(DeviceFilterSet):
+
     hostgroups = filters.ModelMultipleChoiceFilter(
         field_name='hostgroups',
         queryset=models.HostGroupMapping.objects.all(),
@@ -128,9 +129,7 @@ class DeviceHostGroupFilterSet(filters.FilterSet):
     
         selected_mapping_ids = {mapping.id for mapping in value}
         matching_device_ids = []
-    
-        logger.info(f"Selected HostGroupMappings: {value=}")
-    
+
         for device in queryset:
             matched = get_device_hostgroups(device)  # returns a list of HostGroupMapping
             matched_mapping_ids = {mapping.id for mapping in matched}
@@ -138,12 +137,11 @@ class DeviceHostGroupFilterSet(filters.FilterSet):
             if matched_mapping_ids & selected_mapping_ids:
                 matching_device_ids.append(device.id)
     
-        logger.info(f"{matching_device_ids=}")
         return queryset.filter(id__in=matching_device_ids)
 
-    class Meta:
-        model = Device
-        fields = [] #['hostgroups']
+#    class Meta:
+#        model = Device
+#        fields = []  #['hostgroups']
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations

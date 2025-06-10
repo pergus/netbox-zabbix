@@ -352,6 +352,7 @@ class HostGroupMappingDevicesView(generic.ObjectView):
         if instance.tags.exists():
             filter_data['tag'] = [t.slug for t in instance.tags.all()]
     
+        # Annotate the Device with zabbix_config
         qs = Device.objects.annotate( zabbix_config=Exists( models.DeviceZabbixConfig.objects.filter( device=OuterRef( 'pk' ) ) ) )
         filterset = filtersets.HostGroupDeviceFilterSet( data=filter_data, queryset=qs )    
         device_table = tables.MatchingDeviceTable( filterset.qs.distinct(), orderable=True )
@@ -389,6 +390,34 @@ def count_matching_vms(obj):
 
 @register_model_view(models.HostGroupMapping, 'vms')
 class HostGroupMappingVMsView(generic.ObjectView):
+    """
+     View for displaying virtual machines that match the criteria defined in a HostGroupMapping.
+    
+     This view filters `VirtualMachine` objects based on the tags, sites, roles, and platforms 
+     associated with a specific `HostGroupMapping` instance. It also annotates each VM with a 
+     `zabbix_config` boolean indicating whether it has an associated Zabbix configuration.
+    
+     Attributes:
+         queryset: The set of HostGroupMapping objects to use in this view.
+         template_name: Path to the template used to render the page.
+         tab: A ViewTab object used to define the tab label, badge (count of matching VMs), and weight 
+              (ordering in tab list).
+    
+     Methods:
+         get_extra_context(request, instance):
+             Gathers additional context to be passed to the template, including the filtered and annotated
+             table of matching virtual machines. Uses `RequestConfig` to apply pagination and sorting.
+    
+     Filtering Logic:
+         - If the `HostGroupMapping` defines any sites, roles, platforms, or tags, these are converted 
+           into filter parameters.
+         - A custom filterset (`HostGroupDeviceFilterSet`) is used to filter the `VirtualMachine` queryset.
+         - The queryset is annotated with `zabbix_config`, indicating if the VM has a related Zabbix config.
+    
+     UI:
+         - A badge on the tab displays the number of matching virtual machines.
+         - The result table is sortable and paginated using NetBox's standard table controls.
+     """
     queryset = models.HostGroupMapping.objects.all()
     template_name = 'netbox_zabbix/hostgroupmapping_vms.html'
     tab = ViewTab( label="Matching Virtual Machines", 
@@ -407,6 +436,7 @@ class HostGroupMappingVMsView(generic.ObjectView):
         if instance.tags.exists():
             filter_data['tag'] = [t.slug for t in instance.tags.all()]
         
+        # Annotate the VM with zabbix_config
         qs = VirtualMachine.objects.annotate( zabbix_config=Exists( models.VMZabbixConfig.objects.filter( virtual_machine=OuterRef( 'pk' ) ) ) )
         filterset = filtersets.HostGroupDeviceFilterSet( data=filter_data, queryset=qs )    
         vm_table = tables.MatchingVMTable( filterset.qs.distinct(), orderable=True )
