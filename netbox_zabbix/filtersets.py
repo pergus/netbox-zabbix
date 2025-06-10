@@ -60,6 +60,91 @@ class HostGroupVMFilterSet(VirtualMachineFilterSet):
         fields = VirtualMachineFilterSet.Meta.fields
 
 # ------------------------------------------------------------------------------
+# Device Host Group
+#
+
+#from netbox_zabbix.logger import logger
+#from netbox_zabbix import forms
+#class DeviceHostGroupFilterSet(DeviceFilterSet):
+#    hostgroups = django_filters.ModelMultipleChoiceFilter(
+#        queryset=models.HostGroupMapping.objects.all(),
+#        method='filter_hostgroups',
+#        label='Zabbix Host Groups',
+#        conjoined=False,
+#    )
+#
+#    def filter_hostgroups(self, queryset, name, value):
+#        logger.info(f"Filtering with hostgroups: {value}")
+#        if value:
+#            return queryset.filter(zabbix_hostgroups__in=value)
+#        return queryset
+#
+#    class Meta(DeviceFilterSet.Meta):
+#        model = Device
+#        fields = list(DeviceFilterSet.Meta.fields) + ['hostgroups']
+#
+#    # Add this line to use your custom form
+#    filterset_form = forms.DeviceHostGroupFilterForm
+
+
+from django_filters import rest_framework as filters
+from netbox_zabbix import models
+from dcim.models import Device
+
+def get_device_hostgroups(device):
+    mappings = models.HostGroupMapping.objects.all()
+    matches = []
+
+    for mapping in mappings:
+        if mapping.sites.exists() and device.site_id not in mapping.sites.values_list( 'id', flat=True ):
+            continue
+        if mapping.roles.exists() and device.role_id not in mapping.roles.values_list( 'id', flat=True ):
+            continue
+        if mapping.platforms.exists() and device.platform_id not in mapping.platforms.values_list( 'id', flat=True ):
+            continue
+        if mapping.tags.exists():
+            device_tag_slugs = set( device.tags.values_list( 'slug', flat=True ) )
+            mapping_tag_slugs = set( mapping.tags.values_list( 'slug', flat=True ) )
+            if not mapping_tag_slugs.issubset( device_tag_slugs ):
+                continue
+        matches.append(mapping)
+    return matches
+
+from netbox_zabbix.logger import logger
+
+class DeviceHostGroupFilterSet(filters.FilterSet):
+    hostgroups = filters.ModelMultipleChoiceFilter(
+        field_name='hostgroups',
+        queryset=models.HostGroupMapping.objects.all(),
+        conjoined=True,  # or True if you want all selected hostgroups to match
+        method='filter_hostgroups',
+        label="Host Groups"
+    )
+
+    def filter_hostgroups(self, queryset, name, value):
+        if not value:
+            return queryset
+    
+        selected_mapping_ids = {mapping.id for mapping in value}
+        matching_device_ids = []
+    
+        logger.info(f"Selected HostGroupMappings: {value=}")
+    
+        for device in queryset:
+            matched = get_device_hostgroups(device)  # returns a list of HostGroupMapping
+            matched_mapping_ids = {mapping.id for mapping in matched}
+    
+            if matched_mapping_ids & selected_mapping_ids:
+                matching_device_ids.append(device.id)
+    
+        logger.info(f"{matching_device_ids=}")
+        return queryset.filter(id__in=matching_device_ids)
+
+    class Meta:
+        model = Device
+        fields = [] #['hostgroups']
+
+# ------------------------------------------------------------------------------
 # Zabbix Configurations
 #
 

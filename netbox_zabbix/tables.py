@@ -125,7 +125,56 @@ class MatchingVMTable(NetBoxTable):
         model = VirtualMachine
         fields = ("name", "zabbix_config", "site", "role", "platform", "tags")
 
-    
+
+# ------------------------------------------------------------------------------
+# Device Host Groups
+#
+
+def get_device_hostgroups(device):
+    mappings = models.HostGroupMapping.objects.all()
+    matches = []
+
+    for mapping in mappings:
+        if mapping.sites.exists() and device.site_id not in mapping.sites.values_list( 'id', flat=True ):
+            continue
+        if mapping.roles.exists() and device.role_id not in mapping.roles.values_list( 'id', flat=True ):
+            continue
+        if mapping.platforms.exists() and device.platform_id not in mapping.platforms.values_list( 'id', flat=True ):
+            continue
+        if mapping.tags.exists():
+            device_tag_slugs = set( device.tags.values_list( 'slug', flat=True ) )
+            mapping_tag_slugs = set( mapping.tags.values_list( 'slug', flat=True ) )
+            if not mapping_tag_slugs.issubset( device_tag_slugs ):
+                continue
+        matches.append(mapping)
+    return matches
+
+
+class DeviceHostGroupTable(DeviceTable):
+    name = tables.Column( linkify=True )
+    site = tables.Column( linkify=True )
+    role = tables.Column( linkify=True )
+    platform = tables.Column( linkify=True )
+    hostgroups = tables.Column( empty_values=(), verbose_name="Host Groups" )
+    tags = columns.TagColumn( url_name='dcim:device_list' )
+
+    class Meta(DeviceTable.Meta):
+        model = Device
+        fields = ("name", "hostgroups", "site", "role", "platform", "tags")
+
+    def render_hostgroups(self, record):
+        hostgroups = get_device_hostgroups(record)
+        if not hostgroups:
+            return mark_safe('<span class="text-muted">&mdash;</span>')
+
+        return mark_safe(", ".join(
+            f'<a href="{hg.get_absolute_url()}">{hg.name}</a>'
+            for hg in hostgroups
+        ))
+
+
+
+
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 #

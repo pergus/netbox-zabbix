@@ -12,6 +12,8 @@ from django_tables2 import RequestConfig, SingleTableView
 from django.views import View
 from django.http import Http404
 
+from urllib.parse import urlencode
+
 from utilities.views import ViewTab, register_model_view
 from utilities.paginator import EnhancedPaginator, get_paginate_count
 
@@ -207,7 +209,6 @@ class HostGroupDeleteView(generic.ObjectDeleteView):
 # ------------------------------------------------------------------------------
 # Hostgroup Mappings
 #
-from urllib.parse import urlencode
 
 class HostGroupMappingView(generic.ObjectView):
     queryset = models.HostGroupMapping.objects.all()
@@ -229,8 +230,6 @@ class HostGroupMappingView(generic.ObjectView):
         vm_qs = VirtualMachine.objects.all()
         filtered_vms = filtersets.HostGroupVMFilterSet(data=filter_data, queryset=vm_qs).qs.distinct()
     
-        # urlencode the filter_data to add to URL
-        from urllib.parse import urlencode
         filter_query = urlencode(filter_data, doseq=True)
     
         return {
@@ -424,6 +423,18 @@ class HostGroupMappingVMsView(generic.ObjectView):
             "table": vm_table,
         }
     
+
+
+# ------------------------------------------------------------------------------
+# Device Host Group
+#
+@register_model_view(Device, "hostgroups")
+class DeviceHostGroupListView(generic.ObjectListView):
+    queryset = Device.objects.all().prefetch_related("tags", "platform", "role", "site")
+    table = tables.DeviceHostGroupTable
+    filterset = filtersets.DeviceHostGroupFilterSet
+    filterset_form = forms.DeviceHostGroupFilterForm
+    template_name = "netbox_zabbix/device_hostgroups.html"
 
 
 # ------------------------------------------------------------------------------
@@ -768,6 +779,7 @@ def device_quick_add_agent(request):
 
     return redirect( redirect_url )
 
+
 def device_quick_add_snmpv3(request):
     redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
     return redirect( redirect_url )    
@@ -782,6 +794,7 @@ def device_quick_add_snmpv3(request):
 class DeviceAgentInterfaceView(generic.ObjectView):
     queryset = models.DeviceAgentInterface.objects.all()
 
+
 class DeviceAgentInterfaceListView(generic.ObjectListView):
     queryset = models.DeviceAgentInterface.objects.all()
     filterset = filtersets.DeviceAgentInterfaceFilterSet
@@ -793,6 +806,7 @@ class DeviceAgentInterfaceEditView(generic.ObjectEditView):
     queryset = models.DeviceAgentInterface.objects.all()
     form = forms.DeviceAgentInterfaceForm
     template_name = 'netbox_zabbix/device_agent_interface_edit.html'
+
 
 class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()
@@ -826,18 +840,19 @@ class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
 class VMAgentInterfaceView(generic.ObjectView):
     queryset = models.VMAgentInterface.objects.all()
 
+
 class VMAgentInterfaceListView(generic.ObjectListView):
     queryset = models.VMAgentInterface.objects.all()
     filterset = filtersets.VMAgentInterfaceFilterSet
     #filterset_form = forms.VMAgentInterfaceFilterForm
     table = tables.VMAgentInterfaceTable
-    
 
 
 class VMAgentInterfaceEditView(generic.ObjectEditView):
     queryset = models.VMAgentInterface.objects.all()
     form = forms.VMAgentInterfaceForm
     template_name = 'netbox_zabbix/vm_agent_interface_edit.html'
+
 
 class VMAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.VMAgentInterface.objects.all()

@@ -155,7 +155,18 @@ class HostGroupMappingForm(NetBoxModelForm):
                 raise forms.ValidationError(
                     "At least one of sites, roles or platforms must be set for mapping."
                 )
-        
+
+
+# ------------------------------------------------------------------------------
+# Device Host Groups
+#
+from dcim.forms import DeviceFilterForm
+class DeviceHostGroupFilterForm(DeviceFilterForm):
+    hostgroups = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+    
+    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', name='Zabbix' ), )
+
+    
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations

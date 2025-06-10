@@ -48,7 +48,11 @@ menu = PluginMenu(
                     buttons=( 
                         PluginMenuButton( "plugins:netbox_zabbix:devicezabbixconfig_add", "Add", "mdi mdi-plus-thick" ),
                         ),
-                ),        
+                ),
+                PluginMenuItem(
+                    link_text="Device Host Groups",
+                    link="plugins:netbox_zabbix:device_hostgroup_list",
+                ),
             )        
         ),
         ( "Device Components",

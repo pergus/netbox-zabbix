@@ -68,6 +68,8 @@ urlpatterns = (
     path( "devices/zabbix-config/<int:pk>/changelog/", ObjectChangeLogView.as_view(),                name="devicezabbixconfig_changelog", kwargs={"model": models.DeviceZabbixConfig} ),
         
 
+    path( "device-hostgroups/", views.DeviceHostGroupListView.as_view(), name="device_hostgroup_list" ),
+
     # VM Zabbix Configuration
     path( "virtual-machines/zabbix-config/",                    views.VMZabbixConfigListView.as_view(),   name="vmzabbixconfig_list" ),
     path( "virtual-machines/zabbix-config/add/",                views.VMZabbixConfigEditView.as_view(),   name="vmzabbixconfig_add" ),
