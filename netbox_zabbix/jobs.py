@@ -392,7 +392,6 @@ def import_vm_config(zabbix_host: dict, vm: VirtualMachine):
     )
 
 
-
 def build_zabbix_host_payload_from_config(zcfg: DeviceZabbixConfig) -> dict:
     """
     Build a Zabbix API-compatible payload for creating a host from a DeviceZabbixConfig.

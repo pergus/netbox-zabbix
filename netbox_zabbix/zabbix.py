@@ -308,6 +308,7 @@ def hostgroup_get():
     except Exception as e:
         raise e        
 
+
 def synchronize_hostgroups(max_deletions=None):
     """
     Synchronize Zabbix hostgroups into the local NetBox plugin database.

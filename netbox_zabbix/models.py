@@ -34,7 +34,15 @@ class CIDRChoices(models.TextChoices):
     CIDR_20 = '/20', '/20'
     CIDR_16 = '/16', '/16 (Large subnet)'
 
+class MonitoredByChoices(models.IntegerChoices):
+    ZabbixServer = (0, 'Zabbix Server')
+    Proxy        = (1, 'Proxy')
+    ProxyGroup   = (2, 'Proxy Group')
 
+class TLSConnectChoices(models.IntegerChoices):
+    NoEncryption = (1, 'No Encryption')
+    PSK = (2, 'PSK')
+    CERTIFICATE = (4, 'Certificate')
 
 class Config(NetBoxModel):
     class Meta:
@@ -48,6 +56,14 @@ class Config(NetBoxModel):
     connection       = models.BooleanField( default=False )
     last_checked_at  = models.DateTimeField( null=True, blank=True )
     version          = models.CharField( max_length=255, blank=True, null=True )
+    monitored_by     = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitoring hosts" )
+    tls_connect      = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to use for outgoing connections" )
+    tls_accept       = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to accept for incoming connections" )
+    # tls_psk_identity is required if tls_connect is set to PKS
+    tls_psk_identity = models.CharField( max_length=255, help_text="PSK identity", null=True, blank=True )
+    tls_psk          = models.CharField( max_length=255, help_text="Pre-shared key (PSK) must be at least 32 hex digits", null=True, blank=True )
+     
+    
     auto_validate_importables = models.BooleanField( default= False )
 
     default_cidr = models.CharField(

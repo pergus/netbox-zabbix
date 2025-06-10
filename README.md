@@ -8,39 +8,51 @@ NetBox plugin for Zabbix.
 
 
 
+Get templates for a device or vm:
 
+```
+def get_templates( obj ):
+    mappings = TemplateMapping.objects.all()
+    matches = []
 
-from django.db.models import Q
+    for mapping in mappings:
+        if mapping.sites.exists() and obj.site_id not in mapping.sites.values_list( 'id', flat=True ):
+            continue
+        if mapping.roles.exists() and obj.role_id not in mapping.roles.values_list( 'id', flat=True ):
+            continue
+        if mapping.platforms.exists() and obj.platform_id not in mapping.platforms.values_list( 'id', flat=True ):
+            continue
+        if mapping.tags.exists():
+            obj_tag_slugs = set( obj.tags.values_list( 'slug', flat=True ) )
+            mapping_tag_slugs = set( mapping.tags.values_list( 'slug', flat=True ) )
+            if not mapping_tag_slugs.issubset( obj_tag_slugs ):
+                continue
+        matches.append( mapping )
+    return matches
+```
 
-def resolve_hostgroup_for_host(host):
-    """
-    Given a NetBox host object (device or VM), find a matching ZabbixHostGroup
-    based on mappings by role, platform, or tags.
-    """
+Get host groups for a device or vm:
 
-    # Device case
-    if hasattr(host, 'device') and host.device:
-        device = host.device
-        mappings = ZabbixHostGroupMapping.objects.filter(
-            Q(device_role=device.role) |
-            Q(platform=device.platform) |
-            Q(tag__in=device.tags.all())
-        ).select_related('hostgroup').distinct()
+```
+def get_hostgroups( obj ):
+    mappings = HostGroupMapping.objects.all()
+    matches = []
 
-    # Virtual Machine case
-    elif hasattr(host, 'virtual_machine') and host.virtual_machine:
-        vm = host.virtual_machine
-        mappings = ZabbixHostGroupMapping.objects.filter(
-            Q(vm_role=vm.role) |
-            Q(platform=vm.platform) |
-            Q(tag__in=vm.tags.all())
-        ).select_related('hostgroup').distinct()
-
-    else:
-        return None
-
-    # Return first matching hostgroup or None
-    return mappings.first().hostgroup if mappings.exists() else None
+    for mapping in mappings:
+        if mapping.sites.exists() and obj.site_id not in mapping.sites.values_list( 'id', flat=True ):
+            continue
+        if mapping.roles.exists() and obj.role_id not in mapping.roles.values_list( 'id', flat=True ):
+            continue
+        if mapping.platforms.exists() and obj.platform_id not in mapping.platforms.values_list( 'id', flat=True ):
+            continue
+        if mapping.tags.exists():
+            obj_tag_slugs = set( obj.tags.values_list( 'slug', flat=True ) )
+            mapping_tag_slugs = set( mapping.tags.values_list( 'slug', flat=True ) )
+            if not mapping_tag_slugs.issubset( obj_tag_slugs ):
+                continue
+        matches.append( mapping )
+    return matches
+```
 
 
 ## Todo
@@ -74,10 +86,14 @@ as hostgroups, proxies etc.
 | Create class or function to run background jobs              | Done          |
 | Implement signals for create, update and delete              | Todo          |
 | Auto hide validate button depending on if automatic validation is enabled or not | Done |
-| Add Host information as a tab for Device and VM              | Todo          |
+| Add Host information as a tab for Device and VM              | Done          |
 | Add filtersets to the views                                  | Todo          |
 | Implement GraphQL                                            | Todo          |
-
+| Add template mappings                                        | Done          |
+| Add host group mappings                                      | Done          |
+| Add models for Proxy and Proxy Groups                        | Todo          |
+| Add Proxy mappings                                           | Todo          |
+| Add Proxy Group mappings                                     | Todo          |
 
 
 ### Config

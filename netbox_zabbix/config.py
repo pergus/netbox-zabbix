@@ -105,3 +105,54 @@ def set_last_checked( timestamp ):
     cfg = get_config()
     cfg.last_checked_at = timestamp
     cfg.save()
+
+
+def get_monitored_by():
+    """
+    Retrieves the default monitored_by value from the configuration.
+    
+    Returns:
+        The default monitored_by value as specified in the configuration.
+    """
+    return get_config().monitored_by
+
+
+def get_tls_connect():
+    """
+    Retrieves the default TLS connection type from the configuration.
+    
+    Returns:
+        The default TLS connection type as specified in the configuration.
+    """
+    return get_config().tls_connect
+
+
+def get_tls_accept():
+    """
+     Retrieves the default TLS accept type from the configuration.
+    
+     Returns:
+         The default TLS accept type as specified in the configuration.
+     """
+    return get_config().tls_accept
+
+
+def get_tls_psk_identity():
+    """
+    Retrieves the default TLS PSK identity from the configuration.
+    
+    Returns:
+        The default TLS PSK identity as specified in the configuration.
+    """
+    return get_config().tls_psk_identity
+
+
+def get_tls_psk():
+    """
+    Retrieves the default TLS PSK from the configuration.
+    
+    Returns:
+        The default TLS PSK as specified in the configuration.
+    """
+    return get_config().tls_psk
+

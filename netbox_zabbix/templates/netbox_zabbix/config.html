@@ -36,30 +36,40 @@
             <td>{{ object.version }}</td>
           </tr>
 
-
           <tr>
             <th scope="row">API Endpoint</th>
             <td>{{ object.api_endpoint }}</td>
           </tr>
-
 
           <tr>
             <th scope="row">Web Address</th>
             <td>{{ object.web_address }}</td>
           </tr>
 
-
           <tr>
             <th scope="row">Connection</th>
             <td>{{ object.connection }}</td>
           </tr>
-
 
           <tr>
             <th scope="row">Last Connection Check</th>
             <td>{{ object.last_checked_at }}</td>
           </tr>
 
+          <tr>
+            <th scope="row">Monitored By</th>
+            <td>{{ object.get_monitored_by_display }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">TLS Connect</th>
+            <td>{{ object.get_tls_connect_display }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">TLS Accept</th>
+            <td>{{ object.get_tls_accept_display }}</td>
+          </tr>
 
 
         </table>

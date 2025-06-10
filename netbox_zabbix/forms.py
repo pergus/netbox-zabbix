@@ -18,6 +18,8 @@ from netbox_zabbix import zabbix as z
 
 from netbox_zabbix.logger import logger
 
+import re
+
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 
 
@@ -41,7 +43,9 @@ class ConfigForm(NetBoxModelForm):
 
     fieldsets = (
         FieldSet( 'name', 'ip_assignment_method', 'auto_validate_importables', name="General"),
-        FieldSet( 'api_endpoint', 'web_address', 'token', 'default_cidr', name="Zabbix" )
+        FieldSet( 'api_endpoint', 'web_address', 'token', 
+                 'default_cidr', 'monitored_by', 
+                 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', name="Zabbix" )
     )
     class Meta:
         model = models.Config
@@ -77,6 +81,21 @@ class ConfigForm(NetBoxModelForm):
         if not self.instance.pk and models.Config.objects.exists():
             raise ValidationError("Only one Zabbix configuration is allowed.")
     
+
+        # Check tls settings
+        tls_connect = self.cleaned_data.get('tls_connect')
+        tls_psk = self.cleaned_data.get('tls_psk')
+        tls_psk_identity = self.cleaned_data.get('tls_psk_identity')
+        
+        # Validate PSK requirements
+        if tls_connect == models.TLSConnectChoices.PSK:
+            if not tls_psk_identity:
+                raise ValidationError("TLS PSK Identity is required when TLS Connect is set to PSK.")
+        
+            if not tls_psk or not re.fullmatch(r'[0-9a-fA-F]{32,}', tls_psk):
+                raise ValidationError("TLS PSK must be at least 32 hexadecimal digits.")
+        
+
         # Check connection/token
         try:
             z.validate_zabbix_credentials(self.cleaned_data['api_endpoint'], self.cleaned_data['token'])
