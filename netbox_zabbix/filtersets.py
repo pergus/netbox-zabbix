@@ -1,5 +1,6 @@
 import django_filters
-from django.db.models import Q
+from django_filters import rest_framework as filters
+from extras.filters import TagFilter
 
 from netbox.filtersets import NetBoxModelFilterSet
 from netbox_zabbix import models
@@ -8,6 +9,10 @@ from dcim.models import Device
 from dcim.filtersets import DeviceFilterSet
 from virtualization.models import VirtualMachine
 from virtualization.filtersets import VirtualMachineFilterSet
+
+
+
+
 
 # Configuration doesn't have a filterset
 
@@ -28,11 +33,32 @@ class TemplateFilterSet(NetBoxModelFilterSet):
         )
 
 # ------------------------------------------------------------------------------
+# Template Mappings
+#
+
+class TemplateMappingFilterSet(NetBoxModelFilterSet):
+    tags = TagFilter()
+
+    class Meta:
+        model = models.TemplateMapping
+        fields = ['template', 'sites', 'roles', 'platforms', 'tags']
+
+
+class TemplateDeviceFilterSet(DeviceFilterSet):
+    class Meta(DeviceFilterSet.Meta):
+        model = Device
+        fields = DeviceFilterSet.Meta.fields
+
+
+class TemplateVMFilterSet(VirtualMachineFilterSet):
+    class Meta(VirtualMachineFilterSet.Meta):
+        model = VirtualMachine
+        fields = VirtualMachineFilterSet.Meta.fields
+
+# ------------------------------------------------------------------------------
 # Host Group Mappings
 #
 
-
-from extras.filters import TagFilter
 class HostGroupMappingFilterSet(NetBoxModelFilterSet):
     tags = TagFilter()
 
@@ -62,34 +88,6 @@ class HostGroupVMFilterSet(VirtualMachineFilterSet):
 # ------------------------------------------------------------------------------
 # Device Host Group
 #
-
-#from netbox_zabbix.logger import logger
-#from netbox_zabbix import forms
-#class DeviceHostGroupFilterSet(DeviceFilterSet):
-#    hostgroups = django_filters.ModelMultipleChoiceFilter(
-#        queryset=models.HostGroupMapping.objects.all(),
-#        method='filter_hostgroups',
-#        label='Zabbix Host Groups',
-#        conjoined=False,
-#    )
-#
-#    def filter_hostgroups(self, queryset, name, value):
-#        logger.info(f"Filtering with hostgroups: {value}")
-#        if value:
-#            return queryset.filter(zabbix_hostgroups__in=value)
-#        return queryset
-#
-#    class Meta(DeviceFilterSet.Meta):
-#        model = Device
-#        fields = list(DeviceFilterSet.Meta.fields) + ['hostgroups']
-#
-#    # Add this line to use your custom form
-#    filterset_form = forms.DeviceHostGroupFilterForm
-
-
-from django_filters import rest_framework as filters
-from netbox_zabbix import models
-from dcim.models import Device
 
 # note(pergus): This code should not be repeated.
 def get_device_hostgroups(device):
@@ -157,13 +155,6 @@ class NetBoxOnlyDevicesFilterSet(NetBoxModelFilterSet):
     class Meta:
         model = Device
         fields = ( 'name', )
-#        fields = (
-#                    'pk', 'id', 'name', 'status', 'tenant', 'tenant_group', 'role', 'manufacturer', 'device_type',
-#                    'serial', 'asset_tag', 'region', 'site_group', 'site', 'location', 'rack', 'parent_device',
-#                    'device_bay_position', 'position', 'face', 'latitude', 'longitude', 'airflow', 'primary_ip', 'primary_ip4',
-#                    'primary_ip6', 'oob_ip', 'cluster', 'virtual_chassis', 'vc_position', 'vc_priority', 'description',
-#                    'config_template', 'comments', 'contacts', 'tags', 'created', 'last_updated',
-#                )
 
 class NetBoxOnlyVMsFilterSet(NetBoxModelFilterSet):
     class Meta:

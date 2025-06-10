@@ -5,6 +5,8 @@ router = DefaultRouter()
 
 router.register( 'config',                     views.ConfigViewSet )
 router.register( 'templates',                  views.TemplateViewSet )
+router.register( 'template-mappings',          views.TemplateMappingViewSet )
+
 router.register( 'hostgroups',                 views.HostGroupViewSet )
 router.register( 'hostgroup-mappings',         views.HostGroupMappingViewSet )
 

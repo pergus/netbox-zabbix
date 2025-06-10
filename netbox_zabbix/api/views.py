@@ -5,8 +5,9 @@ from django_filters import rest_framework as filters
 
 from dcim.models import Interface
 from virtualization.models import VMInterface
-
-#from netbox_zabbix.logger import logger
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
 
 
 # ------------------------------------------------------------------------------
@@ -29,14 +30,34 @@ class TemplateFilter(filters.FilterSet):
     class Meta:
         model = models.Template
         fields = ["q"]
+
         
 class TemplateViewSet(NetBoxModelViewSet):
     queryset = models.Template.objects.all()
     serializer_class = serializers.TemplateSerializer
     filterset_class = TemplateFilter 
 
+
+class TemplateMappingFilter(filters.FilterSet):
+    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Template Mappings" )
+
+    class Meta:
+        model = models.TemplateMapping
+        fields = ["q"]
+
+
 # ------------------------------------------------------------------------------
-# Hostgroups
+# Template Mapping
+#
+
+class TemplateMappingViewSet(NetBoxModelViewSet):
+    queryset = models.TemplateMapping.objects.all()
+    serializer_class = serializers.TemplateMappingSerializer
+    filterset_class = TemplateMappingFilter
+
+
+# ------------------------------------------------------------------------------
+# Host Groups
 #
 
 class HostGroupViewSet(NetBoxModelViewSet):
@@ -52,6 +73,10 @@ class HostGroupMappingFilter(filters.FilterSet):
         model = models.HostGroupMapping
         fields = ["q"]
 
+# ------------------------------------------------------------------------------
+# Host Group Mapping
+#
+
 class HostGroupMappingViewSet(NetBoxModelViewSet):
     queryset = models.HostGroupMapping.objects.all()
     serializer_class = serializers.HostGroupMappingSerializer
@@ -60,10 +85,6 @@ class HostGroupMappingViewSet(NetBoxModelViewSet):
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 #
-
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
 
 class DeviceZabbixConfigViewSet(NetBoxModelViewSet):
     queryset = models.DeviceZabbixConfig.objects.all()

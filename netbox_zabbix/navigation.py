@@ -17,6 +17,11 @@ menu = PluginMenu(
                     link="plugins:netbox_zabbix:template_list",
                 ),
                 PluginMenuItem( 
+                    link_text="Template Mappings",                    
+                    link="plugins:netbox_zabbix:templatemapping_list",
+                ),
+                
+                PluginMenuItem( 
                     link_text="Host Groups",                    
                     link="plugins:netbox_zabbix:hostgroup_list",
                 ),                

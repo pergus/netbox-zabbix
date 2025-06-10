@@ -112,6 +112,40 @@ class TemplateFilterForm(NetBoxModelFilterSetForm):
         self.fields["templateid"].choices = choices
 
 # ------------------------------------------------------------------------------
+# Template Mappings
+#
+
+class TemplateMappingForm(NetBoxModelForm):
+        sites = forms.ModelMultipleChoiceField( queryset=models.Site.objects.all(), required=False )
+        roles = forms.ModelMultipleChoiceField( queryset=models.DeviceRole.objects.all(), required=False )
+        platforms = forms.ModelMultipleChoiceField( queryset=models.Platform.objects.all(), required=False )
+
+        class Meta:
+            model = models.TemplateMapping
+            fields = [
+                'name',
+                'template',
+                'sites',
+                'roles',
+                'platforms',
+                'tags',
+            ]
+
+        
+        def clean(self):
+            super().clean()
+            
+            sites = self.cleaned_data['sites']
+            roles = self.cleaned_data['roles']
+            platforms = self.cleaned_data['platforms']
+                
+            if not (sites or roles or platforms):
+                raise forms.ValidationError(
+                    "At least one of sites, roles or platforms must be set for mapping."
+                )
+
+
+# ------------------------------------------------------------------------------
 # Hostgroups
 #
 

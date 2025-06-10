@@ -177,7 +177,84 @@ def sync_zabbix_templates(request):
 
 
 # ------------------------------------------------------------------------------
-# Hostgroups
+# Template Mappings
+#
+
+class TemplateMappingView(generic.ObjectView):
+    queryset = models.TemplateMapping.objects.all()
+    
+
+    def get_extra_context(self, request, instance):
+        filter_data = {}
+        if instance.sites.exists():
+            filter_data['site_id'] = [s.pk for s in instance.sites.all()]
+        if instance.roles.exists():
+            filter_data['role_id'] = [r.pk for r in instance.roles.all()]
+        if instance.platforms.exists():
+            filter_data['platform_id'] = [p.pk for p in instance.platforms.all()]
+        if instance.tags.exists():
+            filter_data['tag'] = [t.slug for t in instance.tags.all()]
+    
+        device_qs = Device.objects.all()
+        filtered_devices = filtersets.TemplateDeviceFilterSet(data=filter_data, queryset=device_qs).qs.distinct()
+    
+        vm_qs = VirtualMachine.objects.all()
+        filtered_vms = filtersets.TemplateVMFilterSet(data=filter_data, queryset=vm_qs).qs.distinct()
+    
+        filter_query = urlencode(filter_data, doseq=True)
+    
+        return {
+            "related_models": [
+                {
+                    "queryset": filtered_devices,
+                    "url": reverse('dcim:device_list') + f"?{filter_query}",
+                    "label": "Devices",
+                    "count": filtered_devices.count(),
+                },
+                {
+                    "queryset": filtered_vms,
+                    "url": reverse('virtualization:virtualmachine_list') + f"?{filter_query}",
+                    "label": "Virtual Machines",
+                    "count": filtered_vms.count(),
+                },
+            ],
+        }
+
+class TemplateMappingListView(generic.ObjectListView):
+    queryset = models.TemplateMapping.objects.all()
+    table = tables.TemplateMappingTable
+    template_name = 'netbox_zabbix/templatemapping_list.html'
+
+
+class TemplateMappingEditView(generic.ObjectEditView):
+    queryset = models.TemplateMapping.objects.all()
+    form = forms.TemplateMappingForm
+    template_name = 'netbox_zabbix/templatemapping_edit.html'
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:templatemapping_list')
+
+
+class TemplateMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.TemplateMapping.objects.all()
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:templatemapping_list')
+
+
+class TemplateMappingBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.TemplateMapping.objects.all()
+    filterset_class = filtersets.TemplateMappingFilterSet
+    table = tables.TemplateMappingTable
+
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:templatemapping_list')
+
+
+
+
+# ------------------------------------------------------------------------------
+# Host Groups
 #
 
 class HostGroupView(generic.ObjectView):
@@ -205,9 +282,40 @@ class HostGroupDeleteView(generic.ObjectDeleteView):
 
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:hostgroup_list')
+
+
+def sync_zabbix_hostgroups(request):
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+
+    try:
+        added, deleted = z.synchronize_hostgroups()
+        msg_lines = ["Syncing Zabbix Hostgroups succeeded."]
+        if added:
+            msg_lines.append( f"Added {len( added )} hosgroup{ pluralize( len( added ) )}." )
+        if deleted:
+            msg_lines.append( f"Deleted {len( deleted )} hostgroup{ pluralize( len( deleted ) )}." )
+        if not added and not deleted:
+            msg_lines.append( "No changes detected." )
+        
+        messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
+        
+    except RuntimeError as e:
+        error_msg = "Syncing Zabbix Hostgroups failed."
+        logger.error( f"{error_msg} {e}" )
+        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
     
+    except Exception as e:
+        error_msg = "Connection to Zabbix failed."
+        logger.error( f"{error_msg} {e}" )
+        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
+        config.set_connection = False
+        config.set_last_checked = timezone.now()
+    
+    return redirect( redirect_url )
+
+
 # ------------------------------------------------------------------------------
-# Hostgroup Mappings
+# Host Group Mappings
 #
 
 class HostGroupMappingView(generic.ObjectView):
@@ -282,38 +390,9 @@ class HostGroupMappingBulkDeleteView(generic.BulkDeleteView):
             return reverse('plugins:netbox_zabbix:hostgroupmapping_list')
 
 
-def sync_zabbix_hostgroups(request):
-    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
-
-    try:
-        added, deleted = z.synchronize_hostgroups()
-        msg_lines = ["Syncing Zabbix Hostgroups succeeded."]
-        if added:
-            msg_lines.append( f"Added {len( added )} hosgroup{ pluralize( len( added ) )}." )
-        if deleted:
-            msg_lines.append( f"Deleted {len( deleted )} hostgroup{ pluralize( len( deleted ) )}." )
-        if not added and not deleted:
-            msg_lines.append( "No changes detected." )
-        
-        messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
-        
-    except RuntimeError as e:
-        error_msg = "Syncing Zabbix Hostgroups failed."
-        logger.error( f"{error_msg} {e}" )
-        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
-    
-    except Exception as e:
-        error_msg = "Connection to Zabbix failed."
-        logger.error( f"{error_msg} {e}" )
-        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
-        config.set_connection = False
-        config.set_last_checked = timezone.now()
-    
-    return redirect( redirect_url )
-
 
 # ------------------------------------------------------------------------------
-# Hostgroup Mapping Devices
+# Host Group Mapping Devices
 #
 
 def count_matching_devices(obj):
@@ -368,8 +447,9 @@ class HostGroupMappingDevicesView(generic.ObjectView):
             "table": device_table,
         }
 
+
 # ------------------------------------------------------------------------------
-# Hostgroup Mapping Virtual Machines
+# Host Group Mapping Virtual Machines
 #
 
 def count_matching_vms(obj):
@@ -458,6 +538,9 @@ class HostGroupMappingVMsView(generic.ObjectView):
 # ------------------------------------------------------------------------------
 # Device Host Group
 #
+
+# todo(pergus): make this the "only" view for devices, it should list
+# all fileds that we add such as hostgroups, proxies etc.
 @register_model_view(Device, "hostgroups")
 class DeviceHostGroupListView(generic.ObjectListView):
     queryset = Device.objects.all().prefetch_related("tags", "platform", "role", "site")

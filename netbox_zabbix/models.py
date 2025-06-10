@@ -93,7 +93,25 @@ class Template(NetBoxModel):
 
 
 # ------------------------------------------------------------------------------
-# HostGroup
+# Template Mapping
+#
+
+class TemplateMapping(NetBoxModel):
+    name = models.CharField( max_length=255 )
+    template = models.ForeignKey( Template, on_delete=models.CASCADE )
+    sites = models.ManyToManyField( Site, blank=True )
+    roles = models.ManyToManyField( DeviceRole, blank=True )
+    platforms = models.ManyToManyField( Platform, blank=True )
+
+    def __str__(self):
+        return self.name
+    
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_zabbix:templatemapping", args=[self.pk])
+
+
+# ------------------------------------------------------------------------------
+# Host Group
 #
 
 class HostGroup(NetBoxModel):
@@ -109,6 +127,11 @@ class HostGroup(NetBoxModel):
 
     def get_absolute_url(self):
         return reverse("plugins:netbox_zabbix:hostgroup", args=[self.pk])
+
+
+# ------------------------------------------------------------------------------
+# Host Group Mapping
+#
 
 class HostGroupMapping(NetBoxModel):
     name = models.CharField( max_length=255 )

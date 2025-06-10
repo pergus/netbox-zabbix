@@ -26,15 +26,38 @@ class TemplateSerializer(NetBoxModelSerializer):
     def get_display(self, obj):
         return str( obj.name )
 
+# ------------------------------------------------------------------------------
+# Template Mappings
+#
+
+class TemplateMappingSerializer(serializers.ModelSerializer):
+    template = TemplateSerializer( read_only=True )
+    template_id = serializers.PrimaryKeyRelatedField( queryset=models.Template.objects.all(), source='template', write_only=True )
+
+    class Meta:
+        model = models.TemplateMapping
+        fields = [
+            'id',
+            'template',
+            'template_id',
+            'sites',
+            'roles',
+            'platforms',
+            'tags',
+        ]
 
 # ------------------------------------------------------------------------------
-# Hostgroups
+# Host Groups
 #
 
 class HostGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model =models.HostGroup
         fields = ['id', 'groupid', 'name']
+
+# ------------------------------------------------------------------------------
+# Host Group Mappings
+#
 
 class HostGroupMappingSerializer(serializers.ModelSerializer):
     hostgroup = HostGroupSerializer( read_only=True )
