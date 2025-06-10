@@ -52,10 +52,10 @@ as hostgroups, proxies etc.
 | ------------------------------------------------------------ | ------------- |
 | Add CIDR to the config                                       | Done          |
 | Add Automatic Validation                                     | Done          |
-| Add Automatic Validation                                     | Done          |
-| Add Background Job for Zabbix Config Sync                    | Done          |
 | Add TLS settings                                             | Done          |
-| Add import 'success' counter?                                | Too          |
+| Add Max deletions on import                                  | Done          |
+| Add Maximum Success Notifications                            | Done          |
+| Add Background Job for Zabbix Config Sync                    | Todo          |
 
 
 ### NetBox Only Devices
