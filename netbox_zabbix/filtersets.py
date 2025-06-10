@@ -112,7 +112,6 @@ def get_device_hostgroups(device):
     return matches
 
 
-#class DeviceHostGroupFilterSet(filters.FilterSet):
 class DeviceHostGroupFilterSet(DeviceFilterSet):
 
     hostgroups = filters.ModelMultipleChoiceFilter(
@@ -139,9 +138,6 @@ class DeviceHostGroupFilterSet(DeviceFilterSet):
     
         return queryset.filter(id__in=matching_device_ids)
 
-#    class Meta:
-#        model = Device
-#        fields = []  #['hostgroups']
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations

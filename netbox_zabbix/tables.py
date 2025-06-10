@@ -80,7 +80,7 @@ class HostGroupTable(NetBoxTable):
         default_columns = ( "name", "groupid", )
 
 # ------------------------------------------------------------------------------
-# HostGroup Mappings
+# Host Group Mappings
 #
 
 class HostGroupMappingTable(NetBoxTable):
@@ -159,7 +159,12 @@ class DeviceHostGroupTable(DeviceTable):
     site = tables.Column( linkify=True )
     role = tables.Column( linkify=True )
     platform = tables.Column( linkify=True )
+
+    # `empty_values=()` is required to prevent django-tables2 from attempting to fetch a `hostgroups`
+    # attribute from the Device model, which doesn't exist. This ensures that the custom
+    # `render_hostgroups()` method is always called to render the column using computed data.    
     hostgroups = tables.Column( empty_values=(), verbose_name="Host Groups", orderable=False )
+    
     tags = columns.TagColumn( url_name='dcim:device_list' )
 
     class Meta(DeviceTable.Meta):
