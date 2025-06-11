@@ -7,7 +7,6 @@ from django.shortcuts import redirect, render
 from django.contrib import messages
 from django.utils import timezone
 from django.urls import reverse
-from django.conf import settings
 from django_tables2 import RequestConfig, SingleTableView
 from django.views import View
 from django.http import Http404
@@ -218,6 +217,7 @@ class TemplateMappingView(generic.ObjectView):
             ],
         }
 
+
 class TemplateMappingListView(generic.ObjectListView):
     queryset = models.TemplateMapping.objects.all()
     table = tables.TemplateMappingTable
@@ -250,6 +250,184 @@ class TemplateMappingBulkDeleteView(generic.BulkDeleteView):
 
 
 
+# ------------------------------------------------------------------------------
+# Proxy
+#
+
+class ProxyView(generic.ObjectView):
+    queryset = models.Proxy.objects.all()
+
+class ProxyListView(generic.ObjectListView):    
+    queryset = models.Proxy.objects.all()
+    filterset = filtersets.ProxyFilterSet
+    filterset_form = forms.ProxyFilterForm
+    table = tables.ProxyTable    
+    template_name = "netbox_zabbix/proxy_list.html"
+
+
+class ProxyEditView(generic.ObjectEditView):
+    queryset = models.Proxy.objects.all()
+    form = forms.ProxyForm
+
+
+class ProxyDeleteView(generic.ObjectDeleteView):
+    queryset = models.Proxy.objects.all()
+
+
+def proxies_review_deletions(request):
+    items = models.Proxy.objects.filter( marked_for_deletion=True )
+    return render( request, 'netbox_zabbix/proxies_review_deletions.html', {'items': items} )
+
+
+@require_POST
+def proxies_confirm_deletions(request):
+    selected_ids = request.POST.getlist( 'confirm_ids' )
+    models.Proxy.objects.filter( id__in=selected_ids ).delete()
+    return redirect( 'plugins:netbox_zabbix:proxies_review_deletions' )
+
+
+def sync_zabbix_proxies(request):
+    """
+    View-based wrapper around proxies synchronization.
+    """
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+
+    try:
+        added, deleted = z.synchronize_proxies()
+
+        msg_lines = ["Syncing Zabbix Proxies succeeded."]
+        if added:
+            msg_lines.append( f"Added {len( added )} prox{pluralize(len(added), 'y,ies')}." )
+        if deleted:
+            msg_lines.append( f"Deleted {len( deleted )} prox{pluralize(len(deleted), 'y,ies')}." )
+        if not added and not deleted:
+            msg_lines.append( "No changes detected." )
+
+        messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
+
+    except RuntimeError as e:
+        error_msg = "Syncing Zabbix Proxies failed."
+        logger.error( f"{error_msg} {e}" )
+        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
+
+    except Exception as e:
+        error_msg = "Connection to Zabbix failed."
+        logger.error( f"{error_msg} {e}" )
+        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
+        config.set_connection = False
+        config.set_last_checked = timezone.now()
+
+    return redirect( redirect_url )
+
+# ------------------------------------------------------------------------------
+# Proxy Mappings
+#
+
+class ProxyMappingView(generic.ObjectView):
+    queryset = models.ProxyMapping.objects.all()
+    
+
+class ProxyMappingListView(generic.ObjectListView):
+    queryset = models.ProxyMapping.objects.all()
+    table = tables.ProxyMappingTable
+    template_name = 'netbox_zabbix/proxymapping_list.html'
+
+
+class ProxyMappingEditView(generic.ObjectEditView):
+    queryset = models.ProxyMapping.objects.all()
+    form = forms.ProxyMappingForm
+    template_name = 'netbox_zabbix/proxymapping_edit.html'
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:proxymapping_list')
+
+
+class ProxyMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.ProxyMapping.objects.all()
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:poxymapping_list')
+
+
+class ProxyMappingBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.ProxyMapping.objects.all()
+    filterset_class = filtersets.ProxyMappingFilterSet
+    table = tables.ProxyMappingTable
+
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:proxymapping_list')
+
+
+
+
+# ------------------------------------------------------------------------------
+# Proxy Groups
+#
+
+class ProxyGroupView(generic.ObjectView):
+    queryset = models.ProxyGroup.objects.all()
+
+class ProxyGroupListView(generic.ObjectListView):
+    queryset = models.ProxyGroup.objects.all()
+    filterset = filtersets.ProxyGroupFilterSet
+    filterset_form = forms.ProxyGroupFilterForm
+    table = tables.ProxyGroupTable 
+    template_name = "netbox_zabbix/proxygroup_list.html"
+
+
+class ProxyGroupEditView(generic.ObjectEditView):
+    queryset = models.ProxyGroup.objects.all()
+    form = forms.ProxyGroupForm
+
+
+class ProxyGroupDeleteView(generic.ObjectDeleteView):
+    queryset = models.ProxyGroup.objects.all()
+
+
+def proxygroups_review_deletions(request):
+    items = models.ProxyGroup.objects.filter( marked_for_deletion=True )
+    return render( request, 'netbox_zabbix/proxygroup_review_deletions.html', {'items': items} )
+
+
+@require_POST
+def proxygroups_confirm_deletions(request):
+    selected_ids = request.POST.getlist( 'confirm_ids' )
+    models.ProxyGroup.objects.filter( id__in=selected_ids ).delete()
+    return redirect( 'plugins:netbox_zabbix:proxygroup_review_deletions' )
+
+
+def sync_zabbix_proxygroups(request):
+    """
+    View-based wrapper around proxy group ies synchronization.
+    """
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+
+    try:
+        added, deleted = z.synchronize_proxygroups()
+
+        msg_lines = ["Syncing Zabbix Proxy Groups succeeded."]
+        if added:
+            msg_lines.append( f"Added {len( added )} proxy group{pluralize( len(added) )}." )
+        if deleted:
+            msg_lines.append( f"Deleted {len( deleted )} proxy group{pluralize( len(deleted) )}." )
+        if not added and not deleted:
+            msg_lines.append( "No changes detected." )
+
+        messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
+
+    except RuntimeError as e:
+        error_msg = "Syncing Zabbix Proxy Groups failed."
+        logger.error( f"{error_msg} {e}" )
+        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
+
+    except Exception as e:
+        error_msg = "Connection to Zabbix failed."
+        logger.error( f"{error_msg} {e}" )
+        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
+        config.set_connection = False
+        config.set_last_checked = timezone.now()
+
+    return redirect( redirect_url )
 
 # ------------------------------------------------------------------------------
 # Host Groups

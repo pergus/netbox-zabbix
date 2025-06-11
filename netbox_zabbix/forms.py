@@ -165,15 +165,7 @@ class TemplateMappingForm(NetBoxModelForm):
 
         class Meta:
             model = models.TemplateMapping
-            fields = [
-                'name',
-                'template',
-                'interface_type',
-                'sites',
-                'roles',
-                'platforms',
-                'tags',
-            ]
+            fields = [ 'name', 'template', 'interface_type', 'sites', 'roles', 'platforms', 'tags' ]
 
         
         def clean(self):
@@ -188,6 +180,89 @@ class TemplateMappingForm(NetBoxModelForm):
                     "At least one of sites, roles or platforms must be set for mapping."
                 )
 
+
+# ------------------------------------------------------------------------------
+# Proxy
+#
+
+class ProxyForm(NetBoxModelForm):
+    class Meta:
+        model = models.Proxy
+        fields = ( "name", "proxyid", "proxy_groupid", "marked_for_deletion" )
+
+
+class ProxyFilterForm(NetBoxModelFilterSetForm):
+    model = models.Proxy
+
+    name = forms.ModelMultipleChoiceField( queryset=models.Proxy.objects.all(), to_field_name='name', label="Name", required=False )
+    proxyid = forms.ChoiceField( label = "Proxy ID", required = False )
+    proxy_groupid = forms.ChoiceField( label = "Proxy Group ID", required = False )
+    marked_for_deletion = forms.NullBooleanField( label = "Marked For Deletion", required = False )
+    
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+         # Set proxyid choices dynamically on instantiation
+        proxyids = models.Proxy.objects.order_by('proxyid').distinct('proxyid').values_list('proxyid', flat=True)
+        choices = [("", "---------")] + [(zid, zid) for zid in proxyids if zid is not None]
+        self.fields["proxyid"].choices = choices
+
+
+# ------------------------------------------------------------------------------
+# Proxy Mappings
+#
+
+class ProxyMappingForm(NetBoxModelForm):
+        sites = forms.ModelMultipleChoiceField( queryset=models.Site.objects.all(), required=False )
+        roles = forms.ModelMultipleChoiceField( queryset=models.DeviceRole.objects.all(), required=False )
+        platforms = forms.ModelMultipleChoiceField( queryset=models.Platform.objects.all(), required=False )
+
+        class Meta:
+            model = models.ProxyMapping
+            fields = [ 'name', 'proxy', 'sites', 'roles', 'platforms', 'tags' ]
+
+        
+        def clean(self):
+            super().clean()
+            
+            sites = self.cleaned_data['sites']
+            roles = self.cleaned_data['roles']
+            platforms = self.cleaned_data['platforms']
+                
+            if not (sites or roles or platforms):
+                raise forms.ValidationError(
+                    "At least one of sites, roles or platforms must be set for mapping."
+                )
+
+
+
+
+# ------------------------------------------------------------------------------
+# Proxy Groups
+#
+
+class ProxyGroupForm(NetBoxModelForm):
+    class Meta:
+        model = models.ProxyGroup
+        fields = ( "name", "proxy_groupid", "marked_for_deletion" )
+
+
+class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
+    model = models.ProxyGroup
+
+    name = forms.ModelMultipleChoiceField( queryset=models.ProxyGroup.objects.all(), to_field_name='name', label="Name", required=False )
+    proxy_groupid = forms.ChoiceField( label = "Proxy Group ID", required = False )
+    marked_for_deletion = forms.NullBooleanField( label = "Marked For Deletion", required = False )
+    
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+         # Set proxyid choices dynamically on instantiation
+        proxy_groupids = models.ProxyGroup.objects.order_by('proxy_groupid').distinct('proxy_groupid').values_list('proxy_groupid', flat=True)
+        choices = [("", "---------")] + [(zid, zid) for zid in proxy_groupids if zid is not None]
+        self.fields["proxy_groupid"].choices = choices
 
 # ------------------------------------------------------------------------------
 # Hostgroups

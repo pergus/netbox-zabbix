@@ -1,0 +1,12 @@
+{% extends "generic/object_list.html" %}
+
+{% block extra_controls %}
+<a href="{% url 'plugins:netbox_zabbix:sync_zabbix_proxygroups' %}" class="btn btn-primary">
+    <i class="mdi mdi-sync"></i> Sync Proxy Groups
+</a>
+
+<a href="{% url 'plugins:netbox_zabbix:proxygroups_review_deletions' %}" class="btn btn-warning">
+    <i class="mdi mdi-alert-outline"></i> Review Deletions
+</a>
+
+{% endblock %}

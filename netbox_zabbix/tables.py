@@ -84,6 +84,50 @@ class TemplateMappingTable(NetBoxTable):
 
 
 # ------------------------------------------------------------------------------
+# Proxy
+#
+
+class ProxyTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+        
+    class Meta(NetBoxTable.Meta):
+        model = models.Proxy
+        fields = ("name", "proxyid", "proxy_groupid", "last_synced", "marked_for_deletion"  )
+        default_columns = ("name", "proxyid", "proxy_groupid", "last_synced", "marked_for_deletion"  )
+
+# ------------------------------------------------------------------------------
+# Proxy Mappings
+#
+
+class ProxyMappingTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+    proxy = tables.Column( linkify=True )
+    roles = tables.ManyToManyColumn(  )
+    platforms = tables.ManyToManyColumn(  )
+    tags = tables.ManyToManyColumn(  )
+
+    class Meta(NetBoxTable.Meta):
+        model = models.ProxyMapping
+        fields = ( "pk", "name", "proxy", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "proxy", "sites", "roles", "platforms", "tags" )
+
+
+
+# ------------------------------------------------------------------------------
+# Proxy Group
+#
+
+class ProxyGroupTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+    
+    class Meta(NetBoxTable.Meta):
+        model = models.ProxyGroup
+        fields = ("name", "proxy_groupid", "last_synced", "marked_for_deletion"  )
+        default_columns = ("name", "proxy_groupid", "last_synced", "marked_for_deletion"  )
+
+
+
+# ------------------------------------------------------------------------------
 # Host Groups
 #
 

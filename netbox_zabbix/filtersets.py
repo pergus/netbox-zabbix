@@ -55,6 +55,52 @@ class TemplateVMFilterSet(VirtualMachineFilterSet):
         model = VirtualMachine
         fields = VirtualMachineFilterSet.Meta.fields
 
+
+# ------------------------------------------------------------------------------
+# Proxy
+#
+
+class ProxyFilterSet(NetBoxModelFilterSet):
+    class Meta:
+        model = models.Proxy
+        fields = [ 'name', 'proxyid', 'proxy_groupid', 'marked_for_deletion' ]
+
+    name = django_filters.ModelMultipleChoiceFilter(
+            field_name='name',
+            to_field_name='name',  # match by template name instead of PK
+            queryset=models.Proxy.objects.all(),
+            label="Name"
+        )
+
+# ------------------------------------------------------------------------------
+# Proxy Mappings
+#
+
+class ProxyMappingFilterSet(NetBoxModelFilterSet):
+    tags = TagFilter()
+
+    class Meta:
+        model = models.ProxyMapping
+        fields = ['proxy', 'sites', 'roles', 'platforms', 'tags']
+
+
+
+# ------------------------------------------------------------------------------
+# Proxy Group
+#
+
+class ProxyGroupFilterSet(NetBoxModelFilterSet):
+    class Meta:
+        model = models.ProxyGroup
+        fields = [ 'name', 'proxy_groupid', 'marked_for_deletion' ]
+
+    name = django_filters.ModelMultipleChoiceFilter(
+            field_name='name',
+            to_field_name='name',  # match by template name instead of PK
+            queryset=models.ProxyGroup.objects.all(),
+            label="Name"
+        )
+
 # ------------------------------------------------------------------------------
 # Host Group Mappings
 #

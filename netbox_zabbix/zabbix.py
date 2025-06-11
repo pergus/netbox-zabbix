@@ -136,7 +136,7 @@ def synchronize_templates(max_deletions=None):
     
     Args:
         max_deletions (int, optional): Maximum number of templates allowed to delete
-            in one synchronization. If None, uses the default from plugin settings.
+            in one synchronization. If None, uses the default from config settings.
     
     Returns:
         tuple: A tuple containing two lists:
@@ -176,6 +176,7 @@ def synchronize_templates(max_deletions=None):
     templates_to_delete = current_ids - template_ids
     deleted_templates = []
 
+
     # Check if there is a limit to the number of templates to delete.
     if max_deletions is None:
         max_deletions =  get_max_deletions()
@@ -194,6 +195,191 @@ def synchronize_templates(max_deletions=None):
         tmpl.delete()
     
     return added_templates, deleted_templates
+
+
+def get_proxies():
+    """
+    Retrieves all Zabbix proxies.
+    
+    Connects to the Zabbix API using the configured client and fetches a list of 
+    proxies sorted by name.
+    
+    Returns:
+        list: A list of Zabbix proxies with their names.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        Exception: If there is an error communicating with the Zabbix API.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.proxy.get( output=["name", "proxyid", "proxy_groupid"], sortfield = "name" )
+    
+    except Exception as e:
+        raise e
+    
+
+def synchronize_proxies(max_deletions=None):
+    """
+    Synchronize proxies from Zabbix with the local database.
+    
+    Fetches the list of proxies from Zabbix and updates or creates corresponding
+    Proxy records in the local database. It also deletes proxies locally that
+    no longer exist in Zabbix, respecting a maximum number of deletions.
+    
+    Args:
+        max_deletions (int, optional): Maximum number of proxies allowed to delete
+            in one synchronization. If None, uses the default from config settings.
+    
+    Returns:
+        tuple: A tuple containing two lists:
+            - added_proxies: List of newly added proxy dicts.
+            - deleted_proxies: List of tuples (name, proxy_id) of deleted proxies.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        RuntimeError: If the number of proxies to delete exceeds max_deletions.
+        Exception: For other errors during fetching or updating proxies.
+    """
+    try:
+        proxies = get_proxies()
+    
+    except ZabbixConfigNotFound as e:
+        raise e
+    
+    except Exception as e:
+        logger.error( "Failed to fetch Zabbix proxies" )
+        raise e
+        
+    proxyids = { item['proxyid'] for item in proxies }
+
+    current_proxies = models.Proxy.objects.all()
+    current_ids = set( current_proxies.values_list( 'proxyid', flat=True ) )
+
+    now = timezone.now()
+    added_proxies = []
+
+    # Add all new proxies
+    for item in proxies:
+        _, created = models.Proxy.objects.update_or_create( proxyid=item['proxyid'], proxy_groupid=item['proxy_groupid'], defaults={"name": item['name'], "last_synced": now} )
+        if created:
+            logger.info( f"Added proxy {item['name']} ({item['proxyid']})" )
+            added_proxies.append( item )
+
+    proxies_to_delete = current_ids - proxyids
+    deleted_proxies = []
+    
+    # Check if there is a limit to the number of proxies to delete.
+    if max_deletions is None:
+        max_deletions =  get_max_deletions()
+
+    if len( proxies_to_delete ) >= max_deletions:
+        # Mark the proxies as deleted but don't delete them.
+        models.Proxy.objects.filter(proxyid__in=proxies_to_delete).update(marked_for_deletion=True)
+        logger.info( f"proxies to delete: {proxies_to_delete}" ) 
+        raise RuntimeError( f"Too many deletions ({len(proxies_to_delete)}), max allowed is {max_deletions}" )
+
+    # Delete the tempaltes
+    for proxyid in proxies_to_delete:
+        proxy = models.Proxy.objects.get( proxyid=proxyid )
+        logger.info( f"Deleted proxy {proxy.name} ({proxy.proxyid})" )
+        deleted_proxies.append( ( proxy.name, proxy.proxyid ) )
+        proxy.delete()
+    
+    return added_proxies, deleted_proxies
+
+
+def get_proxygroups():
+    """
+    Retrieves all Zabbix proxy groups.
+    
+    Connects to the Zabbix API using the configured client and fetches a list of 
+    proxy groups sorted by name.
+    
+    Returns:
+        list: A list of Zabbix proxy groups with their names.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        Exception: If there is an error communicating with the Zabbix API.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.proxygroup.get( output=["name", "proxy_groupid"], sortfield = "name" )
+    
+    except Exception as e:
+        raise e
+    
+
+def synchronize_proxygroups(max_deletions=None):
+    """
+    Synchronize proxy groups from Zabbix with the local database.
+    
+    Fetches the list of proxy groups from Zabbix and updates or creates corresponding
+    Proxy records in the local database. It also deletes proxy groups locally that
+    no longer exist in Zabbix, respecting a maximum number of deletions.
+    
+    Args:
+        max_deletions (int, optional): Maximum number of proxy groups allowed to delete
+            in one synchronization. If None, uses the default from config settings.
+    
+    Returns:
+        tuple: A tuple containing two lists:
+            - added_proxy_groups: List of newly added proxy dicts.
+            - deleted_proxy_groups: List of tuples (name, proxy_id) of deleted proxy groups.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        RuntimeError: If the number of proxy groups to delete exceeds max_deletions.
+        Exception: For other errors during fetching or updating proxy groups.
+    """
+    try:
+        proxy_groups = get_proxygroups()
+    
+    except ZabbixConfigNotFound as e:
+        raise e
+    
+    except Exception as e:
+        logger.error( "Failed to fetch Zabbix proxy groups" )
+        raise e
+        
+    proxy_groupids = { item['proxy_groupid'] for item in proxy_groups }
+
+    current_proxy_groups = models.ProxyGroup.objects.all()
+    current_ids = set( current_proxy_groups.values_list( 'proxy_groupid', flat=True ) )
+
+    now = timezone.now()
+    added_proxy_groups = []
+
+    # Add all new proxy_groups
+    for item in proxy_groups:
+        _, created = models.ProxyGroup.objects.update_or_create( proxy_groupid=item['proxy_groupid'], defaults={"name": item['name'], "last_synced": now} )
+        if created:
+            logger.info( f"Added proxy {item['name']} ({item['proxy_groupid']})" )
+            added_proxy_groups.append( item )
+
+    proxy_groups_to_delete = current_ids - proxy_groupids
+    deleted_proxy_groups = []
+    
+    # Check if there is a limit to the number of proxy groups to delete.
+    if max_deletions is None:
+        max_deletions =  get_max_deletions()
+
+    if len( proxy_groups_to_delete ) >= max_deletions:
+        # Mark the proxy groups as deleted but don't delete them.
+        models.ProxyGroup.objects.filter(proxy_groupid__in=proxy_groups_to_delete).update(marked_for_deletion=True)
+        logger.info( f"proxy groups to delete: {proxy_groups_to_delete}" ) 
+        raise RuntimeError( f"Too many deletions ({len(proxy_groups_to_delete)}), max allowed is {max_deletions}" )
+
+    # Delete the tempaltes
+    for proxy_groupid in proxy_groups_to_delete:
+        proxy = models.ProxyGroup.objects.get( proxy_groupid=proxy_groupid )
+        logger.info( f"Deleted proxy {proxy.name} ({proxy.proxy_groupid})" )
+        deleted_proxy_groups.append( ( proxy.name, proxy.proxy_groupid ) )
+        proxy.delete()
+    
+    return added_proxy_groups, deleted_proxy_groups
+
 
 
 def get_zabbix_hostnames():

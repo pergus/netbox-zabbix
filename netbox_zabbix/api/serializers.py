@@ -36,15 +36,47 @@ class TemplateMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.TemplateMapping
-        fields = [
-            'id',
-            'template',
-            'template_id',
-            'sites',
-            'roles',
-            'platforms',
-            'tags',
-        ]
+        fields = [ 'id','template','template_id','sites','roles','platforms','tags' ]
+
+
+# ------------------------------------------------------------------------------
+# Proxy
+#
+
+class ProxySerializer(NetBoxModelSerializer):
+    class Meta:
+        model = models.Proxy
+        fields = ("name", "display", "id", "proxyid", "proxy_groupid", "last_synced"  )
+    
+    def get_display(self, obj):
+        return str( obj.name )
+
+
+# ------------------------------------------------------------------------------
+# Proxy Mappings
+#
+
+class ProxyMappingSerializer(serializers.ModelSerializer):
+    proxy = ProxySerializer( read_only=True )
+    proxyid = serializers.PrimaryKeyRelatedField( queryset=models.Proxy.objects.all(), source='proxy', write_only=True )
+
+    class Meta:
+        model = models.ProxyMapping
+        fields = [ 'id', 'proxy', 'proxyid', 'sites', 'roles', 'platforms', 'tags' ]
+
+
+# ------------------------------------------------------------------------------
+# Proxy Group
+#
+
+class ProxyGroupSerializer(NetBoxModelSerializer):
+    class Meta:
+        model = models.ProxyGroup
+        fields = ("name", "display", "id", "proxy_groupid", "last_synced"  )
+    
+    def get_display(self, obj):
+        return str( obj.name )
+
 
 # ------------------------------------------------------------------------------
 # Host Groups

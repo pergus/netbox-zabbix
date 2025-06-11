@@ -56,6 +56,76 @@ class TemplateMappingViewSet(NetBoxModelViewSet):
     filterset_class = TemplateMappingFilter
 
 
+
+# ------------------------------------------------------------------------------
+# Proxy
+#
+
+class ProxyFilter(filters.FilterSet):
+    # The ProxyFilter class is a filter set designed to filter proxies based on the name field.
+    # This is required to search for proxy names in filter forms.
+    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxies" )
+
+    class Meta:
+        model = models.Proxy
+        fields = ["q"]
+
+        
+class ProxyViewSet(NetBoxModelViewSet):
+    queryset = models.Proxy.objects.all()
+    serializer_class = serializers.ProxySerializer
+    filterset_class = ProxyFilter 
+
+
+
+# ------------------------------------------------------------------------------
+# Proxy Mapping
+#
+
+class ProxyMappingFilter(filters.FilterSet):
+    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxy Mappings" )
+
+    class Meta:
+        model = models.ProxyMapping
+        fields = ["q"]
+
+class ProxyMappingViewSet(NetBoxModelViewSet):
+    queryset = models.ProxyMapping.objects.all()
+    serializer_class = serializers.ProxyMappingSerializer
+    filterset_class = ProxyMappingFilter
+
+
+
+
+# ------------------------------------------------------------------------------
+# Proxy Group
+#
+
+class ProxyGroupFilter(filters.FilterSet):
+    # The ProxyFilter class is a filter set designed to filter proxies based on the name field.
+    # This is required to search for proxy names in filter forms.
+    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxy Groups" )
+
+    class Meta:
+        model = models.ProxyGroup
+        fields = ["q"]
+
+        
+class ProxyGroupViewSet(NetBoxModelViewSet):
+    queryset = models.ProxyGroup.objects.all()
+    serializer_class = serializers.ProxyGroupSerializer
+    filterset_class = ProxyGroupFilter 
+
+
+#class ProxyGroupMappingFilter(filters.FilterSet):
+#    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxy Group Mappings" )
+#
+#    class Meta:
+#        model = models.ProxyGroupMapping
+#        fields = ["q"]
+
+
+
 # ------------------------------------------------------------------------------
 # Host Groups
 #

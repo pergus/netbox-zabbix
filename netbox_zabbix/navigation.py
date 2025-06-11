@@ -12,26 +12,45 @@ menu = PluginMenu(
                     link_text="Configuration",                
                     link="plugins:netbox_zabbix:config_list",
                 ),
+            ),
+        ),
+        ( "Zabbix Settings",
+            (
                 PluginMenuItem( 
                     link_text="Templates",                    
                     link="plugins:netbox_zabbix:template_list",
                 ),
                 PluginMenuItem( 
-                    link_text="Template Mappings",                    
-                    link="plugins:netbox_zabbix:templatemapping_list",
+                    link_text="Proxies",                    
+                    link="plugins:netbox_zabbix:proxy_list",
                 ),
-                
+                PluginMenuItem( 
+                    link_text="Proxy Groups",                    
+                    link="plugins:netbox_zabbix:proxygroup_list",
+                ),                                          
                 PluginMenuItem( 
                     link_text="Host Groups",                    
                     link="plugins:netbox_zabbix:hostgroup_list",
+                ),                
+            ),
+        ),
+        ( "Mappings",
+            (
+                PluginMenuItem( 
+                    link_text="Template Mappings",                    
+                    link="plugins:netbox_zabbix:templatemapping_list",
+                ),
+                PluginMenuItem( 
+                    link_text="Proxy Mappings",                    
+                    link="plugins:netbox_zabbix:proxymapping_list",
                 ),                
                 PluginMenuItem( 
                     link_text="Host Group Mappings",                    
                     link="plugins:netbox_zabbix:hostgroupmapping_list",
                 ),
-                
             ),
         ),
+        
         ( "Import",
          (
              PluginMenuItem( 

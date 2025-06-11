@@ -56,7 +56,7 @@ class Config(NetBoxModel):
     connection        = models.BooleanField( default=False )
     last_checked_at   = models.DateTimeField( null=True, blank=True )
     version           = models.CharField( max_length=255, blank=True, null=True )
-    monitored_by      = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitoring hosts" )
+    monitored_by      = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitor hosts" )
     tls_connect       = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to use for outgoing connections" )
     tls_accept        = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to accept for incoming connections" )
     tls_psk_identity  = models.CharField( max_length=255, help_text="PSK identity", null=True, blank=True )
@@ -129,10 +129,10 @@ class InterfaceTypeChoices(models.IntegerChoices):
 
 class TemplateMapping(NetBoxModel):
     name = models.CharField( max_length=255, help_text="Unique name for this template mapping." )
-    template = models.ForeignKey( Template, on_delete=models.CASCADE, help_text="The template to apply to matching devices and VMs." )
-    sites = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to devices and VMs at these sites. Leave blank to apply to all sites." )
-    roles = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to devices and VMs with these roles. Leave blank to include all roles." )
-    platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to devices and VMs running these platforms. Leave blank to include all platforms." )
+    template = models.ForeignKey( Template, on_delete=models.CASCADE, help_text="Template used for matching hosts." )
+    sites = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
+    roles = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
+    platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
     interface_type = models.IntegerField( verbose_name="Interface Type", choices=InterfaceTypeChoices, default=InterfaceTypeChoices.Any, help_text="Limit mapping to interfaces of this type. Select 'Any' to include all types." )
 
     def __str__(self):
@@ -140,6 +140,60 @@ class TemplateMapping(NetBoxModel):
     
     def get_absolute_url(self):
         return reverse("plugins:netbox_zabbix:templatemapping", args=[self.pk])
+
+
+# ------------------------------------------------------------------------------
+# Proxy
+#
+
+class Proxy(NetBoxModel):
+    class Meta:
+        verbose_name = "Zabbix Proxy"
+        verbose_name_plural = "Zabbix Proxies"
+    
+    name = models.CharField( verbose_name="Proxy", max_length=255, help_text="Name of the proxy" )
+    proxyid = models.CharField( verbose_name="Proxy ID", max_length=255, help_text="Proxy ID")
+    proxy_groupid =  models.CharField( verbose_name="Proxy Group ID", max_length=255 , help_text="Proxy Group ID")
+    last_synced = models.DateTimeField( blank=True, null=True )
+    marked_for_deletion = models.BooleanField( default=False )
+
+    def __str__(self):
+        return self.name
+    
+# ------------------------------------------------------------------------------
+# Proxy Mapping
+#
+
+class ProxyMapping(NetBoxModel):
+    name = models.CharField( max_length=255, help_text="Unique name for this proxy mapping." )
+    proxy = models.ForeignKey( Proxy, on_delete=models.CASCADE, help_text="Proxy used for matching hosts." )
+    sites = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
+    roles = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
+    platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
+
+    def __str__(self):
+        return self.name
+    
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_zabbix:proxymapping", args=[self.pk])
+
+# ------------------------------------------------------------------------------
+# Proxy Goups
+#
+
+class ProxyGroup(NetBoxModel):
+    class Meta:
+        verbose_name = "Zabbix Proxy Group"
+        verbose_name_plural = "Zabbix Proxy Groups"
+    
+    name = models.CharField( verbose_name="Proxy Group", max_length=255, help_text="Name of the proxy group" )
+    proxy_groupid =  models.CharField( verbose_name="Proxy Group ID", max_length=255, help_text="Proxy Group ID" )
+    last_synced = models.DateTimeField( blank=True, null=True )
+    marked_for_deletion = models.BooleanField( default=False )
+
+# ------------------------------------------------------------------------------
+# Proxy Group Mapping
+#
 
 
 # ------------------------------------------------------------------------------
@@ -194,6 +248,9 @@ class ZabbixConfig(NetBoxModel):
         abstract = True
 
     hostid = models.PositiveIntegerField( unique=True, blank=True, null=True )
+    #monitored_by 
+    #proxyid
+    #proxy_groupid
     status = models.CharField( max_length=255, choices=StatusChoices.choices, default='enabled' )
     templates = models.ManyToManyField( Template, blank=False )
 

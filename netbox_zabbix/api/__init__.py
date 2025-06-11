@@ -1,2 +1,1 @@
-#from netbox_zabbix.api.serializers import *
-from .serializers import ConfigSerializer, TemplateSerializer, TemplateMappingSerializer, DeviceZabbixConfigSerializer, VMZabbixConfigSerializer
+from .serializers import ConfigSerializer, TemplateSerializer, TemplateMappingSerializer, ProxySerializer, ProxyGroupSerializer, DeviceZabbixConfigSerializer, VMZabbixConfigSerializer
