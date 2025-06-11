@@ -63,7 +63,7 @@ class Config(NetBoxModel):
     tls_psk           = models.CharField( max_length=255, help_text="Pre-shared key (PSK) must be at least 32 hex digits", null=True, blank=True )
     
     auto_validate_importables = models.BooleanField( default= False )
-    
+
     max_deletions = models.IntegerField( 
             verbose_name="Max deletions on import", 
             default=3, 
@@ -122,12 +122,18 @@ class Template(NetBoxModel):
 # Template Mapping
 #
 
+class InterfaceTypeChoices(models.IntegerChoices):
+    Any   = (0, 'Any')
+    Agent = (1, 'Agent')
+    SNMP  = (2, 'SNMP')
+
 class TemplateMapping(NetBoxModel):
-    name = models.CharField( max_length=255 )
-    template = models.ForeignKey( Template, on_delete=models.CASCADE )
-    sites = models.ManyToManyField( Site, blank=True )
-    roles = models.ManyToManyField( DeviceRole, blank=True )
-    platforms = models.ManyToManyField( Platform, blank=True )
+    name = models.CharField( max_length=255, help_text="Unique name for this template mapping." )
+    template = models.ForeignKey( Template, on_delete=models.CASCADE, help_text="The template to apply to matching devices and VMs." )
+    sites = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to devices and VMs at these sites. Leave blank to apply to all sites." )
+    roles = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to devices and VMs with these roles. Leave blank to include all roles." )
+    platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to devices and VMs running these platforms. Leave blank to include all platforms." )
+    interface_type = models.IntegerField( verbose_name="Interface Type", choices=InterfaceTypeChoices, default=InterfaceTypeChoices.Any, help_text="Limit mapping to interfaces of this type. Select 'Any' to include all types." )
 
     def __str__(self):
         return self.name

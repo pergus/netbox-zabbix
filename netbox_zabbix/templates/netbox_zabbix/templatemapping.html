@@ -16,6 +16,16 @@
                         <td>{{ object.name }}</td>
                     </tr>
 
+                    <tr>
+                        <th scope="row">Template</th>
+                        <td>{{ object.template }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Interface Type</th>
+                        <td>{{ object.get_interface_type_display }}</td>
+                    </tr>
+
                     {% if object.sites.exists %}
                     <tr>
                         <th scope="row">Sites</th>

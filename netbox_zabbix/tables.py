@@ -79,8 +79,8 @@ class TemplateMappingTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = models.TemplateMapping
-        fields = ( "pk", "name", "template", "sites", "roles", "platforms", "tags")
-        default_columns = ("pk", "name", "template", "sites", "roles", "platforms", "tags" )
+        fields = ( "pk", "name", "template", "interface_type", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "template", "interface_type", "sites", "roles", "platforms", "tags" )
 
 
 # ------------------------------------------------------------------------------

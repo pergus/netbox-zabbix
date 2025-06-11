@@ -10,6 +10,7 @@ NetBox plugin for Zabbix.
 ## Todo and Questions
 
 
+
 ### Questions
 
 Is it possible to let other views inherit field etc like NetBoxOnlyDevicesView does?

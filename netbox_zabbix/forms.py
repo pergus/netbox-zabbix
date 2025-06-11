@@ -168,6 +168,7 @@ class TemplateMappingForm(NetBoxModelForm):
             fields = [
                 'name',
                 'template',
+                'interface_type',
                 'sites',
                 'roles',
                 'platforms',
