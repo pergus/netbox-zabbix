@@ -43,7 +43,11 @@ menu = PluginMenu(
                 PluginMenuItem( 
                     link_text="Proxy Mappings",                    
                     link="plugins:netbox_zabbix:proxymapping_list",
-                ),                
+                ),
+                PluginMenuItem( 
+                    link_text="Proxy Group Mappings",                    
+                    link="plugins:netbox_zabbix:proxygroupmapping_list",
+                ),                     
                 PluginMenuItem( 
                     link_text="Host Group Mappings",                    
                     link="plugins:netbox_zabbix:hostgroupmapping_list",

@@ -77,6 +77,17 @@ class ProxyGroupSerializer(NetBoxModelSerializer):
     def get_display(self, obj):
         return str( obj.name )
 
+# ------------------------------------------------------------------------------
+# Proxy Group Mappings
+#
+
+class ProxyGroupMappingSerializer(serializers.ModelSerializer):
+    proxygroup = ProxyGroupSerializer( read_only=True )
+    proxy_groupid = serializers.PrimaryKeyRelatedField( queryset=models.ProxyGroup.objects.all(), source='proxygroup', write_only=True )
+
+    class Meta:
+        model = models.ProxyGroupMapping
+        fields = [ 'id', 'proxygroup', 'proxy_groupid', 'sites', 'roles', 'platforms', 'tags' ]
 
 # ------------------------------------------------------------------------------
 # Host Groups

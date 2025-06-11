@@ -101,6 +101,20 @@ class ProxyGroupFilterSet(NetBoxModelFilterSet):
             label="Name"
         )
 
+
+# ------------------------------------------------------------------------------
+# Proxy Group Mappings
+#
+
+class ProxyGroupMappingFilterSet(NetBoxModelFilterSet):
+    tags = TagFilter()
+
+    class Meta:
+        model = models.ProxyGroupMapping
+        fields = ['proxygroup', 'sites', 'roles', 'platforms', 'tags']
+
+
+
 # ------------------------------------------------------------------------------
 # Host Group Mappings
 #

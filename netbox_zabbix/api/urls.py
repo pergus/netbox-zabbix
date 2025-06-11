@@ -7,10 +7,11 @@ router.register( 'config',                     views.ConfigViewSet )
 router.register( 'templates',                  views.TemplateViewSet )
 router.register( 'template-mappings',          views.TemplateMappingViewSet )
 
-router.register( 'proxy',                       views.ProxyViewSet )
-router.register( 'proxy-mappings',              views.ProxyMappingViewSet )
+router.register( 'proxy',                      views.ProxyViewSet )
+router.register( 'proxy-mappings',             views.ProxyMappingViewSet )
 
-router.register( 'proxygroups',                 views.ProxyGroupViewSet )
+router.register( 'proxygroups',                views.ProxyGroupViewSet )
+router.register( 'proxygroup-mappings',        views.ProxyGroupMappingViewSet )
 
 router.register( 'hostgroups',                 views.HostGroupViewSet )
 router.register( 'hostgroup-mappings',         views.HostGroupMappingViewSet )

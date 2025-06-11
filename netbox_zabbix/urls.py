@@ -91,6 +91,15 @@ urlpatterns = (
     path( 'proxy-groups/review-deletions/',  views.proxygroups_review_deletions,   name='proxygroups_review_deletions' ), 
     path( 'proxy-groups/confirm-deletions/', views.proxygroups_confirm_deletions,  name='proxygroups_confirm_deletions' ),
 
+    # Zabbix Proxy Group Mappings
+    path( 'proxy-group-mappings/',                    views.ProxyGroupMappingListView.as_view(),         name='proxygroupmapping_list' ),
+    path( 'proxy-group-mappings/add/',                views.ProxyGroupMappingEditView.as_view(),         name='proxygroupmapping_add' ),
+    path( 'proxy-group-mappings/delete/',             views.ProxyGroupMappingBulkDeleteView.as_view(),   name='proxygroupmapping_bulk_delete' ),        
+    path( 'proxy-group-mappings/<int:pk>/',           views.ProxyGroupMappingView.as_view(),             name='proxygroupmapping' ),
+    path( 'proxy-group-mappings/<int:pk>/edit/',      views.ProxyGroupMappingEditView.as_view(),         name='proxygroupmapping_edit' ),        
+    path( 'proxy-group-mappings/<int:pk>/delete/',    views.ProxyGroupMappingDeleteView.as_view(),       name='proxygroupmapping_delete' ),
+    path( 'proxy-group-mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                     name='proxygroupmapping_changelog', kwargs={'model': models.ProxyGroupMapping},  ),
+    
     # Sync Zabbix Proxy Groups
     path( 'zabbix/sync_proxy-groups',      views.sync_zabbix_proxygroups,       name='sync_zabbix_proxygroups' ),
 

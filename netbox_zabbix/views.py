@@ -429,6 +429,47 @@ def sync_zabbix_proxygroups(request):
 
     return redirect( redirect_url )
 
+
+# ------------------------------------------------------------------------------
+# Proxy Group Mappings
+#
+
+class ProxyGroupMappingView(generic.ObjectView):
+    queryset = models.ProxyGroupMapping.objects.all()
+    
+
+class ProxyGroupMappingListView(generic.ObjectListView):
+    queryset = models.ProxyGroupMapping.objects.all()
+    table = tables.ProxyGroupMappingTable
+    template_name = 'netbox_zabbix/proxygroupmapping_list.html'
+
+
+class ProxyGroupMappingEditView(generic.ObjectEditView):
+    queryset = models.ProxyGroupMapping.objects.all()
+    form = forms.ProxyGroupMappingForm
+    template_name = 'netbox_zabbix/proxygroupmapping_edit.html'
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:proxygroupmapping_list')
+
+
+class ProxyGroupMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.ProxyGroupMapping.objects.all()
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:proxygroupmapping_list')
+
+
+class ProxyGroupMappingBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.ProxyGroupMapping.objects.all()
+    filterset_class = filtersets.ProxyGroupMappingFilterSet
+    table = tables.ProxyGroupMappingTable
+
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:proxygroupmapping_list')
+
+
+
 # ------------------------------------------------------------------------------
 # Host Groups
 #

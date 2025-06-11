@@ -128,6 +128,24 @@ class ProxyGroupTable(NetBoxTable):
 
 
 # ------------------------------------------------------------------------------
+# Proxy Group Mappings
+#
+
+class ProxyGroupMappingTable(NetBoxTable):
+    name       = tables.Column( linkify=True )
+    proxygroup = tables.Column( linkify=True )
+    roles      = tables.ManyToManyColumn(  )
+    platforms  = tables.ManyToManyColumn(  )
+    tags       = tables.ManyToManyColumn(  )
+
+    class Meta(NetBoxTable.Meta):
+        model = models.ProxyGroupMapping
+        fields = ( "pk", "name", "proxygroup", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "proxygroup", "sites", "roles", "platforms", "tags" )
+
+
+
+# ------------------------------------------------------------------------------
 # Host Groups
 #
 

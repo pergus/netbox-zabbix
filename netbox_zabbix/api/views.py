@@ -116,13 +116,21 @@ class ProxyGroupViewSet(NetBoxModelViewSet):
     serializer_class = serializers.ProxyGroupSerializer
     filterset_class = ProxyGroupFilter 
 
-
-#class ProxyGroupMappingFilter(filters.FilterSet):
-#    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxy Group Mappings" )
+# ------------------------------------------------------------------------------
+# Proxy Group Mapping
 #
-#    class Meta:
-#        model = models.ProxyGroupMapping
-#        fields = ["q"]
+
+class ProxyGroupMappingFilter(filters.FilterSet):
+    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxy Group Mappings" )
+
+    class Meta:
+        model = models.ProxyGroupMapping
+        fields = ["q"]
+
+class ProxyGroupMappingViewSet(NetBoxModelViewSet):
+    queryset = models.ProxyGroupMapping.objects.all()
+    serializer_class = serializers.ProxyGroupMappingSerializer
+    filterset_class = ProxyGroupMappingFilter
 
 
 

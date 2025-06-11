@@ -237,7 +237,6 @@ class ProxyMappingForm(NetBoxModelForm):
 
 
 
-
 # ------------------------------------------------------------------------------
 # Proxy Groups
 #
@@ -263,6 +262,33 @@ class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
         proxy_groupids = models.ProxyGroup.objects.order_by('proxy_groupid').distinct('proxy_groupid').values_list('proxy_groupid', flat=True)
         choices = [("", "---------")] + [(zid, zid) for zid in proxy_groupids if zid is not None]
         self.fields["proxy_groupid"].choices = choices
+
+# ------------------------------------------------------------------------------
+# Proxy Group Mappings
+#
+
+class ProxyGroupMappingForm(NetBoxModelForm):
+        sites = forms.ModelMultipleChoiceField( queryset=models.Site.objects.all(), required=False )
+        roles = forms.ModelMultipleChoiceField( queryset=models.DeviceRole.objects.all(), required=False )
+        platforms = forms.ModelMultipleChoiceField( queryset=models.Platform.objects.all(), required=False )
+
+        class Meta:
+            model = models.ProxyGroupMapping
+            fields = [ 'name', 'proxygroup', 'sites', 'roles', 'platforms', 'tags' ]
+
+        
+        def clean(self):
+            super().clean()
+            
+            sites = self.cleaned_data['sites']
+            roles = self.cleaned_data['roles']
+            platforms = self.cleaned_data['platforms']
+                
+            if not (sites or roles or platforms):
+                raise forms.ValidationError(
+                    "At least one of sites, roles or platforms must be set for mapping."
+                )
+
 
 # ------------------------------------------------------------------------------
 # Hostgroups

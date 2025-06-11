@@ -191,9 +191,26 @@ class ProxyGroup(NetBoxModel):
     last_synced = models.DateTimeField( blank=True, null=True )
     marked_for_deletion = models.BooleanField( default=False )
 
+    def __str__(self):
+        return self.name
+
 # ------------------------------------------------------------------------------
 # Proxy Group Mapping
 #
+
+class ProxyGroupMapping(NetBoxModel):
+    name       = models.CharField( max_length=255, help_text="Unique name for this proxy group mapping." )
+    proxygroup = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, verbose_name="Proxy Group", help_text="Proxy group used for matching hosts." )
+    sites      = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
+    roles      = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
+    platforms  = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
+
+    def __str__(self):
+        return self.name
+    
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_zabbix:proxygroupmapping", args=[self.pk])
+
 
 
 # ------------------------------------------------------------------------------
