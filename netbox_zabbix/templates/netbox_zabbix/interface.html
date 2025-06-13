@@ -1,0 +1,18 @@
+{% extends 'base/layout.html' %}
+{% load i18n %}
+
+
+{% block title %}{% trans "REMO" %}{% endblock %}
+
+{% block content %}
+
+<a href="#" hx-get="{% url 'plugins:netbox_zabbix:interface_add' %}" hx-target="#htmx-modal-content"
+    data-bs-toggle="modal" data-bs-target="#htmx-modal" class="btn btn-success">
+    <i class="mdi mdi-plus"></i> {% trans "Add Interface" %}
+</a>
+{% endblock %}
+
+
+{% block modals %}
+{% include 'inc/htmx_modal.html' %}
+{% endblock modals %}

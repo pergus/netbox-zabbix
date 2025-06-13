@@ -1,0 +1,77 @@
+{% extends 'base/layout.html' %}
+{% load i18n %}
+
+{% block title %}
+{% trans "Host" %}
+{% endblock %}
+
+{% block content %}
+<h2>{% trans "Zabbix Host" %}: {{ host.name }}</h2>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">{% trans "Save Host" %}</button>
+</form>
+
+<hr>
+
+<h3>{% trans "Interfaces" %}</h3>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>{% trans "Type" %}</th>
+            <th>{% trans "IP/DNS" %}</th>
+            <th>{% trans "Port" %}</th>
+            <th>{% trans "Main" %}</th>
+            <th>{% trans "Actions" %}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for iface in interfaces %}
+        <tr>
+            <td>{{ iface.type }}</td>
+            <td>
+                {% if iface.useip == "1" %}
+                {{ iface.ip }}
+                {% else %}
+                {{ iface.dns }}
+                {% endif %}
+            </td>
+            <td>{{ iface.port }}</td>
+            <td>{{ iface.main }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" class="text-center text-muted">{% trans "No interfaces found." %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Add Interface Button -->
+<button class="btn btn-success" hx-get="{% url 'plugins:netbox_zabbix:interface_add' host.hostid %}"
+    hx-target="#interface-modal-body" hx-trigger="click" data-bs-toggle="modal" data-bs-target="#interfaceModal">
+    <i class="mdi mdi-plus"></i> {% trans "Add Interface" %}
+</button>
+
+<!-- Interface Modal -->
+<div class="modal fade" id="interfaceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{% trans "Edit Interface" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans " Close" %}"></button>
+            </div>
+            <div class="modal-body" id="interface-modal-body">
+                <!-- HTMX will inject interface form content here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+{% include 'inc/htmx_modal.html' %}
+{% endblock %}

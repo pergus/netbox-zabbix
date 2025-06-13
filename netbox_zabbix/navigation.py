@@ -6,6 +6,14 @@ menu = PluginMenu(
     label = "Zabbix",
     icon_class = "mdi mdi-bell-check",
     groups = (
+        ( "Zabbix Host",
+            (
+                PluginMenuItem( 
+                    link_text="Host",                
+                    link="plugins:netbox_zabbix:host",
+                ),
+            ),
+        ),        
         ( "Admin",
             (
                 PluginMenuItem( 

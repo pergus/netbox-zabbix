@@ -381,7 +381,6 @@ def synchronize_proxygroups(max_deletions=None):
     return added_proxy_groups, deleted_proxy_groups
 
 
-
 def get_zabbix_hostnames():
     """
         Retrieve all hostnames from Zabbix.
