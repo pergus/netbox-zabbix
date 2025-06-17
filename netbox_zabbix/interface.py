@@ -1,8 +1,8 @@
 import uuid
 
 from django import forms
-from django.http import HttpResponse, HttpResponseNotAllowed
-from django.shortcuts import render, reverse
+from django.http import HttpResponse, Http404
+from django.shortcuts import render, reverse, redirect
 from django.urls import reverse_lazy
 from django.utils.functional import lazy
 from django.utils.translation import gettext as _
@@ -384,7 +384,7 @@ class InterfaceAddView(View):
                 else:
                     new_interface['main'] = "0"
                 
-                
+
                 interfaces.append(new_interface)
                 return HttpResponse(headers={ 'HX-Redirect': reverse('plugins:netbox_zabbix:host'), })
 
@@ -534,8 +534,6 @@ class InterfaceEditView(View):
 
 
 
-from django.http import Http404
-from django.shortcuts import redirect
 class InterfaceDeleteView(View):
     template_name = 'netbox_zabbix/interface_delete_confirmation.html'
 
@@ -563,63 +561,43 @@ class InterfaceDeleteView(View):
 
     def post(self, request, pk, interfaceid):
         interfaces = host_json.get('interfaces', [])
-        index_to_delete = next( (i for i, iface in enumerate( interfaces )
-                                if iface.get( 'interfaceid') == str( interfaceid ) ), None )
+        interfaceid = str(interfaceid)
+        
+        # Find and remove the interface
+        removed_interface = None
+        updated_interfaces = []
+        for iface in interfaces:
+            if iface.get('interfaceid') == interfaceid:
+                removed_interface = iface
+                continue
+            updated_interfaces.append(iface)
+        
+        if not removed_interface:
+            return HttpResponse("Interface not found", status=404)
+        
+        host_json['interfaces'] = updated_interfaces
+        
+        # Promote another interface of same type if removed one was main
+        if removed_interface.get('main') == '1':
+            removed_type = removed_interface.get('type')
+            for iface in updated_interfaces:
+                if iface.get('type') == removed_type:
+                    iface['main'] = '1'
+                    break
+        
+        return redirect(reverse('plugins:netbox_zabbix:host'))
 
-        if index_to_delete is not None:
-            del interfaces[index_to_delete]
-            return redirect(reverse('plugins:netbox_zabbix:host'))
-
-        raise Http404(_("Interface not found"))      
-
-#class InterfaceDeleteView(View):
-#    """
-#    View to handle deletion of an interface.
-#    
-#    POST:
-#        Deletes the specified interface from the host's interfaces list.
-#    
-#    GET:
-#        Not allowed, returns HTTP 405 Method Not Allowed.
-#    """
-#
 #    def post(self, request, pk, interfaceid):
-#        """
-#        Handle POST request to delete an interface.
-#        
-#        Args:
-#            request (HttpRequest): The HTTP request object.
-#            pk (int): The host ID.
-#            interfaceid (str): The interface ID to delete.
-#        
-#        Returns:
-#            HttpResponse: Redirects to the interface list page on success,
-#                          or 404 if interface not found.
-#        """
-#        interfaces = host_json.get( str(pk), {} ).get( 'interfaces', [] )
-#        index_to_delete = None
-#        for i, iface in enumerate(interfaces):
-#            if iface.get('interfaceid') == interfaceid:
-#                index_to_delete = i
-#                break
+#        interfaces = host_json.get('interfaces', [])
+#        index_to_delete = next( (i for i, iface in enumerate( interfaces )
+#                                if iface.get( 'interfaceid') == str( interfaceid ) ), None )
 #
 #        if index_to_delete is not None:
 #            del interfaces[index_to_delete]
-#            # In real app: persist changes back to your data source
-#            return HttpResponse(headers={
-#                'HX-Redirect': reverse('plugins:netbox_zabbix:interface', kwargs={'pk': pk}),
-#            })
+#            return redirect(reverse('plugins:netbox_zabbix:host'))
 #
-#        return HttpResponse("Interface not found", status=404)
-#
-#    def get(self, request, *args, **kwargs):
-#        """
-#        Disallow GET method for interface deletion.
-#        
-#        Returns:
-#            HttpResponseNotAllowed: 405 response.
-#        """
-#        return HttpResponseNotAllowed(['POST'])
+#        raise Http404(_("Interface not found"))      
+
 
 # ------------------------------------------------------------------------------
 # Interface Base Class
