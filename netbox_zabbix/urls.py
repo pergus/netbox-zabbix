@@ -10,9 +10,10 @@ urlpatterns = (
     
     # --------------------------------------------------------------------------
     # Zabbix Host
-    path( 'host/',         host.HostView.as_view(),              name='host' ),
-    path( 'interface/add/<int:pk>/', interface.InterfaceAddView.as_view(), name='interface_add' ),
-
+    path( 'host/',                                        host.HostView.as_view(),                 name='host' ),
+    path( 'interface/add/<int:pk>/',                      interface.InterfaceAddView.as_view(),    name='interface_add' ),
+    path( 'interface/edit/<int:pk>/<int:interfaceid>/',   interface.InterfaceEditView.as_view(),   name='interface_edit'),
+    path( 'interface/delete/<int:pk>/<int:interfaceid>/', interface.InterfaceDeleteView.as_view(), name='interface_delete'),
 
 
     # --------------------------------------------------------------------------

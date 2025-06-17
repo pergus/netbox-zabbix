@@ -161,6 +161,31 @@ host_json = {
       "errors_from": "0",
       "disable_until": "0",
       "details": []
+    },
+    {
+      "interfaceid": "178",
+      "hostid": "10830",
+      "main": "1",
+      "type": "2",
+      "useip": "1",
+      "ip": "10.0.2.215",
+      "dns": "",
+      "port": "161",
+      "available": "0",
+      "error": "",
+      "errors_from": "0",
+      "disable_until": "0",
+      "details": {
+        "version": "3",
+        "bulk": "1",
+        "max_repetitions": "10",
+        "security_level": "authPriv",
+        "securityname": "my-snmp-user",
+        "auth_protocol": "SHA1",
+        "auth_passphrase": "{$SNMPV3_AUTHPASS}",
+        "priv_protocol": "AES128",
+        "priv_passphrase": "{$SNMPV3_PRIVPASS}"
+      }
     }
   ],
   "tags": [
@@ -216,9 +241,8 @@ class HostView(View):
     template_name = 'netbox_zabbix/host.html'
 
     def get(self, request):
-        DynamicForm = create_dynamic_form(host_json)
-        form = DynamicForm(initial=host_json)
-        #form = ZabbixHostForm(initial=host_json)
+        DynamicForm = create_dynamic_form( host_json )
+        form = DynamicForm( initial=host_json )
 
         return render(request, self.template_name, {
                     'form': form,
@@ -227,3 +251,25 @@ class HostView(View):
                 })
 
 
+    def post(self, request):
+        DynamicForm = create_dynamic_form(host_json)
+        form = DynamicForm(request.POST)
+        if form.is_valid():
+            # Update host_json in-place
+            for field, value in form.cleaned_data.items():
+                if field in host_json:
+                    host_json[field] = str(value) if value is not None else ""
+    
+            return render(request, self.template_name, {
+                'form': form,
+                'host': host_json,
+                'interfaces': host_json.get('interfaces', []),
+                'message': 'Host data updated successfully.',
+            })
+    
+        return render(request, self.template_name, {
+            'form': form,
+            'host': host_json,
+            'interfaces': host_json.get('interfaces', []),
+            'message': 'Invalid data submitted.',
+        })

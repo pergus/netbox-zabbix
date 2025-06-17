@@ -1,0 +1,14 @@
+{% extends 'generic/confirmation_form.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Delete Interface" %}{% endblock %}
+
+{% block message %}
+<p>
+    {% if object.dns %}
+    Are you sure you want to delete {{ interface_type }} interface <strong>{{ object.dns }}</strong>?
+    {% else %}
+    Are you sure you want to delete {{ interface_type }} interface <strong>{{ object.ip }}</strong>?
+    {% endif %}
+</p>
+{% endblock %}

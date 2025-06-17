@@ -41,12 +41,29 @@
             </td>
             <td>{{ iface.port }}</td>
             <td>{{ iface.main }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="5" class="text-center text-muted">{% trans "No interfaces found." %}</td>
+            <td>
+                <!-- Edit Button -->
+                <button class="btn btn-sm btn-primary"
+                    hx-get="{% url 'plugins:netbox_zabbix:interface_edit' host.hostid iface.interfaceid %}"
+                    hx-target="#interface-modal-body" hx-trigger="click" data-bs-toggle="modal"
+                    data-bs-target="#interfaceModal">
+                    <i class="mdi mdi-pencil"></i> {% trans "Edit" %}
+                </button>
+
+                <!-- Delete Button -->
+
+                <a href="{% url 'plugins:netbox_zabbix:interface_delete' host.hostid iface.interfaceid %}"
+                    class="btn btn-sm btn-danger">
+                    <i class="mdi mdi-trash-can-outline"></i> {% trans "Delete" %}
+                </a>
+
+
+
+
+            </td>
         </tr>
         {% endfor %}
+
     </tbody>
 </table>
 
@@ -59,14 +76,8 @@
 <!-- Interface Modal -->
 <div class="modal fade" id="interfaceModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">{% trans "Edit Interface" %}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans " Close" %}"></button>
-            </div>
-            <div class="modal-body" id="interface-modal-body">
-                <!-- HTMX will inject interface form content here -->
-            </div>
+        <div class="modal-content" id="interface-modal-body">
+            <!-- HTMX will inject interface form content here, including header -->
         </div>
     </div>
 </div>
