@@ -24,7 +24,7 @@ as hostgroups, proxies etc.
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
 | Format for exception and logging messages                    | Todo          |
-| Replace plugin settings with configuration variables         | Todo          |
+| Replace plugin settings with configuration variables         | Done          |
 | Create Importable Devices/VMs                                | Done          |
 | Create Devices/VM Zabbix configurations                      | Done          |
 | Create Devices/VM components                                 | Done          |
@@ -43,9 +43,9 @@ as hostgroups, proxies etc.
 | Implement GraphQL                                            | Todo          |
 | Add template mappings                                        | Done          |
 | Add host group mappings                                      | Done          |
-| Add models for Proxy and Proxy Groups                        | Todo          |
-| Add Proxy mappings                                           | Todo          |
-| Add Proxy Group mappings                                     | Todo          |
+| Add models for Proxy and Proxy Groups                        | Done          |
+| Add Proxy mappings                                           | Done          |
+| Add Proxy Group mappings                                     | Done          |
 
 
 ### Config
@@ -66,6 +66,7 @@ as hostgroups, proxies etc.
 | Add action button to quick add Agent                         | Todo          |
 | Add action button to quick Add SNMPv3                        | Todo          |
 
+
 ### NetBox Only VMs
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
@@ -74,6 +75,11 @@ as hostgroups, proxies etc.
 | Add action button to quick Add SNMPv3                        | Todo          |
 
 
+### Mappings
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| Related objects for Proxy Mappings                           | Done          |
+| Related objects for Proxy Group Mappings                     | Done          |
 
 
 

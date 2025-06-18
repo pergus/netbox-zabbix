@@ -84,6 +84,18 @@ class ProxyMappingFilterSet(NetBoxModelFilterSet):
         fields = ['proxies', 'sites', 'roles', 'platforms', 'tags']
 
 
+class ProxyDeviceFilterSet(DeviceFilterSet):
+    class Meta(DeviceFilterSet.Meta):
+        model = Device
+        fields = DeviceFilterSet.Meta.fields
+
+
+class ProxyVMFilterSet(VirtualMachineFilterSet):
+    class Meta(VirtualMachineFilterSet.Meta):
+        model = VirtualMachine
+        fields = VirtualMachineFilterSet.Meta.fields
+
+
 
 # ------------------------------------------------------------------------------
 # Proxy Group
@@ -112,6 +124,18 @@ class ProxyGroupMappingFilterSet(NetBoxModelFilterSet):
     class Meta:
         model = models.ProxyGroupMapping
         fields = ['proxygroups', 'sites', 'roles', 'platforms', 'tags']
+
+
+class ProxyGroupDeviceFilterSet(DeviceFilterSet):
+    class Meta(DeviceFilterSet.Meta):
+        model = Device
+        fields = DeviceFilterSet.Meta.fields
+
+
+class ProxyGroupVMFilterSet(VirtualMachineFilterSet):
+    class Meta(VirtualMachineFilterSet.Meta):
+        model = VirtualMachine
+        fields = VirtualMachineFilterSet.Meta.fields
 
 
 

@@ -326,6 +326,42 @@ def sync_zabbix_proxies(request):
 class ProxyMappingView(generic.ObjectView):
     queryset = models.ProxyMapping.objects.all()
     
+    def get_extra_context(self, request, instance):
+        filter_data = {}
+        if instance.sites.exists():
+            filter_data['site_id'] = [s.pk for s in instance.sites.all()]
+        if instance.roles.exists():
+            filter_data['role_id'] = [r.pk for r in instance.roles.all()]
+        if instance.platforms.exists():
+            filter_data['platform_id'] = [p.pk for p in instance.platforms.all()]
+        if instance.tags.exists():
+            filter_data['tag'] = [t.slug for t in instance.tags.all()]
+    
+        device_qs = Device.objects.all()
+        filtered_devices = filtersets.ProxyDeviceFilterSet( data=filter_data, queryset=device_qs ).qs.distinct()
+    
+        vm_qs = VirtualMachine.objects.all()
+        filtered_vms = filtersets.ProxyVMFilterSet( data=filter_data, queryset=vm_qs ).qs.distinct()
+    
+        filter_query = urlencode(filter_data, doseq=True)
+    
+        return {
+            "related_models": [
+                {
+                    "queryset": filtered_devices,
+                    "url": reverse('dcim:device_list') + f"?{filter_query}",
+                    "label": "Devices",
+                    "count": filtered_devices.count(),
+                },
+                {
+                    "queryset": filtered_vms,
+                    "url": reverse('virtualization:virtualmachine_list') + f"?{filter_query}",
+                    "label": "Virtual Machines",
+                    "count": filtered_vms.count(),
+                },
+            ],
+        }
+    
 
 class ProxyMappingListView(generic.ObjectListView):
     queryset = models.ProxyMapping.objects.all()
@@ -436,6 +472,42 @@ def sync_zabbix_proxygroups(request):
 
 class ProxyGroupMappingView(generic.ObjectView):
     queryset = models.ProxyGroupMapping.objects.all()
+    
+    def get_extra_context(self, request, instance):
+        filter_data = {}
+        if instance.sites.exists():
+            filter_data['site_id'] = [s.pk for s in instance.sites.all()]
+        if instance.roles.exists():
+            filter_data['role_id'] = [r.pk for r in instance.roles.all()]
+        if instance.platforms.exists():
+            filter_data['platform_id'] = [p.pk for p in instance.platforms.all()]
+        if instance.tags.exists():
+            filter_data['tag'] = [t.slug for t in instance.tags.all()]
+    
+        device_qs = Device.objects.all()
+        filtered_devices = filtersets.ProxyGroupDeviceFilterSet( data=filter_data, queryset=device_qs ).qs.distinct()
+    
+        vm_qs = VirtualMachine.objects.all()
+        filtered_vms = filtersets.ProxyGroupVMFilterSet( data=filter_data, queryset=vm_qs ).qs.distinct()
+    
+        filter_query = urlencode(filter_data, doseq=True)
+    
+        return {
+            "related_models": [
+                {
+                    "queryset": filtered_devices,
+                    "url": reverse('dcim:device_list') + f"?{filter_query}",
+                    "label": "Devices",
+                    "count": filtered_devices.count(),
+                },
+                {
+                    "queryset": filtered_vms,
+                    "url": reverse('virtualization:virtualmachine_list') + f"?{filter_query}",
+                    "label": "Virtual Machines",
+                    "count": filtered_vms.count(),
+                },
+            ],
+        }
     
 
 class ProxyGroupMappingListView(generic.ObjectListView):
