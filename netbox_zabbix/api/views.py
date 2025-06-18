@@ -144,16 +144,16 @@ class HostGroupViewSet(NetBoxModelViewSet):
     filterset_fields = ['groupid', 'name']
 
 
+# ------------------------------------------------------------------------------
+# Host Group Mapping
+#
+
 class HostGroupMappingFilter(filters.FilterSet):
     q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Group Mappings" )
 
     class Meta:
         model = models.HostGroupMapping
         fields = ["q"]
-
-# ------------------------------------------------------------------------------
-# Host Group Mapping
-#
 
 class HostGroupMappingViewSet(NetBoxModelViewSet):
     queryset = models.HostGroupMapping.objects.all()

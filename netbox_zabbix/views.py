@@ -557,13 +557,14 @@ class HostGroupListView(generic.ObjectListView):
     template_name = 'netbox_zabbix/hostgroup_list.html'
     
 
+
 class HostGroupEditView(generic.ObjectEditView):
     queryset = models.HostGroup.objects.all()
     form = forms.HostGroupForm
-    template_name = 'netbox_zabbix/hostgroup_edit.html'
-
-    def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:hostgroup_list')
+#    template_name = 'netbox_zabbix/hostgroup_edit.html'
+#
+#    def get_return_url(self, request, obj=None):
+#        return reverse('plugins:netbox_zabbix:hostgroup_list')
 
 
 class HostGroupDeleteView(generic.ObjectDeleteView):

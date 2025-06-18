@@ -284,10 +284,7 @@ class ProxyGroupMappingForm(NetBoxModelForm):
 class HostGroupForm(NetBoxModelForm):
     class Meta:
         model = models.HostGroup
-        fields = [
-            'name',
-            'groupid',
-        ]
+        fields = [ 'name', 'groupid', "marked_for_deletion" ]
 
 # ------------------------------------------------------------------------------
 # Hostgroup Mappings

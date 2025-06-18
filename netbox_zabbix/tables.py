@@ -155,12 +155,12 @@ class HostGroupTable(NetBoxTable):
     
     # Hide the action buttons since it isn't possible to edit the hosts groups
     # in NetBox, since they are imported from Zabbix.
-    actions = [] 
+    #actions = [] 
 
     class Meta(NetBoxTable.Meta):
         model = models.HostGroup
-        fields = ( "name", "groupid", )
-        default_columns = ( "name", "groupid", )
+        fields = ( "name", "groupid", "last_synced", "marked_for_deletion" )
+        default_columns = ( "name", "groupid"," last_synced", "marked_for_deletion"  )
 
 # ------------------------------------------------------------------------------
 # Host Group Mappings
