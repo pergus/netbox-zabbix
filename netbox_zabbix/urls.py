@@ -1,21 +1,13 @@
 from django.urls import path
 from netbox.views.generic import ObjectChangeLogView
 
-from netbox_zabbix import models, views, host, interface
+from netbox_zabbix import models, views
 
 app_name = 'netbox_zabbix' 
 
 
 urlpatterns = (
     
-    # --------------------------------------------------------------------------
-    # Zabbix Host
-    path( 'host/',                                        host.HostView.as_view(),                 name='host' ),
-    path( 'interface/add/<int:pk>/',                      interface.InterfaceAddView.as_view(),    name='interface_add' ),
-    path( 'interface/edit/<int:pk>/<int:interfaceid>/',   interface.InterfaceEditView.as_view(),   name='interface_edit'),
-    path( 'interface/delete/<int:pk>/<int:interfaceid>/', interface.InterfaceDeleteView.as_view(), name='interface_delete'),
-
-
     # --------------------------------------------------------------------------
     # Configuration
 

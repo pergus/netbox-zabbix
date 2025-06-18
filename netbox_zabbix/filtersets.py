@@ -41,7 +41,7 @@ class TemplateMappingFilterSet(NetBoxModelFilterSet):
 
     class Meta:
         model = models.TemplateMapping
-        fields = ['template', 'sites', 'roles', 'platforms', 'tags']
+        fields = ['templates', 'sites', 'roles', 'platforms', 'tags']
 
 
 class TemplateDeviceFilterSet(DeviceFilterSet):
@@ -81,7 +81,7 @@ class ProxyMappingFilterSet(NetBoxModelFilterSet):
 
     class Meta:
         model = models.ProxyMapping
-        fields = ['proxy', 'sites', 'roles', 'platforms', 'tags']
+        fields = ['proxies', 'sites', 'roles', 'platforms', 'tags']
 
 
 
@@ -111,7 +111,7 @@ class ProxyGroupMappingFilterSet(NetBoxModelFilterSet):
 
     class Meta:
         model = models.ProxyGroupMapping
-        fields = ['proxygroup', 'sites', 'roles', 'platforms', 'tags']
+        fields = ['proxygroups', 'sites', 'roles', 'platforms', 'tags']
 
 
 
@@ -124,7 +124,7 @@ class HostGroupMappingFilterSet(NetBoxModelFilterSet):
 
     class Meta:
         model = models.HostGroupMapping
-        fields = ['hostgroup', 'sites', 'roles', 'platforms', 'tags']
+        fields = ['hostgroups', 'sites', 'roles', 'platforms', 'tags']
 
 # ------------------------------------------------------------------------------
 # Host Group Device

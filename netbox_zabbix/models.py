@@ -129,7 +129,7 @@ class InterfaceTypeChoices(models.IntegerChoices):
 
 class TemplateMapping(NetBoxModel):
     name = models.CharField( max_length=255, help_text="Unique name for this template mapping." )
-    template = models.ForeignKey( Template, on_delete=models.CASCADE, help_text="Template used for matching hosts." )
+    templates = models.ManyToManyField( Template, help_text="Templates used for matching hosts. Multiple templates can be selected." ) 
     sites = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
     roles = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
     platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
@@ -166,7 +166,7 @@ class Proxy(NetBoxModel):
 
 class ProxyMapping(NetBoxModel):
     name = models.CharField( max_length=255, help_text="Unique name for this proxy mapping." )
-    proxy = models.ForeignKey( Proxy, on_delete=models.CASCADE, help_text="Proxy used for matching hosts." )
+    proxies = models.ManyToManyField( Proxy, help_text="Proxies used for matching hosts. Multiple proxies can be selected." ) 
     sites = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
     roles = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
     platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
@@ -199,11 +199,11 @@ class ProxyGroup(NetBoxModel):
 #
 
 class ProxyGroupMapping(NetBoxModel):
-    name       = models.CharField( max_length=255, help_text="Unique name for this proxy group mapping." )
-    proxygroup = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, verbose_name="Proxy Group", help_text="Proxy group used for matching hosts." )
-    sites      = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
-    roles      = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
-    platforms  = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
+    name        = models.CharField( max_length=255, help_text="Unique name for this proxy group mapping." )
+    proxygroups = models.ManyToManyField( ProxyGroup, help_text="Proxy groups used for matching hosts." )
+    sites       = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
+    roles       = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
+    platforms   = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
 
     def __str__(self):
         return self.name
@@ -237,11 +237,11 @@ class HostGroup(NetBoxModel):
 #
 
 class HostGroupMapping(NetBoxModel):
-    name = models.CharField( max_length=255 )
-    hostgroup = models.ForeignKey( HostGroup, on_delete=models.CASCADE )
-    sites = models.ManyToManyField( Site, blank=True )
-    roles = models.ManyToManyField( DeviceRole, blank=True )
-    platforms = models.ManyToManyField( Platform, blank=True )
+    name       = models.CharField( max_length=255 )
+    hostgroups = models.ManyToManyField( HostGroup, help_text="Host groups used for matching hosts." )
+    sites      = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
+    roles      = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
+    platforms  = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
 
     def __str__(self):
         return self.name

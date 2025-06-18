@@ -17,8 +17,8 @@
                     </tr>
 
                     <tr>
-                        <th scope="row">Proxy</th>
-                        <td>{{ object.proxy }}</td>
+                        <th scope="row">Proxies</th>
+                        <td>{{ object.proxies.all|join:", " }}</td>
                     </tr>
 
                     {% if object.sites.exists %}

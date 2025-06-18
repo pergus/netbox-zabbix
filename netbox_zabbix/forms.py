@@ -159,15 +159,10 @@ class TemplateFilterForm(NetBoxModelFilterSetForm):
 #
 
 class TemplateMappingForm(NetBoxModelForm):
-        sites = forms.ModelMultipleChoiceField( queryset=models.Site.objects.all(), required=False )
-        roles = forms.ModelMultipleChoiceField( queryset=models.DeviceRole.objects.all(), required=False )
-        platforms = forms.ModelMultipleChoiceField( queryset=models.Platform.objects.all(), required=False )
-
         class Meta:
             model = models.TemplateMapping
-            fields = [ 'name', 'template', 'interface_type', 'sites', 'roles', 'platforms', 'tags' ]
+            fields = [ 'name', 'templates', 'interface_type', 'sites', 'roles', 'platforms', 'tags' ]
 
-        
         def clean(self):
             super().clean()
             
@@ -214,13 +209,9 @@ class ProxyFilterForm(NetBoxModelFilterSetForm):
 #
 
 class ProxyMappingForm(NetBoxModelForm):
-        sites = forms.ModelMultipleChoiceField( queryset=models.Site.objects.all(), required=False )
-        roles = forms.ModelMultipleChoiceField( queryset=models.DeviceRole.objects.all(), required=False )
-        platforms = forms.ModelMultipleChoiceField( queryset=models.Platform.objects.all(), required=False )
-
         class Meta:
             model = models.ProxyMapping
-            fields = [ 'name', 'proxy', 'sites', 'roles', 'platforms', 'tags' ]
+            fields = [ 'name', 'proxies', 'sites', 'roles', 'platforms', 'tags' ]
 
         
         def clean(self):
@@ -268,13 +259,9 @@ class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
 #
 
 class ProxyGroupMappingForm(NetBoxModelForm):
-        sites = forms.ModelMultipleChoiceField( queryset=models.Site.objects.all(), required=False )
-        roles = forms.ModelMultipleChoiceField( queryset=models.DeviceRole.objects.all(), required=False )
-        platforms = forms.ModelMultipleChoiceField( queryset=models.Platform.objects.all(), required=False )
-
         class Meta:
             model = models.ProxyGroupMapping
-            fields = [ 'name', 'proxygroup', 'sites', 'roles', 'platforms', 'tags' ]
+            fields = [ 'name', 'proxygroups', 'sites', 'roles', 'platforms', 'tags' ]
 
         
         def clean(self):
@@ -307,20 +294,9 @@ class HostGroupForm(NetBoxModelForm):
 #
 
 class HostGroupMappingForm(NetBoxModelForm):
-        sites = forms.ModelMultipleChoiceField( queryset=models.Site.objects.all(), required=False )
-        roles = forms.ModelMultipleChoiceField( queryset=models.DeviceRole.objects.all(), required=False )
-        platforms = forms.ModelMultipleChoiceField( queryset=models.Platform.objects.all(), required=False )
-
         class Meta:
             model = models.HostGroupMapping
-            fields = [
-                'name',
-                'hostgroup',
-                'sites',
-                'roles',
-                'platforms',
-                'tags',
-            ]
+            fields = [ 'name','hostgroups','sites','roles','platforms','tags' ]
 
         
         def clean(self):

@@ -72,15 +72,15 @@ class TemplateTable(NetBoxTable):
 
 class TemplateMappingTable(NetBoxTable):
     name = tables.Column( linkify=True )
-    template = tables.Column( linkify=True )
-    roles = tables.ManyToManyColumn(  )
-    platforms = tables.ManyToManyColumn(  )
-    tags = tables.ManyToManyColumn(  )
+    templates = tables.ManyToManyColumn()
+    roles = tables.ManyToManyColumn()
+    platforms = tables.ManyToManyColumn()
+    tags = tables.ManyToManyColumn()
 
     class Meta(NetBoxTable.Meta):
         model = models.TemplateMapping
-        fields = ( "pk", "name", "template", "interface_type", "sites", "roles", "platforms", "tags")
-        default_columns = ("pk", "name", "template", "interface_type", "sites", "roles", "platforms", "tags" )
+        fields = ( "pk", "name", "templates", "interface_type", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "templates", "interface_type", "sites", "roles", "platforms", "tags" )
 
 
 # ------------------------------------------------------------------------------
@@ -101,15 +101,15 @@ class ProxyTable(NetBoxTable):
 
 class ProxyMappingTable(NetBoxTable):
     name = tables.Column( linkify=True )
-    proxy = tables.Column( linkify=True )
-    roles = tables.ManyToManyColumn(  )
-    platforms = tables.ManyToManyColumn(  )
-    tags = tables.ManyToManyColumn(  )
+    proxies = tables.ManyToManyColumn()
+    roles = tables.ManyToManyColumn()
+    platforms = tables.ManyToManyColumn()
+    tags = tables.ManyToManyColumn()
 
     class Meta(NetBoxTable.Meta):
         model = models.ProxyMapping
-        fields = ( "pk", "name", "proxy", "sites", "roles", "platforms", "tags")
-        default_columns = ("pk", "name", "proxy", "sites", "roles", "platforms", "tags" )
+        fields = ( "pk", "name", "proxies", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "proxies", "sites", "roles", "platforms", "tags" )
 
 
 
@@ -132,16 +132,16 @@ class ProxyGroupTable(NetBoxTable):
 #
 
 class ProxyGroupMappingTable(NetBoxTable):
-    name       = tables.Column( linkify=True )
-    proxygroup = tables.Column( linkify=True )
-    roles      = tables.ManyToManyColumn(  )
-    platforms  = tables.ManyToManyColumn(  )
-    tags       = tables.ManyToManyColumn(  )
+    name        = tables.Column( linkify=True )
+    proxygroups = tables.ManyToManyColumn()
+    roles       = tables.ManyToManyColumn()
+    platforms   = tables.ManyToManyColumn()
+    tags        = tables.ManyToManyColumn()
 
     class Meta(NetBoxTable.Meta):
         model = models.ProxyGroupMapping
-        fields = ( "pk", "name", "proxygroup", "sites", "roles", "platforms", "tags")
-        default_columns = ("pk", "name", "proxygroup", "sites", "roles", "platforms", "tags" )
+        fields = ( "pk", "name", "proxygroups", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "proxygroups", "sites", "roles", "platforms", "tags" )
 
 
 
@@ -167,16 +167,16 @@ class HostGroupTable(NetBoxTable):
 #
 
 class HostGroupMappingTable(NetBoxTable):
-    name = tables.Column( linkify=True )
-    hostgroup = tables.Column( linkify=True )
-    roles = tables.ManyToManyColumn(  )
-    platforms = tables.ManyToManyColumn(  )
-    tags = tables.ManyToManyColumn(  )
+    name       = tables.Column( linkify=True )
+    hostgroups = tables.ManyToManyColumn()
+    roles      = tables.ManyToManyColumn()
+    platforms  = tables.ManyToManyColumn()
+    tags       = tables.ManyToManyColumn()
 
     class Meta(NetBoxTable.Meta):
         model = models.HostGroupMapping
-        fields = ( "pk", "name", "hostgroup", "sites", "roles", "platforms", "tags")
-        default_columns = ("pk", "name", "hostgroup", "sites", "roles", "platforms", "tags" )
+        fields = ( "pk", "name", "hostgroups", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "hostgroups", "sites", "roles", "platforms", "tags" )
 
 
 

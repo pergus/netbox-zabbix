@@ -13,6 +13,10 @@
                         <th scope="row">Name</th>
                         <td>{{ object.name }}</td>
                     </tr>
+                    <tr>
+                        <th scope="row">Host Groups</th>
+                        <td>{{ object.hostgroups.all|join:"," }}</td>
+                    </tr>
 
                     {% if object.sites.exists %}
                     <tr>

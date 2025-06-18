@@ -16,6 +16,11 @@
                         <td>{{ object.name }}</td>
                     </tr>
 
+                    <tr>
+                        <th scope="row">Host Groups</th>
+                        <td>{{ object.hostgroups.all|join:"," }}</td>
+                    </tr>
+
                     {% if object.sites.exists %}
                     <tr>
                         <th scope="row">Sites</th>
@@ -69,7 +74,7 @@
         </div>
     </div>
 
-    </div>
+</div>
 
 
-    {% endblock %}
+{% endblock %}

@@ -17,8 +17,8 @@
                     </tr>
 
                     <tr>
-                        <th scope="row">Proxy Group</th>
-                        <td>{{ object.proxygroup }}</td>
+                        <th scope="row">Proxy Groups</th>
+                        <td>{{ object.proxygroups.all|join:"," }}</td>
                     </tr>
 
                     {% if object.sites.exists %}
