@@ -42,7 +42,7 @@ EXTRA_CONFIG_BUTTONS = """
 class ConfigTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.Config
-        fields = ('name', 'api_endpoint', 'web_address', 'version', 'connection', 'last_checked_at', 'ip_assignment_method')
+        fields = ( 'name', 'api_endpoint', 'web_address', 'token', 'connection', 'last_checked_at', 'version', 'monitoredby', 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk' )
         default_columns = ('name', 'api_endpoint', 'version', 'connection', 'last_checked_at')
 
     name = tables.Column( linkify=True )

@@ -56,7 +56,7 @@ class Config(NetBoxModel):
     connection        = models.BooleanField( default=False )
     last_checked_at   = models.DateTimeField( null=True, blank=True )
     version           = models.CharField( max_length=255, blank=True, null=True )
-    monitored_by      = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitor hosts" )
+    monitoredby       = models.IntegerField( verbose_name="Monitored By", choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitor hosts" )
     tls_connect       = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to use for outgoing connections" )
     tls_accept        = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to accept for incoming connections" )
     tls_psk_identity  = models.CharField( max_length=255, help_text="PSK identity", null=True, blank=True )
@@ -65,7 +65,7 @@ class Config(NetBoxModel):
     auto_validate_importables = models.BooleanField( default= False )
 
     max_deletions = models.IntegerField( 
-            verbose_name="Max deletions on import", 
+            verbose_name="Max Deletions On Import",
             default=3, 
             help_text="The maximum number of entries to be deleted automatically when importing settings from Zabbix" 
     )

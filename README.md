@@ -57,6 +57,7 @@ as hostgroups, proxies etc.
 | Add Max deletions on import                                  | Done          |
 | Add Maximum Success Notifications                            | Done          |
 | Add Background Job for Zabbix Config Sync                    | Todo          |
+| Should Max deletions on import be enabled/disabled?          | Todo          |
 
 
 ### NetBox Only Devices

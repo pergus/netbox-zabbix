@@ -20,7 +20,7 @@ from utilities.forms.rendering import FieldSet
 from netbox_zabbix import models
 from netbox_zabbix import zabbix as z
 
-#from netbox_zabbix.logger import logger
+from netbox_zabbix.logger import logger
 
 
 #
@@ -41,7 +41,6 @@ from netbox_zabbix import zabbix as z
 from django.forms import NumberInput
 
 class ConfigForm(NetBoxModelForm):
-
     fieldsets = (
         FieldSet( 'name', 'ip_assignment_method', 'auto_validate_importables', 'max_deletions', 'max_success_notifications', name="General"),
         FieldSet( 'api_endpoint', 'web_address', 'token', 
@@ -75,51 +74,44 @@ class ConfigForm(NetBoxModelForm):
             # Hide the 'tags' field on "add" and "edit" view
             self.fields.pop('tags', None)
 
-            # Set min/max on max_deletions field
-            self.fields['max_deletions'].min_value = 1
-            self.fields['max_deletions'].max_value = 100
-            self.fields['max_deletions'].widget = NumberInput(attrs={
-                'min': 1,
-                'max': 100,
-                'step': 1
-            })
-
-            # Set min/max on max_success_notifications field
-            self.fields['max_success_notifications'].min_value = 0
-            self.fields['max_success_notifications'].max_value = 5
-            self.fields['max_success_notifications'].widget = NumberInput(attrs={
-                'min': 0,
-                'max': 5,
-                'step': 1
-            })
-            
 
     def clean(self):
         super().clean()
-    
+
+        if self.errors:
+            logger.error( f"Edit config form errors: {self.errors}" )
+            raise ValidationError( f"{self.errors}" )
+        
+        if self.cleaned_data is None:
+            logger.error( f"Edit config form cleaned_data is None" )
+            raise ValidationError( f"Edit config form cleaned_data is None" )
+        
         # Prevent second config
         if not self.instance.pk and models.Config.objects.exists():
-            raise ValidationError( "Only one Zabbix configuration is allowed." )
-    
+            raise ValidationError("Only one Zabbix configuration is allowed.")
+
         # Check max deletions
-        max_deletions = self.cleaned_data.get( "max_deletions" )
-        if max_deletions < 0 or max_deletions > 100:
-            raise ValidationError( "Max deletions must be in the range 1 - 100." )
-                    
+        max_deletions = self.cleaned_data.get("max_deletions")
+        if max_deletions is not None and (max_deletions <= 0 or max_deletions > 100):
+            self.add_error("max_deletions", "Max deletions must be in the range 1 - 100.")
+    
+        # Check max_success_notifications
+        max_success_notifications = self.cleaned_data.get("max_success_notifications")
+        if max_success_notifications is not None and (max_success_notifications <= 0 or max_success_notifications > 5):
+            self.add_error("max_success_notifications", "Max deletions must be in the range 1 - 5.")
+            
         # Check tls settings
-        tls_connect = self.cleaned_data.get( 'tls_connect' )
-        tls_psk = self.cleaned_data.get( 'tls_psk' )
-        tls_psk_identity = self.cleaned_data.get(  'tls_psk_identity' )
-        
+        tls_connect = self.cleaned_data.get('tls_connect')
+        tls_psk = self.cleaned_data.get('tls_psk')
+        tls_psk_identity = self.cleaned_data.get('tls_psk_identity')
+    
         # Validate PSK requirements
         if tls_connect == models.TLSConnectChoices.PSK:
             if not tls_psk_identity:
-                raise ValidationError( "TLS PSK Identity is required when TLS Connect is set to PSK." )
-        
+                self.add_error('tls_psk_identity', "TLS PSK Identity is required when TLS Connect is set to PSK.")
             if not tls_psk or not re.fullmatch(r'[0-9a-fA-F]{32,}', tls_psk):
-                raise ValidationError( "TLS PSK must be at least 32 hexadecimal digits." )
-        
-
+                self.add_error('tls_psk', "TLS PSK must be at least 32 hexadecimal digits.")
+    
         # Check connection/token
         try:
             z.validate_zabbix_credentials(self.cleaned_data['api_endpoint'], self.cleaned_data['token'])
@@ -127,7 +119,8 @@ class ConfigForm(NetBoxModelForm):
             self.instance.connection = True
             self.instance.last_checked_at = now()
         except Exception:
-            raise ValidationError( mark_safe("Failed to verify connection to Zabbix.<br>Please check the API address and token.") )
+            self.add_error('api_endpoint', mark_safe( "Failed to verify connection to Zabbix.<br>Please check the API address and token." ))
+        
 
 # ------------------------------------------------------------------------------
 # Templates

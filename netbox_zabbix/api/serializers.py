@@ -12,7 +12,8 @@ from netbox_zabbix import models
 class ConfigSerializer(NetBoxModelSerializer):
     class Meta:
         model = models.Config
-        fields = ( 'name', 'api_endpoint', 'web_address', 'version', 'connection', 'last_checked_at', 'token', 'ip_assignment_method')
+        fields = '__all__' # ( 'name', 'api_endpoint', 'web_address', 'token', 'connection', 'last_checked_at', 'version', 'monitored_by', 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk' )
+
 
 # ------------------------------------------------------------------------------
 # Templates
@@ -21,7 +22,7 @@ class ConfigSerializer(NetBoxModelSerializer):
 class TemplateSerializer(NetBoxModelSerializer):
     class Meta:
         model = models.Template
-        fields = ("name", "display", "id", "templateid", "last_synced" )
+        fields = '__all__' #( 'name', 'display', 'id', 'templateid', 'last_synced' )
     
     def get_display(self, obj):
         return str( obj.name )
@@ -36,7 +37,7 @@ class TemplateMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.TemplateMapping
-        fields = ['id', 'templates', 'template_ids', 'sites', 'roles', 'platforms', 'tags']
+        fields = '__all__' #( 'id', 'templates', 'template_ids', 'sites', 'roles', 'platforms', 'tags' )
 
 
 
@@ -47,7 +48,7 @@ class TemplateMappingSerializer(serializers.ModelSerializer):
 class ProxySerializer(NetBoxModelSerializer):
     class Meta:
         model = models.Proxy
-        fields = ("name", "display", "id", "proxyid", "proxy_groupid", "last_synced"  )
+        fields = '__all__' #( 'name', 'display', 'id', 'proxyid', 'proxy_groupid', 'last_synced' )
     
     def get_display(self, obj):
         return str( obj.name )
@@ -63,7 +64,7 @@ class ProxyMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.ProxyMapping
-        fields = [ 'id', 'proxies', 'proxy_ids', 'sites', 'roles', 'platforms', 'tags' ]
+        fields = '__all__' #( 'id', 'proxies', 'proxy_ids', 'sites', 'roles', 'platforms', 'tags' )
 
 
 # ------------------------------------------------------------------------------
@@ -73,7 +74,7 @@ class ProxyMappingSerializer(serializers.ModelSerializer):
 class ProxyGroupSerializer(NetBoxModelSerializer):
     class Meta:
         model = models.ProxyGroup
-        fields = ("name", "display", "id", "proxy_groupid", "last_synced"  )
+        fields = '__all__' #( 'name', 'display', 'id', 'proxy_groupid', 'last_synced' )
     
     def get_display(self, obj):
         return str( obj.name )
@@ -88,7 +89,7 @@ class ProxyGroupMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.ProxyGroupMapping
-        fields = [ 'id', 'proxygroups', 'proxy_groupids', 'sites', 'roles', 'platforms', 'tags' ]
+        fields = '__all__' #( 'id', 'proxygroups', 'proxy_groupids', 'sites', 'roles', 'platforms', 'tags' )
 
 # ------------------------------------------------------------------------------
 # Host Groups
@@ -96,8 +97,8 @@ class ProxyGroupMappingSerializer(serializers.ModelSerializer):
 
 class HostGroupSerializer(serializers.ModelSerializer):
     class Meta:
-        model =models.HostGroup
-        fields = ['id', 'groupid', 'name']
+        model = models.HostGroup
+        fields = '__all__' #( 'id', 'groupid', 'name' )
 
 # ------------------------------------------------------------------------------
 # Host Group Mappings
@@ -109,7 +110,7 @@ class HostGroupMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.HostGroupMapping
-        fields = ['id','hostgroups','hostgroup_ids','sites','roles','platforms','tags' ]
+        fields = '__all__' #( 'id','hostgroups','hostgroup_ids','sites','roles','platforms','tags' )
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
@@ -121,7 +122,7 @@ class DeviceZabbixConfigSerializer(NetBoxModelSerializer):
 
     class Meta:
         model = models.DeviceZabbixConfig
-        fields = ( 'id', 'name', 'display', 'hostid', 'status', 'templates', )
+        fields = '__all__' #( 'id', 'name', 'display', 'hostid', 'status', 'templates' )
     
     templates = TemplateSerializer( many=True, read_only=True )
 
@@ -138,7 +139,7 @@ class VMZabbixConfigSerializer(NetBoxModelSerializer):
     
     class Meta:
         model = models.VMZabbixConfig
-        fields = ( 'id', 'name', 'display', 'hostid', 'status', 'templates', )
+        fields = '__all__' #( 'id', 'name', 'display', 'hostid', 'status', 'templates' )
         
     templates = TemplateSerializer( many=True, read_only=True )
 
