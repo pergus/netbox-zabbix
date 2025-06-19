@@ -79,8 +79,8 @@ menu = PluginMenu(
                         ),
                 ),
                 PluginMenuItem(
-                    link_text="Device Hosts",
-                    link="plugins:netbox_zabbix:device_host_list",
+                    link_text="Device Mappings",
+                    link="plugins:netbox_zabbix:devicemappings_list",
                 ),
             )        
         ),

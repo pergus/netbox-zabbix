@@ -822,16 +822,16 @@ class HostGroupMappingVMsView(generic.ObjectView):
 
 
 # ------------------------------------------------------------------------------
-# Device Host
+# Device Mappings
 # ------------------------------------------------------------------------------
 
-@register_model_view(Device, "host")
-class DeviceHostListView(generic.ObjectListView):
+@register_model_view(Device, "mappings")
+class DeviceMappingsListView(generic.ObjectListView):
     queryset = Device.objects.all().prefetch_related("tags", "platform", "role", "site")
-    table = tables.DeviceHostTable
-    filterset = filtersets.DeviceHostFilterSet
-    filterset_form = forms.DeviceHostFilterForm
-    template_name = "netbox_zabbix/device_host.html"
+    table = tables.DeviceMappingsTable
+    filterset = filtersets.DeviceMappingsFilterSet
+    filterset_form = forms.DeviceMappingsFilterForm
+    template_name = "netbox_zabbix/device_mappings.html"
 
 
 # ------------------------------------------------------------------------------

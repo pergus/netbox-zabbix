@@ -10,7 +10,12 @@ from netbox_zabbix import models
 from virtualization.filtersets import VirtualMachineFilterSet
 from virtualization.models import VirtualMachine
 
-from netbox_zabbix.utils import get_hostgroups_mappings, get_templates_mappings
+from netbox_zabbix.utils import (
+    get_hostgroups_mappings, 
+    get_templates_mappings,
+    get_proxy_mapping,
+    get_proxygroup_mapping
+)
 
 
 # Configuration doesn't have a filterset
@@ -169,10 +174,10 @@ class HostGroupVMFilterSet(VirtualMachineFilterSet):
         fields = VirtualMachineFilterSet.Meta.fields
 
 # ------------------------------------------------------------------------------
-# Device Host
+# Device Mappings
 # ------------------------------------------------------------------------------
 
-class DeviceHostFilterSet(DeviceFilterSet):
+class DeviceMappingsFilterSet(DeviceFilterSet):
 
     hostgroups = filters.ModelMultipleChoiceFilter(
         field_name='hostgroups',
@@ -190,7 +195,20 @@ class DeviceHostFilterSet(DeviceFilterSet):
         label="Templates"
     )
     
+    proxy = filters.ModelChoiceFilter(
+        field_name='proxy',
+        queryset=models.ProxyMapping.objects.all(),
+        method='filter_proxy',
+        label="Proxy"
+    )
 
+    proxygroup = filters.ModelChoiceFilter(
+        field_name='proxygroup',
+        queryset=models.ProxyGroupMapping.objects.all(),
+        method='filter_proxygroup',
+        label="Proxy Group"
+    )
+        
     def filter_hostgroups(self, queryset, name, value):
         if not value:
             return queryset
@@ -208,7 +226,6 @@ class DeviceHostFilterSet(DeviceFilterSet):
         return queryset.filter(id__in=matching_device_ids)
 
 
-
     def filter_templates(self, queryset, name, value):
         if not value:
             return queryset
@@ -217,7 +234,7 @@ class DeviceHostFilterSet(DeviceFilterSet):
         matching_device_ids = []
     
         for device in queryset:
-            matched = get_templates_mappings( device ) # returns a list of HostGroupMapping
+            matched = get_templates_mappings( device ) # returns a list of TemplteMapping
             matched_mapping_ids = {mapping.id for mapping in matched}
     
             if matched_mapping_ids & selected_mapping_ids:
@@ -225,6 +242,48 @@ class DeviceHostFilterSet(DeviceFilterSet):
     
         return queryset.filter(id__in=matching_device_ids)
     
+
+    def filter_proxy(self, queryset, name, value):
+        if not value:
+            return queryset
+    
+        # If value is a queryset or list of ProxyMapping objects
+        if hasattr(value, '__iter__') and not isinstance(value, str):
+            selected_mapping_ids = {mapping.id for mapping in value}
+        else:
+            # single ProxyMapping object
+            selected_mapping_ids = {value.id}
+    
+        matching_device_ids = []
+    
+        for device in queryset:
+            proxy = get_proxy_mapping(device)
+            if proxy and proxy.id in selected_mapping_ids:
+                matching_device_ids.append(device.id)
+    
+        return queryset.filter(id__in=matching_device_ids)
+    
+    def filter_proxygroup(self, queryset, name, value):
+        if not value:
+            return queryset
+    
+        # If value is a queryset or list of ProxyMapping objects
+        if hasattr(value, '__iter__') and not isinstance(value, str):
+            selected_mapping_ids = {mapping.id for mapping in value}
+        else:
+            # single ProxyMapping object
+            selected_mapping_ids = {value.id}
+    
+        matching_device_ids = []
+    
+        for device in queryset:
+            proxy = get_proxygroup_mapping(device)
+            if proxy and proxy.id in selected_mapping_ids:
+                matching_device_ids.append(device.id)
+    
+        return queryset.filter(id__in=matching_device_ids)
+    
+        
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------

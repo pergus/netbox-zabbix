@@ -337,15 +337,16 @@ class HostGroupMappingForm(NetBoxModelForm):
 
 
 # ------------------------------------------------------------------------------
-# Device Host
+# Device Mappings
 # ------------------------------------------------------------------------------
 
-class DeviceHostFilterForm(DeviceFilterForm):
+class DeviceMappingsFilterForm(DeviceFilterForm):
     hostgroups = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-    templates = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+    templates  = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+    proxy      = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+    proxygroup = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
 
-
-    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', name='Zabbix' ), )
+    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxygroup', name='Zabbix' ), )
 
     
 

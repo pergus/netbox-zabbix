@@ -152,8 +152,8 @@ urlpatterns = (
     path( 'devices/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                name='devicezabbixconfig_changelog', kwargs={'model': models.DeviceZabbixConfig} ),
 
 
-    # 
-    path( 'device-host/', views.DeviceHostListView.as_view(), name='device_host_list' ),
+    # Device Mappings
+    path( 'device-mappings/', views.DeviceMappingsListView.as_view(), name='devicemappings_list' ),
 
     # VM Zabbix Configuration
     path( 'virtual-machines/zabbix-config/',                    views.VMZabbixConfigListView.as_view(),   name='vmzabbixconfig_list' ),
