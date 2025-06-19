@@ -17,7 +17,7 @@ from virtualization.tables import VirtualMachineTable
 
 from netbox_zabbix import config, jobs, models
 from netbox_zabbix.logger import logger
-from netbox_zabbix.utils import get_hostgroups_mappings, get_templates_mappings
+from netbox_zabbix.utils import get_hostgroups_mappings, get_templates_mappings, get_proxy_mapping, get_proxygroup_mapping
 
 # ------------------------------------------------------------------------------
 # Configuration
@@ -233,16 +233,17 @@ class DeviceHostTable(DeviceTable):
     # attempting to fetch a `hostgroups` attribute from the Device model, which
     # doesn't exist. This ensures that the custom `render_hostgroups()` method
     # is always called to render the column using computed data.
-    hostgroups = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='hostgroups' )
-    templates  = tables.Column( empty_values=(), verbose_name="Templates",   order_by='templates' )
-    #proxy      = tables.Column( empty_values=(), verbose_name="Proxy",       order_by='proxy' )
-    
+    hostgroups  = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='hostgroups' )
+    templates   = tables.Column( empty_values=(), verbose_name="Templates",   order_by='templates' )
+    proxy       = tables.Column( empty_values=(), verbose_name="Proxy",       order_by='proxy' )
+    proxygroup  = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxygroup' )
+
     tags = columns.TagColumn( url_name='dcim:device_list' )
 
     class Meta(DeviceTable.Meta):
         model = Device
-        fields = ("name", "hostgroups", "templates", "site", "role", "platform", "tags")
-        default_columns = ("name", "hostgroups", "templates", "site", "role", "platform", "tags")
+        fields = ("name", "hostgroups", "templates", "proxy", "proxygroup", "site", "role", "platform", "tags")
+        default_columns = ("name", "hostgroups", "templates", "proxy", "proxygroup", "site", "role", "platform", "tags")
 
     def render_hostgroups(self, record):
         hostgroups = get_hostgroups_mappings( record )
@@ -330,51 +331,74 @@ class DeviceHostTable(DeviceTable):
         )
     
         return queryset, True
+
+
+    def render_proxy(self, record):
+        proxy = get_proxy_mapping( record )
+        if not proxy:
+            return mark_safe('<span class="text-muted">&mdash;</span>')
+    
+        return mark_safe(f'<a href="{proxy.get_absolute_url()}">{proxy.name}</a>' )
+    
+    def order_proxy(self, queryset, is_descending):
+        """
+        Orders the queryset by the proxy count associated with each device,
+        with a secondary order by device name to ensure consistent ordering.
+        """
+        devices = list( queryset )
+        devices.sort(
+            key=lambda x: (
+                0 if get_proxy_mapping(x) is None else 1,  # count proxy presence (0 or 1)
+                get_proxy_mapping(x).name if get_proxy_mapping(x) else '',  # proxy name or empty string
+                x.name  # device name as fallback
+            ),            
+            reverse=is_descending
+        )
+    
+        ordered_pks = [device.pk for device in devices]
+    
+        # Use Case/When to order by the list of PKs (proxy count ordering)
+        preserved_order = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ordered_pks)])
+    
+        # Order by preserved order and then by name
+        queryset = queryset.model.objects.filter(pk__in=ordered_pks).order_by(preserved_order, 'name')
+    
+        return queryset, True
     
 
-#    def render_proxy(self, record):
-#        proxy = get_proxy_mappings( record )
-#        if not proxy:
-#            return mark_safe('<span class="text-muted">&mdash;</span>')
-#    
-#        return mark_safe(", ".join(
-#            f'<a href="{hg.get_absolute_url()}">{hg.name}</a>'
-#            for hg in proxy
-#        ))
-#    
-#    def order_proxy(self, queryset, is_descending):
-#        """
-#        Orders the queryset by the number of host groups associated with each device.
-#        
-#        This method fetches all records from the queryset and sorts them in Python
-#        based on the count of host groups. It then creates a new queryset ordered
-#        by the primary keys in the sorted order.
-#        
-#        Args:
-#            queryset: The initial queryset to be ordered.
-#            is_descending: A boolean indicating whether the ordering should be descending.
-#        
-#        Returns:
-#            A tuple containing the ordered queryset and a boolean indicating success.
-#        """ 
-#        devices = list( queryset )
-#        devices.sort(
-#            key=lambda x: len( get_proxy_mappings( x ) ),
-#            reverse=is_descending
-#        )
-#    
-#        # Create a new queryset with the sorted order
-#        ordered_pks = [device.pk for device in devices]
-#        # Reorders the queryset by filtering records with primary keys in the
-#        # sorted list and then ordering them based on their positions in that
-#        # list, ensuring the final queryset is ordered by the number of host
-#        # groups associated with each device.
-#        queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by(
-#            Case(*[ When( pk=pk, then=pos ) for pos, pk in enumerate( ordered_pks ) ])
-#        )
-#    
-#        return queryset, True
+    def render_proxygroup(self, record):
+        proxygroup = get_proxygroup_mapping( record )
+        if not proxygroup:
+            return mark_safe('<span class="text-muted">&mdash;</span>')
     
+        return mark_safe(f'<a href="{proxygroup.get_absolute_url()}">{proxygroup.name}</a>' )
+    
+    def order_proxygroup(self, queryset, is_descending):
+        """
+        Orders the queryset by the proxygroup count associated with each device,
+        with a secondary order by device name to ensure consistent ordering.
+        """
+        devices = list( queryset )
+        devices.sort(
+            key=lambda x: (
+                0 if get_proxygroup_mapping(x) is None else 1,  # count proxygroup presence (0 or 1)
+                get_proxygroup_mapping(x).name if get_proxygroup_mapping(x) else '',  # proxygroup name or empty string
+                x.name  # device name as fallback
+            ),            
+            reverse=is_descending
+        )
+    
+        ordered_pks = [device.pk for device in devices]
+    
+        # Use Case/When to order by the list of PKs (proxygroup count ordering)
+        preserved_order = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ordered_pks)])
+    
+        # Order by preserved order and then by name
+        queryset = queryset.model.objects.filter(pk__in=ordered_pks).order_by(preserved_order, 'name')
+    
+        return queryset, True
+
+        
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
