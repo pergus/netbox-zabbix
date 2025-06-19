@@ -14,7 +14,7 @@ from virtualization.models import VirtualMachine
 
 
 from netbox_zabbix import models, jobs, config
-from netbox_zabbix.utils import get_device_hostgroups
+from netbox_zabbix.utils import get_hostgroups_mappings
 
 from netbox_zabbix.logger import logger
 
@@ -241,7 +241,7 @@ class DeviceHostGroupTable(DeviceTable):
         fields = ("name", "hostgroups", "site", "role", "platform", "tags")
 
     def render_hostgroups(self, record):
-        hostgroups = get_device_hostgroups(record)
+        hostgroups = get_hostgroups_mappings( record )
         if not hostgroups:
             return mark_safe('<span class="text-muted">&mdash;</span>')
 
@@ -267,7 +267,7 @@ class DeviceHostGroupTable(DeviceTable):
         """ 
         devices = list(queryset)
         devices.sort(
-            key=lambda x: len(get_device_hostgroups(x)),
+            key=lambda x: len( get_hostgroups_mappings( x ) ),
             reverse=is_descending
         )
 

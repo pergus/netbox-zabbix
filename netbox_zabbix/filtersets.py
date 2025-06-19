@@ -11,7 +11,7 @@ from virtualization.models import VirtualMachine
 from virtualization.filtersets import VirtualMachineFilterSet
 
 
-from netbox_zabbix.utils import get_device_hostgroups
+from netbox_zabbix.utils import get_hostgroups_mappings
 
 
 # Configuration doesn't have a filterset
@@ -191,7 +191,7 @@ class DeviceHostGroupFilterSet(DeviceFilterSet):
         matching_device_ids = []
 
         for device in queryset:
-            matched = get_device_hostgroups(device)  # returns a list of HostGroupMapping
+            matched = get_hostgroups_mappings( device ) # returns a list of HostGroupMapping
             matched_mapping_ids = {mapping.id for mapping in matched}
     
             if matched_mapping_ids & selected_mapping_ids:
