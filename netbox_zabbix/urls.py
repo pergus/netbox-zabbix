@@ -1,3 +1,4 @@
+# urls.py
 from django.urls import path
 from netbox.views.generic import ObjectChangeLogView
 
@@ -10,6 +11,7 @@ urlpatterns = (
     
     # --------------------------------------------------------------------------
     # Configuration
+    # --------------------------------------------------------------------------
 
     # Configuration
     path( 'configs/',                    views.ConfigListView.as_view(),      name='config_list' ),
@@ -24,6 +26,7 @@ urlpatterns = (
     
     # --------------------------------------------------------------------------
     # Templates + Mappings
+    # --------------------------------------------------------------------------
 
     # Zabbix Templates
     path( 'templates/',                   views.TemplateListView.as_view(),   name='template_list' ),
@@ -54,6 +57,7 @@ urlpatterns = (
 
     # --------------------------------------------------------------------------
     # Proxy + Mappings
+    # --------------------------------------------------------------------------
 
     # Zabbix Proxy
     path( 'proxies/',                   views.ProxyListView.as_view(),   name='proxy_list' ),
@@ -80,6 +84,7 @@ urlpatterns = (
 
     # --------------------------------------------------------------------------
     # Proxy Groups + Mappings
+    # --------------------------------------------------------------------------
         
     # Zabbix Proxy Groups
     path( 'proxy-groups/',                   views.ProxyGroupListView.as_view(),   name='proxygroup_list' ),
@@ -107,6 +112,7 @@ urlpatterns = (
 
     # --------------------------------------------------------------------------
     # Host Groups + Mappings
+    # --------------------------------------------------------------------------
 
     # Zabbix Host Groups
     path( 'hostgroups/',                    views.HostGroupListView.as_view(),   name='hostgroup_list' ),
@@ -135,6 +141,7 @@ urlpatterns = (
 
     # --------------------------------------------------------------------------
     # Zabbix Configurations
+    # --------------------------------------------------------------------------
     
     # Zabbix Device Configuration
     path( 'devices/zabbix-config/',                    views.DeviceZabbixConfigListView.as_view(),   name='devicezabbixconfig_list' ),
@@ -144,7 +151,9 @@ urlpatterns = (
     path( 'devices/zabbix-config/<int:pk>/delete/',    views.DeviceZabbixConfigDeleteView.as_view(), name='devicezabbixconfig_delete' ),
     path( 'devices/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                name='devicezabbixconfig_changelog', kwargs={'model': models.DeviceZabbixConfig} ),
 
-    path( 'device-hostgroups/', views.DeviceHostGroupListView.as_view(), name='device_hostgroup_list' ),
+
+    # 
+    path( 'device-host/', views.DeviceHostListView.as_view(), name='device_host_list' ),
 
     # VM Zabbix Configuration
     path( 'virtual-machines/zabbix-config/',                    views.VMZabbixConfigListView.as_view(),   name='vmzabbixconfig_list' ),
@@ -165,6 +174,7 @@ urlpatterns = (
 
     # --------------------------------------------------------------------------
     # Importable Hosts
+    # --------------------------------------------------------------------------
 
     # Importable Zabbix Hosts (Devices/VMs in Zabbix but not configured in NetBox)
     path( 'zabbix/importable-devices/', views.ImportableDeviceListView.as_view(), name='importabledevice_list' ),
@@ -174,6 +184,7 @@ urlpatterns = (
 
     # --------------------------------------------------------------------------
     # NetBox/Zabbix Only Hosts
+    # --------------------------------------------------------------------------
 
     # NetBox-only Devices (not present in Zabbix)
     path( 'zabbix/netbox-only-devices/', views.NetBoxOnlyDevicesView.as_view(), name='netboxonlydevices' ),
@@ -188,6 +199,7 @@ urlpatterns = (
 
     # --------------------------------------------------------------------------
     # Quick Add
+    # --------------------------------------------------------------------------
 
     # Quick add Agent and SNMPv3 Device Configuration
     path('devices/zabbix-config/quick-add-agent/',  views.device_quick_add_agent,   name='device_quick_add_agent'),
@@ -197,6 +209,7 @@ urlpatterns = (
 
     # --------------------------------------------------------------------------
     # Interfaces
+    # --------------------------------------------------------------------------
 
     # Device Agent Interfaces
     path( 'interfaces/device-agents/',                     views.DeviceAgentInterfaceListView.as_view(),       name='deviceagentinterface_list' ),

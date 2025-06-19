@@ -1,13 +1,17 @@
-from pyzabbix import ZabbixAPI
-from netbox_zabbix import models
+# zabbix.py
+
 from django.utils import timezone
-from django.conf import settings
 from dcim.models import Device
 from virtualization.models import VirtualMachine
-
+from pyzabbix import ZabbixAPI
+from netbox_zabbix import models
+from netbox_zabbix.config import (
+    ZabbixConfigNotFound,
+    get_max_deletions,
+    get_zabbix_api_endpoint,
+    get_zabbix_token,
+)
 from netbox_zabbix.logger import logger
-from netbox_zabbix.config import get_zabbix_api_endpoint, get_zabbix_token, get_max_deletions, ZabbixConfigNotFound
-
 
 def get_zabbix_client():
     """

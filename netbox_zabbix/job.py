@@ -1,7 +1,8 @@
-from netbox.jobs import JobRunner
-from core.choices import JobStatusChoices
+# job.py
 from datetime import timedelta
 from django.db import transaction
+from core.choices import JobStatusChoices
+from netbox.jobs import JobRunner
 
 from netbox_zabbix.logger import logger
 

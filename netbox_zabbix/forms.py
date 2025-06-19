@@ -1,25 +1,21 @@
-
+# forms.py
 import re
 
-
-from netbox.forms import NetBoxModelForm, NetBoxModelFilterSetForm
-
-from utilities.forms.fields import DynamicModelChoiceField
-from ipam.models import IPAddress
-
-from django.utils.safestring import mark_safe
-from django.core.exceptions import ValidationError
-from django.utils.timezone import now
-from django.conf import settings
 from django import forms
+from django.core.exceptions import ValidationError
+from django.utils.safestring import mark_safe
+from django.utils.timezone import now
 
+from dcim.forms import DeviceFilterForm
 from dcim.models import Device
-from virtualization.models import VirtualMachine
+from ipam.models import IPAddress
+from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
+from utilities.forms.fields import DynamicModelChoiceField
 from utilities.forms.rendering import FieldSet
+from virtualization.models import VirtualMachine
 
 from netbox_zabbix import models
 from netbox_zabbix import zabbix as z
-
 from netbox_zabbix.logger import logger
 
 
@@ -35,7 +31,7 @@ from netbox_zabbix.logger import logger
 
 # ------------------------------------------------------------------------------
 # Settings
-#
+# ------------------------------------------------------------------------------
 
 # Since only one configuration is allowed there is no need for a FilterForm.
 from django.forms import NumberInput
@@ -124,7 +120,7 @@ class ConfigForm(NetBoxModelForm):
 
 # ------------------------------------------------------------------------------
 # Templates
-#
+# ------------------------------------------------------------------------------
 
 class TemplateForm(NetBoxModelForm):
     class Meta:
@@ -149,7 +145,7 @@ class TemplateFilterForm(NetBoxModelFilterSetForm):
 
 # ------------------------------------------------------------------------------
 # Template Mappings
-#
+# ------------------------------------------------------------------------------
 
 class TemplateMappingForm(NetBoxModelForm):
         class Meta:
@@ -168,10 +164,68 @@ class TemplateMappingForm(NetBoxModelForm):
                     "At least one of sites, roles or platforms must be set for mapping."
                 )
 
+# ------------------------------------------------------------------------------
+# Base Proxy Mappings
+# ------------------------------------------------------------------------------
+
+class BaseProxyMappingForm(NetBoxModelForm):
+    mapping_model = None  # To be set by subclasses
+
+    def clean(self):
+        super().clean()
+    
+        sites     = self.cleaned_data.get( 'sites' )
+        roles     = self.cleaned_data.get( 'roles' )
+        platforms = self.cleaned_data.get( 'platforms' )
+        tags      = self.cleaned_data.get( 'tags' )
+    
+        if not (sites or roles or platforms):
+            raise forms.ValidationError( "At least one of sites, roles or platforms must be set for mapping." )
+    
+        site_ids     = set( s.id for s in sites )
+        role_ids     = set( r.id for r in roles )
+        platform_ids = set( p.id for p in platforms )
+        tag_slugs    = set( t.slug for t in tags )
+    
+        conflicting = []
+    
+        for other in self.mapping_model.objects.exclude( pk=self.instance.pk ):
+    
+            other_site_ids     = set( other.sites.values_list( 'id', flat=True ) ) if other.sites.exists() else set()
+            other_role_ids     = set( other.roles.values_list( 'id', flat=True ) ) if other.roles.exists() else set()
+            other_platform_ids = set( other.platforms.values_list( 'id', flat=True ) ) if other.platforms.exists() else set()
+            other_tag_slugs    = set( other.tags.values_list( 'slug', flat=True ) ) if other.tags.exists() else set()
+    
+            # Helper function to check field overlap
+            def overlap(set1, set2):
+                # True if either set is empty (wildcard) or intersection is non-empty
+                return not set1 or not set2 or bool(set1 & set2)
+    
+            # Check sites, roles, platforms for overlap
+            if not (overlap( site_ids, other_site_ids ) and
+                    overlap( role_ids, other_role_ids ) and
+                    overlap( platform_ids, other_platform_ids ) ):
+                continue  # No conflict, skip
+    
+            # For tags, conflict only if tags overlap by subset relationship in either direction
+            # i.e., either other_tag_slugs is subset of tag_slugs, or vice versa,
+            # or both empty means wildcard
+            if other_tag_slugs and tag_slugs:
+                tags_conflict = other_tag_slugs.issubset( tag_slugs ) or tag_slugs.issubset( other_tag_slugs )
+                if not tags_conflict:
+                    continue  # No conflict
+            # If either tag set empty => wildcard => assume conflict
+    
+            conflicting.append( other.name )
+    
+        if conflicting:
+            raise forms.ValidationError( f"This mapping overlaps with existing mapping(s): {', '.join(conflicting)}." )
+        
+
 
 # ------------------------------------------------------------------------------
 # Proxy
-#
+# ------------------------------------------------------------------------------
 
 class ProxyForm(NetBoxModelForm):
     class Meta:
@@ -197,33 +251,24 @@ class ProxyFilterForm(NetBoxModelFilterSetForm):
         self.fields["proxyid"].choices = choices
 
 
+
+            
 # ------------------------------------------------------------------------------
 # Proxy Mappings
-#
+# ------------------------------------------------------------------------------
 
-class ProxyMappingForm(NetBoxModelForm):
-        class Meta:
-            model = models.ProxyMapping
-            fields = [ 'name', 'proxies', 'sites', 'roles', 'platforms', 'tags' ]
+class ProxyMappingForm(BaseProxyMappingForm):
+    mapping_model = models.ProxyMapping
+    
+    class Meta:
+        model = models.ProxyMapping
+        fields = [ 'name', 'proxy', 'sites', 'roles', 'platforms', 'tags' ]
 
-        
-        def clean(self):
-            super().clean()
-            
-            sites = self.cleaned_data['sites']
-            roles = self.cleaned_data['roles']
-            platforms = self.cleaned_data['platforms']
-                
-            if not (sites or roles or platforms):
-                raise forms.ValidationError(
-                    "At least one of sites, roles or platforms must be set for mapping."
-                )
-
-
+    
 
 # ------------------------------------------------------------------------------
 # Proxy Groups
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupForm(NetBoxModelForm):
     class Meta:
@@ -249,30 +294,19 @@ class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
 
 # ------------------------------------------------------------------------------
 # Proxy Group Mappings
-#
+# ------------------------------------------------------------------------------
 
-class ProxyGroupMappingForm(NetBoxModelForm):
-        class Meta:
-            model = models.ProxyGroupMapping
-            fields = [ 'name', 'proxygroups', 'sites', 'roles', 'platforms', 'tags' ]
-
-        
-        def clean(self):
-            super().clean()
-            
-            sites = self.cleaned_data['sites']
-            roles = self.cleaned_data['roles']
-            platforms = self.cleaned_data['platforms']
-                
-            if not (sites or roles or platforms):
-                raise forms.ValidationError(
-                    "At least one of sites, roles or platforms must be set for mapping."
-                )
-
+class ProxyGroupMappingForm(BaseProxyMappingForm):
+    mapping_model = models.ProxyGroupMapping
+    
+    class Meta:
+        model = models.ProxyGroupMapping
+        fields = [ 'name', 'proxygroup', 'sites', 'roles', 'platforms', 'tags' ]
+    
 
 # ------------------------------------------------------------------------------
 # Hostgroups
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupForm(NetBoxModelForm):
     class Meta:
@@ -281,7 +315,7 @@ class HostGroupForm(NetBoxModelForm):
 
 # ------------------------------------------------------------------------------
 # Hostgroup Mappings
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupMappingForm(NetBoxModelForm):
         class Meta:
@@ -303,19 +337,21 @@ class HostGroupMappingForm(NetBoxModelForm):
 
 
 # ------------------------------------------------------------------------------
-# Device Host Groups
-#
-from dcim.forms import DeviceFilterForm
-class DeviceHostGroupFilterForm(DeviceFilterForm):
+# Device Host
+# ------------------------------------------------------------------------------
+
+class DeviceHostFilterForm(DeviceFilterForm):
     hostgroups = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-    
-    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', name='Zabbix' ), )
+    templates = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+
+
+    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', name='Zabbix' ), )
 
     
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
-#
+# ------------------------------------------------------------------------------
 
 class DeviceZabbixConfigForm(NetBoxModelForm):
     device = forms.ModelChoiceField( queryset=Device.objects.all(), label='Device', help_text='Select the NetBox Device to link this Zabbix host to.' )
@@ -420,7 +456,7 @@ class VMZabbixConfigFilterForm(NetBoxModelFilterSetForm):
 
 # ------------------------------------------------------------------------------
 # Interface
-#
+# ------------------------------------------------------------------------------
 
 
 class DeviceAgentInterfaceForm(NetBoxModelForm):

@@ -1,17 +1,16 @@
-from django.urls import reverse
-from django.db import models
+# models.py
 from django.core.exceptions import ValidationError
+from django.db import models
+from django.urls import reverse
 
-from dcim.models import Site, DeviceRole, Platform, Interface
-from virtualization.models import VMInterface
-from extras.models import Tag
-
+from dcim.models import DeviceRole, Interface, Platform, Site
 from netbox.models import NetBoxModel
+from virtualization.models import VMInterface
 
 
 # ------------------------------------------------------------------------------
 # Configuration
-#
+# ------------------------------------------------------------------------------
 
 
 class IPAssignmentChoices(models.TextChoices):
@@ -101,7 +100,7 @@ class Config(NetBoxModel):
 
 # ------------------------------------------------------------------------------
 # Templates
-#
+# ------------------------------------------------------------------------------
 
 
 class Template(NetBoxModel):
@@ -109,9 +108,9 @@ class Template(NetBoxModel):
         verbose_name = "Zabbix Template"
         verbose_name_plural = "Zabbix Templates"
     
-    name = models.CharField( max_length=255 )
-    templateid = models.CharField( max_length=255 )
-    last_synced = models.DateTimeField( blank=True, null=True )
+    name                = models.CharField( max_length=255 )
+    templateid          = models.CharField( max_length=255 )
+    last_synced         = models.DateTimeField( blank=True, null=True )
     marked_for_deletion = models.BooleanField( default=False )
      
     def __str__(self):
@@ -120,7 +119,7 @@ class Template(NetBoxModel):
 
 # ------------------------------------------------------------------------------
 # Template Mapping
-#
+# ------------------------------------------------------------------------------
 
 class InterfaceTypeChoices(models.IntegerChoices):
     Any   = (0, 'Any')
@@ -128,11 +127,11 @@ class InterfaceTypeChoices(models.IntegerChoices):
     SNMP  = (2, 'SNMP')
 
 class TemplateMapping(NetBoxModel):
-    name = models.CharField( max_length=255, help_text="Unique name for this template mapping." )
-    templates = models.ManyToManyField( Template, help_text="Templates used for matching hosts. Multiple templates can be selected." ) 
-    sites = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
-    roles = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
-    platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
+    name           = models.CharField( max_length=255, help_text="Unique name for this template mapping." )
+    templates      = models.ManyToManyField( Template, help_text="Templates used for matching hosts. Multiple templates can be selected." ) 
+    sites          = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
+    roles          = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
+    platforms      = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
     interface_type = models.IntegerField( verbose_name="Interface Type", choices=InterfaceTypeChoices, default=InterfaceTypeChoices.Any, help_text="Limit mapping to interfaces of this type. Select 'Any' to include all types." )
 
     def __str__(self):
@@ -144,17 +143,17 @@ class TemplateMapping(NetBoxModel):
 
 # ------------------------------------------------------------------------------
 # Proxy
-#
+# ------------------------------------------------------------------------------
 
 class Proxy(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Proxy"
         verbose_name_plural = "Zabbix Proxies"
     
-    name = models.CharField( verbose_name="Proxy", max_length=255, help_text="Name of the proxy" )
-    proxyid = models.CharField( verbose_name="Proxy ID", max_length=255, help_text="Proxy ID")
-    proxy_groupid =  models.CharField( verbose_name="Proxy Group ID", max_length=255 , help_text="Proxy Group ID")
-    last_synced = models.DateTimeField( blank=True, null=True )
+    name                = models.CharField( verbose_name="Proxy", max_length=255, help_text="Name of the proxy" )
+    proxyid             = models.CharField( verbose_name="Proxy ID", max_length=255, help_text="Proxy ID")
+    proxy_groupid       = models.CharField( verbose_name="Proxy Group ID", max_length=255 , help_text="Proxy Group ID")
+    last_synced         = models.DateTimeField( blank=True, null=True )
     marked_for_deletion = models.BooleanField( default=False )
 
     def __str__(self):
@@ -162,13 +161,13 @@ class Proxy(NetBoxModel):
     
 # ------------------------------------------------------------------------------
 # Proxy Mapping
-#
+# ------------------------------------------------------------------------------
 
 class ProxyMapping(NetBoxModel):
-    name = models.CharField( max_length=255, help_text="Unique name for this proxy mapping." )
-    proxies = models.ManyToManyField( Proxy, help_text="Proxies used for matching hosts. Multiple proxies can be selected." ) 
-    sites = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
-    roles = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
+    name      = models.CharField( max_length=255, help_text="Unique name for this proxy mapping." )
+    proxy     = models.ForeignKey( Proxy, on_delete=models.CASCADE, null=True, help_text="Proxy for matching hosts." )
+    sites     = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
+    roles     = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
     platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
 
     def __str__(self):
@@ -177,18 +176,19 @@ class ProxyMapping(NetBoxModel):
     def get_absolute_url(self):
         return reverse("plugins:netbox_zabbix:proxymapping", args=[self.pk])
 
+
 # ------------------------------------------------------------------------------
-# Proxy Goups
-#
+# Proxy Groups
+# ------------------------------------------------------------------------------
 
 class ProxyGroup(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Proxy Group"
         verbose_name_plural = "Zabbix Proxy Groups"
     
-    name = models.CharField( verbose_name="Proxy Group", max_length=255, help_text="Name of the proxy group" )
-    proxy_groupid =  models.CharField( verbose_name="Proxy Group ID", max_length=255, help_text="Proxy Group ID" )
-    last_synced = models.DateTimeField( blank=True, null=True )
+    name                = models.CharField( verbose_name="Proxy Group", max_length=255, help_text="Name of the proxy group" )
+    proxy_groupid       = models.CharField( verbose_name="Proxy Group ID", max_length=255, help_text="Proxy Group ID" )
+    last_synced         = models.DateTimeField( blank=True, null=True )
     marked_for_deletion = models.BooleanField( default=False )
 
     def __str__(self):
@@ -196,11 +196,11 @@ class ProxyGroup(NetBoxModel):
 
 # ------------------------------------------------------------------------------
 # Proxy Group Mapping
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupMapping(NetBoxModel):
     name        = models.CharField( max_length=255, help_text="Unique name for this proxy group mapping." )
-    proxygroups = models.ManyToManyField( ProxyGroup, help_text="Proxy groups used for matching hosts." )
+    proxygroup  = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, null=True, help_text="Proxy group for matching hosts." )
     sites       = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
     roles       = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
     platforms   = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
@@ -211,20 +211,21 @@ class ProxyGroupMapping(NetBoxModel):
     def get_absolute_url(self):
         return reverse("plugins:netbox_zabbix:proxygroupmapping", args=[self.pk])
 
-
+    
+    
 
 # ------------------------------------------------------------------------------
 # Host Group
-#
+# ------------------------------------------------------------------------------
 
 class HostGroup(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Hostgroup"
         verbose_name_plural = "Zabbix Hostgroups"
     
-    name = models.CharField( max_length=255 )
-    groupid = models.CharField( max_length=255 )
-    last_synced = models.DateTimeField( blank=True, null=True )
+    name                = models.CharField( max_length=255 )
+    groupid             = models.CharField( max_length=255 )
+    last_synced         = models.DateTimeField( blank=True, null=True )
     marked_for_deletion = models.BooleanField( default=False )
     
 
@@ -237,7 +238,7 @@ class HostGroup(NetBoxModel):
 
 # ------------------------------------------------------------------------------
 # Host Group Mapping
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupMapping(NetBoxModel):
     name       = models.CharField( max_length=255 )
@@ -255,7 +256,7 @@ class HostGroupMapping(NetBoxModel):
 
 # ------------------------------------------------------------------------------
 # Zabbix Configs
-#
+# ------------------------------------------------------------------------------
 
 
 class StatusChoices(models.TextChoices):
@@ -314,7 +315,7 @@ class VMZabbixConfig(ZabbixConfig):
 
 # ------------------------------------------------------------------------------
 # Interfaces
-#
+# ------------------------------------------------------------------------------
 
 
 class UseIPChoices(models.IntegerChoices):

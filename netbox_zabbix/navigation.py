@@ -1,3 +1,4 @@
+# navigation.py
 from netbox.plugins import PluginMenu, PluginMenuItem, PluginMenuButton
 
 # Add permissions
@@ -78,8 +79,8 @@ menu = PluginMenu(
                         ),
                 ),
                 PluginMenuItem(
-                    link_text="Device Host Groups",
-                    link="plugins:netbox_zabbix:device_hostgroup_list",
+                    link_text="Device Hosts",
+                    link="plugins:netbox_zabbix:device_host_list",
                 ),
             )        
         ),

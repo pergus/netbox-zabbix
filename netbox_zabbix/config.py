@@ -1,4 +1,4 @@
-
+# config.py
 from netbox_zabbix.models import Config
 from netbox_zabbix.logger import logger
 

@@ -20,6 +20,9 @@ Greate one view for device and another for vm that show all added fields such
 as hostgroups, proxies etc.
 
 
+Remove the null=True in Proxy Mappings and Proxy Group Mappings model.
+I added it to makemigrations without having to dump the database.
+
 ### General
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |

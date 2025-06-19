@@ -1,24 +1,23 @@
+# filterset.py
 import django_filters
 from django_filters import rest_framework as filters
-from extras.filters import TagFilter
 
+from dcim.filtersets import DeviceFilterSet
+from dcim.models import Device
+from extras.filters import TagFilter
 from netbox.filtersets import NetBoxModelFilterSet
 from netbox_zabbix import models
-
-from dcim.models import Device
-from dcim.filtersets import DeviceFilterSet
-from virtualization.models import VirtualMachine
 from virtualization.filtersets import VirtualMachineFilterSet
+from virtualization.models import VirtualMachine
 
-
-from netbox_zabbix.utils import get_hostgroups_mappings
+from netbox_zabbix.utils import get_hostgroups_mappings, get_templates_mappings
 
 
 # Configuration doesn't have a filterset
 
 # ------------------------------------------------------------------------------
 # Templates
-#
+# ------------------------------------------------------------------------------
 
 class TemplateFilterSet(NetBoxModelFilterSet):
     class Meta:
@@ -34,7 +33,7 @@ class TemplateFilterSet(NetBoxModelFilterSet):
 
 # ------------------------------------------------------------------------------
 # Template Mappings
-#
+# ------------------------------------------------------------------------------
 
 class TemplateMappingFilterSet(NetBoxModelFilterSet):
     tags = TagFilter()
@@ -58,7 +57,7 @@ class TemplateVMFilterSet(VirtualMachineFilterSet):
 
 # ------------------------------------------------------------------------------
 # Proxy
-#
+# ------------------------------------------------------------------------------
 
 class ProxyFilterSet(NetBoxModelFilterSet):
     class Meta:
@@ -74,14 +73,14 @@ class ProxyFilterSet(NetBoxModelFilterSet):
 
 # ------------------------------------------------------------------------------
 # Proxy Mappings
-#
+# ------------------------------------------------------------------------------
 
 class ProxyMappingFilterSet(NetBoxModelFilterSet):
     tags = TagFilter()
 
     class Meta:
         model = models.ProxyMapping
-        fields = ['proxies', 'sites', 'roles', 'platforms', 'tags']
+        fields = ['proxy', 'sites', 'roles', 'platforms', 'tags']
 
 
 class ProxyDeviceFilterSet(DeviceFilterSet):
@@ -99,7 +98,7 @@ class ProxyVMFilterSet(VirtualMachineFilterSet):
 
 # ------------------------------------------------------------------------------
 # Proxy Group
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupFilterSet(NetBoxModelFilterSet):
     class Meta:
@@ -116,14 +115,14 @@ class ProxyGroupFilterSet(NetBoxModelFilterSet):
 
 # ------------------------------------------------------------------------------
 # Proxy Group Mappings
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupMappingFilterSet(NetBoxModelFilterSet):
     tags = TagFilter()
 
     class Meta:
         model = models.ProxyGroupMapping
-        fields = ['proxygroups', 'sites', 'roles', 'platforms', 'tags']
+        fields = ['proxygroup', 'sites', 'roles', 'platforms', 'tags']
 
 
 class ProxyGroupDeviceFilterSet(DeviceFilterSet):
@@ -141,7 +140,7 @@ class ProxyGroupVMFilterSet(VirtualMachineFilterSet):
 
 # ------------------------------------------------------------------------------
 # Host Group Mappings
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupMappingFilterSet(NetBoxModelFilterSet):
     tags = TagFilter()
@@ -152,7 +151,7 @@ class HostGroupMappingFilterSet(NetBoxModelFilterSet):
 
 # ------------------------------------------------------------------------------
 # Host Group Device
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupDeviceFilterSet(DeviceFilterSet):
     class Meta(DeviceFilterSet.Meta):
@@ -162,7 +161,7 @@ class HostGroupDeviceFilterSet(DeviceFilterSet):
 
 # ------------------------------------------------------------------------------
 # Host Group VM
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupVMFilterSet(VirtualMachineFilterSet):
     class Meta(VirtualMachineFilterSet.Meta):
@@ -170,10 +169,10 @@ class HostGroupVMFilterSet(VirtualMachineFilterSet):
         fields = VirtualMachineFilterSet.Meta.fields
 
 # ------------------------------------------------------------------------------
-# Device Host Group
-#
+# Device Host
+# ------------------------------------------------------------------------------
 
-class DeviceHostGroupFilterSet(DeviceFilterSet):
+class DeviceHostFilterSet(DeviceFilterSet):
 
     hostgroups = filters.ModelMultipleChoiceFilter(
         field_name='hostgroups',
@@ -182,6 +181,15 @@ class DeviceHostGroupFilterSet(DeviceFilterSet):
         method='filter_hostgroups',
         label="Host Groups"
     )
+
+    templates = filters.ModelMultipleChoiceFilter(
+        field_name='templates',
+        queryset=models.TemplateMapping.objects.all(),
+        conjoined=True,  # or True if you want all selected templates to match
+        method='filter_templates',
+        label="Templates"
+    )
+    
 
     def filter_hostgroups(self, queryset, name, value):
         if not value:
@@ -200,9 +208,26 @@ class DeviceHostGroupFilterSet(DeviceFilterSet):
         return queryset.filter(id__in=matching_device_ids)
 
 
+
+    def filter_templates(self, queryset, name, value):
+        if not value:
+            return queryset
+    
+        selected_mapping_ids = {mapping.id for mapping in value}
+        matching_device_ids = []
+    
+        for device in queryset:
+            matched = get_templates_mappings( device ) # returns a list of HostGroupMapping
+            matched_mapping_ids = {mapping.id for mapping in matched}
+    
+            if matched_mapping_ids & selected_mapping_ids:
+                matching_device_ids.append(device.id)
+    
+        return queryset.filter(id__in=matching_device_ids)
+    
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
-#
+# ------------------------------------------------------------------------------
 
 class DeviceZabbixConfigFilterSet(NetBoxModelFilterSet):
     class Meta:
@@ -227,7 +252,7 @@ class NetBoxOnlyVMsFilterSet(NetBoxModelFilterSet):
 
 # ------------------------------------------------------------------------------
 # Interfaces
-#
+# ------------------------------------------------------------------------------
 
 class DeviceAgentInterfaceFilterSet(django_filters.FilterSet):
     host_id = django_filters.NumberFilter( field_name='host__id' )

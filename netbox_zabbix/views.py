@@ -1,37 +1,33 @@
-from django.template.defaultfilters import pluralize, capfirst
-from django.views.decorators.http import require_POST
-from django.utils.safestring import mark_safe
-from django.views.generic import TemplateView as GenericTemplateView
-from django.db.models import Count, F, Exists, OuterRef
-from django.shortcuts import redirect, render
-from django.contrib import messages
-from django.utils import timezone
-from django.urls import reverse
-from django_tables2 import RequestConfig, SingleTableView
-from django.views import View
-from django.http import Http404
-
+# views.py
+import netbox_zabbix.config as config
 from urllib.parse import urlencode
 
-from utilities.views import ViewTab, register_model_view
-from utilities.paginator import EnhancedPaginator, get_paginate_count
+from django.contrib import messages
+from django.db.models import Count, Exists, F, OuterRef
+from django.http import Http404
+from django.shortcuts import redirect, render
+from django.template.defaultfilters import capfirst, pluralize
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.safestring import mark_safe
+from django.views import View
+from django.views.decorators.http import require_POST
+from django.views.generic import TemplateView as GenericTemplateView
+from django_tables2 import RequestConfig, SingleTableView
 
 from dcim.models import Device
-from virtualization.models import VirtualMachine
 from netbox.views import generic
+from utilities.paginator import EnhancedPaginator, get_paginate_count
+from utilities.views import ViewTab, register_model_view
+from virtualization.models import VirtualMachine
 
-
-# NetBox Zabbix Imports
-from netbox_zabbix import zabbix as z
-from netbox_zabbix import filtersets, forms, models, tables, jobs
+from netbox_zabbix import filtersets, forms, jobs, models, tables, zabbix as z
 from netbox_zabbix.logger import logger
-
-import netbox_zabbix.config as config
 
 
 # ------------------------------------------------------------------------------
 # Configuration 
-#
+# ------------------------------------------------------------------------------
 
 class ConfigView(generic.ObjectView):
     queryset = models.Config.objects.all()
@@ -88,7 +84,7 @@ def ZabbixCheckConnectionView(request):
 
 # ------------------------------------------------------------------------------
 # Templates
-#
+# ------------------------------------------------------------------------------
 
 class TemplateView(generic.ObjectView):
     queryset = models.Template.objects.all()
@@ -175,7 +171,7 @@ def sync_zabbix_templates(request):
 
 # ------------------------------------------------------------------------------
 # Template Mappings
-#
+# ------------------------------------------------------------------------------
 
 class TemplateMappingView(generic.ObjectView):
     queryset = models.TemplateMapping.objects.all()
@@ -252,7 +248,7 @@ class TemplateMappingBulkDeleteView(generic.BulkDeleteView):
 
 # ------------------------------------------------------------------------------
 # Proxy
-#
+# ------------------------------------------------------------------------------
 
 class ProxyView(generic.ObjectView):
     queryset = models.Proxy.objects.all()
@@ -321,7 +317,7 @@ def sync_zabbix_proxies(request):
 
 # ------------------------------------------------------------------------------
 # Proxy Mappings
-#
+# ------------------------------------------------------------------------------
 
 class ProxyMappingView(generic.ObjectView):
     queryset = models.ProxyMapping.objects.all()
@@ -398,7 +394,7 @@ class ProxyMappingBulkDeleteView(generic.BulkDeleteView):
 
 # ------------------------------------------------------------------------------
 # Proxy Groups
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupView(generic.ObjectView):
     queryset = models.ProxyGroup.objects.all()
@@ -468,7 +464,7 @@ def sync_zabbix_proxygroups(request):
 
 # ------------------------------------------------------------------------------
 # Proxy Group Mappings
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupMappingView(generic.ObjectView):
     queryset = models.ProxyGroupMapping.objects.all()
@@ -544,7 +540,7 @@ class ProxyGroupMappingBulkDeleteView(generic.BulkDeleteView):
 
 # ------------------------------------------------------------------------------
 # Host Groups
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupView(generic.ObjectView):
     queryset = models.HostGroup.objects.all()
@@ -606,7 +602,7 @@ def sync_zabbix_hostgroups(request):
 
 # ------------------------------------------------------------------------------
 # Host Group Mappings
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupMappingView(generic.ObjectView):
     queryset = models.HostGroupMapping.objects.all()
@@ -683,7 +679,7 @@ class HostGroupMappingBulkDeleteView(generic.BulkDeleteView):
 
 # ------------------------------------------------------------------------------
 # Host Group Mapping Devices
-#
+# ------------------------------------------------------------------------------
 
 def count_matching_devices(obj):
     filter_data = {}
@@ -740,7 +736,7 @@ class HostGroupMappingDevicesView(generic.ObjectView):
 
 # ------------------------------------------------------------------------------
 # Host Group Mapping Virtual Machines
-#
+# ------------------------------------------------------------------------------
 
 def count_matching_vms(obj):
     filter_data = {}
@@ -826,23 +822,21 @@ class HostGroupMappingVMsView(generic.ObjectView):
 
 
 # ------------------------------------------------------------------------------
-# Device Host Group
-#
+# Device Host
+# ------------------------------------------------------------------------------
 
-# todo(pergus): make this the "only" view for devices, it should list
-# all fileds that we add such as hostgroups, proxies etc.
-@register_model_view(Device, "hostgroups")
-class DeviceHostGroupListView(generic.ObjectListView):
+@register_model_view(Device, "host")
+class DeviceHostListView(generic.ObjectListView):
     queryset = Device.objects.all().prefetch_related("tags", "platform", "role", "site")
-    table = tables.DeviceHostGroupTable
-    filterset = filtersets.DeviceHostGroupFilterSet
-    filterset_form = forms.DeviceHostGroupFilterForm
-    template_name = "netbox_zabbix/device_hostgroups.html"
+    table = tables.DeviceHostTable
+    filterset = filtersets.DeviceHostFilterSet
+    filterset_form = forms.DeviceHostFilterForm
+    template_name = "netbox_zabbix/device_host.html"
 
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
-#
+# ------------------------------------------------------------------------------
 
 class DeviceZabbixConfigView(generic.ObjectView):
     queryset = models.DeviceZabbixConfig.objects.all()
@@ -1206,7 +1200,7 @@ def device_quick_add_snmpv3(request):
 
 # ------------------------------------------------------------------------------
 # Interfaces
-#
+# ------------------------------------------------------------------------------
 
 # Device Agent
 

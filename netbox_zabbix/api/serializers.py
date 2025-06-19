@@ -12,7 +12,7 @@ from netbox_zabbix import models
 class ConfigSerializer(NetBoxModelSerializer):
     class Meta:
         model = models.Config
-        fields = '__all__' # ( 'name', 'api_endpoint', 'web_address', 'token', 'connection', 'last_checked_at', 'version', 'monitored_by', 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk' )
+        fields = '__all__'
 
 
 # ------------------------------------------------------------------------------
@@ -22,7 +22,7 @@ class ConfigSerializer(NetBoxModelSerializer):
 class TemplateSerializer(NetBoxModelSerializer):
     class Meta:
         model = models.Template
-        fields = '__all__' #( 'name', 'display', 'id', 'templateid', 'last_synced' )
+        fields = '__all__'
     
     def get_display(self, obj):
         return str( obj.name )
@@ -32,12 +32,12 @@ class TemplateSerializer(NetBoxModelSerializer):
 #
 
 class TemplateMappingSerializer(serializers.ModelSerializer):
-    templates = TemplateSerializer(many=True, read_only=True)
+    templates    = TemplateSerializer( many=True, read_only=True )
     template_ids = serializers.PrimaryKeyRelatedField( queryset=models.Template.objects.all(), source='templates', write_only=True, many=True )
 
     class Meta:
         model = models.TemplateMapping
-        fields = '__all__' #( 'id', 'templates', 'template_ids', 'sites', 'roles', 'platforms', 'tags' )
+        fields = '__all__'
 
 
 
@@ -48,7 +48,7 @@ class TemplateMappingSerializer(serializers.ModelSerializer):
 class ProxySerializer(NetBoxModelSerializer):
     class Meta:
         model = models.Proxy
-        fields = '__all__' #( 'name', 'display', 'id', 'proxyid', 'proxy_groupid', 'last_synced' )
+        fields = '__all__'
     
     def get_display(self, obj):
         return str( obj.name )
@@ -59,12 +59,12 @@ class ProxySerializer(NetBoxModelSerializer):
 #
 
 class ProxyMappingSerializer(serializers.ModelSerializer):
-    proxies = ProxySerializer( many=True, read_only=True )
-    proxy_ids = serializers.PrimaryKeyRelatedField( queryset=models.Proxy.objects.all(), source='proxy', write_only=True, many=True )
+    proxy    = ProxySerializer( read_only=True )
+    proxy_id = serializers.PrimaryKeyRelatedField( queryset=models.Proxy.objects.all(), source='proxy', write_only=True )
 
     class Meta:
         model = models.ProxyMapping
-        fields = '__all__' #( 'id', 'proxies', 'proxy_ids', 'sites', 'roles', 'platforms', 'tags' )
+        fields = '__all__'
 
 
 # ------------------------------------------------------------------------------
@@ -74,7 +74,7 @@ class ProxyMappingSerializer(serializers.ModelSerializer):
 class ProxyGroupSerializer(NetBoxModelSerializer):
     class Meta:
         model = models.ProxyGroup
-        fields = '__all__' #( 'name', 'display', 'id', 'proxy_groupid', 'last_synced' )
+        fields = '__all__'
     
     def get_display(self, obj):
         return str( obj.name )
@@ -84,12 +84,12 @@ class ProxyGroupSerializer(NetBoxModelSerializer):
 #
 
 class ProxyGroupMappingSerializer(serializers.ModelSerializer):
-    proxygroups = ProxyGroupSerializer( many=True, read_only=True )
-    proxy_groupids = serializers.PrimaryKeyRelatedField( queryset=models.ProxyGroup.objects.all(), source='proxygroup', write_only=True, many=True )
+    proxygroup    = ProxyGroupSerializer( read_only=True )
+    proxy_groupid = serializers.PrimaryKeyRelatedField( queryset=models.ProxyGroup.objects.all(), source='proxygroup', write_only=True )
 
     class Meta:
         model = models.ProxyGroupMapping
-        fields = '__all__' #( 'id', 'proxygroups', 'proxy_groupids', 'sites', 'roles', 'platforms', 'tags' )
+        fields = '__all__'
 
 # ------------------------------------------------------------------------------
 # Host Groups
@@ -98,7 +98,7 @@ class ProxyGroupMappingSerializer(serializers.ModelSerializer):
 class HostGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.HostGroup
-        fields = '__all__' #( 'id', 'groupid', 'name' )
+        fields = '__all__'
 
 # ------------------------------------------------------------------------------
 # Host Group Mappings
@@ -110,7 +110,7 @@ class HostGroupMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.HostGroupMapping
-        fields = '__all__' #( 'id','hostgroups','hostgroup_ids','sites','roles','platforms','tags' )
+        fields = '__all__'
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
@@ -122,7 +122,7 @@ class DeviceZabbixConfigSerializer(NetBoxModelSerializer):
 
     class Meta:
         model = models.DeviceZabbixConfig
-        fields = '__all__' #( 'id', 'name', 'display', 'hostid', 'status', 'templates' )
+        fields = '__all__'
     
     templates = TemplateSerializer( many=True, read_only=True )
 
@@ -139,7 +139,7 @@ class VMZabbixConfigSerializer(NetBoxModelSerializer):
     
     class Meta:
         model = models.VMZabbixConfig
-        fields = '__all__' #( 'id', 'name', 'display', 'hostid', 'status', 'templates' )
+        fields = '__all__'
         
     templates = TemplateSerializer( many=True, read_only=True )
 

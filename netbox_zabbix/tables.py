@@ -1,26 +1,27 @@
-import django_tables2 as tables
-from netbox.tables import NetBoxTable, columns
-from netbox.tables.columns import ActionsColumn
-from django.utils.safestring import mark_safe
-from django.utils.html import format_html
-from django.urls import reverse
+# tables.py
 from django.db.models import Case, When
+from django.urls import reverse
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 
-from dcim.tables import DeviceTable
-from virtualization.tables import VirtualMachineTable
+import django_tables2 as tables
 
 from dcim.models import Device
+from dcim.tables import DeviceTable
+
+from netbox.tables import NetBoxTable, columns
+from netbox.tables.columns import ActionsColumn
+
 from virtualization.models import VirtualMachine
+from virtualization.tables import VirtualMachineTable
 
-
-from netbox_zabbix import models, jobs, config
-from netbox_zabbix.utils import get_hostgroups_mappings
-
+from netbox_zabbix import config, jobs, models
 from netbox_zabbix.logger import logger
+from netbox_zabbix.utils import get_hostgroups_mappings, get_templates_mappings
 
 # ------------------------------------------------------------------------------
 # Configuration
-#
+# ------------------------------------------------------------------------------
 
 EXTRA_CONFIG_BUTTONS = """
 <span class="dropdown">
@@ -51,7 +52,7 @@ class ConfigTable(NetBoxTable):
 
 # ------------------------------------------------------------------------------
 # Templates
-#
+# ------------------------------------------------------------------------------
 
 class TemplateTable(NetBoxTable):
     name = tables.Column( linkify=True )
@@ -68,7 +69,7 @@ class TemplateTable(NetBoxTable):
 
 # ------------------------------------------------------------------------------
 # Template Mappings
-#
+# ------------------------------------------------------------------------------
 
 class TemplateMappingTable(NetBoxTable):
     name      = tables.Column( linkify=True )
@@ -86,7 +87,7 @@ class TemplateMappingTable(NetBoxTable):
 
 # ------------------------------------------------------------------------------
 # Proxy
-#
+# ------------------------------------------------------------------------------
 
 class ProxyTable(NetBoxTable):
     name = tables.Column( linkify=True )
@@ -98,11 +99,11 @@ class ProxyTable(NetBoxTable):
 
 # ------------------------------------------------------------------------------
 # Proxy Mappings
-#
+# ------------------------------------------------------------------------------
 
 class ProxyMappingTable(NetBoxTable):
     name      = tables.Column( linkify=True )
-    proxies   = tables.ManyToManyColumn( linkify_item=True )
+    proxy     = tables.Column( linkify=True )
     sites     = tables.ManyToManyColumn( linkify_item=True )
     roles     = tables.ManyToManyColumn( linkify_item=True )
     platforms = tables.ManyToManyColumn( linkify_item=True )
@@ -110,14 +111,14 @@ class ProxyMappingTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = models.ProxyMapping
-        fields = ( "pk", "name", "proxies", "sites", "roles", "platforms", "tags")
-        default_columns = ("pk", "name", "proxies", "sites", "roles", "platforms", "tags" )
+        fields = ( "pk", "name", "proxy", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "proxy", "sites", "roles", "platforms", "tags" )
 
 
 
 # ------------------------------------------------------------------------------
 # Proxy Group
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupTable(NetBoxTable):
     name = tables.Column( linkify=True )
@@ -131,11 +132,11 @@ class ProxyGroupTable(NetBoxTable):
 
 # ------------------------------------------------------------------------------
 # Proxy Group Mappings
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupMappingTable(NetBoxTable):
     name        = tables.Column( linkify=True )
-    proxygroups = tables.ManyToManyColumn( linkify_item=True )
+    proxygroup  = tables.Column( linkify=True )
     sites       = tables.ManyToManyColumn( linkify_item=True )
     roles       = tables.ManyToManyColumn( linkify_item=True )
     platforms   = tables.ManyToManyColumn( linkify_item=True )
@@ -144,14 +145,14 @@ class ProxyGroupMappingTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = models.ProxyGroupMapping
-        fields = ( "pk", "name", "proxygroups", "sites", "roles", "platforms", "tags")
-        default_columns = ("pk", "name", "proxygroups", "sites", "roles", "platforms", "tags" )
+        fields = ( "pk", "name", "proxygroup", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "proxygroup", "sites", "roles", "platforms", "tags" )
 
 
 
 # ------------------------------------------------------------------------------
 # Host Groups
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupTable(NetBoxTable):
     name = tables.Column( linkify=True, order_by="name", accessor="name" )
@@ -169,7 +170,7 @@ class HostGroupTable(NetBoxTable):
 
 # ------------------------------------------------------------------------------
 # Host Group Mappings
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupMappingTable(NetBoxTable):
     name       = tables.Column( linkify=True )
@@ -220,9 +221,9 @@ class MatchingVMTable(NetBoxTable):
 
 # ------------------------------------------------------------------------------
 # Device Host Groups
-#
+# ------------------------------------------------------------------------------
 
-class DeviceHostGroupTable(DeviceTable):
+class DeviceHostTable(DeviceTable):
     name = tables.Column( linkify=True )
     site = tables.Column( linkify=True )
     role = tables.Column( linkify=True )
@@ -233,12 +234,15 @@ class DeviceHostGroupTable(DeviceTable):
     # doesn't exist. This ensures that the custom `render_hostgroups()` method
     # is always called to render the column using computed data.
     hostgroups = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='hostgroups' )
+    templates  = tables.Column( empty_values=(), verbose_name="Templates",   order_by='templates' )
+    #proxy      = tables.Column( empty_values=(), verbose_name="Proxy",       order_by='proxy' )
     
     tags = columns.TagColumn( url_name='dcim:device_list' )
 
     class Meta(DeviceTable.Meta):
         model = Device
-        fields = ("name", "hostgroups", "site", "role", "platform", "tags")
+        fields = ("name", "hostgroups", "templates", "site", "role", "platform", "tags")
+        default_columns = ("name", "hostgroups", "templates", "site", "role", "platform", "tags")
 
     def render_hostgroups(self, record):
         hostgroups = get_hostgroups_mappings( record )
@@ -265,7 +269,7 @@ class DeviceHostGroupTable(DeviceTable):
         Returns:
             A tuple containing the ordered queryset and a boolean indicating success.
         """ 
-        devices = list(queryset)
+        devices = list( queryset )
         devices.sort(
             key=lambda x: len( get_hostgroups_mappings( x ) ),
             reverse=is_descending
@@ -284,9 +288,97 @@ class DeviceHostGroupTable(DeviceTable):
         return queryset, True
 
 
+    def render_templates(self, record):
+        templates = get_templates_mappings( record )
+        if not templates:
+            return mark_safe('<span class="text-muted">&mdash;</span>')
+    
+        return mark_safe(", ".join(
+            f'<a href="{hg.get_absolute_url()}">{hg.name}</a>'
+            for hg in templates
+        ))
+    
+    def order_templates(self, queryset, is_descending):
+        """
+        Orders the queryset by the number of templates associated with each device.
+        
+        This method fetches all records from the queryset and sorts them in Python
+        based on the count of templates. It then creates a new queryset ordered
+        by the primary keys in the sorted order.
+        
+        Args:
+            queryset: The initial queryset to be ordered.
+            is_descending: A boolean indicating whether the ordering should be descending.
+        
+        Returns:
+            A tuple containing the ordered queryset and a boolean indicating success.
+        """ 
+        devices = list( queryset )
+        devices.sort(
+            key=lambda x: len( get_templates_mappings( x ) ),
+            reverse=is_descending
+        )
+    
+        # Create a new queryset with the sorted order
+        ordered_pks = [device.pk for device in devices]
+        # Reorders the queryset by filtering records with primary keys in the
+        # sorted list and then ordering them based on their positions in that
+        # list, ensuring the final queryset is ordered by the number of host
+        # groups associated with each device.
+        queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by(
+            Case(*[ When( pk=pk, then=pos ) for pos, pk in enumerate( ordered_pks ) ])
+        )
+    
+        return queryset, True
+    
+
+#    def render_proxy(self, record):
+#        proxy = get_proxy_mappings( record )
+#        if not proxy:
+#            return mark_safe('<span class="text-muted">&mdash;</span>')
+#    
+#        return mark_safe(", ".join(
+#            f'<a href="{hg.get_absolute_url()}">{hg.name}</a>'
+#            for hg in proxy
+#        ))
+#    
+#    def order_proxy(self, queryset, is_descending):
+#        """
+#        Orders the queryset by the number of host groups associated with each device.
+#        
+#        This method fetches all records from the queryset and sorts them in Python
+#        based on the count of host groups. It then creates a new queryset ordered
+#        by the primary keys in the sorted order.
+#        
+#        Args:
+#            queryset: The initial queryset to be ordered.
+#            is_descending: A boolean indicating whether the ordering should be descending.
+#        
+#        Returns:
+#            A tuple containing the ordered queryset and a boolean indicating success.
+#        """ 
+#        devices = list( queryset )
+#        devices.sort(
+#            key=lambda x: len( get_proxy_mappings( x ) ),
+#            reverse=is_descending
+#        )
+#    
+#        # Create a new queryset with the sorted order
+#        ordered_pks = [device.pk for device in devices]
+#        # Reorders the queryset by filtering records with primary keys in the
+#        # sorted list and then ordering them based on their positions in that
+#        # list, ensuring the final queryset is ordered by the number of host
+#        # groups associated with each device.
+#        queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by(
+#            Case(*[ When( pk=pk, then=pos ) for pos, pk in enumerate( ordered_pks ) ])
+#        )
+#    
+#        return queryset, True
+    
+
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
-#
+# ------------------------------------------------------------------------------
 
 class DeviceZabbixConfigTable(NetBoxTable):
     name         = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
@@ -507,7 +599,7 @@ class ZabbixOnlyHostTable(tables.Table):
 
 # ------------------------------------------------------------------------------
 # Interface
-#
+# ------------------------------------------------------------------------------
 
 class DeviceAgentInterfaceTable(NetBoxTable):
     name = tables.Column( linkify=True )
