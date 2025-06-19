@@ -267,12 +267,15 @@ class ZabbixConfig(NetBoxModel):
     class Meta:
         abstract = True
 
-    hostid = models.PositiveIntegerField( unique=True, blank=True, null=True )
-    #monitored_by 
-    #proxyid
-    #proxy_groupid
-    status = models.CharField( max_length=255, choices=StatusChoices.choices, default='enabled' )
-    templates = models.ManyToManyField( Template, blank=False )
+    # Zabbix host id
+    hostid       = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
+    status       = models.CharField( max_length=255, choices=StatusChoices.choices, default='enabled', help_text="Host monitoring status." )
+    monitoredby  = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host" )
+    templates    = models.ManyToManyField( Template,   blank=True , help_text="Assgiend Tempalates" )
+    proxies      = models.ManyToManyField( Proxy,      blank=True , help_text="Assigned Proxies" )
+    proxy_groups = models.ManyToManyField( ProxyGroup, blank=True , help_text="Assigned Proxy Groups" )
+    host_groups  = models.ManyToManyField( HostGroup,  blank=True , help_text="Assigned Host Groups" )
+    
 
     
 class DeviceZabbixConfig(ZabbixConfig):

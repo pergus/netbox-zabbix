@@ -71,11 +71,12 @@ class TemplateTable(NetBoxTable):
 #
 
 class TemplateMappingTable(NetBoxTable):
-    name = tables.Column( linkify=True )
-    templates = tables.ManyToManyColumn()
-    roles = tables.ManyToManyColumn()
-    platforms = tables.ManyToManyColumn()
-    tags = tables.ManyToManyColumn()
+    name      = tables.Column( linkify=True )
+    templates = tables.ManyToManyColumn( linkify_item=True )
+    sites     = tables.ManyToManyColumn( linkify_item=True )
+    roles     = tables.ManyToManyColumn( linkify_item=True )
+    platforms = tables.ManyToManyColumn( linkify_item=True )
+    tags      = columns.TagColumn()
 
     class Meta(NetBoxTable.Meta):
         model = models.TemplateMapping
@@ -100,11 +101,12 @@ class ProxyTable(NetBoxTable):
 #
 
 class ProxyMappingTable(NetBoxTable):
-    name = tables.Column( linkify=True )
-    proxies = tables.ManyToManyColumn()
-    roles = tables.ManyToManyColumn()
-    platforms = tables.ManyToManyColumn()
-    tags = tables.ManyToManyColumn()
+    name      = tables.Column( linkify=True )
+    proxies   = tables.ManyToManyColumn( linkify_item=True )
+    sites     = tables.ManyToManyColumn( linkify_item=True )
+    roles     = tables.ManyToManyColumn( linkify_item=True )
+    platforms = tables.ManyToManyColumn( linkify_item=True )
+    tags      = columns.TagColumn()
 
     class Meta(NetBoxTable.Meta):
         model = models.ProxyMapping
@@ -133,10 +135,12 @@ class ProxyGroupTable(NetBoxTable):
 
 class ProxyGroupMappingTable(NetBoxTable):
     name        = tables.Column( linkify=True )
-    proxygroups = tables.ManyToManyColumn()
-    roles       = tables.ManyToManyColumn()
-    platforms   = tables.ManyToManyColumn()
-    tags        = tables.ManyToManyColumn()
+    proxygroups = tables.ManyToManyColumn( linkify_item=True )
+    sites       = tables.ManyToManyColumn( linkify_item=True )
+    roles       = tables.ManyToManyColumn( linkify_item=True )
+    platforms   = tables.ManyToManyColumn( linkify_item=True )
+    tags        = columns.TagColumn()
+    
 
     class Meta(NetBoxTable.Meta):
         model = models.ProxyGroupMapping
@@ -150,8 +154,9 @@ class ProxyGroupMappingTable(NetBoxTable):
 #
 
 class HostGroupTable(NetBoxTable):
-    name = tables.Column( verbose_name="Name", order_by="name", accessor="name", )
-    groupid = tables.Column( verbose_name="Group ID", order_by="groupid", )
+    name = tables.Column( linkify=True, order_by="name", accessor="name" )
+    #name = tables.Column( verbose_name="Name", order_by="name", accessor="name", )
+    #groupid = tables.Column( verbose_name="Group ID", order_by="groupid", )
     
     # Hide the action buttons since it isn't possible to edit the hosts groups
     # in NetBox, since they are imported from Zabbix.
@@ -168,10 +173,11 @@ class HostGroupTable(NetBoxTable):
 
 class HostGroupMappingTable(NetBoxTable):
     name       = tables.Column( linkify=True )
-    hostgroups = tables.ManyToManyColumn()
-    roles      = tables.ManyToManyColumn()
-    platforms  = tables.ManyToManyColumn()
-    tags       = tables.ManyToManyColumn()
+    hostgroups = tables.ManyToManyColumn( linkify_item=True )
+    sites      = tables.ManyToManyColumn( linkify_item=True )
+    roles      = tables.ManyToManyColumn( linkify_item=True )
+    platforms  = tables.ManyToManyColumn( linkify_item=True )
+    tags       = columns.TagColumn()
 
     class Meta(NetBoxTable.Meta):
         model = models.HostGroupMapping
@@ -283,29 +289,35 @@ class DeviceHostGroupTable(DeviceTable):
 #
 
 class DeviceZabbixConfigTable(NetBoxTable):
-    name = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
-    device = tables.Column( accessor='device', verbose_name='Device', linkify=True )
-    status = tables.Column()
-    hostid = tables.Column( verbose_name='Zabbix Host ID' )
-    templates = tables.ManyToManyColumn( linkify_item=True )
+    name         = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
+    device       = tables.Column( accessor='device', verbose_name='Device', linkify=True )
+    status       = tables.Column()
+    hostid       = tables.Column( verbose_name='Zabbix Host ID' )
+    templates    = tables.ManyToManyColumn( linkify_item=True )
+    proxies      = tables.ManyToManyColumn( linkify_item=True )
+    proxy_groups = tables.ManyToManyColumn( linkify_item=True )
+    host_groups  = tables.ManyToManyColumn( linkify_item=True )
     
     class Meta(NetBoxTable.Meta):
         model = models.DeviceZabbixConfig
-        fields = ('name', 'device', 'status', 'hostid', 'templates')
-        default_columns = ('name', 'device', 'status', 'templates')
+        fields = ('name', 'device', 'status', 'monitoredby', 'hostid', 'templates', 'proxies', 'proxy_groups', 'host_groups' )
+        default_columns = ('name', 'device', 'status', 'monitoredby', 'templates', 'proxies', 'proxy_groups', 'host_groups')
     
 
 class VMZabbixConfigTable(NetBoxTable):
-    name = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
+    name            = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
     virtual_machine = tables.Column( accessor='virtual_machine', verbose_name='VM', linkify=True )
-    status = tables.Column()
-    hostid = tables.Column( verbose_name='Zabbix Host ID' )
-    templates = tables.ManyToManyColumn(linkify_item=True)
+    status          = tables.Column()
+    hostid          = tables.Column( verbose_name='Zabbix Host ID' )
+    templates       = tables.ManyToManyColumn(linkify_item=True)
+    proxies         = tables.ManyToManyColumn( linkify_item=True )
+    proxy_groups    = tables.ManyToManyColumn( linkify_item=True )
+    host_groups     = tables.ManyToManyColumn( linkify_item=True )
     
     class Meta(NetBoxTable.Meta):
         model = models.VMZabbixConfig
-        fields = ('name', 'virtual_machine', 'status', 'hostid',  'templates')
-        default_columns = ('name', 'virtual_machine', 'status', 'templates')
+        fields = ('name', 'virtual_machine', 'status', 'monitoredby', 'hostid',  'templates', 'proxies', 'proxy_groups', 'host_groups')
+        default_columns = ('name', 'virtual_machine', 'status', 'monitoredby', 'templates', 'proxies', 'proxy_groups', 'host_groups')
 
         
 class ZabbixConfigActionsColumn(ActionsColumn):

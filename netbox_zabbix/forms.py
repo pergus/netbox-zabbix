@@ -45,7 +45,7 @@ class ConfigForm(NetBoxModelForm):
     fieldsets = (
         FieldSet( 'name', 'ip_assignment_method', 'auto_validate_importables', 'max_deletions', 'max_success_notifications', name="General"),
         FieldSet( 'api_endpoint', 'web_address', 'token', 
-                 'default_cidr', 'monitored_by', 
+                 'default_cidr', 'monitoredby', 
                  'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', name="Zabbix" )
     )
     class Meta:
@@ -329,7 +329,7 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
 
     class Meta:
         model = models.DeviceZabbixConfig
-        fields = ('device', 'status', 'templates')
+        fields = ('device', 'status', 'monitoredby', 'templates', 'proxies', 'proxy_groups', 'host_groups' )
 
     def __init__(self, *args, **kwargs):
         instance = kwargs.get('instance', None)
@@ -357,8 +357,12 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
 class DeviceZabbixConfigFilterForm(NetBoxModelFilterSetForm):
     model = models.DeviceZabbixConfig
 
-    status    = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
-    templates = forms.ModelMultipleChoiceField( label = "Templates", queryset = models.Template.objects.all(), required = False )
+    status       = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
+    templates    = forms.ModelMultipleChoiceField( label = "Templates",    queryset = models.Template.objects.all(),   required = False )
+    proxies      = forms.ModelMultipleChoiceField( label = "Proxies",      queryset = models.Proxy.objects.all(),      required = False )
+    proxy_groups = forms.ModelMultipleChoiceField( label = "Proxy Groups", queryset = models.ProxyGroup.objects.all(), required = False )
+    host_groups  = forms.ModelMultipleChoiceField( label = "Host Groups",  queryset = models.HostGroup.objects.all(),  required = False )
+
     hostid    = forms.ChoiceField( label = "Zabbix Host ID", required = False )
 
     def __init__(self, *args, **kwargs):
@@ -375,7 +379,7 @@ class VMZabbixConfigForm(NetBoxModelForm):
 
     class Meta:
         model = models.VMZabbixConfig
-        fields = ('virtual_machine', 'status', 'templates')
+        fields = ('virtual_machine', 'status', 'monitoredby', 'templates', 'proxies', 'proxy_groups', 'host_groups')
 
     def __init__(self, *args, **kwargs):
         instance = kwargs.get('instance', None)
@@ -404,9 +408,13 @@ class VMZabbixConfigForm(NetBoxModelForm):
 class VMZabbixConfigFilterForm(NetBoxModelFilterSetForm):
     model = models.ZabbixConfig
 
-    status         = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
-    templates      = forms.ModelMultipleChoiceField( label = "Templates", queryset = models.Template.objects.all(), required = False )
-    hostid = forms.ChoiceField( label = "Zabbix Host ID", required = False )
+    status       = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
+    templates    = forms.ModelMultipleChoiceField( label = "Templates",    queryset = models.Template.objects.all(),   required = False )
+    proxies      = forms.ModelMultipleChoiceField( label = "Proxies",      queryset = models.Proxy.objects.all(),      required = False )
+    proxy_groups = forms.ModelMultipleChoiceField( label = "Proxy Groups", queryset = models.ProxyGroup.objects.all(), required = False )
+    host_groups  = forms.ModelMultipleChoiceField( label = "Host Groups",  queryset = models.HostGroup.objects.all(),  required = False )
+    
+    hostid    = forms.ChoiceField( label = "Zabbix Host ID", required = False )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

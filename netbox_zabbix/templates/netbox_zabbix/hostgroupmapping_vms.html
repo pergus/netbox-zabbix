@@ -42,7 +42,11 @@
                     {% if object.tags.exists %}
                     <tr>
                         <th scope="row">Tags</th>
-                        <td>{{ object.tags.all|join:", " }}</td>
+                        <td>
+                            {% for tag in object.tags.all %}
+                            <a href="{{ tag.get_absolute_url }}" class="badge" style="color: #000000; background-color: #9e9e9e">{{ tag.name }}</a>
+                            {% endfor %}
+                        </td>
                     </tr>
                     {% endif %}
 

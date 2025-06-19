@@ -51,6 +51,12 @@
                         <td>{{ object.status }}</td>
                     </tr>
 
+
+                    <tr>
+                        <th scope="row">Monitored By</th>
+                        <td>{{ object.get_monitoredby_display }}</td>
+                    </tr>
+
                     <tr>
                         <th scope="row">Zabbix Host ID</th>
                         <td>{{ object.hostid }}</td>
