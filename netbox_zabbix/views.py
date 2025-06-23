@@ -827,11 +827,23 @@ class HostGroupMappingVMsView(generic.ObjectView):
 
 @register_model_view(Device, "mappings")
 class DeviceMappingsListView(generic.ObjectListView):
-    queryset = Device.objects.all().prefetch_related("tags", "platform", "role", "site")
+    queryset = Device.objects.all().prefetch_related( "tags", "platform", "role", "site" )
     table = tables.DeviceMappingsTable
     filterset = filtersets.DeviceMappingsFilterSet
     filterset_form = forms.DeviceMappingsFilterForm
     template_name = "netbox_zabbix/device_mappings.html"
+
+# ------------------------------------------------------------------------------
+# VM Mappings
+# ------------------------------------------------------------------------------
+
+@register_model_view(VirtualMachine, "mappings")
+class VMMappingsListView(generic.ObjectListView):
+    queryset = VirtualMachine.objects.all().prefetch_related( "tags", "platform", "role", "site" )
+    table = tables.VMMappingsTable
+    filterset = filtersets.VMMappingsFilterSet
+    filterset_form = forms.VMMappingsFilterForm
+    template_name = "netbox_zabbix/vm_mappings.html"
 
 
 # ------------------------------------------------------------------------------

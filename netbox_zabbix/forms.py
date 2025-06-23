@@ -6,13 +6,16 @@ from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
 from django.utils.timezone import now
 
-from dcim.forms import DeviceFilterForm
-from dcim.models import Device
 from ipam.models import IPAddress
 from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
 from utilities.forms.fields import DynamicModelChoiceField
 from utilities.forms.rendering import FieldSet
+
+from dcim.models import Device
+from dcim.forms import DeviceFilterForm
+
 from virtualization.models import VirtualMachine
+from virtualization.forms import VirtualMachineFilterForm
 
 from netbox_zabbix import models
 from netbox_zabbix import zabbix as z
@@ -349,6 +352,18 @@ class DeviceMappingsFilterForm(DeviceFilterForm):
     fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxygroup', name='Zabbix' ), )
 
     
+# ------------------------------------------------------------------------------
+# VM Mappings
+# ------------------------------------------------------------------------------
+
+class VMMappingsFilterForm(VirtualMachineFilterForm):
+    hostgroups = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+    templates  = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+    proxy      = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+    proxygroup = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
+
+    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxygroup', name='Zabbix' ), )
+
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations

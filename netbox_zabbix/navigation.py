@@ -52,10 +52,22 @@ menu = PluginMenu(
                 PluginMenuItem( 
                     link_text="Host Group Mappings",                    
                     link="plugins:netbox_zabbix:hostgroupmapping_list",
-                ),
+                ),                
             ),
         ),
-        
+        ( "Mapped Hosts",
+            (
+                PluginMenuItem(
+                    link_text="Mapped Devices",
+                    link="plugins:netbox_zabbix:devicemappings_list",
+                ),
+                PluginMenuItem(
+                    link_text="Mapped Virtual Machines",
+                    link="plugins:netbox_zabbix:vmmappings_list",
+                ),                             
+                
+            ),
+        ),
         ( "Import",
          (
              PluginMenuItem( 
@@ -77,10 +89,6 @@ menu = PluginMenu(
                     buttons=( 
                         PluginMenuButton( "plugins:netbox_zabbix:devicezabbixconfig_add", "Add", "mdi mdi-plus-thick" ),
                         ),
-                ),
-                PluginMenuItem(
-                    link_text="Device Mappings",
-                    link="plugins:netbox_zabbix:devicemappings_list",
                 ),
             )        
         ),

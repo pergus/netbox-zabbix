@@ -164,6 +164,10 @@ urlpatterns = (
     path( 'virtual-machines/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),            name='vmzabbixconfig_changelog', kwargs={'model': models.VMZabbixConfig} ),
     
 
+    # VM Mappings
+    path( 'vm-mappings/', views.VMMappingsListView.as_view(), name='vmmappings_list' ),
+    
+
     # Zabbix Configs (Devices and VMs combined)
     path( 'zabbix/configs/',                     views.ZabbixConfigListView.as_view(),   name='zabbixconfig_list' ),
     path( 'zabbix/configs/edit/<int:pk>/',       views.ZabbixConfigEditView.as_view(),   name='zabbixconfig_edit' ),

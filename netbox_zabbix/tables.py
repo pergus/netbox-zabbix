@@ -6,11 +6,12 @@ from django.utils.safestring import mark_safe
 
 import django_tables2 as tables
 
-from dcim.models import Device
-from dcim.tables import DeviceTable
 
 from netbox.tables import NetBoxTable, columns
 from netbox.tables.columns import ActionsColumn
+
+from dcim.models import Device
+from dcim.tables import DeviceTable
 
 from virtualization.models import VirtualMachine
 from virtualization.tables import VirtualMachineTable
@@ -231,17 +232,17 @@ class MatchingVMTable(NetBoxTable):
 # ------------------------------------------------------------------------------
 
 class DeviceMappingsTable(DeviceTable):
-    name = tables.Column(linkify=True)
-    site = tables.Column(linkify=True)
-    role = tables.Column(linkify=True)
-    platform = tables.Column(linkify=True)
+    name = tables.Column( linkify=True )
+    site = tables.Column( linkify=True )
+    role = tables.Column( linkify=True )
+    platform = tables.Column( linkify=True )
 
-    hostgroups  = tables.Column(empty_values=(), verbose_name="Host Groups", order_by='hostgroups')
-    templates   = tables.Column(empty_values=(), verbose_name="Templates", order_by='templates')
-    proxy       = tables.Column(empty_values=(), verbose_name="Proxy", order_by='proxy')
-    proxygroup  = tables.Column(empty_values=(), verbose_name="Proxy Group", order_by='proxygroup')
+    hostgroups  = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='hostgroups' )
+    templates   = tables.Column( empty_values=(), verbose_name="Templates", order_by='templates' )
+    proxy       = tables.Column( empty_values=(), verbose_name="Proxy", order_by='proxy' )
+    proxygroup  = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxygroup' )
 
-    tags = columns.TagColumn(url_name='dcim:device_list')
+    tags = columns.TagColumn( url_name='dcim:device_list' )
 
     class Meta(DeviceTable.Meta):
         model = Device
@@ -250,9 +251,9 @@ class DeviceMappingsTable(DeviceTable):
 
     # Generic render method for columns that return iterable mappings (hostgroups, templates)
     def _render_mappings(self, record, get_mapping_func):
-        items = get_mapping_func(record)
+        items = get_mapping_func( record )
         if not items:
-            return mark_safe('<span class="text-muted">&mdash;</span>')
+            return mark_safe( '<span class="text-muted">&mdash;</span>' )
         return mark_safe(", ".join(
             f'<a href="{item.get_absolute_url()}">{item.name}</a>'
             for item in items
@@ -260,26 +261,26 @@ class DeviceMappingsTable(DeviceTable):
 
     # Generic order method for columns based on counts of mappings
     def _order_by_mapping_count(self, queryset, is_descending, get_mapping_func):
-        devices = list(queryset)
+        devices = list( queryset )
         devices.sort(
-            key=lambda x: len(get_mapping_func(x)),
+            key=lambda x: len( get_mapping_func(x) ),
             reverse=is_descending
         )
         ordered_pks = [device.pk for device in devices]
-        preserved_order = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ordered_pks)])
-        queryset = queryset.model.objects.filter(pk__in=ordered_pks).order_by(preserved_order)
+        preserved_order = Case(*[When( pk=pk, then=pos ) for pos, pk in enumerate( ordered_pks )])
+        queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by( preserved_order )
         return queryset, True
 
     # Generic render method for single-mapping columns (proxy, proxygroup)
     def _render_single_mapping(self, record, get_mapping_func):
-        item = get_mapping_func(record)
+        item = get_mapping_func( record )
         if not item:
             return mark_safe('<span class="text-muted">&mdash;</span>')
         return mark_safe(f'<a href="{item.get_absolute_url()}">{item.name}</a>')
 
     # Generic order method for single-mapping columns (proxy, proxygroup)
     def _order_by_single_mapping(self, queryset, is_descending, get_mapping_func):
-        devices = list(queryset)
+        devices = list( queryset )
         devices.sort(
             key=lambda x: (
                 0 if get_mapping_func(x) is None else 1,
@@ -296,28 +297,122 @@ class DeviceMappingsTable(DeviceTable):
     # Now, bind each column's render and order methods to the generic ones with proper function
 
     def render_hostgroups(self, record):
-        return self._render_mappings(record, get_hostgroups_mappings)
+        return self._render_mappings( record, get_hostgroups_mappings )
 
     def order_hostgroups(self, queryset, is_descending):
-        return self._order_by_mapping_count(queryset, is_descending, get_hostgroups_mappings)
+        return self._order_by_mapping_count( queryset, is_descending, get_hostgroups_mappings )
 
     def render_templates(self, record):
-        return self._render_mappings(record, get_templates_mappings)
+        return self._render_mappings( record, get_templates_mappings )
 
     def order_templates(self, queryset, is_descending):
-        return self._order_by_mapping_count(queryset, is_descending, get_templates_mappings)
+        return self._order_by_mapping_count( queryset, is_descending, get_templates_mappings )
 
     def render_proxy(self, record):
-        return self._render_single_mapping(record, get_proxy_mapping)
+        return self._render_single_mapping( record, get_proxy_mapping )
 
     def order_proxy(self, queryset, is_descending):
-        return self._order_by_single_mapping(queryset, is_descending, get_proxy_mapping)
+        return self._order_by_single_mapping( queryset, is_descending, get_proxy_mapping )
 
     def render_proxygroup(self, record):
-        return self._render_single_mapping(record, get_proxygroup_mapping)
+        return self._render_single_mapping( record, get_proxygroup_mapping )
 
     def order_proxygroup(self, queryset, is_descending):
-        return self._order_by_single_mapping(queryset, is_descending, get_proxygroup_mapping)
+        return self._order_by_single_mapping( queryset, is_descending, get_proxygroup_mapping )
+
+
+# ------------------------------------------------------------------------------
+# VM Mappings
+# ------------------------------------------------------------------------------
+
+class VMMappingsTable(VirtualMachineTable):
+    name = tables.Column( linkify=True )
+    site = tables.Column( linkify=True )
+    role = tables.Column( linkify=True )
+    platform = tables.Column( linkify=True )
+
+    hostgroups  = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='hostgroups' )
+    templates   = tables.Column( empty_values=(), verbose_name="Templates", order_by='templates' )
+    proxy       = tables.Column( empty_values=(), verbose_name="Proxy", order_by='proxy' )
+    proxygroup  = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxygroup' )
+
+    tags = columns.TagColumn( url_name='dcim:device_list' )
+
+    class Meta(VirtualMachineTable.Meta):
+        model = VirtualMachine
+        fields = ("name", "hostgroups", "templates", "proxy", "proxygroup", "site", "role", "platform", "tags")
+        default_columns = ("name", "hostgroups", "templates", "proxy", "proxygroup", "site", "role", "platform", "tags")
+
+    # Generic render method for columns that return iterable mappings (hostgroups, templates)
+    def _render_mappings(self, record, get_mapping_func):
+        items = get_mapping_func( record )
+        if not items:
+            return mark_safe( '<span class="text-muted">&mdash;</span>' )
+        return mark_safe(", ".join(
+            f'<a href="{item.get_absolute_url()}">{item.name}</a>'
+            for item in items
+        ))
+
+    # Generic order method for columns based on counts of mappings
+    def _order_by_mapping_count(self, queryset, is_descending, get_mapping_func):
+        vms = list( queryset )
+        vms.sort(
+            key=lambda x: len( get_mapping_func(x) ),
+            reverse=is_descending
+        )
+        ordered_pks = [vm.pk for vm in vms]
+        preserved_order = Case(*[When( pk=pk, then=pos ) for pos, pk in enumerate( ordered_pks )])
+        queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by( preserved_order )
+        return queryset, True
+
+    # Generic render method for single-mapping columns (proxy, proxygroup)
+    def _render_single_mapping(self, record, get_mapping_func):
+        item = get_mapping_func(record)
+        if not item:
+            return mark_safe('<span class="text-muted">&mdash;</span>')
+        return mark_safe(f'<a href="{item.get_absolute_url()}">{item.name}</a>')
+
+    # Generic order method for single-mapping columns (proxy, proxygroup)
+    def _order_by_single_mapping(self, queryset, is_descending, get_mapping_func):
+        vms = list( queryset )
+        vms.sort(
+            key=lambda x: (
+                0 if get_mapping_func( x ) is None else 1,
+                get_mapping_func( x ).name if get_mapping_func( x ) else '',
+                x.name
+            ),
+            reverse=is_descending
+        )
+        ordered_pks = [vm.pk for vm in vms]
+        preserved_order = Case(*[When( pk=pk, then=pos ) for pos, pk in enumerate( ordered_pks )])
+        queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by( preserved_order, 'name' )
+        return queryset, True
+
+    # Now, bind each column's render and order methods to the generic ones with proper function
+
+    def render_hostgroups(self, record):
+        return self._render_mappings( record, get_hostgroups_mappings )
+
+    def order_hostgroups(self, queryset, is_descending):
+        return self._order_by_mapping_count( queryset, is_descending, get_hostgroups_mappings )
+
+    def render_templates(self, record):
+        return self._render_mappings( record, get_templates_mappings )
+
+    def order_templates(self, queryset, is_descending):
+        return self._order_by_mapping_count( queryset, is_descending, get_templates_mappings )
+
+    def render_proxy(self, record):
+        return self._render_single_mapping( record, get_proxy_mapping )
+
+    def order_proxy(self, queryset, is_descending):
+        return self._order_by_single_mapping( queryset, is_descending, get_proxy_mapping )
+
+    def render_proxygroup(self, record):
+        return self._render_single_mapping( record, get_proxygroup_mapping )
+
+    def order_proxygroup(self, queryset, is_descending):
+        return self._order_by_single_mapping( queryset, is_descending, get_proxygroup_mapping )
 
 
 # ------------------------------------------------------------------------------

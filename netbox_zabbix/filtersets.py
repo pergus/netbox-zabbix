@@ -2,13 +2,15 @@
 import django_filters
 from django_filters import rest_framework as filters
 
-from dcim.filtersets import DeviceFilterSet
 from dcim.models import Device
+from dcim.filtersets import DeviceFilterSet
+
+from virtualization.models import VirtualMachine
+from virtualization.filtersets import VirtualMachineFilterSet
+
 from extras.filters import TagFilter
 from netbox.filtersets import NetBoxModelFilterSet
 from netbox_zabbix import models
-from virtualization.filtersets import VirtualMachineFilterSet
-from virtualization.models import VirtualMachine
 
 from netbox_zabbix.utils import (
     get_hostgroups_mappings, 
@@ -182,108 +184,162 @@ class DeviceMappingsFilterSet(DeviceFilterSet):
     hostgroups = filters.ModelMultipleChoiceFilter(
         field_name='hostgroups',
         queryset=models.HostGroupMapping.objects.all(),
-        conjoined=True,  # or True if you want all selected hostgroups to match
-        method='filter_hostgroups',
+        conjoined=True,
+        method='filter_by_mapping_list',
         label="Host Groups"
     )
 
     templates = filters.ModelMultipleChoiceFilter(
         field_name='templates',
         queryset=models.TemplateMapping.objects.all(),
-        conjoined=True,  # or True if you want all selected templates to match
-        method='filter_templates',
+        conjoined=True,
+        method='filter_by_mapping_list',
         label="Templates"
     )
     
     proxy = filters.ModelChoiceFilter(
         field_name='proxy',
         queryset=models.ProxyMapping.objects.all(),
-        method='filter_proxy',
+        method='filter_by_mapping_single',
         label="Proxy"
     )
 
     proxygroup = filters.ModelChoiceFilter(
         field_name='proxygroup',
         queryset=models.ProxyGroupMapping.objects.all(),
-        method='filter_proxygroup',
+        method='filter_by_mapping_single',
         label="Proxy Group"
     )
-        
-    def filter_hostgroups(self, queryset, name, value):
+
+    def filter_by_mapping_list(self, queryset, name, value):
         if not value:
             return queryset
-    
-        selected_mapping_ids = {mapping.id for mapping in value}
-        matching_device_ids = []
+
+        mapping_fn_map = {
+            'hostgroups': get_hostgroups_mappings,
+            'templates': get_templates_mappings,
+        }
+
+        mapping_fn = mapping_fn_map.get( name )
+        if not mapping_fn:
+            return queryset
+
+        selected_mapping_ids = {m.id for m in value}
+        matching_ids = []
 
         for device in queryset:
-            matched = get_hostgroups_mappings( device ) # returns a list of HostGroupMapping
-            matched_mapping_ids = {mapping.id for mapping in matched}
-    
-            if matched_mapping_ids & selected_mapping_ids:
-                matching_device_ids.append(device.id)
-    
-        return queryset.filter(id__in=matching_device_ids)
+            mappings = mapping_fn( device )
+            if any(m.id in selected_mapping_ids for m in mappings):
+                matching_ids.append( device.id )
 
+        return queryset.filter(id__in=matching_ids)
 
-    def filter_templates(self, queryset, name, value):
+    def filter_by_mapping_single(self, queryset, name, value):
         if not value:
             return queryset
-    
-        selected_mapping_ids = {mapping.id for mapping in value}
-        matching_device_ids = []
-    
-        for device in queryset:
-            matched = get_templates_mappings( device ) # returns a list of TemplteMapping
-            matched_mapping_ids = {mapping.id for mapping in matched}
-    
-            if matched_mapping_ids & selected_mapping_ids:
-                matching_device_ids.append(device.id)
-    
-        return queryset.filter(id__in=matching_device_ids)
-    
 
-    def filter_proxy(self, queryset, name, value):
+        mapping_fn_map = {
+            'proxy': get_proxy_mapping,
+            'proxygroup': get_proxygroup_mapping,
+        }
+
+        mapping_fn = mapping_fn_map.get( name )
+        if not mapping_fn:
+            return queryset
+
+        selected_id = value.id
+        matching_ids = []
+
+        for device in queryset:
+            mapping = mapping_fn( device )
+            if mapping and mapping.id == selected_id:
+                matching_ids.append( device.id )
+
+        return queryset.filter( id__in=matching_ids )
+
+# ------------------------------------------------------------------------------
+# VM Mappings
+# ------------------------------------------------------------------------------
+
+class VMMappingsFilterSet(VirtualMachineFilterSet):
+
+    hostgroups = filters.ModelMultipleChoiceFilter(
+        field_name='hostgroups',
+        queryset=models.HostGroupMapping.objects.all(),
+        conjoined=True,
+        method='filter_by_mapping_list',
+        label="Host Groups"
+    )
+
+    templates = filters.ModelMultipleChoiceFilter(
+        field_name='templates',
+        queryset=models.TemplateMapping.objects.all(),
+        conjoined=True,
+        method='filter_by_mapping_list',
+        label="Templates"
+    )
+    
+    proxy = filters.ModelChoiceFilter(
+        field_name='proxy',
+        queryset=models.ProxyMapping.objects.all(),
+        method='filter_by_mapping_single',
+        label="Proxy"
+    )
+
+    proxygroup = filters.ModelChoiceFilter(
+        field_name='proxygroup',
+        queryset=models.ProxyGroupMapping.objects.all(),
+        method='filter_by_mapping_single',
+        label="Proxy Group"
+    )
+
+    def filter_by_mapping_list(self, queryset, name, value):
         if not value:
             return queryset
-    
-        # If value is a queryset or list of ProxyMapping objects
-        if hasattr(value, '__iter__') and not isinstance(value, str):
-            selected_mapping_ids = {mapping.id for mapping in value}
-        else:
-            # single ProxyMapping object
-            selected_mapping_ids = {value.id}
-    
-        matching_device_ids = []
-    
+
+        mapping_fn_map = {
+            'hostgroups': get_hostgroups_mappings,
+            'templates': get_templates_mappings,
+        }
+
+        mapping_fn = mapping_fn_map.get( name )
+        if not mapping_fn:
+            return queryset
+
+        selected_mapping_ids = {m.id for m in value}
+        matching_ids = []
+
         for device in queryset:
-            proxy = get_proxy_mapping(device)
-            if proxy and proxy.id in selected_mapping_ids:
-                matching_device_ids.append(device.id)
-    
-        return queryset.filter(id__in=matching_device_ids)
-    
-    def filter_proxygroup(self, queryset, name, value):
+            mappings = mapping_fn( device )
+            if any(m.id in selected_mapping_ids for m in mappings):
+                matching_ids.append( device.id )
+
+        return queryset.filter( id__in=matching_ids )
+
+    def filter_by_mapping_single(self, queryset, name, value):
         if not value:
             return queryset
-    
-        # If value is a queryset or list of ProxyMapping objects
-        if hasattr(value, '__iter__') and not isinstance(value, str):
-            selected_mapping_ids = {mapping.id for mapping in value}
-        else:
-            # single ProxyMapping object
-            selected_mapping_ids = {value.id}
-    
-        matching_device_ids = []
-    
+
+        mapping_fn_map = {
+            'proxy': get_proxy_mapping,
+            'proxygroup': get_proxygroup_mapping,
+        }
+
+        mapping_fn = mapping_fn_map.get( name )
+        if not mapping_fn:
+            return queryset
+
+        selected_id = value.id
+        matching_ids = []
+
         for device in queryset:
-            proxy = get_proxygroup_mapping(device)
-            if proxy and proxy.id in selected_mapping_ids:
-                matching_device_ids.append(device.id)
-    
-        return queryset.filter(id__in=matching_device_ids)
-    
-        
+            mapping = mapping_fn( device )
+            if mapping and mapping.id == selected_id:
+                matching_ids.append( device.id )
+
+        return queryset.filter( id__in=matching_ids )
+
+
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------
