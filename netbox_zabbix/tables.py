@@ -579,13 +579,13 @@ EXTRA_DEVICE_ADD_ACTIONS = """
         <li>
             <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_agent' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
             <i class="mdi mdi-flash-auto""></i>
-            Add Agent
+            Quick Add Agent
             </a>
         </li>
         <li>
             <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_snmpv3' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
             <i class="mdi mdi-flash""></i>
-            Add SNMPv3
+            Qucik Add SNMPv3
             </a>
         </li>        
     </ul>

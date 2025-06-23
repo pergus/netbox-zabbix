@@ -846,6 +846,130 @@ class VMMappingsListView(generic.ObjectListView):
     template_name = "netbox_zabbix/vm_mappings.html"
 
 
+
+# ------------------------------------------------------------------------------
+# NetBox Ony Devices
+# ------------------------------------------------------------------------------
+
+class NetBoxOnlyDevicesView(generic.ObjectListView):
+
+    table = tables.NetBoxOnlyDevicesTable
+    filterset = filtersets.NetBoxOnlyDevicesFilterSet
+    template_name = "netbox_zabbix/netboxonlydevices.html"
+
+    def get_queryset(self, request):
+        try:
+            zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
+        except config.ZabbixConfigNotFound as e:
+            messages.error( request, str( e ) )
+            return Device.objects.none()
+        except Exception as e:
+            messages.error( request, f"Failed to retrieve hostnames from Zabbix: {str(e)}" )
+            return Device.objects.none()
+
+        # Return only devices that are not in Zabbix
+        return Device.objects.exclude( name__in=zabbix_hostnames )
+
+# ------------------------------------------------------------------------------
+# NetBox Ony VMs
+# ------------------------------------------------------------------------------
+
+class NetBoxOnlyVMsView(generic.ObjectListView):
+    table = tables.NetBoxOnlyVMsTable
+    filterset = filtersets.NetBoxOnlyVMsFilterSet
+    template_name = "netbox_zabbix/netboxonlyvms.html"
+
+    def get_queryset(self, request):
+        try:
+            zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
+        except config.ZabbixConfigNotFound as e:
+            messages.error( request, str( e ) )
+            return VirtualMachine.objects.none()
+        except Exception as e:
+            messages.error( request, f"Failed to retrieve hostnames from Zabbix: {str(e)}" )
+            return VirtualMachine.objects.none()
+
+        # Return only Virtual Machines that are not in Zabbix
+        return VirtualMachine.objects.exclude( name__in=zabbix_hostnames )
+
+# ------------------------------------------------------------------------------
+# Zabbix Only Hosts
+# ------------------------------------------------------------------------------
+
+class ZabbixOnlyHostsView(GenericTemplateView):
+    template_name = 'netbox_zabbix/zabbixonlyhosts.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data( **kwargs )
+
+        error_occurred = False        
+        try:            
+            data = z.get_zabbix_only_hostnames()
+            web_address = config.get_zabbix_web_address()
+
+        except config.ZabbixConfigNotFound as e:
+            messages.error(self.request, str(e))
+            error_occurred = True
+
+        except Exception as e:
+            messages.error(self.request, f"Failed to fetch data from Zabbix: {str(e)}")
+            error_occurred = True
+        
+        if error_occurred:
+            empty_table = tables.ZabbixOnlyHostTable([], orderable=False)
+            RequestConfig(self.request).configure(empty_table)
+            context['table'] = empty_table
+            return context
+        
+        table = tables.ZabbixOnlyHostTable( data, orderable=False )
+        RequestConfig(
+            self.request, {
+                'paginator_class': EnhancedPaginator,
+                'per_page': get_paginate_count( self.request ),
+            }
+        ).configure( table )
+        
+        try:
+            web_address = config.get_zabbix_web_address()
+        except Exception as e:
+            raise e
+        
+        context.update({
+            'table': table,
+            'web_address': web_address,
+        })
+        return context
+
+
+# ------------------------------------------------------------------------------
+# Quick Add Zabbix Interface
+# ------------------------------------------------------------------------------
+
+def device_quick_add_agent(request):
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+
+    if request.method == 'GET':
+        device_id = request.GET.get( "device_id" )
+        logger.info( f"{device_id=}")
+        device = Device.objects.filter( pk=device_id ).first()
+        if not device:
+            messages.error( request, f"No Device with id {device_id} found" )
+        else:
+            try:
+                result = jobs.DeviceQuickAddAgent.run_now( device=device, user=request.user )
+                messages.success( request, result )
+            except Exception as e:
+                messages.error( request, str( e ) )
+
+    return redirect( redirect_url )
+
+
+def device_quick_add_snmpv3(request):
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+    return redirect( redirect_url )    
+    
+
+
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------
@@ -1102,113 +1226,6 @@ class ImportableVMListView(generic.ObjectListView):
         return super().get( request, *args, **kwargs )
     
 
-class NetBoxOnlyDevicesView(generic.ObjectListView):
-
-    table = tables.NetBoxOnlyDevicesTable
-    filterset = filtersets.NetBoxOnlyDevicesFilterSet
-    template_name = "netbox_zabbix/netboxonlydevices.html"
-
-    def get_queryset(self, request):
-        try:
-            zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
-        except config.ZabbixConfigNotFound as e:
-            messages.error( request, str( e ) )
-            return Device.objects.none()
-        except Exception as e:
-            messages.error( request, f"Failed to retrieve hostnames from Zabbix: {str(e)}" )
-            return Device.objects.none()
-
-        # Return only devices that are not in Zabbix
-        return Device.objects.exclude( name__in=zabbix_hostnames )
-
-
-class NetBoxOnlyVMsView(generic.ObjectListView):
-    table = tables.NetBoxOnlyVMsTable
-    filterset = filtersets.NetBoxOnlyVMsFilterSet
-    template_name = "netbox_zabbix/netboxonlyvms.html"
-
-    def get_queryset(self, request):
-        try:
-            zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
-        except config.ZabbixConfigNotFound as e:
-            messages.error( request, str( e ) )
-            return VirtualMachine.objects.none()
-        except Exception as e:
-            messages.error( request, f"Failed to retrieve hostnames from Zabbix: {str(e)}" )
-            return VirtualMachine.objects.none()
-
-        # Return only Virtual Machines that are not in Zabbix
-        return VirtualMachine.objects.exclude( name__in=zabbix_hostnames )
-
-
-class ZabbixOnlyHostsView(GenericTemplateView):
-    template_name = 'netbox_zabbix/zabbixonlyhosts.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data( **kwargs )
-
-        error_occurred = False        
-        try:            
-            data = z.get_zabbix_only_hostnames()
-            web_address = config.get_zabbix_web_address()
-
-        except config.ZabbixConfigNotFound as e:
-            messages.error(self.request, str(e))
-            error_occurred = True
-
-        except Exception as e:
-            messages.error(self.request, f"Failed to fetch data from Zabbix: {str(e)}")
-            error_occurred = True
-        
-        if error_occurred:
-            empty_table = tables.ZabbixOnlyHostTable([], orderable=False)
-            RequestConfig(self.request).configure(empty_table)
-            context['table'] = empty_table
-            return context
-        
-        table = tables.ZabbixOnlyHostTable( data, orderable=False )
-        RequestConfig(
-            self.request, {
-                'paginator_class': EnhancedPaginator,
-                'per_page': get_paginate_count( self.request ),
-            }
-        ).configure( table )
-        
-        try:
-            web_address = config.get_zabbix_web_address()
-        except Exception as e:
-            raise e
-        
-        context.update({
-            'table': table,
-            'web_address': web_address,
-        })
-        return context
-
-
-def device_quick_add_agent(request):
-    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
-
-    if request.method == 'GET':
-        device_id = request.GET.get( "device_id" )
-        logger.info( f"{device_id=}")
-        device = Device.objects.filter( pk=device_id ).first()
-        if not device:
-            messages.error( request, f"No Device with id {device_id} found" )
-        else:
-            try:
-                result = jobs.DeviceQuickAddAgent.run_now( device=device, user=request.user )
-                messages.success( request, result )
-            except Exception as e:
-                messages.error( request, str( e ) )
-
-    return redirect( redirect_url )
-
-
-def device_quick_add_snmpv3(request):
-    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
-    return redirect( redirect_url )    
-    
 
 # ------------------------------------------------------------------------------
 # Interfaces
