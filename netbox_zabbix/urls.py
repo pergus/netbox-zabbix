@@ -49,12 +49,17 @@ urlpatterns = (
     
     path( 'template-mappings/<int:pk>/devices/',   views.HostGroupMappingDevicesView.as_view(),  name='hostgroupmapping_devices' ),
     path( 'template-mappings/<int:pk>/vms/',       views.HostGroupMappingVMsView.as_view(),      name='hostgroupmapping_vms' ),
+
+    # --------------------------------------------------------------------------
+    # Zabbix Imports
+    # --------------------------------------------------------------------------
+            
+    path( 'zabbix/import_templates',    views.import_templates,    name='import_templates' ),
+    path( 'zabbix/import_proxies',      views.import_proxies,      name='import_proxies' ),
+    path( 'zabbix/import-proxy-groups', views.import_proxy_groups, name='import_proxy_groups' ),
+    path( 'zabbix/import-host-group',   views.import_host_groups,  name='import_host_groups' ),
     
-    # Sync Zabbix Templates
-    path( 'zabbix/sync_templates',        views.sync_zabbix_templates,        name='sync_zabbix_templates' ),
-
-
-
+    
     # --------------------------------------------------------------------------
     # Proxy + Mappings
     # --------------------------------------------------------------------------
@@ -77,10 +82,6 @@ urlpatterns = (
     path( 'proxy-mappings/<int:pk>/edit/',      views.ProxyMappingEditView.as_view(),         name='proxymapping_edit' ),        
     path( 'proxy-mappings/<int:pk>/delete/',    views.ProxyMappingDeleteView.as_view(),       name='proxymapping_delete' ),
     path( 'proxy-mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                name='proxymapping_changelog', kwargs={'model': models.ProxyMapping},  ),
-
-    # Sync Zabbix Proxy
-    path( 'zabbix/sync_proxies',      views.sync_zabbix_proxies,       name='sync_zabbix_proxies' ),
-
 
     # --------------------------------------------------------------------------
     # Proxy Groups + Mappings
@@ -105,39 +106,31 @@ urlpatterns = (
     path( 'proxy-group-mappings/<int:pk>/delete/',    views.ProxyGroupMappingDeleteView.as_view(),       name='proxygroupmapping_delete' ),
     path( 'proxy-group-mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                     name='proxygroupmapping_changelog', kwargs={'model': models.ProxyGroupMapping},  ),
     
-    # Sync Zabbix Proxy Groups
-    path( 'zabbix/sync_proxy-groups',      views.sync_zabbix_proxygroups,       name='sync_zabbix_proxygroups' ),
-
-
 
     # --------------------------------------------------------------------------
     # Host Groups + Mappings
     # --------------------------------------------------------------------------
 
     # Zabbix Host Groups
-    path( 'hostgroups/',                    views.HostGroupListView.as_view(),   name='hostgroup_list' ),
-    path( 'hostgroups/add/',                views.HostGroupEditView.as_view(),   name='hostgroup_add' ),
-    path( 'hostgroups/<int:pk>/',           views.HostGroupView.as_view(),       name='hostgroup' ),
-    path( 'hostgroups/<int:pk>/edit/',      views.HostGroupEditView.as_view(),   name='hostgroup_edit' ),
-    path( 'hostgroups/<int:pk>/delete/',    views.HostGroupDeleteView.as_view(), name='hostgroup_delete' ),
-    path( 'hostgroups/<int:pk>/changelog/', ObjectChangeLogView.as_view(),       name='hostgroup_changelog', kwargs={'model': models.HostGroup},  ),
+    path( 'host-groups/',                            views.HostGroupListView.as_view(),              name='hostgroup_list' ),
+    path( 'host-groups/add/',                        views.HostGroupEditView.as_view(),              name='hostgroup_add' ),
+    path( 'host-groups/<int:pk>/',                   views.HostGroupView.as_view(),                  name='hostgroup' ),
+    path( 'host-groups/<int:pk>/edit/',              views.HostGroupEditView.as_view(),              name='hostgroup_edit' ),
+    path( 'host-groups/<int:pk>/delete/',            views.HostGroupDeleteView.as_view(),            name='hostgroup_delete' ),
+    path( 'host-groups/<int:pk>/changelog/',         ObjectChangeLogView.as_view(),                  name='hostgroup_changelog', kwargs={'model': models.HostGroup},  ),
 
     # Zabbix Host Group Mappings    
-    path( 'hostgroup-mappings/',                    views.HostGroupMappingListView.as_view(),         name='hostgroupmapping_list' ),
-    path( 'hostgroup-mappings/add/',                views.HostGroupMappingEditView.as_view(),         name='hostgroupmapping_add' ),
-    path( 'hostgroup-mappings/delete/',             views.HostGroupMappingBulkDeleteView.as_view(),   name='hostgroupmapping_bulk_delete' ),        
-    path( 'hostgroup-mappings/<int:pk>/',           views.HostGroupMappingView.as_view(),             name='hostgroupmapping' ),
-    path( 'hostgroup-mappings/<int:pk>/edit/',      views.HostGroupMappingEditView.as_view(),         name='hostgroupmapping_edit' ),        
-    path( 'hostgroup-mappings/<int:pk>/delete/',    views.HostGroupMappingDeleteView.as_view(),       name='hostgroupmapping_delete' ),
-    path( 'hostgroup-mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                    name='hostgroupmapping_changelog', kwargs={'model': models.HostGroupMapping},  ),
+    path( 'host-group-mappings/',                    views.HostGroupMappingListView.as_view(),       name='hostgroupmapping_list' ),
+    path( 'host-group-mappings/add/',                views.HostGroupMappingEditView.as_view(),       name='hostgroupmapping_add' ),
+    path( 'host-group-mappings/delete/',             views.HostGroupMappingBulkDeleteView.as_view(), name='hostgroupmapping_bulk_delete' ),        
+    path( 'host-group-mappings/<int:pk>/',           views.HostGroupMappingView.as_view(),           name='hostgroupmapping' ),
+    path( 'host-group-mappings/<int:pk>/edit/',      views.HostGroupMappingEditView.as_view(),       name='hostgroupmapping_edit' ),        
+    path( 'host-group-mappings/<int:pk>/delete/',    views.HostGroupMappingDeleteView.as_view(),     name='hostgroupmapping_delete' ),
+    path( 'host-group-mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                  name='hostgroupmapping_changelog', kwargs={'model': models.HostGroupMapping},  ),
     
-    path( 'hostgroup-mappings/<int:pk>/devices/',   views.HostGroupMappingDevicesView.as_view(),  name='hostgroupmapping_devices' ),
-    path( 'hostgroup-mappings/<int:pk>/vms/',       views.HostGroupMappingVMsView.as_view(),      name='hostgroupmapping_vms' ),
+    path( 'host-group-mappings/<int:pk>/devices/',   views.HostGroupMappingDevicesView.as_view(),    name='hostgroupmapping_devices' ),
+    path( 'host-group-mappings/<int:pk>/vms/',       views.HostGroupMappingVMsView.as_view(),        name='hostgroupmapping_vms' ),
     
-    # Sync Zabbix Hostgroups
-    path( 'zabbix/sync_hostgroup',        views.sync_zabbix_hostgroups,        name='sync_zabbix_hostgroups' ),
-    
-
 
     # --------------------------------------------------------------------------
     # Zabbix Configurations

@@ -130,9 +130,9 @@ def get_templates():
         raise e
    
 
-def synchronize_templates(max_deletions=None):
+def import_templates(max_deletions=None):
     """
-    Synchronize templates from Zabbix with the local database.
+    Import templates from Zabbix to the local database.
     
     Fetches the list of templates from Zabbix and updates or creates corresponding
     Template records in the local database. It also deletes templates locally that
@@ -140,7 +140,7 @@ def synchronize_templates(max_deletions=None):
     
     Args:
         max_deletions (int, optional): Maximum number of templates allowed to delete
-            in one synchronization. If None, uses the default from config settings.
+            in one import. If None, uses the default from config settings.
     
     Returns:
         tuple: A tuple containing two lists:
@@ -223,9 +223,9 @@ def get_proxies():
         raise e
     
 
-def synchronize_proxies(max_deletions=None):
+def import_proxies(max_deletions=None):
     """
-    Synchronize proxies from Zabbix with the local database.
+    Import proxies from Zabbix to the local database.
     
     Fetches the list of proxies from Zabbix and updates or creates corresponding
     Proxy records in the local database. It also deletes proxies locally that
@@ -233,7 +233,7 @@ def synchronize_proxies(max_deletions=None):
     
     Args:
         max_deletions (int, optional): Maximum number of proxies allowed to delete
-            in one synchronization. If None, uses the default from config settings.
+            in one import. If None, uses the default from config settings.
     
     Returns:
         tuple: A tuple containing two lists:
@@ -315,9 +315,9 @@ def get_proxy_groups():
         raise e
     
 
-def synchronize_proxy_groups(max_deletions=None):
+def import_proxy_groups(max_deletions=None):
     """
-    Synchronize proxy groups from Zabbix with the local database.
+    Import proxy groups from Zabbix to the local database.
     
     Fetches the list of proxy groups from Zabbix and updates or creates corresponding
     Proxy records in the local database. It also deletes proxy groups locally that
@@ -494,20 +494,32 @@ def hostgroup_get():
         raise e        
 
 
-def synchronize_hostgroups(max_deletions=None):
+def import_host_groups(max_deletions=None):
     """
-    Synchronize Zabbix hostgroups into the local NetBox plugin database.
-
+    Import host groups from Zabbix to the local database.
+    
+    Fetches the list of host froups from Zabbix and updates or creates corresponding
+    HostGroup records in the local database. It also deletes host groups locally that
+    no longer exist in Zabbix, respecting a maximum number of deletions.
+    
     Args:
-        max_deletions (int, optional): Max allowed deletions in one run.
-
+        max_deletions (int, optional): Maximum number of host groups allowed to delete
+            in one import. If None, uses the default from config settings.
+    
     Returns:
-        tuple: (added, deleted) lists of hostgroup names
+        tuple: A tuple containing two lists:
+            - added_host_groups: List of newly added template dicts.
+            - deleted_host_groups: List of tuples (name, templateid) of deleted host groups.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        RuntimeError: If the number of host groups to delete exceeds max_deletions.
+        Exception: For other errors during fetching or updating host groups.
     """
     try:
         hostgroups = hostgroup_get()
     except Exception as e:
-        raise RuntimeError( "Zabbix hostgroup sync failed" ) from e
+        raise RuntimeError( "Zabbix host group sync failed" ) from e
 
     current = models.HostGroup.objects.all()
     current_ids = set( current.values_list( "groupid", flat=True ) )
@@ -517,7 +529,7 @@ def synchronize_hostgroups(max_deletions=None):
     for hg in hostgroups:
         obj, created = models.HostGroup.objects.update_or_create( groupid=hg["groupid"], defaults={"name": hg["name"]} )
         if created:
-            logger.info( f"Added hostgroup {hg['name']} ({hg['groupid']})" )
+            logger.info( f"Added host group {hg['name']} ({hg['groupid']})" )
             added.append( hg["name"] )
     
     to_delete = current_ids - new_ids
@@ -525,7 +537,7 @@ def synchronize_hostgroups(max_deletions=None):
     
     for groupid in to_delete:
         hg = models.HostGroup.objects.get( groupid=groupid )
-        logger.info( f"Deleted hostgroup {hg.name} ({hg.groupid})" )
+        logger.info( f"Deleted host group {hg.name} ({hg.groupid})" )
         deleted.append( hg.name )
         hg.delete()
     

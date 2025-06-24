@@ -135,16 +135,16 @@ def templates_confirm_deletions(request):
     return redirect( 'plugins:netbox_zabbix:templates_review_deletions' )
 
 
-def sync_zabbix_templates(request):
+def import_templates(request):
     """
-    View-based wrapper around template synchronization.
+    View-based wrapper around import templates.
     """
     redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
 
     try:
-        added, deleted = z.synchronize_templates()
+        added, deleted = z.import_templates()
 
-        msg_lines = ["Syncing Zabbix Templates succeeded."]
+        msg_lines = ["Importing Zabbix Templates succeeded."]
         if added:
             msg_lines.append( f"Added {len( added )} template{ pluralize( len( added ) )}." )
         if deleted:
@@ -155,7 +155,7 @@ def sync_zabbix_templates(request):
         messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
 
     except RuntimeError as e:
-        error_msg = "Syncing Zabbix Templates failed."
+        error_msg = "Importing Zabbix Templates failed."
         logger.error( f"{error_msg} {e}" )
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
 
@@ -175,6 +175,7 @@ def sync_zabbix_templates(request):
 
 class TemplateMappingView(generic.ObjectView):
     queryset = models.TemplateMapping.objects.all()
+    template_name = 'netbox_zabbix/template_mapping.html'
     
 
     def get_extra_context(self, request, instance):
@@ -217,13 +218,13 @@ class TemplateMappingView(generic.ObjectView):
 class TemplateMappingListView(generic.ObjectListView):
     queryset = models.TemplateMapping.objects.all()
     table = tables.TemplateMappingTable
-    template_name = 'netbox_zabbix/templatemapping_list.html'
+    template_name = 'netbox_zabbix/template_mapping_list.html'
 
 
 class TemplateMappingEditView(generic.ObjectEditView):
     queryset = models.TemplateMapping.objects.all()
     form = forms.TemplateMappingForm
-    template_name = 'netbox_zabbix/templatemapping_edit.html'
+    template_name = 'netbox_zabbix/template_mapping_edit.html'
 
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:templatemapping_list')
@@ -282,16 +283,16 @@ def proxies_confirm_deletions(request):
     return redirect( 'plugins:netbox_zabbix:proxies_review_deletions' )
 
 
-def sync_zabbix_proxies(request):
+def import_proxies(request):
     """
-    View-based wrapper around proxies synchronization.
+    View-based wrapper around import proxies.
     """
     redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
 
     try:
-        added, deleted = z.synchronize_proxies()
+        added, deleted = z.import_proxies()
 
-        msg_lines = ["Syncing Zabbix Proxies succeeded."]
+        msg_lines = ["Importing Zabbix Proxies succeeded."]
         if added:
             msg_lines.append( f"Added {len( added )} prox{pluralize(len(added), 'y,ies')}." )
         if deleted:
@@ -302,7 +303,7 @@ def sync_zabbix_proxies(request):
         messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
 
     except RuntimeError as e:
-        error_msg = "Syncing Zabbix Proxies failed."
+        error_msg = "Importing Zabbix Proxies failed."
         logger.error( f"{error_msg} {e}" )
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
 
@@ -321,7 +322,9 @@ def sync_zabbix_proxies(request):
 
 class ProxyMappingView(generic.ObjectView):
     queryset = models.ProxyMapping.objects.all()
+    template_name = 'netbox_zabbix/proxy_mapping.html'
     
+
     def get_extra_context(self, request, instance):
         filter_data = {}
         if instance.sites.exists():
@@ -362,13 +365,13 @@ class ProxyMappingView(generic.ObjectView):
 class ProxyMappingListView(generic.ObjectListView):
     queryset = models.ProxyMapping.objects.all()
     table = tables.ProxyMappingTable
-    template_name = 'netbox_zabbix/proxymapping_list.html'
+    template_name = 'netbox_zabbix/proxy_mapping_list.html'
 
 
 class ProxyMappingEditView(generic.ObjectEditView):
     queryset = models.ProxyMapping.objects.all()
     form = forms.ProxyMappingForm
-    template_name = 'netbox_zabbix/proxymapping_edit.html'
+    template_name = 'netbox_zabbix/proxy_mapping_edit.html'
 
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:proxymapping_list')
@@ -378,7 +381,7 @@ class ProxyMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.ProxyMapping.objects.all()
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:poxymapping_list')
+        return reverse('plugins:netbox_zabbix:proxymapping_list')
 
 
 class ProxyMappingBulkDeleteView(generic.BulkDeleteView):
@@ -398,19 +401,21 @@ class ProxyMappingBulkDeleteView(generic.BulkDeleteView):
 
 class ProxyGroupView(generic.ObjectView):
     queryset = models.ProxyGroup.objects.all()
+    template_name = "netbox_zabbix/proxy_group.html"
 
 class ProxyGroupListView(generic.ObjectListView):
     queryset = models.ProxyGroup.objects.all()
     filterset = filtersets.ProxyGroupFilterSet
     filterset_form = forms.ProxyGroupFilterForm
     table = tables.ProxyGroupTable 
-    template_name = "netbox_zabbix/proxygroup_list.html"
+    template_name = "netbox_zabbix/proxy_group_list.html"
 
 
 class ProxyGroupEditView(generic.ObjectEditView):
     queryset = models.ProxyGroup.objects.all()
     form = forms.ProxyGroupForm
-
+    template_name = "netbox_zabbix/proxy_group_edit.html"
+    
 
 class ProxyGroupDeleteView(generic.ObjectDeleteView):
     queryset = models.ProxyGroup.objects.all()
@@ -428,16 +433,16 @@ def proxygroups_confirm_deletions(request):
     return redirect( 'plugins:netbox_zabbix:proxygroup_review_deletions' )
 
 
-def sync_zabbix_proxygroups(request):
+def import_proxy_groups(request):
     """
-    View-based wrapper around proxy group ies synchronization.
+    View-based wrapper around import proxy groups
     """
     redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
 
     try:
-        added, deleted = z.synchronize_proxy_groups()
+        added, deleted = z.import_proxy_groups()
 
-        msg_lines = ["Syncing Zabbix Proxy Groups succeeded."]
+        msg_lines = ["Import Zabbix Proxy Groups succeeded."]
         if added:
             msg_lines.append( f"Added {len( added )} proxy group{pluralize( len(added) )}." )
         if deleted:
@@ -448,7 +453,7 @@ def sync_zabbix_proxygroups(request):
         messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
 
     except RuntimeError as e:
-        error_msg = "Syncing Zabbix Proxy Groups failed."
+        error_msg = "Importing Zabbix Proxy Groups failed."
         logger.error( f"{error_msg} {e}" )
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
 
@@ -468,7 +473,8 @@ def sync_zabbix_proxygroups(request):
 
 class ProxyGroupMappingView(generic.ObjectView):
     queryset = models.ProxyGroupMapping.objects.all()
-    
+    template_name = 'netbox_zabbix/proxy_group_mapping.html'
+
     def get_extra_context(self, request, instance):
         filter_data = {}
         if instance.sites.exists():
@@ -509,13 +515,13 @@ class ProxyGroupMappingView(generic.ObjectView):
 class ProxyGroupMappingListView(generic.ObjectListView):
     queryset = models.ProxyGroupMapping.objects.all()
     table = tables.ProxyGroupMappingTable
-    template_name = 'netbox_zabbix/proxygroupmapping_list.html'
+    template_name = 'netbox_zabbix/proxy_group_mapping_list.html'
 
 
 class ProxyGroupMappingEditView(generic.ObjectEditView):
     queryset = models.ProxyGroupMapping.objects.all()
     form = forms.ProxyGroupMappingForm
-    template_name = 'netbox_zabbix/proxygroupmapping_edit.html'
+    template_name = 'netbox_zabbix/proxy_group_mapping_edit.html'
 
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:proxygroupmapping_list')
@@ -550,14 +556,14 @@ class HostGroupListView(generic.ObjectListView):
     queryset = models.HostGroup.objects.all()
     #filterset_fields = ['hostgroup', 'role',  'platform', 'tag']
     table = tables.HostGroupTable
-    template_name = 'netbox_zabbix/hostgroup_list.html'
+    template_name = 'netbox_zabbix/host_group_list.html'
     
 
 
 class HostGroupEditView(generic.ObjectEditView):
     queryset = models.HostGroup.objects.all()
     form = forms.HostGroupForm
-#    template_name = 'netbox_zabbix/hostgroup_edit.html'
+#    template_name = 'netbox_zabbix/host_group_edit.html'
 #
 #    def get_return_url(self, request, obj=None):
 #        return reverse('plugins:netbox_zabbix:hostgroup_list')
@@ -570,12 +576,12 @@ class HostGroupDeleteView(generic.ObjectDeleteView):
         return reverse('plugins:netbox_zabbix:hostgroup_list')
 
 
-def sync_zabbix_hostgroups(request):
+def import_host_groups(request):
     redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
 
     try:
-        added, deleted = z.synchronize_hostgroups()
-        msg_lines = ["Syncing Zabbix Hostgroups succeeded."]
+        added, deleted = z.import_host_groups()
+        msg_lines = ["Importing Zabbix Hostgroups succeeded."]
         if added:
             msg_lines.append( f"Added {len( added )} hosgroup{ pluralize( len( added ) )}." )
         if deleted:
@@ -586,7 +592,7 @@ def sync_zabbix_hostgroups(request):
         messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
         
     except RuntimeError as e:
-        error_msg = "Syncing Zabbix Hostgroups failed."
+        error_msg = "Importing Zabbix Hostgroups failed."
         logger.error( f"{error_msg} {e}" )
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
     
@@ -606,7 +612,8 @@ def sync_zabbix_hostgroups(request):
 
 class HostGroupMappingView(generic.ObjectView):
     queryset = models.HostGroupMapping.objects.all()
-    
+    template_name = 'netbox_zabbix/host_group_mapping.html'
+
     def get_extra_context(self, request, instance):
         filter_data = {}
         if instance.sites.exists():
@@ -648,13 +655,13 @@ class HostGroupMappingListView(generic.ObjectListView):
     queryset = models.HostGroupMapping.objects.all()
     #filterset_fields = ['hostgroup', 'role',  'platform', 'tag']
     table = tables.HostGroupMappingTable
-    template_name = 'netbox_zabbix/hostgroupmapping_list.html'
+    template_name = 'netbox_zabbix/host_group_mapping_list.html'
 
 
 class HostGroupMappingEditView(generic.ObjectEditView):
     queryset = models.HostGroupMapping.objects.all()
     form = forms.HostGroupMappingForm
-    template_name = 'netbox_zabbix/hostgroupmapping_edit.html'
+    template_name = 'netbox_zabbix/host_group_mapping_edit.html'
 
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:hostgroupmapping_list')
@@ -700,7 +707,7 @@ def count_matching_devices(obj):
 @register_model_view(models.HostGroupMapping, 'devices')
 class HostGroupMappingDevicesView(generic.ObjectView):
     queryset = models.HostGroupMapping.objects.all()
-    template_name = 'netbox_zabbix/hostgroupmapping_devices.html'
+    template_name = 'netbox_zabbix/host_group_mapping_devices.html'
     tab = ViewTab( label="Matching Devices",                   
                   badge=lambda obj: count_matching_devices(obj),
                   weight=500 )
@@ -785,7 +792,7 @@ class HostGroupMappingVMsView(generic.ObjectView):
          - The result table is sortable and paginated using NetBox's standard table controls.
      """
     queryset = models.HostGroupMapping.objects.all()
-    template_name = 'netbox_zabbix/hostgroupmapping_vms.html'
+    template_name = 'netbox_zabbix/host_group_mapping_vms.html'
     tab = ViewTab( label="Matching Virtual Machines", 
                   badge=lambda obj: count_matching_vms(obj),
                   weight=500 )

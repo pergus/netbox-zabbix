@@ -95,7 +95,7 @@ class Config(NetBoxModel):
         return self.name
 
     def get_absolute_url(self):
-        return reverse("plugins:netbox_zabbix:config", args=[self.pk])
+        return reverse( "plugins:netbox_zabbix:config", args=[self.pk] )
 
 
 # ------------------------------------------------------------------------------
@@ -116,7 +116,9 @@ class Template(NetBoxModel):
     def __str__(self):
         return self.name
 
-
+    def get_absolute_url(self):
+        return reverse( "plugins:netbox_zabbix:template", args=[self.pk] )
+    
 # ------------------------------------------------------------------------------
 # Template Mapping
 # ------------------------------------------------------------------------------
@@ -138,7 +140,7 @@ class TemplateMapping(NetBoxModel):
         return self.name
     
     def get_absolute_url(self):
-        return reverse("plugins:netbox_zabbix:templatemapping", args=[self.pk])
+        return reverse( "plugins:netbox_zabbix:templatemapping", args=[self.pk] )
 
 
 # ------------------------------------------------------------------------------
@@ -158,6 +160,10 @@ class Proxy(NetBoxModel):
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return reverse( "plugins:netbox_zabbix:proxy", args=[self.pk] )
+    
     
 # ------------------------------------------------------------------------------
 # Proxy Mapping
@@ -174,7 +180,7 @@ class ProxyMapping(NetBoxModel):
         return self.name
     
     def get_absolute_url(self):
-        return reverse("plugins:netbox_zabbix:proxymapping", args=[self.pk])
+        return reverse( "plugins:netbox_zabbix:proxymapping", args=[self.pk] )
 
 
 # ------------------------------------------------------------------------------
@@ -194,6 +200,9 @@ class ProxyGroup(NetBoxModel):
     def __str__(self):
         return self.name
 
+    def get_absolute_url(self):
+        return reverse( "plugins:netbox_zabbix:proxygroup", args=[self.pk] )
+    
 # ------------------------------------------------------------------------------
 # Proxy Group Mapping
 # ------------------------------------------------------------------------------
@@ -209,7 +218,7 @@ class ProxyGroupMapping(NetBoxModel):
         return self.name
     
     def get_absolute_url(self):
-        return reverse("plugins:netbox_zabbix:proxygroupmapping", args=[self.pk])
+        return reverse( "plugins:netbox_zabbix:proxygroupmapping", args=[self.pk] )
 
     
     
@@ -233,7 +242,7 @@ class HostGroup(NetBoxModel):
         return self.name
 
     def get_absolute_url(self):
-        return reverse("plugins:netbox_zabbix:hostgroup", args=[self.pk])
+        return reverse( "plugins:netbox_zabbix:hostgroup", args=[self.pk] )
 
 
 # ------------------------------------------------------------------------------
@@ -251,7 +260,7 @@ class HostGroupMapping(NetBoxModel):
         return self.name
     
     def get_absolute_url(self):
-        return reverse("plugins:netbox_zabbix:hostgroupmapping", args=[self.pk])
+        return reverse( "plugins:netbox_zabbix:hostgroupmapping", args=[self.pk] )
     
 
 # ------------------------------------------------------------------------------
