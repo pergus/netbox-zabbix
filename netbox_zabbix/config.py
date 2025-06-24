@@ -176,3 +176,12 @@ def get_max_success_notifications():
         The max success notifications as specified in the configuration.
     """
     return get_config().max_success_notifications
+
+def get_inventory_mode():
+    """
+    Retrieves the inventory mode from the configuration.
+
+    Returns:
+        The inventory mode as specified in the configuration.
+    """
+    return get_config().inventory_mode

@@ -53,7 +53,7 @@ I added it to makemigrations without having to dump the database.
 | Add models for Proxy and Proxy Groups                        | Done          |
 | Add Proxy mappings                                           | Done          |
 | Add Proxy Group mappings                                     | Done          |
-
+| Add support for TLS certificates                             | Todo          |
 
 ### Config
 | Action                                                       | Status        |

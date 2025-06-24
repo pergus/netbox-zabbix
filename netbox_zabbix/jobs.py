@@ -1,23 +1,51 @@
 from django.utils.text import slugify
-from django.db import transaction
 
 from ipam.models import IPAddress
-from dcim.models import Device, Interface as DeviceInterface, Platform, DeviceRole
+from dcim.models import Device, Interface as DeviceInterface
 from virtualization.models import VirtualMachine, VMInterface
 
 import netaddr
+import json
+
 from typing import Union
 
 # NetBox Zabbix Imports
 from netbox_zabbix.job import AtomicJobRunner
 from netbox_zabbix.zabbix import get_host
-from netbox_zabbix.models import DeviceSNMPv3Interface, DeviceZabbixConfig, DeviceAgentInterface, HostGroup, Proxy, ProxyGroup, VMSNMPv3Interface, VMZabbixConfig, VMAgentInterface, Template, StatusChoices, MonitoredByChoices
-from netbox_zabbix.config import get_zabbix_api_endpoint, get_zabbix_token, get_default_cidr, get_monitored_by
+from netbox_zabbix.models import (
+    DeviceZabbixConfig,
+    DeviceAgentInterface,
+    DeviceSNMPv3Interface,
+#    VMAgentInterface,
+#    VMSNMPv3Interface,  
+    HostGroup,
+    Proxy,
+    ProxyGroup,
+    VMSNMPv3Interface,
+    VMZabbixConfig,
+    VMAgentInterface,
+    Template,
+    StatusChoices,
+    MonitoredByChoices,
+    InventoryModeChoices,
+    TLSConnectChoices
+)
+from netbox_zabbix.config import (
+    get_inventory_mode,
+    get_zabbix_api_endpoint, 
+    get_zabbix_token, 
+    get_default_cidr,
+    get_monitored_by, 
+    get_tls_accept, 
+    get_tls_connect, 
+    get_tls_psk, 
+    get_tls_psk_identity
+)
 from netbox_zabbix.utils import validate_and_get_mappings
 from netbox_zabbix.logger import logger
 
 
-#-------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Helper Classes and Functions 
 # ------------------------------------------------------------------------------
 
@@ -252,6 +280,9 @@ def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine])
         
     return True
 
+# ------------------------------------------------------------------------------
+# Import from Zabbix
+# ------------------------------------------------------------------------------
 
 def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interface_model, snmpv3_interface_model, interface_model, is_vm: bool = False):
     """
@@ -393,7 +424,59 @@ def import_vm_config(zabbix_host: dict, vm: VirtualMachine):
     )
 
 
-def build_zabbix_host_payload_from_config(zcfg: DeviceZabbixConfig) -> dict:
+# ------------------------------------------------------------------------------
+# ...
+# ------------------------------------------------------------------------------
+
+def get_tags( obj, existing_tags=[] ):
+    """
+    Generate a list of tags including existing ones, ensuring the 'netbox' and 'nb_site' tags are present.
+    
+    Args:
+        obj: An object with a 'site' attribute.
+        existing_tags (list): A list of tag dictionaries with 'tag' and 'value' keys.
+    
+    Returns:
+        list: A list of JSON-encoded tag strings.
+    """
+    required_tags = [
+            { "tag": "netbox", "value": "true" },
+            { "tag": "nb_site", "value": obj.site.name if obj.site else "" },
+            { "tag": "nb_role", "value": obj.role.name if obj.role else "" }                        
+        ]
+    
+    result = [ tag for tag in existing_tags ]
+
+    # Add any missing required tags
+    for tag in required_tags:
+        tag_json = tag
+        if tag_json not in result:
+            result.append(tag_json)
+
+    return result
+
+
+def get_inventory( obj ):
+
+    logger.info( f"{type(obj.site)=}" )
+    name      = obj.name if obj.name else ""
+    os        = obj.platform.name if obj.platform else ""
+    location  = obj.site.name if obj.site else ""
+    longitude = obj.site.longitude if obj.site and obj.site.longitude else ""
+    latitude  = obj.site.latitude if obj.site and obj.site.latitude else ""
+
+    logger.info( f'name": {name}, "os": {os}, "location": {location}, "location_lon": {longitude}, "location_lat": {latitude}' )
+        
+    return {
+        "name": name,
+        "os": os,
+        "location": location,
+        "location_lon": longitude,
+        "location_lat": latitude
+    }
+
+
+def not_used_build_zabbix_host_payload_from_config(zcfg: DeviceZabbixConfig) -> dict:
     """
     Build a Zabbix API-compatible payload for creating a host from a DeviceZabbixConfig.
 
@@ -407,119 +490,107 @@ def build_zabbix_host_payload_from_config(zcfg: DeviceZabbixConfig) -> dict:
         Exception: If required fields like device, agent interface, or templates are missing.
     """
 
-
-    """
-    {
-        {% if host is defined %}
-        "host": "{{ host }}",
-        {% endif %}
-        {% if hostid is defined %}
-        "hostid": "{{ hostid }}",
-        {% endif %}
-        "status": {{ status }},
-        "monitored_by": 2,
-        "proxy_groupid": "{{ proxy_groupid }}",
-        "interfaces":  [ {{ interfaces | join(", ") }} ],
-        "groups": [ {{ host_groups | join(", ") }} ],
-        "tags": [ {{ tags | join(", ") }}  ],
-        "templates": [ {{ templates | join(", ") }} ],
-        "inventory_mode": 0,
-        "inventory": {{ inventory }},
-        "tls_connect": 2,
-        "tls_accept": 2,
-        "tls_psk_identity": "{{ psk_identity }}",
-        "tls_psk": "{{ preshared_key }}"
-    }
-    """
-    device = zcfg.device
-
     if not device:
         raise Exception("Zabbix config is not linked to a device.")
 
+
+    payload = {}
+    device = zcfg.device
+    
+    
     #  Host name
-    host_name = zcfg.get_name()    
+    payload["host"] = zcfg.get_name()    
 
     # Hostid
+    hostid = zcfg.get_hostid()
+    if hostid:
+        payload["hostid"] = hostid
 
     # Status
+    payload["status"] = zcfg.get_status()
 
-    # Tags
-
-    # Inventory
+    # Monitored By
+    monitored_by = zcfg.monitored_by
+    payload["monitored_by"] = monitored_by
+    
+    # Proxy
+    if monitored_by == MonitoredByChoices.Proxy:
+        proxy = zcfg.proxy
+        if not proxy:
+            raise Exception(f"Host '{payload["host"]}' is configured to be monitored by a proxy, but no proxy was found.")        
+        payload["proxyid"] = proxy.proxyid
+    
+    # Proxy Group
+    if monitored_by == MonitoredByChoices.ProxyGroup:
+        proxy_group = zcfg.proxy_group
+        if not proxy_group:
+            raise Exception(f"Host '{payload["host"]}' is configured to be monitored by a proxy group, but no proxy group was found.")        
+        payload["proxy_groupid"] = proxy_group.proxy_groupid
     
     # Interfaces
     interfaces = []
-
+    
     for agent_iface in zcfg.agent_interfaces.all():
         interfaces.append({
-            "type": 1,  # Zabbix Agent
+            "type": str( 1 ),  # Zabbix Agent
             "main": agent_iface.main,
             "useip": agent_iface.useip,
             "ip": str(agent_iface.resolved_ip_address.address.ip) if agent_iface.resolved_ip_address else "",
             "dns": agent_iface.resolved_dns_name or "",
             "port": str(agent_iface.port),
         })
-
+    
     for snmp_iface in zcfg.snmpv3_interfaces.all():
         interfaces.append({
-            "type": 2,  # SNMP
+            "type": str( 2 ),  # SNMP
             "main": snmp_iface.main,
             "useip": snmp_iface.useip,
             "ip": str(snmp_iface.resolved_ip_address.address.ip) if snmp_iface.resolved_ip_address else "",
             "dns": snmp_iface.resolved_dns_name or "",
             "port": str(snmp_iface.port),
         })
-
+    
     if not interfaces:
-        raise Exception(f"No interfaces defined for host '{host_name}'")
+        raise Exception(f"No interfaces defined for host '{payload["host"]}'")
+    
+    payload["interfaces"] = interfaces
+    
+    # Host Groups
+    host_groups = zcfg.host_groups.all()
+    if not host_groups:
+        raise Exception(f"No host groups assigned to host '{payload["host"]}'")
+    payload["groups"] = [{ "groupid": g.groupid } for g in host_groups]
+    
+
+    # Tags
+    payload["tags"] = get_tags( device )
 
     # Templates
     cfg_templates = zcfg.templates.all()
     if not cfg_templates:
-        raise Exception(f"No templates assigned to host '{host_name}'")
+        raise Exception(f"No templates assigned to host '{payload["host"]}'")
 
-    templates = [{ "templateid": t.templateid } for t in cfg_templates]
+    payload["templates"] = [{ "templateid": t.templateid } for t in cfg_templates]
 
 
-    # Host Groups
-    host_groups = zcfg.host_groups.all()
-    if not host_groups:
-        raise Exception(f"No host groups assigned to host '{host_name}'")
-    groups = [{ "groupid": g.groupid } for g in host_groups]
-
-    # Build payload
-    payload = {
-        "host": host_name,
-        "inventory_mode": 1,
-        "interfaces": interfaces,
-        "groups": groups,
-        "templates": templates,
-    }
+    # Inventory Mode
+    payload["inventory_mode"] = get_inventory_mode( device )
     
-    # Monitored By
-    monitored_by = zcfg.monitored_by
-    payload["monitored_by"] = monitored_by
-
-    if monitored_by == MonitoredByChoices.Proxy:
-        proxy = zcfg.proxy
-        if not proxy:
-            raise Exception(f"Host '{host_name}' is configured to be monitored by a proxy, but no proxy was found.")        
-        payload["proxyid"] = proxy.proxyid
-    
-    if monitored_by == MonitoredByChoices.ProxyGroup:
-        proxy_group = zcfg.proxy_group
-        if not proxy_group:
-            raise Exception(f"Host '{host_name}' is configured to be monitored by a proxy group, but no proxy group was found.")        
-        payload["proxy_groupid"] = proxy_group.proxy_groupid
+    # Inventory
+    if payload["inventory_mode"] == InventoryModeChoices.MANUAL:
+        payload["inventory"] = get_inventory( device )
     
 
-    # TLS settings...
-
+    # TLS PSK Settings
+    if get_tls_connect() == TLSConnectChoices.PSK or get_tls_accept() == TLSConnectChoices.PSK:
+        payload["tls_psk_identity"] = get_tls_psk_identity()
+        payload["tls_psk"] = get_tls_psk()
+    
+                
     return payload
 
 
-# The string "agent_default_templates" should be in Config
-def device_quick_add_agent(device):
+def not_used_device_quick_add_agent(device):
     """
     Automatically creates a Zabbix configuration and agent interface for the given NetBox device.
     
@@ -541,7 +612,7 @@ def device_quick_add_agent(device):
     # host and interface are created in Zabbix.
 
 
-    # Check if the host has all requied meta data
+    # Check if the host has all requied mappings
     try:
         ( template_mappings, hostgroup_mappings, proxy_mapping, proxy_group_mapping ) = validate_and_get_mappings( device, get_monitored_by() )        
     except Exception as e:
@@ -564,7 +635,7 @@ def device_quick_add_agent(device):
                 raise Exception( f"Failed to add template {template.name} to Zabbix configuration: {e}" )
 
     for mapping in hostgroup_mappings:
-        for hostgroup in mapping.hostgroups.all():
+        for hostgroup in mapping.host_groups.all():
             try:
                 zcfg.host_groups.add( HostGroup.objects.get( name=hostgroup.name ) )
             except Exception as e:
@@ -595,12 +666,264 @@ def device_quick_add_agent(device):
         raise Exception( f"Failed to create agent interface: {e}" )
     
     try:
-        payload = build_zabbix_host_payload_from_config( zcfg )
+        payload = not_used_build_zabbix_host_payload_from_config( zcfg )
     except Exception as e:
         raise Exception( f"Failed to create zabbix host payload: {e}" )
 
     import json
     logger.info( f"{json.dumps(payload, indent=2) }" )
+
+
+
+# ------------------------------------------------------------------------------
+#  Payload
+# ------------------------------------------------------------------------------
+
+def build_payload(zcfg) -> dict:
+    """
+    Build a Zabbix API-compatible payload from either DeviceZabbixConfig or VMZabbixConfig.
+
+    Args:
+        zcfg: A Zabbix config model instance (device or VM).
+
+    Returns:
+        dict: Zabbix `host.create` or `host.update` payload.
+
+    Raises:
+        Exception: On missing associations or invalid data.
+    """
+    # Get the linked NetBox object (device or VM)
+    linked_obj = getattr( zcfg, 'device', None ) or getattr( zcfg, 'virtual_machine', None )
+    if not linked_obj:
+        raise Exception( "Zabbix config is not linked to a device or virtual machine." )
+
+    payload = {}
+    payload["host"] = zcfg.get_name()
+
+    # Host ID (for updates)
+    if zcfg.hostid:
+        payload["hostid"] = zcfg.hostid
+
+    # Status
+    payload["status"] = zcfg.status
+
+    # Monitoring proxy/proxy group
+    monitored_by = zcfg.monitored_by
+    payload["monitored_by"] = str( monitored_by )
+
+    if monitored_by == MonitoredByChoices.Proxy:
+        if not zcfg.proxy:
+            raise Exception( f"Host '{payload['host']}' is set to use a proxy, but none is configured." )
+        payload["proxyid"] = zcfg.proxy.proxyid
+
+    if monitored_by == MonitoredByChoices.ProxyGroup:
+        if not zcfg.proxy_group:
+            raise Exception( f"Host '{payload['host']}' is set to use a proxy group, but none is configured." )
+        payload["proxy_groupid"] = zcfg.proxy_group.proxy_groupid
+
+    # Interfaces
+    interfaces = []
+    for iface in zcfg.agent_interfaces.all():
+        interfaces.append({
+            "type": str( 1 ),  # Zabbix Agent
+            "main": str( iface.main ),
+            "useip": str( iface.useip ),
+            "ip": str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
+            "dns": iface.resolved_dns_name or "",
+            "port": str( iface.port ),
+        })
+
+    for iface in zcfg.snmpv3_interfaces.all():
+        interfaces.append({
+            "type": str( 2 ),  # SNMP
+            "main":  str( iface.main ),
+            "useip": str( iface.useip ),
+            "ip": str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
+            "dns": iface.resolved_dns_name or "",
+            "port": str( iface.port ),
+        })
+
+    if not interfaces:
+        raise Exception(f"No interfaces defined for host '{payload['host']}'")
+
+    payload["interfaces"] = interfaces
+
+    # Host groups
+    host_groups = zcfg.host_groups.all()
+    if not host_groups:
+        raise Exception(f"No host groups assigned to host '{payload['host']}'")
+
+    payload["groups"] = [ { "groupid": g.groupid } for g in host_groups ]
+
+    # Tags
+    payload["tags"] = get_tags( linked_obj )
+
+    # Templates
+    cfg_templates = zcfg.templates.all()
+    if not cfg_templates:
+        raise Exception( f"No templates assigned to host '{payload['host']}'" )
+
+    payload["templates"] = [ { "templateid": t.templateid } for t in cfg_templates ]
+
+    # Inventory mode
+    payload["inventory_mode"] = str( get_inventory_mode() )
+
+    # Inventory
+    if payload["inventory_mode"] == str( InventoryModeChoices.MANUAL ):
+        payload["inventory"] = get_inventory( linked_obj )
+
+    # TLS settings
+    if get_tls_connect() == TLSConnectChoices.PSK or get_tls_accept() == TLSConnectChoices.PSK:
+        payload["tls_psk_identity"] = get_tls_psk_identity()
+        payload["tls_psk"] = get_tls_psk()
+
+    return payload
+
+
+# ------------------------------------------------------------------------------
+#  Quick Add Interface
+# ------------------------------------------------------------------------------
+
+def quick_add_interface(
+    *,
+    obj,
+    host_field_name,
+    zabbix_config_model,
+    interface_model,
+    interface_name_suffix,
+    interface_kwargs_fn,
+    template_model,
+    hostgroup_model,
+    proxy_model,
+    proxy_group_model,
+    validate_and_get_mappings_fn,
+    get_name_fn,
+    build_payload_fn=build_payload
+):
+    """
+    Shared logic for adding either Agent or SNMPv3 interfaces.
+    """
+
+    try:
+        (template_mappings, hostgroup_mappings, proxy_mapping, proxy_group_mapping) = validate_and_get_mappings_fn( obj, get_monitored_by() )
+    except Exception as e:
+        raise Exception( f"Failed to validate mappings: {e}" )
+
+    try:
+        zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
+        zcfg = zabbix_config_model( **zcfg_kwargs )
+        zcfg.full_clean()
+        zcfg.save()
+    except Exception as e:
+        raise Exception( f"Failed to create Zabbix configuration: {e}" )
+
+    # Templates
+    for mapping in template_mappings:
+        for template in mapping.templates.all():
+            try:
+                zcfg.templates.add( template_model.objects.get( name=template.name ) )
+            except Exception as e:
+                raise Exception( f"Failed to add template {template.name}: {e}" )
+
+    # Host Groups
+    for mapping in hostgroup_mappings:
+        for hostgroup in mapping.host_groups.all():
+            try:
+                zcfg.host_groups.add( hostgroup_model.objects.get( name=hostgroup.name ) )
+            except Exception as e:
+                raise Exception( f"Failed to add host group {hostgroup.name}: {e}" )
+
+    # Proxy
+    if proxy_mapping:
+        try:            
+            zcfg.proxy = proxy_model.objects.get( name=proxy_mapping.proxy.name )
+        except Exception as e:
+            raise Exception( f"Failed to add proxy {proxy_mapping.proxy.name}: {e}" )
+
+    # Proxy Group
+    if proxy_group_mapping:
+        try:
+            zcfg.proxy_group = proxy_group_model.objects.get( name=proxy_group_mapping.proxy_group.name )
+        except Exception as e:
+            raise Exception( f"Failed to add proxy group {proxy_group_mapping.proxy_group.name}: {e}" )
+
+    ip = getattr( obj, "primary_ip4", None )
+    if not ip:
+        raise Exception( f"{get_name_fn(obj)} does not have a primary IPv4 address" )
+
+    # Create the interface
+    try:
+        interface_fields = dict(
+            name=f"{get_name_fn(obj)}-{interface_name_suffix}",
+            host=zcfg,
+            interface=ip.assigned_object,
+            ip_address=ip,
+        )
+        interface_fields.update( interface_kwargs_fn() )
+        iface = interface_model( **interface_fields )
+        iface.full_clean()
+        iface.save()
+    except Exception as e:
+        raise Exception( f"Failed to create {interface_name_suffix} interface: {e}" )
+
+    try:
+        payload = build_payload_fn( zcfg )
+    except Exception as e:
+        raise Exception( f"Failed to build payload: {e}" )
+
+    logger.info( f"{json.dumps(payload, indent=2)}" )
+    return zcfg
+
+
+# ------------------------------------------------------------------------------
+#  Quick Add Device Agent
+# ------------------------------------------------------------------------------
+
+def device_quick_add_agent(device):
+    return quick_add_interface(
+        obj=device,
+        host_field_name="device",
+        zabbix_config_model=DeviceZabbixConfig,
+        interface_model=DeviceAgentInterface,
+        interface_name_suffix="agent",
+        interface_kwargs_fn=lambda: {},
+        template_model=Template,
+        hostgroup_model=HostGroup,
+        proxy_model=Proxy,
+        proxy_group_model=ProxyGroup,
+        validate_and_get_mappings_fn=validate_and_get_mappings,
+        get_name_fn=lambda obj: obj.name,
+    )
+
+
+# ------------------------------------------------------------------------------
+#  Quick Add Device SNMPv3
+# ------------------------------------------------------------------------------
+
+def quick_add_device_snmpv3(device):
+    snmp_defaults = {
+        "security_name": "myuser",
+        "auth_protocol": "SHA",
+        "auth_passphrase": "authpass",
+        "priv_protocol": "AES",
+        "priv_passphrase": "privpass",
+    }
+
+    return quick_add_interface(
+        obj=device,
+        host_field_name="device",
+        zabbix_config_model=DeviceZabbixConfig,
+        interface_model=DeviceSNMPv3Interface,
+        interface_name_suffix="snmpv3",
+        interface_kwargs_fn=lambda: snmp_defaults,
+        template_model=Template,
+        hostgroup_model=HostGroup,
+        proxy_model=Proxy,
+        proxy_group_model=ProxyGroup,
+        validate_and_get_mappings_fn=validate_and_get_mappings,
+        get_name_fn=lambda obj: obj.name,
+    )
+
 
 
 #-------------------------------------------------------------------------------

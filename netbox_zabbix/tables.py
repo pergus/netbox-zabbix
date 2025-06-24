@@ -1,7 +1,6 @@
 # tables.py
 from django.db.models import Case, When
 from django.urls import reverse
-from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 import django_tables2 as tables

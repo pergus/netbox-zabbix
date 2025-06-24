@@ -12,7 +12,6 @@ from virtualization.models import VMInterface
 # Configuration
 # ------------------------------------------------------------------------------
 
-
 class IPAssignmentChoices(models.TextChoices):
     MANUAL = "manual", "Manual"
     PRIMARY = "primary", "Primary IPv4 Address"
@@ -33,15 +32,24 @@ class CIDRChoices(models.TextChoices):
     CIDR_20 = '/20', '/20'
     CIDR_16 = '/16', '/16 (Large subnet)'
 
+
 class MonitoredByChoices(models.IntegerChoices):
     ZabbixServer = (0, 'Zabbix Server')
     Proxy        = (1, 'Proxy')
     ProxyGroup   = (2, 'Proxy Group')
 
+
 class TLSConnectChoices(models.IntegerChoices):
     NoEncryption = (1, 'No Encryption')
     PSK = (2, 'PSK')
     CERTIFICATE = (4, 'Certificate')
+
+
+class InventoryModeChoices(models.IntegerChoices):
+    DISABLED  = (-1, "Disabled")
+    MANUAL    = (0, "Manual" )
+    AUTOMATIC = (1, "Automatic" )
+    
 
 class Config(NetBoxModel):
     class Meta:
@@ -55,6 +63,7 @@ class Config(NetBoxModel):
     connection        = models.BooleanField( default=False )
     last_checked_at   = models.DateTimeField( null=True, blank=True )
     version           = models.CharField( max_length=255, blank=True, null=True )
+    inventory_mode    = models.IntegerField( verbose_name="Inventory Mode", choices=InventoryModeChoices, default=InventoryModeChoices.MANUAL, help_text="Inventory Population Mode." )
     monitored_by      = models.IntegerField( verbose_name="Monitored By", choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitor hosts" )
     tls_connect       = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to use for outgoing connections" )
     tls_accept        = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to accept for incoming connections" )
@@ -102,7 +111,6 @@ class Config(NetBoxModel):
 # Templates
 # ------------------------------------------------------------------------------
 
-
 class Template(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Template"
@@ -118,7 +126,8 @@ class Template(NetBoxModel):
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:template", args=[self.pk] )
-    
+
+
 # ------------------------------------------------------------------------------
 # Template Mapping
 # ------------------------------------------------------------------------------
@@ -127,6 +136,7 @@ class InterfaceTypeChoices(models.IntegerChoices):
     Any   = (0, 'Any')
     Agent = (1, 'Agent')
     SNMP  = (2, 'SNMP')
+
 
 class TemplateMapping(NetBoxModel):
     name           = models.CharField( max_length=255, help_text="Unique name for this template mapping." )
@@ -202,7 +212,8 @@ class ProxyGroup(NetBoxModel):
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:proxygroup", args=[self.pk] )
-    
+
+
 # ------------------------------------------------------------------------------
 # Proxy Group Mapping
 # ------------------------------------------------------------------------------
@@ -220,8 +231,6 @@ class ProxyGroupMapping(NetBoxModel):
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:proxygroupmapping", args=[self.pk] )
 
-    
-    
 
 # ------------------------------------------------------------------------------
 # Host Group
@@ -267,10 +276,9 @@ class HostGroupMapping(NetBoxModel):
 # Zabbix Configs
 # ------------------------------------------------------------------------------
 
-
-class StatusChoices(models.TextChoices):
-    ENABLED = 'enabled', 'Enabled'    # 0 - (default) monitored host
-    DISABLED = 'disabled', 'Disabled' # 1 - unmonitored host.
+class StatusChoices(models.IntegerChoices):
+    ENABLED  = (0, 'Enabled')
+    DISABLED = (1, 'Disabled')
 
 
 class ZabbixConfig(NetBoxModel):
@@ -278,10 +286,10 @@ class ZabbixConfig(NetBoxModel):
         abstract = True
 
     hostid       = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
-    status       = models.CharField( max_length=255, choices=StatusChoices.choices, default='enabled', help_text="Host monitoring status." )
+    status       = models.IntegerField( choices=StatusChoices.choices, default=StatusChoices.ENABLED, help_text="Host monitoring status." )
     host_groups  = models.ManyToManyField( HostGroup,  blank=True , help_text="Assigned Host Groups" )
-    templates    = models.ManyToManyField( Template,   blank=True , help_text="Assgiend Tempalates" )        
-    monitored_by = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host" )    
+    templates    = models.ManyToManyField( Template,   blank=True , help_text="Assgiend Tempalates" )
+    monitored_by = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host" )
     proxy        = models.OneToOneField( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy" )
     proxy_group  = models.OneToOneField( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group" )
     
@@ -323,7 +331,6 @@ class VMZabbixConfig(ZabbixConfig):
 # ------------------------------------------------------------------------------
 # Interfaces
 # ------------------------------------------------------------------------------
-
 
 class UseIPChoices(models.IntegerChoices):
     DNS = (0, 'DNS Name')
@@ -617,6 +624,10 @@ class VMSNMPv3Interface(BaseSNMPv3Interface):
     # IP address used by the interface. Can be empty if connection is made via DNS.
     ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="vm_snmp3_interface" )
     
+
+# ------------------------------------------------------------------------------
+# Interfaces Proxy Models
+# ------------------------------------------------------------------------------
 
 # Proxy model so that it is possible to register a ViewSet.
 # The ViewSet is used to filter out interfaces that has already been assoicated
