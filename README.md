@@ -10,6 +10,10 @@ NetBox plugin for Zabbix.
 ## Todo and Questions
 
 
+rename all proxygroup to proxy_group
+rename all hostgroups to host_groups
+rename monitoriedby to monitored_by
+
 
 ### Questions
 
@@ -17,7 +21,7 @@ Is it possible to let other views inherit field etc like NetBoxOnlyDevicesView d
 Yes!
 
 Greate one view for device and another for vm that show all added fields such
-as hostgroups, proxies etc.
+as host_groups, proxies etc.
 
 
 Remove the null=True in Proxy Mappings and Proxy Group Mappings model.

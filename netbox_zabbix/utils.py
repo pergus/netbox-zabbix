@@ -36,7 +36,6 @@ def get_hostgroups_mappings( obj ):
     return matches
 
 
-
 def get_templates_mappings( obj ):
     """
     Retrieves the templates associated with a given object based on template mappings.
@@ -69,7 +68,6 @@ def get_templates_mappings( obj ):
                 continue
         matches.append( mapping )
     return matches
-
 
 
 def get_proxy_mapping( obj ):
@@ -106,7 +104,7 @@ def get_proxy_mapping( obj ):
     return matches[0]
 
 
-def get_proxygroup_mapping( obj ):
+def get_proxy_group_mapping( obj ):
     """
     Retrieves the proxy group associated with a given object based on proxy group mapping.
     
@@ -138,3 +136,22 @@ def get_proxygroup_mapping( obj ):
     if len( matches ) == 0:
         return None
     return matches[0]
+
+
+def validate_and_get_mappings( obj, monitored_by ):
+    # Check if an 'object' has all requied mappings    
+    if not (templates := get_templates_mappings( obj )):
+        raise Exception( f"No template mappings found for obj '{obj.name}'" )
+    
+    if not (hostgroups := get_hostgroups_mappings( obj )):
+        raise Exception( f"No host groups mappings found for obj '{obj.name}'" )
+        
+    proxy = get_proxy_mapping(obj) if monitored_by == models.MonitoredByChoices.Proxy else None
+    if monitored_by == models.MonitoredByChoices.Proxy and proxy is None:
+        raise Exception(f"obj '{obj.name}' is set to be monitored by Proxy, but no proxy mapping was found.")
+    
+    proxy_group = get_proxy_group_mapping(obj) if monitored_by == models.MonitoredByChoices.ProxyGroup else None
+    if monitored_by == models.MonitoredByChoices.ProxyGroup and proxy_group is None:
+        raise Exception(f"obj '{obj.name}' is set to be monitored by Proxy Group, but no proxy group mapping was found.")
+        
+    return ( templates, hostgroups, proxy, proxy_group )

@@ -47,6 +47,11 @@
                     </tr>
 
                     <tr>
+                        <th scope="row">Zabbix Host ID</th>
+                        <td>{{ object.hostid }}</td>
+                    </tr>
+
+                    <tr>
                         <th scope="row">Status</th>
                         <td>{{ object.status }}</td>
                     </tr>
@@ -54,12 +59,17 @@
 
                     <tr>
                         <th scope="row">Monitored By</th>
-                        <td>{{ object.get_monitoredby_display }}</td>
+                        <td>{{ object.get_monitored_by_display }}</td>
                     </tr>
 
                     <tr>
-                        <th scope="row">Zabbix Host ID</th>
-                        <td>{{ object.hostid }}</td>
+                        <th scope="row">Proxy</th>
+                        <td>{{ object.proxy }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Proxy Group</th>
+                        <td>{{ object.proxy_group }}</td>
                     </tr>
 
                     <tr>

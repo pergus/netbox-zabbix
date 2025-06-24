@@ -43,7 +43,7 @@ class ConfigForm(NetBoxModelForm):
     fieldsets = (
         FieldSet( 'name', 'ip_assignment_method', 'auto_validate_importables', 'max_deletions', 'max_success_notifications', name="General"),
         FieldSet( 'api_endpoint', 'web_address', 'token', 
-                 'default_cidr', 'monitoredby', 
+                 'default_cidr', 'monitored_by', 
                  'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', name="Zabbix" )
     )
     class Meta:
@@ -304,7 +304,7 @@ class ProxyGroupMappingForm(BaseProxyMappingForm):
     
     class Meta:
         model = models.ProxyGroupMapping
-        fields = [ 'name', 'proxygroup', 'sites', 'roles', 'platforms', 'tags' ]
+        fields = [ 'name', 'proxy_group', 'sites', 'roles', 'platforms', 'tags' ]
     
 
 # ------------------------------------------------------------------------------
@@ -323,7 +323,7 @@ class HostGroupForm(NetBoxModelForm):
 class HostGroupMappingForm(NetBoxModelForm):
         class Meta:
             model = models.HostGroupMapping
-            fields = [ 'name','hostgroups','sites','roles','platforms','tags' ]
+            fields = [ 'name','host_groups','sites','roles','platforms','tags' ]
 
         
         def clean(self):
@@ -334,9 +334,7 @@ class HostGroupMappingForm(NetBoxModelForm):
             platforms = self.cleaned_data['platforms']
                 
             if not (sites or roles or platforms):
-                raise forms.ValidationError(
-                    "At least one of sites, roles or platforms must be set for mapping."
-                )
+                raise forms.ValidationError( "At least one of sites, roles or platforms must be set for mapping." )
 
 
 # ------------------------------------------------------------------------------
@@ -344,12 +342,12 @@ class HostGroupMappingForm(NetBoxModelForm):
 # ------------------------------------------------------------------------------
 
 class DeviceMappingsFilterForm(DeviceFilterForm):
-    hostgroups = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-    templates  = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
-    proxy      = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
-    proxygroup = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
+    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
 
-    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxygroup', name='Zabbix' ), )
+    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
 
     
 # ------------------------------------------------------------------------------
@@ -357,12 +355,39 @@ class DeviceMappingsFilterForm(DeviceFilterForm):
 # ------------------------------------------------------------------------------
 
 class VMMappingsFilterForm(VirtualMachineFilterForm):
-    hostgroups = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-    templates  = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
-    proxy      = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
-    proxygroup = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
+    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
 
-    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxygroup', name='Zabbix' ), )
+    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
+
+
+# ------------------------------------------------------------------------------
+# NetBox Only Devices
+# ------------------------------------------------------------------------------
+
+class NetBoxOnlyDevicesFilterForm(DeviceFilterForm):
+    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
+
+    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'prox_ygroup', name='Zabbix' ), )
+
+
+
+# ------------------------------------------------------------------------------
+# NetBox Only VMs
+# ------------------------------------------------------------------------------
+
+class NetBoxOnlyVMsFilterForm(VirtualMachineFilterForm):
+    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
+
+    fieldsets = VirtualMachineFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
 
 
 # ------------------------------------------------------------------------------
@@ -374,7 +399,7 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
 
     class Meta:
         model = models.DeviceZabbixConfig
-        fields = ('device', 'status', 'monitoredby', 'templates', 'proxies', 'proxy_groups', 'host_groups' )
+        fields = ('device', 'status', 'monitored_by', 'templates', 'proxy', 'proxy_group', 'host_groups' )
 
     def __init__(self, *args, **kwargs):
         instance = kwargs.get('instance', None)
@@ -424,7 +449,7 @@ class VMZabbixConfigForm(NetBoxModelForm):
 
     class Meta:
         model = models.VMZabbixConfig
-        fields = ('virtual_machine', 'status', 'monitoredby', 'templates', 'proxies', 'proxy_groups', 'host_groups')
+        fields = ('virtual_machine', 'status', 'monitored_by', 'templates', 'proxy', 'proxy_group', 'host_groups')
 
     def __init__(self, *args, **kwargs):
         instance = kwargs.get('instance', None)
@@ -471,9 +496,8 @@ class VMZabbixConfigFilterForm(NetBoxModelFilterSetForm):
 
 
 # ------------------------------------------------------------------------------
-# Interface
+# Interfaces
 # ------------------------------------------------------------------------------
-
 
 class DeviceAgentInterfaceForm(NetBoxModelForm):
     class Meta:

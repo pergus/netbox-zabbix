@@ -17,11 +17,9 @@
                     </tr>
 
                     <tr>
-                        <th scope="row">Proxy Groups</th>
+                        <th scope="row">Proxy Group</th>
                         <td>
-                            {% for proxygroup in object.proxygroups.all %}
-                            <a href="{{ proxygroup.get_absolute_url }}">{{ proxygroup.name }}</a>{% if not forloop.last %}, {% endif %}
-                            {% endfor %}
+                            <a href="{{ proxy_group.get_absolute_url }}">{{ object.proxy_group.name }}</a>
                         </td>
                     </tr>
 

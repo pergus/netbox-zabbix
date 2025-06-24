@@ -84,8 +84,8 @@ class ProxyGroupSerializer(NetBoxModelSerializer):
 #
 
 class ProxyGroupMappingSerializer(serializers.ModelSerializer):
-    proxygroup    = ProxyGroupSerializer( read_only=True )
-    proxy_groupid = serializers.PrimaryKeyRelatedField( queryset=models.ProxyGroup.objects.all(), source='proxygroup', write_only=True )
+    proxy_group    = ProxyGroupSerializer( read_only=True )
+    proxy_groupid = serializers.PrimaryKeyRelatedField( queryset=models.ProxyGroup.objects.all(), source='proxy_group', write_only=True )
 
     class Meta:
         model = models.ProxyGroupMapping

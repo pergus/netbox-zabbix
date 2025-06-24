@@ -435,7 +435,7 @@ def sync_zabbix_proxygroups(request):
     redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
 
     try:
-        added, deleted = z.synchronize_proxygroups()
+        added, deleted = z.synchronize_proxy_groups()
 
         msg_lines = ["Syncing Zabbix Proxy Groups succeeded."]
         if added:
@@ -853,22 +853,31 @@ class VMMappingsListView(generic.ObjectListView):
 
 class NetBoxOnlyDevicesView(generic.ObjectListView):
 
-    table = tables.NetBoxOnlyDevicesTable
-    filterset = filtersets.NetBoxOnlyDevicesFilterSet
-    template_name = "netbox_zabbix/netboxonlydevices.html"
+    table          = tables.NetBoxOnlyDevicesTable
+    filterset      = filtersets.NetBoxOnlyDevicesFilterSet
+    filterset_form = forms.NetBoxOnlyDevicesFilterForm
+    template_name  = "netbox_zabbix/netbox_only_devices.html"
 
+    
     def get_queryset(self, request):
         try:
             zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
+
+
+        # My Zabbix is down at the moment and I want to continue coding...
         except config.ZabbixConfigNotFound as e:
             messages.error( request, str( e ) )
-            return Device.objects.none()
+            #return Device.objects.none()
         except Exception as e:
             messages.error( request, f"Failed to retrieve hostnames from Zabbix: {str(e)}" )
-            return Device.objects.none()
+            #return Device.objects.none()
 
+        zabbix_hostnames = []
+        
         # Return only devices that are not in Zabbix
-        return Device.objects.exclude( name__in=zabbix_hostnames )
+        return Device.objects.exclude( name__in=zabbix_hostnames ).prefetch_related( "site", "role", "platform", "tags" )
+    
+
 
 # ------------------------------------------------------------------------------
 # NetBox Ony VMs
@@ -877,7 +886,7 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
 class NetBoxOnlyVMsView(generic.ObjectListView):
     table = tables.NetBoxOnlyVMsTable
     filterset = filtersets.NetBoxOnlyVMsFilterSet
-    template_name = "netbox_zabbix/netboxonlyvms.html"
+    template_name = "netbox_zabbix/netbox_only_vms.html"
 
     def get_queryset(self, request):
         try:
@@ -950,7 +959,6 @@ def device_quick_add_agent(request):
 
     if request.method == 'GET':
         device_id = request.GET.get( "device_id" )
-        logger.info( f"{device_id=}")
         device = Device.objects.filter( pk=device_id ).first()
         if not device:
             messages.error( request, f"No Device with id {device_id} found" )

@@ -16,7 +16,7 @@ from netbox_zabbix.utils import (
     get_hostgroups_mappings, 
     get_templates_mappings,
     get_proxy_mapping,
-    get_proxygroup_mapping
+    get_proxy_group_mapping
 )
 
 
@@ -129,7 +129,7 @@ class ProxyGroupMappingFilterSet(NetBoxModelFilterSet):
 
     class Meta:
         model = models.ProxyGroupMapping
-        fields = ['proxygroup', 'sites', 'roles', 'platforms', 'tags']
+        fields = ['proxy_group', 'sites', 'roles', 'platforms', 'tags']
 
 
 class ProxyGroupDeviceFilterSet(DeviceFilterSet):
@@ -154,7 +154,7 @@ class HostGroupMappingFilterSet(NetBoxModelFilterSet):
 
     class Meta:
         model = models.HostGroupMapping
-        fields = ['hostgroups', 'sites', 'roles', 'platforms', 'tags']
+        fields = ['host_groups', 'sites', 'roles', 'platforms', 'tags']
 
 # ------------------------------------------------------------------------------
 # Host Group Device
@@ -175,41 +175,13 @@ class HostGroupVMFilterSet(VirtualMachineFilterSet):
         model = VirtualMachine
         fields = VirtualMachineFilterSet.Meta.fields
 
+
+
 # ------------------------------------------------------------------------------
-# Device Mappings
+# Shared Mapping Filter Mixin
 # ------------------------------------------------------------------------------
 
-class DeviceMappingsFilterSet(DeviceFilterSet):
-
-    hostgroups = filters.ModelMultipleChoiceFilter(
-        field_name='hostgroups',
-        queryset=models.HostGroupMapping.objects.all(),
-        conjoined=True,
-        method='filter_by_mapping_list',
-        label="Host Groups"
-    )
-
-    templates = filters.ModelMultipleChoiceFilter(
-        field_name='templates',
-        queryset=models.TemplateMapping.objects.all(),
-        conjoined=True,
-        method='filter_by_mapping_list',
-        label="Templates"
-    )
-    
-    proxy = filters.ModelChoiceFilter(
-        field_name='proxy',
-        queryset=models.ProxyMapping.objects.all(),
-        method='filter_by_mapping_single',
-        label="Proxy"
-    )
-
-    proxygroup = filters.ModelChoiceFilter(
-        field_name='proxygroup',
-        queryset=models.ProxyGroupMapping.objects.all(),
-        method='filter_by_mapping_single',
-        label="Proxy Group"
-    )
+class MappingFilterMixin:
 
     def filter_by_mapping_list(self, queryset, name, value):
         if not value:
@@ -220,17 +192,16 @@ class DeviceMappingsFilterSet(DeviceFilterSet):
             'templates': get_templates_mappings,
         }
 
-        mapping_fn = mapping_fn_map.get( name )
+        mapping_fn = mapping_fn_map.get(name)
         if not mapping_fn:
             return queryset
 
         selected_mapping_ids = {m.id for m in value}
-        matching_ids = []
-
-        for device in queryset:
-            mappings = mapping_fn( device )
-            if any(m.id in selected_mapping_ids for m in mappings):
-                matching_ids.append( device.id )
+        matching_ids = [
+            device.id
+            for device in queryset
+            if any(m.id in selected_mapping_ids for m in mapping_fn(device))
+        ]
 
         return queryset.filter(id__in=matching_ids)
 
@@ -240,29 +211,27 @@ class DeviceMappingsFilterSet(DeviceFilterSet):
 
         mapping_fn_map = {
             'proxy': get_proxy_mapping,
-            'proxygroup': get_proxygroup_mapping,
+            'proxy_group': get_proxy_group_mapping,
         }
 
-        mapping_fn = mapping_fn_map.get( name )
+        mapping_fn = mapping_fn_map.get(name)
         if not mapping_fn:
             return queryset
 
         selected_id = value.id
-        matching_ids = []
+        matching_ids = [
+            device.id
+            for device in queryset
+            if (mapping := mapping_fn(device)) and mapping.id == selected_id
+        ]
 
-        for device in queryset:
-            mapping = mapping_fn( device )
-            if mapping and mapping.id == selected_id:
-                matching_ids.append( device.id )
-
-        return queryset.filter( id__in=matching_ids )
+        return queryset.filter(id__in=matching_ids)
 
 # ------------------------------------------------------------------------------
-# VM Mappings
+# Device Mappings
 # ------------------------------------------------------------------------------
 
-class VMMappingsFilterSet(VirtualMachineFilterSet):
-
+class DeviceMappingsFilterSet(DeviceFilterSet, MappingFilterMixin):
     hostgroups = filters.ModelMultipleChoiceFilter(
         field_name='hostgroups',
         queryset=models.HostGroupMapping.objects.all(),
@@ -286,58 +255,121 @@ class VMMappingsFilterSet(VirtualMachineFilterSet):
         label="Proxy"
     )
 
-    proxygroup = filters.ModelChoiceFilter(
-        field_name='proxygroup',
+    proxy_group = filters.ModelChoiceFilter(
+        field_name='proxy_group',
         queryset=models.ProxyGroupMapping.objects.all(),
         method='filter_by_mapping_single',
         label="Proxy Group"
     )
 
-    def filter_by_mapping_list(self, queryset, name, value):
-        if not value:
-            return queryset
 
-        mapping_fn_map = {
-            'hostgroups': get_hostgroups_mappings,
-            'templates': get_templates_mappings,
-        }
+# ------------------------------------------------------------------------------
+# VM Mappings
+# ------------------------------------------------------------------------------
 
-        mapping_fn = mapping_fn_map.get( name )
-        if not mapping_fn:
-            return queryset
+class VMMappingsFilterSet(VirtualMachineFilterSet, MappingFilterMixin):
+    hostgroups = filters.ModelMultipleChoiceFilter(
+        field_name='hostgroups',
+        queryset=models.HostGroupMapping.objects.all(),
+        conjoined=True,
+        method='filter_by_mapping_list',
+        label="Host Groups"
+    )
 
-        selected_mapping_ids = {m.id for m in value}
-        matching_ids = []
+    templates = filters.ModelMultipleChoiceFilter(
+        field_name='templates',
+        queryset=models.TemplateMapping.objects.all(),
+        conjoined=True,
+        method='filter_by_mapping_list',
+        label="Templates"
+    )
+    
+    proxy = filters.ModelChoiceFilter(
+        field_name='proxy',
+        queryset=models.ProxyMapping.objects.all(),
+        method='filter_by_mapping_single',
+        label="Proxy"
+    )
 
-        for device in queryset:
-            mappings = mapping_fn( device )
-            if any(m.id in selected_mapping_ids for m in mappings):
-                matching_ids.append( device.id )
+    prox_group = filters.ModelChoiceFilter(
+        field_name='proxy_group',
+        queryset=models.ProxyGroupMapping.objects.all(),
+        method='filter_by_mapping_single',
+        label="Proxy Group"
+    )
 
-        return queryset.filter( id__in=matching_ids )
 
-    def filter_by_mapping_single(self, queryset, name, value):
-        if not value:
-            return queryset
+# ------------------------------------------------------------------------------
+# NetBox Only Devices
+# ------------------------------------------------------------------------------
 
-        mapping_fn_map = {
-            'proxy': get_proxy_mapping,
-            'proxygroup': get_proxygroup_mapping,
-        }
+class NetBoxOnlyDevicesFilterSet(DeviceFilterSet, MappingFilterMixin):
+    hostgroups = filters.ModelMultipleChoiceFilter(
+        field_name='hostgroups',
+        queryset=models.HostGroupMapping.objects.all(),
+        conjoined=True,
+        method='filter_by_mapping_list',
+        label="Host Groups"
+    )
+    
+    templates = filters.ModelMultipleChoiceFilter(
+        field_name='templates',
+        queryset=models.TemplateMapping.objects.all(),
+        conjoined=True,
+        method='filter_by_mapping_list',
+        label="Templates"
+    )
+    
+    proxy = filters.ModelChoiceFilter(
+        field_name='proxy',
+        queryset=models.ProxyMapping.objects.all(),
+        method='filter_by_mapping_single',
+        label="Proxy"
+    )
+    
+    proxy_group = filters.ModelChoiceFilter(
+        field_name='proxy_group',
+        queryset=models.ProxyGroupMapping.objects.all(),
+        method='filter_by_mapping_single',
+        label="Proxy Group"
+    )
+    
 
-        mapping_fn = mapping_fn_map.get( name )
-        if not mapping_fn:
-            return queryset
+# ------------------------------------------------------------------------------
+# NetBox Only VMs
+# ------------------------------------------------------------------------------
 
-        selected_id = value.id
-        matching_ids = []
+class NetBoxOnlyVMsFilterSet(VirtualMachineFilterSet, MappingFilterMixin):
+    hostgroups = filters.ModelMultipleChoiceFilter(
+        field_name='hostgroups',
+        queryset=models.HostGroupMapping.objects.all(),
+        conjoined=True,
+        method='filter_by_mapping_list',
+        label="Host Groups"
+    )
+    
+    templates = filters.ModelMultipleChoiceFilter(
+        field_name='templates',
+        queryset=models.TemplateMapping.objects.all(),
+        conjoined=True,
+        method='filter_by_mapping_list',
+        label="Templates"
+    )
+    
+    proxy = filters.ModelChoiceFilter(
+        field_name='proxy',
+        queryset=models.ProxyMapping.objects.all(),
+        method='filter_by_mapping_single',
+        label="Proxy"
+    )
+    
+    proxy_group = filters.ModelChoiceFilter(
+        field_name='proxy_group',
+        queryset=models.ProxyGroupMapping.objects.all(),
+        method='filter_by_mapping_single',
+        label="Proxy Group"
+    )
 
-        for device in queryset:
-            mapping = mapping_fn( device )
-            if mapping and mapping.id == selected_id:
-                matching_ids.append( device.id )
-
-        return queryset.filter( id__in=matching_ids )
 
 
 # ------------------------------------------------------------------------------
@@ -353,16 +385,6 @@ class VMZabbixConfigFilterSet(NetBoxModelFilterSet):
     class Meta:
         model = models.VMZabbixConfig
         fields = ['status', 'templates']
-
-class NetBoxOnlyDevicesFilterSet(NetBoxModelFilterSet):
-    class Meta:
-        model = Device
-        fields = ( 'name', )
-
-class NetBoxOnlyVMsFilterSet(NetBoxModelFilterSet):
-    class Meta:
-        model = VirtualMachine
-        fields = [ 'name' ]
 
 
 # ------------------------------------------------------------------------------

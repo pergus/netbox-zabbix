@@ -55,7 +55,7 @@ class Config(NetBoxModel):
     connection        = models.BooleanField( default=False )
     last_checked_at   = models.DateTimeField( null=True, blank=True )
     version           = models.CharField( max_length=255, blank=True, null=True )
-    monitoredby       = models.IntegerField( verbose_name="Monitored By", choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitor hosts" )
+    monitored_by      = models.IntegerField( verbose_name="Monitored By", choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitor hosts" )
     tls_connect       = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to use for outgoing connections" )
     tls_accept        = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to accept for incoming connections" )
     tls_psk_identity  = models.CharField( max_length=255, help_text="PSK identity", null=True, blank=True )
@@ -200,7 +200,7 @@ class ProxyGroup(NetBoxModel):
 
 class ProxyGroupMapping(NetBoxModel):
     name        = models.CharField( max_length=255, help_text="Unique name for this proxy group mapping." )
-    proxygroup  = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, null=True, help_text="Proxy group for matching hosts." )
+    proxy_group = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, null=True, help_text="Proxy group for matching hosts." )
     sites       = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
     roles       = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
     platforms   = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
@@ -242,7 +242,7 @@ class HostGroup(NetBoxModel):
 
 class HostGroupMapping(NetBoxModel):
     name       = models.CharField( max_length=255 )
-    hostgroups = models.ManyToManyField( HostGroup, help_text="Host groups used for matching hosts." )
+    host_groups = models.ManyToManyField( HostGroup, help_text="Host groups used for matching hosts." )
     sites      = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
     roles      = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
     platforms  = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
@@ -268,16 +268,14 @@ class ZabbixConfig(NetBoxModel):
     class Meta:
         abstract = True
 
-    # Zabbix host id
     hostid       = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
     status       = models.CharField( max_length=255, choices=StatusChoices.choices, default='enabled', help_text="Host monitoring status." )
-    monitoredby  = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host" )
-    templates    = models.ManyToManyField( Template,   blank=True , help_text="Assgiend Tempalates" )
-    proxies      = models.ManyToManyField( Proxy,      blank=True , help_text="Assigned Proxies" )
-    proxy_groups = models.ManyToManyField( ProxyGroup, blank=True , help_text="Assigned Proxy Groups" )
     host_groups  = models.ManyToManyField( HostGroup,  blank=True , help_text="Assigned Host Groups" )
+    templates    = models.ManyToManyField( Template,   blank=True , help_text="Assgiend Tempalates" )        
+    monitored_by = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host" )    
+    proxy        = models.OneToOneField( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy" )
+    proxy_group  = models.OneToOneField( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group" )
     
-
     
 class DeviceZabbixConfig(ZabbixConfig):
     class Meta:

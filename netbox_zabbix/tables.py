@@ -22,7 +22,7 @@ from netbox_zabbix.utils import (
     get_hostgroups_mappings, 
     get_templates_mappings, 
     get_proxy_mapping, 
-    get_proxygroup_mapping
+    get_proxy_group_mapping
 )
 
 
@@ -51,7 +51,7 @@ EXTRA_CONFIG_BUTTONS = """
 class ConfigTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.Config
-        fields = ( 'name', 'api_endpoint', 'web_address', 'token', 'connection', 'last_checked_at', 'version', 'monitoredby', 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk' )
+        fields = ( 'name', 'api_endpoint', 'web_address', 'token', 'connection', 'last_checked_at', 'version', 'monitored_by', 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk' )
         default_columns = ('name', 'api_endpoint', 'version', 'connection', 'last_checked_at')
 
     name = tables.Column( linkify=True )
@@ -144,7 +144,7 @@ class ProxyGroupTable(NetBoxTable):
 
 class ProxyGroupMappingTable(NetBoxTable):
     name        = tables.Column( linkify=True )
-    proxygroup  = tables.Column( linkify=True )
+    proxy_group = tables.Column( linkify=True )
     sites       = tables.ManyToManyColumn( linkify_item=True )
     roles       = tables.ManyToManyColumn( linkify_item=True )
     platforms   = tables.ManyToManyColumn( linkify_item=True )
@@ -153,8 +153,8 @@ class ProxyGroupMappingTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = models.ProxyGroupMapping
-        fields = ( "pk", "name", "proxygroup", "sites", "roles", "platforms", "tags")
-        default_columns = ("pk", "name", "proxygroup", "sites", "roles", "platforms", "tags" )
+        fields = ( "pk", "name", "proxy_group", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "proxy_group", "sites", "roles", "platforms", "tags" )
 
 
 
@@ -164,13 +164,7 @@ class ProxyGroupMappingTable(NetBoxTable):
 
 class HostGroupTable(NetBoxTable):
     name = tables.Column( linkify=True, order_by="name", accessor="name" )
-    #name = tables.Column( verbose_name="Name", order_by="name", accessor="name", )
-    #groupid = tables.Column( verbose_name="Group ID", order_by="groupid", )
     
-    # Hide the action buttons since it isn't possible to edit the hosts groups
-    # in NetBox, since they are imported from Zabbix.
-    #actions = [] 
-
     class Meta(NetBoxTable.Meta):
         model = models.HostGroup
         fields = ( "name", "groupid", "last_synced", "marked_for_deletion" )
@@ -181,17 +175,17 @@ class HostGroupTable(NetBoxTable):
 # ------------------------------------------------------------------------------
 
 class HostGroupMappingTable(NetBoxTable):
-    name       = tables.Column( linkify=True )
-    hostgroups = tables.ManyToManyColumn( linkify_item=True )
-    sites      = tables.ManyToManyColumn( linkify_item=True )
-    roles      = tables.ManyToManyColumn( linkify_item=True )
-    platforms  = tables.ManyToManyColumn( linkify_item=True )
-    tags       = columns.TagColumn()
+    name        = tables.Column( linkify=True )
+    host_groups = tables.ManyToManyColumn( linkify_item=True )
+    sites       = tables.ManyToManyColumn( linkify_item=True )
+    roles       = tables.ManyToManyColumn( linkify_item=True )
+    platforms   = tables.ManyToManyColumn( linkify_item=True )
+    tags        = columns.TagColumn()
 
     class Meta(NetBoxTable.Meta):
         model = models.HostGroupMapping
-        fields = ( "pk", "name", "hostgroups", "sites", "roles", "platforms", "tags")
-        default_columns = ("pk", "name", "hostgroups", "sites", "roles", "platforms", "tags" )
+        fields = ( "pk", "name", "host_groups", "sites", "roles", "platforms", "tags")
+        default_columns = ("pk", "name", "host_groups", "sites", "roles", "platforms", "tags" )
 
 
 
@@ -240,14 +234,14 @@ class DeviceMappingsTable(DeviceTable):
     hostgroups  = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='hostgroups' )
     templates   = tables.Column( empty_values=(), verbose_name="Templates", order_by='templates' )
     proxy       = tables.Column( empty_values=(), verbose_name="Proxy", order_by='proxy' )
-    proxygroup  = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxygroup' )
+    proxy_group  = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxy_group' )
 
     tags = columns.TagColumn( url_name='dcim:device_list' )
 
     class Meta(DeviceTable.Meta):
         model = Device
-        fields = ("name", "hostgroups", "templates", "proxy", "proxygroup", "site", "role", "platform", "tags")
-        default_columns = ("name", "hostgroups", "templates", "proxy", "proxygroup", "site", "role", "platform", "tags")
+        fields = ("name", "hostgroups", "templates", "proxy", "proxy_group", "site", "role", "platform", "tags")
+        default_columns = ("name", "hostgroups", "templates", "proxy", "proxy_group", "site", "role", "platform", "tags")
 
     # Generic render method for columns that return iterable mappings (hostgroups, templates)
     def _render_mappings(self, record, get_mapping_func):
@@ -271,14 +265,14 @@ class DeviceMappingsTable(DeviceTable):
         queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by( preserved_order )
         return queryset, True
 
-    # Generic render method for single-mapping columns (proxy, proxygroup)
+    # Generic render method for single-mapping columns (proxy, proxy_group)
     def _render_single_mapping(self, record, get_mapping_func):
         item = get_mapping_func( record )
         if not item:
             return mark_safe('<span class="text-muted">&mdash;</span>')
         return mark_safe(f'<a href="{item.get_absolute_url()}">{item.name}</a>')
 
-    # Generic order method for single-mapping columns (proxy, proxygroup)
+    # Generic order method for single-mapping columns (proxy, proxy_group)
     def _order_by_single_mapping(self, queryset, is_descending, get_mapping_func):
         devices = list( queryset )
         devices.sort(
@@ -314,11 +308,11 @@ class DeviceMappingsTable(DeviceTable):
     def order_proxy(self, queryset, is_descending):
         return self._order_by_single_mapping( queryset, is_descending, get_proxy_mapping )
 
-    def render_proxygroup(self, record):
-        return self._render_single_mapping( record, get_proxygroup_mapping )
+    def render_proxy_group(self, record):
+        return self._render_single_mapping( record, get_proxy_group_mapping )
 
-    def order_proxygroup(self, queryset, is_descending):
-        return self._order_by_single_mapping( queryset, is_descending, get_proxygroup_mapping )
+    def order_proxy_group(self, queryset, is_descending):
+        return self._order_by_single_mapping( queryset, is_descending, get_proxy_group_mapping )
 
 
 # ------------------------------------------------------------------------------
@@ -334,14 +328,14 @@ class VMMappingsTable(VirtualMachineTable):
     hostgroups  = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='hostgroups' )
     templates   = tables.Column( empty_values=(), verbose_name="Templates", order_by='templates' )
     proxy       = tables.Column( empty_values=(), verbose_name="Proxy", order_by='proxy' )
-    proxygroup  = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxygroup' )
+    proxy_group = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxy_group' )
 
     tags = columns.TagColumn( url_name='dcim:device_list' )
 
     class Meta(VirtualMachineTable.Meta):
         model = VirtualMachine
-        fields = ("name", "hostgroups", "templates", "proxy", "proxygroup", "site", "role", "platform", "tags")
-        default_columns = ("name", "hostgroups", "templates", "proxy", "proxygroup", "site", "role", "platform", "tags")
+        fields = ("name", "hostgroups", "templates", "proxy", "proxy_group", "site", "role", "platform", "tags")
+        default_columns = ("name", "hostgroups", "templates", "proxy", "proxy_group", "site", "role", "platform", "tags")
 
     # Generic render method for columns that return iterable mappings (hostgroups, templates)
     def _render_mappings(self, record, get_mapping_func):
@@ -365,14 +359,14 @@ class VMMappingsTable(VirtualMachineTable):
         queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by( preserved_order )
         return queryset, True
 
-    # Generic render method for single-mapping columns (proxy, proxygroup)
+    # Generic render method for single-mapping columns (proxy, proxy_group)
     def _render_single_mapping(self, record, get_mapping_func):
         item = get_mapping_func(record)
         if not item:
             return mark_safe('<span class="text-muted">&mdash;</span>')
         return mark_safe(f'<a href="{item.get_absolute_url()}">{item.name}</a>')
 
-    # Generic order method for single-mapping columns (proxy, proxygroup)
+    # Generic order method for single-mapping columns (proxy, proxy_group)
     def _order_by_single_mapping(self, queryset, is_descending, get_mapping_func):
         vms = list( queryset )
         vms.sort(
@@ -408,11 +402,278 @@ class VMMappingsTable(VirtualMachineTable):
     def order_proxy(self, queryset, is_descending):
         return self._order_by_single_mapping( queryset, is_descending, get_proxy_mapping )
 
-    def render_proxygroup(self, record):
-        return self._render_single_mapping( record, get_proxygroup_mapping )
+    def render_proxy_group(self, record):
+        return self._render_single_mapping( record, get_proxy_group_mapping )
 
-    def order_proxygroup(self, queryset, is_descending):
-        return self._order_by_single_mapping( queryset, is_descending, get_proxygroup_mapping )
+    def order_proxy_group(self, queryset, is_descending):
+        return self._order_by_single_mapping( queryset, is_descending, get_proxy_group_mapping )
+
+
+# ------------------------------------------------------------------------------
+# NetBox Only Devices
+# ------------------------------------------------------------------------------
+
+EXTRA_DEVICE_ADD_ACTIONS = """
+<span class="btn-group dropdown">
+
+    <a class="btn btn-sm btn-primary" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" type="button" aria-label="Add Config">
+    <i class="mdi mdi-pen-plus"></i>
+    </a>
+
+    <a class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="padding-left: 2px" aria-expanded="false">
+        <span class="visually-hidden">Toggle Dropdown</span>
+    </a>
+
+    <ul class="dropdown-menu">
+        <li>
+            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_agent' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
+            <i class="mdi mdi-flash-auto""></i>
+            Quick Add Agent
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_snmpv3' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
+            <i class="mdi mdi-flash""></i>
+            Qucik Add SNMPv3
+            </a>
+        </li>        
+    </ul>
+</span>
+
+"""
+from django.template import Template, Context
+from netbox_zabbix.utils import validate_and_get_mappings
+from netbox_zabbix.config import get_monitored_by
+
+
+class NetBoxOnlyDevicesTable(DeviceTable):
+   
+    name = tables.Column( linkify=True )
+    site = tables.Column( linkify=True )
+    role = tables.Column( linkify=True )
+    platform = tables.Column( linkify=True )
+    
+    hostgroups  = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='hostgroups' )
+    templates   = tables.Column( empty_values=(), verbose_name="Templates", order_by='templates' )
+    proxy       = tables.Column( empty_values=(), verbose_name="Proxy", order_by='proxy' )
+    proxy_group = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxy_group' )
+    
+    tags = columns.TagColumn( url_name='dcim:device_list' )
+
+    actions = columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS )
+    
+    class Meta(DeviceTable.Meta):
+        model = Device
+        fields = ("name", "site", "role", "platform", "hostgroups", "templates", "proxy", "proxy_group", "tags")
+        default_columns = ("name","site", "role", "platform", "hostgroups", "templates", "proxy", "proxy_group", "tags")
+    
+    
+    def render_actions(self, record):
+        try:
+            validate_and_get_mappings( record, get_monitored_by() )
+        except:
+            return columns.ActionsColumn().render( record, self )
+
+        return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
+
+    # Generic render method for columns that return iterable mappings (hostgroups, templates)
+    def _render_mappings(self, record, get_mapping_func):
+        items = get_mapping_func( record )
+        if not items:
+            return mark_safe( '<span class="text-muted">&mdash;</span>' )
+        return mark_safe(", ".join(
+            f'<a href="{item.get_absolute_url()}">{item.name}</a>'
+            for item in items
+        ))
+    
+    # Generic order method for columns based on counts of mappings
+    def _order_by_mapping_count(self, queryset, is_descending, get_mapping_func):
+        devices = list( queryset )
+        devices.sort(
+            key=lambda x: len( get_mapping_func(x) ),
+            reverse=is_descending
+        )
+        ordered_pks = [device.pk for device in devices]
+        preserved_order = Case(*[When( pk=pk, then=pos ) for pos, pk in enumerate( ordered_pks )])
+        queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by( preserved_order )
+        return queryset, True
+    
+    # Generic render method for single-mapping columns (proxy, proxy_group)
+    def _render_single_mapping(self, record, get_mapping_func):
+        item = get_mapping_func( record )
+        if not item:
+            return mark_safe('<span class="text-muted">&mdash;</span>')
+        return mark_safe(f'<a href="{item.get_absolute_url()}">{item.name}</a>')
+    
+    # Generic order method for single-mapping columns (proxy, prox_ygroup)
+    def _order_by_single_mapping(self, queryset, is_descending, get_mapping_func):
+        devices = list( queryset )
+        devices.sort(
+            key=lambda x: (
+                0 if get_mapping_func(x) is None else 1,
+                get_mapping_func(x).name if get_mapping_func(x) else '',
+                x.name
+            ),
+            reverse=is_descending
+        )
+        ordered_pks = [device.pk for device in devices]
+        preserved_order = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ordered_pks)])
+        queryset = queryset.model.objects.filter(pk__in=ordered_pks).order_by(preserved_order, 'name')
+        return queryset, True
+    
+    # Now, bind each column's render and order methods to the generic ones with proper function
+    
+    def render_hostgroups(self, record):
+        return self._render_mappings( record, get_hostgroups_mappings )
+    
+    def order_hostgroups(self, queryset, is_descending):
+        return self._order_by_mapping_count( queryset, is_descending, get_hostgroups_mappings )
+    
+    def render_templates(self, record):
+        return self._render_mappings( record, get_templates_mappings )
+    
+    def order_templates(self, queryset, is_descending):
+        return self._order_by_mapping_count( queryset, is_descending, get_templates_mappings )
+    
+    def render_proxy(self, record):
+        return self._render_single_mapping( record, get_proxy_mapping )
+    
+    def order_proxy(self, queryset, is_descending):
+        return self._order_by_single_mapping( queryset, is_descending, get_proxy_mapping )
+    
+    def render_proxy_group(self, record):
+        return self._render_single_mapping( record, get_proxy_group_mapping )
+    
+    def order_proxy_group(self, queryset, is_descending):
+        return self._order_by_single_mapping( queryset, is_descending, get_proxy_group_mapping )
+    
+
+# ------------------------------------------------------------------------------
+# NetBox Only VMs
+# ------------------------------------------------------------------------------
+
+EXTRA_VM_ADD_ACTIONS = """
+<span class="btn-group dropdown">
+
+    <a class="btn btn-sm btn-primary" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" type="button" aria-label="Add Config">
+    <i class="mdi mdi-pen-plus"></i>
+    </a>
+
+    <a class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="padding-left: 2px" aria-expanded="false">
+        <span class="visually-hidden">Toggle Dropdown</span>
+    </a>
+
+    <ul class="dropdown-menu">
+        <li>
+            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_agent' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
+            <i class="mdi mdi-flash-auto""></i>
+            Quick Add Agent
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_snmpv3' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
+            <i class="mdi mdi-flash""></i>
+            Qucik Add SNMPv3
+            </a>
+        </li>        
+    </ul>
+</span>
+
+"""
+
+class NetBoxOnlyVMsTable(VirtualMachineTable):
+
+    name = tables.Column( linkify=True )
+    site = tables.Column( linkify=True )
+    role = tables.Column( linkify=True )
+    platform = tables.Column( linkify=True )
+    
+    hostgroups  = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='hostgroups' )
+    templates   = tables.Column( empty_values=(), verbose_name="Templates", order_by='templates' )
+    proxy       = tables.Column( empty_values=(), verbose_name="Proxy", order_by='proxy' )
+    proxy_group = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxy_group' )
+    
+    tags = columns.TagColumn( url_name='dcim:device_list' )
+    
+    actions = columns.ActionsColumn( extra_buttons=EXTRA_VM_ADD_ACTIONS )
+    
+    class Meta(VirtualMachineTable.Meta):
+        model = Device
+        fields = ("name", "site", "role", "platform", "hostgroups", "templates", "proxy", "proxy_group", "tags")
+        default_columns = ("name","site", "role", "platform", "hostgroups", "templates", "proxy", "proxy_group", "tags")
+    
+    # Generic render method for columns that return iterable mappings (hostgroups, templates)
+    def _render_mappings(self, record, get_mapping_func):
+        items = get_mapping_func( record )
+        if not items:
+            return mark_safe( '<span class="text-muted">&mdash;</span>' )
+        return mark_safe(", ".join(
+            f'<a href="{item.get_absolute_url()}">{item.name}</a>'
+            for item in items
+        ))
+    
+    # Generic order method for columns based on counts of mappings
+    def _order_by_mapping_count(self, queryset, is_descending, get_mapping_func):
+        vms = list( queryset )
+        vms.sort(
+            key=lambda x: len( get_mapping_func(x) ),
+            reverse=is_descending
+        )
+        ordered_pks = [vm.pk for vm in vms]
+        preserved_order = Case(*[When( pk=pk, then=pos ) for pos, pk in enumerate( ordered_pks )])
+        queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by( preserved_order )
+        return queryset, True
+    
+    # Generic render method for single-mapping columns (proxy, proxy_group)
+    def _render_single_mapping(self, record, get_mapping_func):
+        item = get_mapping_func( record )
+        if not item:
+            return mark_safe('<span class="text-muted">&mdash;</span>')
+        return mark_safe(f'<a href="{item.get_absolute_url()}">{item.name}</a>')
+    
+    # Generic order method for single-mapping columns (proxy, proxy_group)
+    def _order_by_single_mapping(self, queryset, is_descending, get_mapping_func):
+        devices = list( queryset )
+        devices.sort(
+            key=lambda x: (
+                0 if get_mapping_func(x) is None else 1,
+                get_mapping_func(x).name if get_mapping_func(x) else '',
+                x.name
+            ),
+            reverse=is_descending
+        )
+        ordered_pks = [vm.pk for vm in devices]
+        preserved_order = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ordered_pks)])
+        queryset = queryset.model.objects.filter(pk__in=ordered_pks).order_by(preserved_order, 'name')
+        return queryset, True
+    
+    # Now, bind each column's render and order methods to the generic ones with proper function
+    
+    def render_hostgroups(self, record):
+        return self._render_mappings( record, get_hostgroups_mappings )
+    
+    def order_hostgroups(self, queryset, is_descending):
+        return self._order_by_mapping_count( queryset, is_descending, get_hostgroups_mappings )
+    
+    def render_templates(self, record):
+        return self._render_mappings( record, get_templates_mappings )
+    
+    def order_templates(self, queryset, is_descending):
+        return self._order_by_mapping_count( queryset, is_descending, get_templates_mappings )
+    
+    def render_proxy(self, record):
+        return self._render_single_mapping( record, get_proxy_mapping )
+    
+    def order_proxy(self, queryset, is_descending):
+        return self._order_by_single_mapping( queryset, is_descending, get_proxy_mapping )
+    
+    def render_proxy_group(self, record):
+        return self._render_single_mapping( record, get_proxy_group_mapping )
+    
+    def order_proxy_group(self, queryset, is_descending):
+        return self._order_by_single_mapping( queryset, is_descending, get_proxy_group_mapping )
+    
+    
 
 
 # ------------------------------------------------------------------------------
@@ -431,8 +692,8 @@ class DeviceZabbixConfigTable(NetBoxTable):
     
     class Meta(NetBoxTable.Meta):
         model = models.DeviceZabbixConfig
-        fields = ('name', 'device', 'status', 'monitoredby', 'hostid', 'templates', 'proxies', 'proxy_groups', 'host_groups' )
-        default_columns = ('name', 'device', 'status', 'monitoredby', 'templates', 'proxies', 'proxy_groups', 'host_groups')
+        fields = ('name', 'device', 'status', 'monitored_by', 'hostid', 'templates', 'proxies', 'proxy_groups', 'host_groups' )
+        default_columns = ('name', 'device', 'status', 'monitored_by', 'templates', 'proxies', 'proxy_groups', 'host_groups')
     
 
 class VMZabbixConfigTable(NetBoxTable):
@@ -447,8 +708,8 @@ class VMZabbixConfigTable(NetBoxTable):
     
     class Meta(NetBoxTable.Meta):
         model = models.VMZabbixConfig
-        fields = ('name', 'virtual_machine', 'status', 'monitoredby', 'hostid',  'templates', 'proxies', 'proxy_groups', 'host_groups')
-        default_columns = ('name', 'virtual_machine', 'status', 'monitoredby', 'templates', 'proxies', 'proxy_groups', 'host_groups')
+        fields = ('name', 'virtual_machine', 'status', 'monitored_by', 'hostid',  'templates', 'proxies', 'proxy_groups', 'host_groups')
+        default_columns = ('name', 'virtual_machine', 'status', 'monitored_by', 'templates', 'proxies', 'proxy_groups', 'host_groups')
 
         
 class ZabbixConfigActionsColumn(ActionsColumn):
@@ -499,6 +760,11 @@ class ZabbixConfigTable(NetBoxTable):
             return mark_safe('<span class="text-muted">Unknown</span>')
 
 
+# ------------------------------------------------------------------------------
+# Importable Devices
+# ------------------------------------------------------------------------------
+
+
 class ImportableDeviceTable(NetBoxTable):
     name = tables.Column( linkify=True )
     valid = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
@@ -530,6 +796,10 @@ class ImportableDeviceTable(NetBoxTable):
             return self.reasons[record] if record in self.reasons else ""
         return ""
     
+
+# ------------------------------------------------------------------------------
+# Importable VMs
+# ------------------------------------------------------------------------------
 
 class ImportableVMTable(NetBoxTable):
     name = tables.Column( linkify=True )
@@ -564,65 +834,9 @@ class ImportableVMTable(NetBoxTable):
     
 
 
-EXTRA_DEVICE_ADD_ACTIONS = """
-<span class="btn-group dropdown">
-
-    <a class="btn btn-sm btn-primary" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" type="button" aria-label="Add Config">
-    <i class="mdi mdi-pen-plus"></i>
-    </a>
-
-    <a class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="padding-left: 2px" aria-expanded="false">
-        <span class="visually-hidden">Toggle Dropdown</span>
-    </a>
-
-    <ul class="dropdown-menu">
-        <li>
-            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_agent' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
-            <i class="mdi mdi-flash-auto""></i>
-            Quick Add Agent
-            </a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_snmpv3' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
-            <i class="mdi mdi-flash""></i>
-            Qucik Add SNMPv3
-            </a>
-        </li>        
-    </ul>
-</span>
-
-"""
-class NetBoxOnlyDevicesTable(DeviceTable):
-
-    #def render_actions(self, record):
-    #       url = reverse('plugins:netbox_zabbix:devicezabbixconfig_add') + f'?device_id={record.pk}'
-    #       return format_html(
-    #           '<a href="{}" class="btn btn-sm btn-success">Create Zabbix Config</a>',
-    #           url
-    #       )
-   
-    class Meta(DeviceTable.Meta):
-        model = Device
-        fields = DeviceTable.Meta.fields
-        default_columns = DeviceTable.Meta.default_columns
-
-    actions = columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS )
-
-
-class NetBoxOnlyVMsTable(VirtualMachineTable):
-
-    def render_actions(self, record):
-           url = reverse('plugins:netbox_zabbix:vmzabbixconfig_add') + f'?vm_id={record.pk}'
-           return format_html(
-               '<a href="{}" class="btn btn-sm btn-success">Create Zabbix Config</a>',
-               url
-           )
-    
-    class Meta(VirtualMachineTable.Meta):
-        model = VirtualMachine
-        fields = VirtualMachineTable.Meta.fields
-        default_columns = VirtualMachineTable.Meta.default_columns
-
+# ------------------------------------------------------------------------------
+# Zabbix Only Hosts
+# ------------------------------------------------------------------------------
 
 class ZabbixOnlyHostTable(tables.Table):
     name = tables.TemplateColumn(
@@ -637,7 +851,7 @@ class ZabbixOnlyHostTable(tables.Table):
 
 
 # ------------------------------------------------------------------------------
-# Interface
+# Interfaces
 # ------------------------------------------------------------------------------
 
 class DeviceAgentInterfaceTable(NetBoxTable):
@@ -673,7 +887,6 @@ class DeviceSNMPv3InterfaceTable(NetBoxTable):
                     "snmp_privpassphrase",
                     "snmp_bulk" )
         default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port" )
-
 
 
 class VMAgentInterfaceTable(NetBoxTable):

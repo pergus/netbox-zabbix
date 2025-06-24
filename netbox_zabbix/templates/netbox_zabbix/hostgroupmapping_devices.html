@@ -16,7 +16,7 @@
 
                     <tr>
                         <th scope="row">Host Groups</th>
-                        <td>{{ object.hostgroups.all|join:"," }}</td>
+                        <td>{{ object.host_groups.all|join:"," }}</td>
                     </tr>
 
                     {% if object.sites.exists %}

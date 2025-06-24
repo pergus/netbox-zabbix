@@ -51,7 +51,7 @@
 
                     <tr>
                         <th scope="row">Monitored By</th>
-                        <td>{{ object.get_monitoredby_display }}</td>
+                        <td>{{ object.get_monitored_by_display }}</td>
                     </tr>
 
                     <tr>
@@ -63,7 +63,8 @@
                         <th>Templates</th>
                         <td>
                             {% for template in object.templates.all %}
-                            <a href="{{ template.get_absolute_url }}" class="badge text-bg-primary">{{ template.name }}</a>
+                            <a href="{{ template.get_absolute_url }}" class="badge text-bg-primary">{{ template.name
+                                }}</a>
                             {% endfor %}
                         </td>
                     </tr>

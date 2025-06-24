@@ -19,8 +19,8 @@
                     <tr>
                         <th scope="row">Host Groups</th>
                         <td>
-                            {% for hostgroup in object.hostgroups.all %}
-                            <a href="{{ hostgroup.get_absolute_url }}">{{ hostgroup.name }}</a>{% if not forloop.last %}, {% endif %}
+                            {% for host_group in object.host_groups.all %}
+                            <a href="{{ hostgroup.get_absolute_url }}">{{ host_group.name }}</a>{% if not forloop.last %}, {% endif %}
                             {% endfor %}
                         </td>
 

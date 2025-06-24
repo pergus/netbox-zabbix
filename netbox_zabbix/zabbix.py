@@ -293,7 +293,7 @@ def synchronize_proxies(max_deletions=None):
     return added_proxies, deleted_proxies
 
 
-def get_proxygroups():
+def get_proxy_groups():
     """
     Retrieves all Zabbix proxy groups.
     
@@ -315,7 +315,7 @@ def get_proxygroups():
         raise e
     
 
-def synchronize_proxygroups(max_deletions=None):
+def synchronize_proxy_groups(max_deletions=None):
     """
     Synchronize proxy groups from Zabbix with the local database.
     
@@ -338,7 +338,7 @@ def synchronize_proxygroups(max_deletions=None):
         Exception: For other errors during fetching or updating proxy groups.
     """
     try:
-        proxy_groups = get_proxygroups()
+        proxy_groups = get_proxy_groups()
     
     except ZabbixConfigNotFound as e:
         raise e
@@ -405,13 +405,10 @@ def get_zabbix_hostnames():
         z = get_zabbix_client()
         hostnames = z.host.get( output=["name"], sortfield=["name"] )
         return hostnames
-        
-    except ZabbixConfigNotFound as e:
-        raise e
-     
+
     except Exception as e:
         logger.error( f"Get Zabbix hostnames from {get_zabbix_api_endpoint()} failed: {e}" )
-        return []
+        raise e
     
 
 def get_zabbix_only_hostnames():

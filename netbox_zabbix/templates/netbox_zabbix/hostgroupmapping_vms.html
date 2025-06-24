@@ -15,7 +15,7 @@
                     </tr>
                     <tr>
                         <th scope="row">Host Groups</th>
-                        <td>{{ object.hostgroups.all|join:"," }}</td>
+                        <td>{{ object.host_groups.all|join:"," }}</td>
                     </tr>
 
                     {% if object.sites.exists %}
@@ -44,7 +44,8 @@
                         <th scope="row">Tags</th>
                         <td>
                             {% for tag in object.tags.all %}
-                            <a href="{{ tag.get_absolute_url }}" class="badge" style="color: #000000; background-color: #9e9e9e">{{ tag.name }}</a>
+                            <a href="{{ tag.get_absolute_url }}" class="badge"
+                                style="color: #000000; background-color: #9e9e9e">{{ tag.name }}</a>
                             {% endfor %}
                         </td>
                     </tr>

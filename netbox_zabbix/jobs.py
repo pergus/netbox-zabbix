@@ -11,8 +11,9 @@ from typing import Union
 # NetBox Zabbix Imports
 from netbox_zabbix.job import AtomicJobRunner
 from netbox_zabbix.zabbix import get_host
-from netbox_zabbix.models import DeviceSNMPv3Interface, DeviceZabbixConfig, DeviceAgentInterface, VMSNMPv3Interface, VMZabbixConfig, VMAgentInterface, Template, StatusChoices
-from netbox_zabbix.config import get_zabbix_api_endpoint, get_zabbix_token, get_default_cidr
+from netbox_zabbix.models import DeviceSNMPv3Interface, DeviceZabbixConfig, DeviceAgentInterface, HostGroup, Proxy, ProxyGroup, VMSNMPv3Interface, VMZabbixConfig, VMAgentInterface, Template, StatusChoices, MonitoredByChoices
+from netbox_zabbix.config import get_zabbix_api_endpoint, get_zabbix_token, get_default_cidr, get_monitored_by
+from netbox_zabbix.utils import validate_and_get_mappings
 from netbox_zabbix.logger import logger
 
 
@@ -405,15 +406,48 @@ def build_zabbix_host_payload_from_config(zcfg: DeviceZabbixConfig) -> dict:
     Raises:
         Exception: If required fields like device, agent interface, or templates are missing.
     """
+
+
+    """
+    {
+        {% if host is defined %}
+        "host": "{{ host }}",
+        {% endif %}
+        {% if hostid is defined %}
+        "hostid": "{{ hostid }}",
+        {% endif %}
+        "status": {{ status }},
+        "monitored_by": 2,
+        "proxy_groupid": "{{ proxy_groupid }}",
+        "interfaces":  [ {{ interfaces | join(", ") }} ],
+        "groups": [ {{ host_groups | join(", ") }} ],
+        "tags": [ {{ tags | join(", ") }}  ],
+        "templates": [ {{ templates | join(", ") }} ],
+        "inventory_mode": 0,
+        "inventory": {{ inventory }},
+        "tls_connect": 2,
+        "tls_accept": 2,
+        "tls_psk_identity": "{{ psk_identity }}",
+        "tls_psk": "{{ preshared_key }}"
+    }
+    """
     device = zcfg.device
 
     if not device:
         raise Exception("Zabbix config is not linked to a device.")
 
-    # 1. Host name
-    host_name = zcfg.get_name()
+    #  Host name
+    host_name = zcfg.get_name()    
 
-    # 2. Interfaces
+    # Hostid
+
+    # Status
+
+    # Tags
+
+    # Inventory
+    
+    # Interfaces
     interfaces = []
 
     for agent_iface in zcfg.agent_interfaces.all():
@@ -439,23 +473,49 @@ def build_zabbix_host_payload_from_config(zcfg: DeviceZabbixConfig) -> dict:
     if not interfaces:
         raise Exception(f"No interfaces defined for host '{host_name}'")
 
-    # 3. Templates
-    templates = zcfg.templates.all()
-    if not templates:
+    # Templates
+    cfg_templates = zcfg.templates.all()
+    if not cfg_templates:
         raise Exception(f"No templates assigned to host '{host_name}'")
 
-    template_list = [{ "templateid": t.templateid } for t in templates]
+    templates = [{ "templateid": t.templateid } for t in cfg_templates]
 
-    # 4. Groups (REQUIRED by Zabbix). Adjust this to dynamically assign based on site/role/etc.
-    # For now, use a default group ID (replace this with real logic or lookup)
-    group_list = [{ "groupid": "1" }]
 
-    return {
+    # Host Groups
+    host_groups = zcfg.host_groups.all()
+    if not host_groups:
+        raise Exception(f"No host groups assigned to host '{host_name}'")
+    groups = [{ "groupid": g.groupid } for g in host_groups]
+
+    # Build payload
+    payload = {
         "host": host_name,
+        "inventory_mode": 1,
         "interfaces": interfaces,
-        "groups": group_list,
-        "templates": template_list,
+        "groups": groups,
+        "templates": templates,
     }
+    
+    # Monitored By
+    monitored_by = zcfg.monitored_by
+    payload["monitored_by"] = monitored_by
+
+    if monitored_by == MonitoredByChoices.Proxy:
+        proxy = zcfg.proxy
+        if not proxy:
+            raise Exception(f"Host '{host_name}' is configured to be monitored by a proxy, but no proxy was found.")        
+        payload["proxyid"] = proxy.proxyid
+    
+    if monitored_by == MonitoredByChoices.ProxyGroup:
+        proxy_group = zcfg.proxy_group
+        if not proxy_group:
+            raise Exception(f"Host '{host_name}' is configured to be monitored by a proxy group, but no proxy group was found.")        
+        payload["proxy_groupid"] = proxy_group.proxy_groupid
+    
+
+    # TLS settings...
+
+    return payload
 
 
 # The string "agent_default_templates" should be in Config
@@ -480,44 +540,67 @@ def device_quick_add_agent(device):
     # are not available at this stage—they will be set after the corresponding
     # host and interface are created in Zabbix.
 
-    zcfg = DeviceZabbixConfig( device=device, status=StatusChoices.ENABLED )
 
+    # Check if the host has all requied meta data
     try:
+        ( template_mappings, hostgroup_mappings, proxy_mapping, proxy_group_mapping ) = validate_and_get_mappings( device, get_monitored_by() )        
+    except Exception as e:
+        raise Exception( f"Failed to validate mappings: {e}" )
+    
+
+    # Create a zabbix config
+    try:
+        zcfg = DeviceZabbixConfig( device=device, status=StatusChoices.ENABLED )
         zcfg.full_clean()
         zcfg.save()
     except Exception as e:
-        raise Exception(f"Failed to create Zabbix configuration: {e}")
+        raise Exception( f"Failed to create Zabbix configuration: {e}" )
 
-    def add_templates_from(source, label):
-        if not source:
-            raise Exception(f"Unable to find {label} for device '{device.name}'")
+    for mapping in template_mappings:
+        for template in mapping.templates.all():
+            try:
+                zcfg.templates.add( Template.objects.get( name=template.name ) )
+            except Exception as e:
+                raise Exception( f"Failed to add template {template.name} to Zabbix configuration: {e}" )
 
-        for tmpl in source.cf.get("agent_default_templates") or []:
-            zcfg.templates.add(Template.objects.get(name=tmpl.name))
+    for mapping in hostgroup_mappings:
+        for hostgroup in mapping.hostgroups.all():
+            try:
+                zcfg.host_groups.add( HostGroup.objects.get( name=hostgroup.name ) )
+            except Exception as e:
+                raise Exception( f"Failed to add host group {hostgroup.name} to Zabbix configuration: {e}" )
 
-    add_templates_from(device.platform, "platform")
-    add_templates_from(device.role, "role")
-
-
+    if proxy_mapping:
+        try:
+            zcfg.proxy.add( Proxy.objects.get( name=proxy_mapping.name ) )
+        except Exception as e:
+            raise Exception( f"Failed to add proxy {proxy_mapping.name} to Zabbix configuration: {e}" )
+    
+    if proxy_group_mapping:
+        try:
+            zcfg.proxy_group.add( ProxyGroup.objects.get( name=proxy_group_mapping.name ) )
+        except Exception as e:
+            raise Exception( f"Failed to add proxy group {proxy_group_mapping.name} to Zabbix configuration: {e}" )
+                       
     ip = device.primary_ip4
     if ip is None:
-        raise Exception(f"Device '{device.name}' does not have a primary IPv4 address set")
+        raise Exception( f"Device '{device.name}' does not have a primary IPv4 address set" )
     
-    interface = ip.assigned_object
-    iface = DeviceAgentInterface( name=f"{device.name}-agent", host=zcfg, interface=interface, ip_address=ip )
-
     try:
+        interface = ip.assigned_object        
+        iface = DeviceAgentInterface( name=f"{device.name}-agent", host=zcfg, interface=interface, ip_address=ip )        
         iface.full_clean()
         iface.save()
     except Exception as e:
-        raise Exception(f"Failed to create agent interface: {e}")
+        raise Exception( f"Failed to create agent interface: {e}" )
     
     try:
         payload = build_zabbix_host_payload_from_config( zcfg )
     except Exception as e:
-        raise Exception(f"Failed to create zabbix host payload: {e}")
+        raise Exception( f"Failed to create zabbix host payload: {e}" )
 
-    logger.info( f"{payload}" )
+    import json
+    logger.info( f"{json.dumps(payload, indent=2) }" )
 
 
 #-------------------------------------------------------------------------------
