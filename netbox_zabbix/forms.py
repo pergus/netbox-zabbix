@@ -5,6 +5,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
 from django.utils.timezone import now
+from django.conf import settings
 
 from ipam.models import IPAddress
 from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
@@ -32,12 +33,13 @@ from netbox_zabbix.logger import logger
 #
 
 
+PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
+
 # ------------------------------------------------------------------------------
 # Settings
 # ------------------------------------------------------------------------------
 
 # Since only one configuration is allowed there is no need for a FilterForm.
-from django.forms import NumberInput
 
 class ConfigForm(NetBoxModelForm):
     fieldsets = (
@@ -225,7 +227,6 @@ class BaseProxyMappingForm(NetBoxModelForm):
             raise forms.ValidationError( f"This mapping overlaps with existing mapping(s): {', '.join(conflicting)}." )
         
 
-
 # ------------------------------------------------------------------------------
 # Proxy
 # ------------------------------------------------------------------------------
@@ -253,9 +254,7 @@ class ProxyFilterForm(NetBoxModelFilterSetForm):
         choices = [("", "---------")] + [(zid, zid) for zid in proxyids if zid is not None]
         self.fields["proxyid"].choices = choices
 
-
-
-            
+         
 # ------------------------------------------------------------------------------
 # Proxy Mappings
 # ------------------------------------------------------------------------------
@@ -267,7 +266,6 @@ class ProxyMappingForm(BaseProxyMappingForm):
         model = models.ProxyMapping
         fields = [ 'name', 'proxy', 'sites', 'roles', 'platforms', 'tags' ]
 
-    
 
 # ------------------------------------------------------------------------------
 # Proxy Groups
@@ -315,6 +313,7 @@ class HostGroupForm(NetBoxModelForm):
     class Meta:
         model = models.HostGroup
         fields = [ 'name', 'groupid', "marked_for_deletion" ]
+
 
 # ------------------------------------------------------------------------------
 # Hostgroup Mappings
@@ -755,3 +754,75 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
         # Set the initial value of the calculated DNS name if editing an existing instance
         if self.instance.pk:
             self.fields['dns_name'].initial = self.instance.resolved_dns_name
+
+
+# ------------------------------------------------------------------------------
+# Tag Mapping
+# ------------------------------------------------------------------------------
+
+class TagMappingForm(NetBoxModelForm):
+    object_type = forms.ChoiceField( choices=models.TagMapping.OBJECT_TYPE_CHOICES, initial='device' )
+
+    class Meta:
+        model = models.TagMapping
+        fields = ['object_type']  # exclude 'field_selection' so it's not rendered as raw JSON
+
+    def __init__(self, *args, **kwargs):
+        super().__init__( *args, **kwargs )
+
+        object_type = (
+            self.initial.get( 'object_type' )
+            or self.data.get( 'object_type' )
+            or getattr( self.instance, 'object_type', None )
+            or 'device'
+        )
+        logger.info(f"{object_type=}")
+
+        if object_type == 'device':
+            configured_fields = PLUGIN_SETTINGS.get( 'field_mappings', {} ).get( 'device', [] )
+        elif object_type == 'virtualmachine':
+            configured_fields = PLUGIN_SETTINGS.get( 'field_mappings', {} ).get( 'virtualmachine', [] )
+        else:
+            configured_fields = []
+
+        logger.info(f"{configured_fields=}")
+
+        # Store for later use
+        self._dynamic_fields = [field_name for field_name, _ in configured_fields]
+
+        # Dynamically add BooleanFields for each mapping
+        for field_name, field_label in configured_fields:
+            self.fields[field_name] = forms.BooleanField(
+                label=field_label,
+                required=False,
+                initial=self.instance.field_selection.get( field_name, False ) if self.instance.pk else False,
+            )
+
+        # Ensure these aren't in the rendered form
+        self.fields.pop( 'tags', None )
+        self.fields.pop( 'field_selection', None )
+
+    def clean_object_type(self):
+        object_type = self.cleaned_data['object_type']
+    
+        # Check if another instance with this object_type exists
+        qs = models.TagMapping.objects.filter( object_type=object_type )
+        if self.instance.pk:
+            qs = qs.exclude( pk=self.instance.pk )
+    
+        if qs.exists():
+            raise forms.ValidationError( f"A mapping for object type '{object_type}' already exists." )
+    
+        return object_type
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        return cleaned_data
+
+    def save(self, commit=True):
+        # Set field_selection from current form data
+        self.instance.field_selection = {
+            field_name: self.cleaned_data.get( field_name, False )
+            for field_name in self._dynamic_fields
+        }
+        return super().save( commit=commit )

@@ -640,3 +640,23 @@ class AvailableDeviceInterface(Interface):
 class AvailableVMInterface(VMInterface):
     class Meta:
         proxy = True
+
+
+# ------------------------------------------------------------------------------
+# Tag Mapping
+# ------------------------------------------------------------------------------
+
+class TagMapping(NetBoxModel):
+    OBJECT_TYPE_CHOICES = [
+        ('device', 'Device'),
+        ('virtualmachine', 'Virtual Machine'),
+    ]
+
+    object_type = models.CharField( max_length=20, choices=OBJECT_TYPE_CHOICES, unique=True )
+    field_selection = models.JSONField( default=dict, help_text="List of field paths to use as Zabbix tags" )
+
+    def __str__(self):
+        return f"{self.object_type}: {self.field_selection}"
+    
+    def get_absolute_url(self):
+        return reverse( "plugins:netbox_zabbix:tagmapping", args=[self.pk] )

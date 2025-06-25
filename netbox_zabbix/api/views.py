@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 
 # ------------------------------------------------------------------------------
 # Configuration
-#
+# ------------------------------------------------------------------------------
 
 class ConfigViewSet(NetBoxModelViewSet):
     queryset = models.Config.objects.all()
@@ -20,7 +20,7 @@ class ConfigViewSet(NetBoxModelViewSet):
 
 # ------------------------------------------------------------------------------
 # Templates
-#
+# ------------------------------------------------------------------------------
 
 class TemplateFilter(filters.FilterSet):
     # The TemplateFilter class is a filter set designed to filter templates based on the name field.
@@ -48,7 +48,7 @@ class TemplateMappingFilter(filters.FilterSet):
 
 # ------------------------------------------------------------------------------
 # Template Mapping
-#
+# ------------------------------------------------------------------------------
 
 class TemplateMappingViewSet(NetBoxModelViewSet):
     queryset = models.TemplateMapping.objects.all()
@@ -59,7 +59,7 @@ class TemplateMappingViewSet(NetBoxModelViewSet):
 
 # ------------------------------------------------------------------------------
 # Proxy
-#
+# ------------------------------------------------------------------------------
 
 class ProxyFilter(filters.FilterSet):
     # The ProxyFilter class is a filter set designed to filter proxies based on the name field.
@@ -80,7 +80,7 @@ class ProxyViewSet(NetBoxModelViewSet):
 
 # ------------------------------------------------------------------------------
 # Proxy Mapping
-#
+# ------------------------------------------------------------------------------
 
 class ProxyMappingFilter(filters.FilterSet):
     q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxy Mappings" )
@@ -99,7 +99,7 @@ class ProxyMappingViewSet(NetBoxModelViewSet):
 
 # ------------------------------------------------------------------------------
 # Proxy Group
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupFilter(filters.FilterSet):
     # The ProxyFilter class is a filter set designed to filter proxies based on the name field.
@@ -118,7 +118,7 @@ class ProxyGroupViewSet(NetBoxModelViewSet):
 
 # ------------------------------------------------------------------------------
 # Proxy Group Mapping
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupMappingFilter(filters.FilterSet):
     q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxy Group Mappings" )
@@ -136,7 +136,7 @@ class ProxyGroupMappingViewSet(NetBoxModelViewSet):
 
 # ------------------------------------------------------------------------------
 # Host Groups
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupViewSet(NetBoxModelViewSet):
     queryset = models.HostGroup.objects.all()
@@ -146,7 +146,7 @@ class HostGroupViewSet(NetBoxModelViewSet):
 
 # ------------------------------------------------------------------------------
 # Host Group Mapping
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupMappingFilter(filters.FilterSet):
     q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Group Mappings" )
@@ -160,9 +160,18 @@ class HostGroupMappingViewSet(NetBoxModelViewSet):
     serializer_class = serializers.HostGroupMappingSerializer
     filterset_class = HostGroupMappingFilter
 
+
+# ------------------------------------------------------------------------------
+# Host Group Mapping
+# ------------------------------------------------------------------------------
+
+class TagMappingViewSet(NetBoxModelViewSet):
+    queryset = models.TagMapping.objects.all()
+    serializer_class = serializers.TagMappingSerializer
+    
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
-#
+# ------------------------------------------------------------------------------
 
 class DeviceZabbixConfigViewSet(NetBoxModelViewSet):
     queryset = models.DeviceZabbixConfig.objects.all()
@@ -226,7 +235,7 @@ class VMZabbixConfigViewSet(NetBoxModelViewSet):
     
 # ------------------------------------------------------------------------------
 # Interfaces
-#
+# ------------------------------------------------------------------------------
 
 
 class AvailableDeviceInterfaceFilter(filters.FilterSet):

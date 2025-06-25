@@ -1,1 +1,12 @@
-from .serializers import ConfigSerializer, TemplateSerializer, TemplateMappingSerializer, ProxySerializer, ProxyMappingSerializer, ProxyGroupSerializer, ProxyGroupMappingSerializer, DeviceZabbixConfigSerializer, VMZabbixConfigSerializer
+from .serializers import (
+    ConfigSerializer, 
+    TemplateSerializer, 
+    TemplateMappingSerializer, 
+    ProxySerializer, 
+    ProxyMappingSerializer, 
+    ProxyGroupSerializer, 
+    ProxyGroupMappingSerializer, 
+    TagMappingSerializer,
+    DeviceZabbixConfigSerializer, 
+    VMZabbixConfigSerializer
+    )

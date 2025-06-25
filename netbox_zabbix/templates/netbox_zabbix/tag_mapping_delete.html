@@ -1,0 +1,18 @@
+{% extends 'generic/object.html' %}
+
+{% block title %}Delete Tag Mapping{% endblock %}
+
+{% block content %}
+<p>Are you sure you want to delete the mapping for <strong>{{ object.object_type }}</strong> with fields:</p>
+<ul>
+    {% for field in object.fields %}
+    <li>{{ field }}</li>
+    {% endfor %}
+</ul>
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Confirm Delete</button>
+    <a href="{% url 'plugins:netbox_zabbix:tagmapping_list' %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

@@ -16,6 +16,8 @@ router.register( 'proxygroup-mappings',        views.ProxyGroupMappingViewSet )
 router.register( 'hostgroups',                 views.HostGroupViewSet )
 router.register( 'hostgroup-mappings',         views.HostGroupMappingViewSet )
 
+router.register( 'tag-mappings',               views.TagMappingViewSet )
+
 # Rename devicezabbixconfig to device-zabbix-config
 router.register( 'devicezabbixconfig',         views.DeviceZabbixConfigViewSet )
 # Rename vmzabbixconfig to vm-zabbix-config

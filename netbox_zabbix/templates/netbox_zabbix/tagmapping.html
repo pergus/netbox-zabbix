@@ -1,0 +1,34 @@
+{% extends 'generic/object.html' %}
+
+
+{% block title %}Tag Mapping{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">Tag Mapping</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Object Type</th>
+                        <td>{{ object.object_type }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Selected Fields</th>
+                        <td>
+                            {% for field, enabled in object.field_selection.items %}
+                            {% if enabled %}
+                            <div>{{ field }}</div>
+                            {% endif %}
+                            {% empty %}
+                            <div>No fields selected.</div>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

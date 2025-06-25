@@ -95,6 +95,7 @@ def zabbix_import_settings(request):
     
     return redirect( redirect_url )
 
+
 # ------------------------------------------------------------------------------
 # Templates
 # ------------------------------------------------------------------------------
@@ -267,13 +268,13 @@ class TemplateMappingBulkDeleteView(generic.BulkDeleteView):
             return reverse('plugins:netbox_zabbix:templatemapping_list')
 
 
-
 # ------------------------------------------------------------------------------
 # Proxy
 # ------------------------------------------------------------------------------
 
 class ProxyView(generic.ObjectView):
     queryset = models.Proxy.objects.all()
+
 
 class ProxyListView(generic.ObjectListView):    
     queryset = models.Proxy.objects.all()
@@ -339,6 +340,7 @@ def import_proxies(request):
     redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
     run_import_proxies()
     return redirect( redirect_url )
+
 
 # ------------------------------------------------------------------------------
 # Proxy Mappings
@@ -417,8 +419,6 @@ class ProxyMappingBulkDeleteView(generic.BulkDeleteView):
             return reverse('plugins:netbox_zabbix:proxymapping_list')
 
 
-
-
 # ------------------------------------------------------------------------------
 # Proxy Groups
 # ------------------------------------------------------------------------------
@@ -426,6 +426,7 @@ class ProxyMappingBulkDeleteView(generic.BulkDeleteView):
 class ProxyGroupView(generic.ObjectView):
     queryset = models.ProxyGroup.objects.all()
     template_name = "netbox_zabbix/proxy_group.html"
+
 
 class ProxyGroupListView(generic.ObjectListView):
     queryset = models.ProxyGroup.objects.all()
@@ -438,7 +439,6 @@ class ProxyGroupListView(generic.ObjectListView):
 class ProxyGroupEditView(generic.ObjectEditView):
     queryset = models.ProxyGroup.objects.all()
     form = forms.ProxyGroupForm
-    template_name = "netbox_zabbix/proxy_group_edit.html"
     
 
 class ProxyGroupDeleteView(generic.ObjectDeleteView):
@@ -485,7 +485,6 @@ def run_import_proxy_groups(request=None):
         config.set_connection = False
         config.set_last_checked = timezone.now()
         return None, None, e
-    
     
 
 def import_proxy_groups(request):
@@ -573,7 +572,6 @@ class ProxyGroupMappingBulkDeleteView(generic.BulkDeleteView):
             return reverse('plugins:netbox_zabbix:proxygroupmapping_list')
 
 
-
 # ------------------------------------------------------------------------------
 # Host Groups
 # ------------------------------------------------------------------------------
@@ -587,16 +585,11 @@ class HostGroupListView(generic.ObjectListView):
     #filterset_fields = ['hostgroup', 'role',  'platform', 'tag']
     table = tables.HostGroupTable
     template_name = 'netbox_zabbix/host_group_list.html'
-    
 
 
 class HostGroupEditView(generic.ObjectEditView):
     queryset = models.HostGroup.objects.all()
     form = forms.HostGroupForm
-#    template_name = 'netbox_zabbix/host_group_edit.html'
-#
-#    def get_return_url(self, request, obj=None):
-#        return reverse('plugins:netbox_zabbix:hostgroup_list')
 
 
 class HostGroupDeleteView(generic.ObjectDeleteView):
@@ -715,7 +708,6 @@ class HostGroupMappingBulkDeleteView(generic.BulkDeleteView):
 
     def get_return_url(self, request, obj=None):
             return reverse('plugins:netbox_zabbix:hostgroupmapping_list')
-
 
 
 # ------------------------------------------------------------------------------
@@ -859,7 +851,6 @@ class HostGroupMappingVMsView(generic.ObjectView):
         return {
             "table": vm_table,
         }
-    
 
 
 # ------------------------------------------------------------------------------
@@ -874,6 +865,7 @@ class DeviceMappingsListView(generic.ObjectListView):
     filterset_form = forms.DeviceMappingsFilterForm
     template_name = "netbox_zabbix/device_mappings.html"
 
+
 # ------------------------------------------------------------------------------
 # VM Mappings
 # ------------------------------------------------------------------------------
@@ -885,7 +877,6 @@ class VMMappingsListView(generic.ObjectListView):
     filterset = filtersets.VMMappingsFilterSet
     filterset_form = forms.VMMappingsFilterForm
     template_name = "netbox_zabbix/vm_mappings.html"
-
 
 
 # ------------------------------------------------------------------------------
@@ -919,7 +910,6 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
         return Device.objects.exclude( name__in=zabbix_hostnames ).prefetch_related( "site", "role", "platform", "tags" )
     
 
-
 # ------------------------------------------------------------------------------
 # NetBox Ony VMs
 # ------------------------------------------------------------------------------
@@ -941,6 +931,7 @@ class NetBoxOnlyVMsView(generic.ObjectListView):
 
         # Return only Virtual Machines that are not in Zabbix
         return VirtualMachine.objects.exclude( name__in=zabbix_hostnames )
+
 
 # ------------------------------------------------------------------------------
 # Zabbix Only Hosts
@@ -1017,7 +1008,6 @@ def device_quick_add_snmpv3(request):
     redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
     return redirect( redirect_url )    
     
-
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
@@ -1275,7 +1265,6 @@ class ImportableVMListView(generic.ObjectListView):
         return super().get( request, *args, **kwargs )
     
 
-
 # ------------------------------------------------------------------------------
 # Interfaces
 # ------------------------------------------------------------------------------
@@ -1371,3 +1360,24 @@ class VMSNMPv3InterfaceEditView(generic.ObjectEditView):
 class VMSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.VMSNMPv3Interface.objects.all()
 
+
+# ------------------------------------------------------------------------------
+# Tag Mapping
+# ------------------------------------------------------------------------------
+
+class TagMappingView(generic.ObjectView):
+    queryset = models.TagMapping.objects.all()
+
+class TagMappingListView(generic.ObjectListView):
+    queryset = models.TagMapping.objects.all()
+    table = tables.TagMappingTable
+    template_name = 'netbox_zabbix/tag_mapping_list.html'
+
+class TagMappingEditView(generic.ObjectEditView):
+    queryset = models.TagMapping.objects.all()
+    form = forms.TagMappingForm
+    template_name = 'netbox_zabbix/tag_mapping_edit.html'
+
+class TagMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.TagMapping.objects.all()
+    template_name = 'netbox_zabbix/tag_mapping_delete.html'

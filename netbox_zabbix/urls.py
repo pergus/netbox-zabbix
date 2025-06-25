@@ -244,5 +244,16 @@ urlpatterns = (
     path( 'interfaces/vm-snmpv3/<int:pk>/edit/',       views.VMSNMPv3InterfaceEditView.as_view(),       name='vmsnmpv3interface_edit' ),
     path( 'interfaces/vm-snmpv3/<int:pk>/delete/',     views.VMSNMPv3InterfaceDeleteView.as_view(),     name='vmsnmpv3interface_delete' ),
     path( 'interfaces/vm-snmpv3/<int:pk>/changelog/',  ObjectChangeLogView.as_view(),                   name='vmsnmpv3interface_changelog', kwargs={'model': models.VMSNMPv3Interface} ),
-    
-)
+
+
+    # --------------------------------------------------------------------------
+    # Tag Mapping
+    # --------------------------------------------------------------------------
+    path( 'tag/mappings/',                    views.TagMappingListView.as_view(),   name='tagmapping_list' ),
+    path( 'tag/mappings/add/',                views.TagMappingEditView.as_view(),   name='tagmapping_add' ),
+    path( 'tag/mapping/<int:pk>/',            views.TagMappingView.as_view(),       name='tagmapping' ),
+    path( 'tag/mappings/<int:pk>/edit/',      views.TagMappingEditView.as_view(),   name='tagmapping_edit' ),
+    path( 'tag/mappings/<int:pk>/delete/',    views.TagMappingDeleteView.as_view(), name='tagmapping_delete' ),
+    path( 'tag/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),        name='tagmappin_changelog', kwargs={'model': models.TagMapping}  ),
+
+ ) 

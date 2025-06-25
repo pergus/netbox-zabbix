@@ -7,7 +7,7 @@ from netbox_zabbix import models
 
 # ------------------------------------------------------------------------------
 # Configuration
-#
+# ------------------------------------------------------------------------------
 
 class ConfigSerializer(NetBoxModelSerializer):
     class Meta:
@@ -17,7 +17,7 @@ class ConfigSerializer(NetBoxModelSerializer):
 
 # ------------------------------------------------------------------------------
 # Templates
-#
+# ------------------------------------------------------------------------------
 
 class TemplateSerializer(NetBoxModelSerializer):
     class Meta:
@@ -27,9 +27,10 @@ class TemplateSerializer(NetBoxModelSerializer):
     def get_display(self, obj):
         return str( obj.name )
 
+
 # ------------------------------------------------------------------------------
 # Template Mappings
-#
+# ------------------------------------------------------------------------------
 
 class TemplateMappingSerializer(serializers.ModelSerializer):
     templates    = TemplateSerializer( many=True, read_only=True )
@@ -40,10 +41,9 @@ class TemplateMappingSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-
 # ------------------------------------------------------------------------------
 # Proxy
-#
+# ------------------------------------------------------------------------------
 
 class ProxySerializer(NetBoxModelSerializer):
     class Meta:
@@ -56,7 +56,7 @@ class ProxySerializer(NetBoxModelSerializer):
 
 # ------------------------------------------------------------------------------
 # Proxy Mappings
-#
+# ------------------------------------------------------------------------------
 
 class ProxyMappingSerializer(serializers.ModelSerializer):
     proxy    = ProxySerializer( read_only=True )
@@ -69,7 +69,7 @@ class ProxyMappingSerializer(serializers.ModelSerializer):
 
 # ------------------------------------------------------------------------------
 # Proxy Group
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupSerializer(NetBoxModelSerializer):
     class Meta:
@@ -79,9 +79,10 @@ class ProxyGroupSerializer(NetBoxModelSerializer):
     def get_display(self, obj):
         return str( obj.name )
 
+
 # ------------------------------------------------------------------------------
 # Proxy Group Mappings
-#
+# ------------------------------------------------------------------------------
 
 class ProxyGroupMappingSerializer(serializers.ModelSerializer):
     proxy_group    = ProxyGroupSerializer( read_only=True )
@@ -91,18 +92,20 @@ class ProxyGroupMappingSerializer(serializers.ModelSerializer):
         model = models.ProxyGroupMapping
         fields = '__all__'
 
+
 # ------------------------------------------------------------------------------
 # Host Groups
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.HostGroup
         fields = '__all__'
 
+
 # ------------------------------------------------------------------------------
 # Host Group Mappings
-#
+# ------------------------------------------------------------------------------
 
 class HostGroupMappingSerializer(serializers.ModelSerializer):
     hostgroups = HostGroupSerializer( many=True, read_only=True )
@@ -112,9 +115,19 @@ class HostGroupMappingSerializer(serializers.ModelSerializer):
         model = models.HostGroupMapping
         fields = '__all__'
 
+
+# ------------------------------------------------------------------------------
+# Tag Mapping
+# ------------------------------------------------------------------------------
+
+class TagMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.TagMapping
+        fields = '__all__'
+
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
-#
+# ------------------------------------------------------------------------------
 
 class DeviceZabbixConfigSerializer(NetBoxModelSerializer):
     name = serializers.SerializerMethodField()
@@ -149,11 +162,11 @@ class VMZabbixConfigSerializer(NetBoxModelSerializer):
     def get_name(self, obj):
         # This method is called to get the value for the `name` field
         return obj.get_name()
-    
+
+
 # ------------------------------------------------------------------------------
 # Interfaces
-#
-
+# ------------------------------------------------------------------------------
 
 class AvailableDeviceInterfaceSerializer(InterfaceSerializer):
     class Meta(InterfaceSerializer.Meta):
