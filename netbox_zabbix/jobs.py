@@ -431,37 +431,40 @@ def import_vm_config(zabbix_host: dict, vm: VirtualMachine):
 # ...
 # ------------------------------------------------------------------------------
 
-def get_tags( obj, existing_tags=[] ):
+def get_tags(obj, existing_tags=None):
     """
-    Generate a list of tags including existing ones, ensuring the 'netbox' and 'nb_site' tags are present.
-    
+    Generate a list of Zabbix-compatible tags, including dynamic tags from NetBox,
+    preserved existing tags, and enforced required tags such as 'netbox'.
+
     Args:
-        obj: An object with a 'site' attribute.
-        existing_tags (list): A list of tag dictionaries with 'tag' and 'value' keys.
-    
+        obj: A Device or VirtualMachine instance.
+        existing_tags (list): Optional list of existing tag dicts, each with 'tag' and 'value' keys.
+
     Returns:
-        list: A list of JSON-encoded tag strings.
+        list: List of tag dicts with keys 'tag' and 'value'.
     """
-    tags = get_zabbix_tags_for_object( obj )
+    if existing_tags is None:
+        existing_tags = []
 
+    # Start with any provided existing tags
+    result = list(existing_tags)
 
+    # Dynamic tags from tag mapping
+    dynamic_tags = get_zabbix_tags_for_object(obj)
+    for tag in dynamic_tags:
+        if tag not in result:
+            result.append(tag)
 
-
-    # Add option in the configuration to enable/disable this and set the tag name.
+    # Required static tags (configurable in the future)
     required_tags = [
-            { "tag": "netbox", "value": "true" },
-        ]
-    
-    result = [ tag for tag in existing_tags ]
+        {"tag": "netbox", "value": "true"},
+    ]
 
-    # Add any missing required tags
     for tag in required_tags:
-        tag_json = tag
-        if tag_json not in result:
-            result.append(tag_json)
+        if tag not in result:
+            result.append(tag)
 
     return result
-
 
 def get_inventory( obj ):
 
