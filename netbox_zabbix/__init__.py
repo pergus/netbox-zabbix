@@ -17,6 +17,30 @@ class ZConfiguration(PluginConfig):
     email = __email__
     base_url = "netbox_zabbix"
 
+    default_settings = {
+        'field_mappings': {
+            'device': [
+                ('Role', 'role.name'),
+                ('Platform', 'platform.name'),
+                ('Site', 'site.name'),
+                ('Region', 'site.region'),
+                ('Longitude', 'site.longitude'),
+                ('Latitude', 'site.latitude'),
+                ('Tags', 'tags'),
+            ],
+            'virtualmachine': [
+                ('Role', 'role.name'),
+                ('Platform', 'platform.name'),
+                ('Cluster', 'cluster.name'),
+                ('Site', 'site.name'),
+                ('Region', 'site.region'),
+                ('Longitude', 'site.longitude'),
+                ('Latitude', 'site.latitude'),
+                ('Tags', 'tags'),
+            ],
+        }
+    }
+
     def ready(self):
             super().ready()
             # Import and register signals

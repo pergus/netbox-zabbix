@@ -155,3 +155,105 @@ def validate_and_get_mappings( obj, monitored_by ):
         raise Exception(f"obj '{obj.name}' is set to be monitored by Proxy Group, but no proxy group mapping was found.")
         
     return ( templates, hostgroups, proxy, proxy_group )
+
+
+def old_resolve_field_path(obj, path):
+    """
+    Resolve a dotted attribute path from an object (e.g., 'site.name').
+    """
+    try:
+        for part in path.split('.'):
+            obj = getattr(obj, part)
+            if obj is None:
+                return None
+        return obj
+    except AttributeError:
+        return None
+
+def old_get_zabbix_tags_for_object(obj):
+    """
+    Given a Device or VirtualMachine instance, return a list of Zabbix tag dicts.
+    Includes only enabled fields from the associated TagMapping.
+    """
+    model_map = {
+        'device': 'device',
+        'virtualmachine': 'virtualmachine',
+    }
+
+    object_type = model_map.get(obj._meta.model_name)
+    if not object_type:
+        raise ValueError(f"Unsupported object type: {obj._meta.model_name}")
+
+    try:
+        mapping = models.TagMapping.objects.get(object_type=object_type)
+    except models.TagMapping.DoesNotExist:
+        return []
+
+    return [
+        {"tag": field["name"], "value": str(value)}
+        for field in mapping.field_selection
+        if field.get("enabled") and (value := resolve_field_path(obj, field.get("value")))
+    ]
+
+
+def resolve_field_path(obj, path):
+    """
+    Resolve a dotted attribute path from an object (e.g., 'site.name', 'tags').
+    """
+    try:
+        for part in path.split('.'):
+            obj = getattr(obj, part)
+            if obj is None:
+                return None
+
+        if hasattr(obj, 'all') and callable(obj.all):
+            return list(obj.all())  # Return a list instead of string
+        return obj
+    except AttributeError:
+        return None
+
+
+def get_zabbix_tags_for_object(obj):
+    """
+    Given a Device or VirtualMachine object, return a list of Zabbix tag dicts:
+    e.g., [ {'tag': 'Site', 'value': 'ams01'}, {'tag': 'core', 'value': 'core'} ]
+    """
+    if obj._meta.model_name == 'device':
+        object_type = 'device'
+    elif obj._meta.model_name == 'virtualmachine':
+        object_type = 'virtualmachine'
+    else:
+        raise ValueError(f"Unsupported object type: {obj._meta.model_name}")
+
+    try:
+        mapping = models.TagMapping.objects.get(object_type=object_type)
+    except models.TagMapping.DoesNotExist:
+        return []
+
+    tags = []
+    for field in mapping.field_selection:
+        if not field.get("enabled"):
+            continue
+
+        name = field.get("name")
+        path = field.get("value")
+        value = resolve_field_path(obj, path)
+
+        if value is None:
+            continue
+
+        if isinstance(value, list):
+            # Special case: 'tags' (or other iterables) become multiple Zabbix tags
+            for v in value:
+                label = str(v)
+                tags.append({
+                    "tag": label,
+                    "value": label
+                })
+        else:
+            tags.append({
+                "tag": name,
+                "value": str(value)
+            })
+
+    return tags

@@ -1380,4 +1380,3 @@ class TagMappingEditView(generic.ObjectEditView):
 
 class TagMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.TagMapping.objects.all()
-    template_name = 'netbox_zabbix/tag_mapping_delete.html'

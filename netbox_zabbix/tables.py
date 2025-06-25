@@ -935,29 +935,48 @@ class VMSNMPv3InterfaceTable(NetBoxTable):
 # ------------------------------------------------------------------------------
 from django.utils.html import format_html_join
 
+#class TagMappingTable(NetBoxTable):
+#    pk = columns.ToggleColumn()
+#    object_type = tables.Column(verbose_name="Object Type")
+#
+#    field_selection = tables.Column(empty_values=(), orderable=False, verbose_name="Fields")
+#
+#    actions = tables.TemplateColumn(
+#        template_code="""
+#            <a href="{% url 'plugins:netbox_zabbix:tagmapping_edit' record.pk %}" class="btn btn-sm btn-warning">Edit</a>
+#            <a href="{% url 'plugins:netbox_zabbix:tagmapping_delete' record.pk %}" class="btn btn-sm btn-danger">Delete</a>
+#        """,
+#        orderable=False,
+#        verbose_name="Actions"
+#    )
+#
+#    class Meta(NetBoxTable.Meta):
+#        model = models.TagMapping
+#        fields = ('pk', 'object_type', 'field_selection')
+#        default_columns = ('pk', 'object_type', 'field_selection')
+#
+#    def render_field_selection(self, value):
+#        return format_html_join(
+#            '<br>',
+#            '{}: {}',
+#            ((field, '✅' if enabled else '❌') for field, enabled in value.items())
+#        )
+
+
+
 class TagMappingTable(NetBoxTable):
-    pk = columns.ToggleColumn()
-    object_type = tables.Column(verbose_name="Object Type")
-
-    field_selection = tables.Column(empty_values=(), orderable=False, verbose_name="Fields")
-
-    actions = tables.TemplateColumn(
-        template_code="""
-            <a href="{% url 'plugins:netbox_zabbix:tagmapping_edit' record.pk %}" class="btn btn-sm btn-warning">Edit</a>
-            <a href="{% url 'plugins:netbox_zabbix:tagmapping_delete' record.pk %}" class="btn btn-sm btn-danger">Delete</a>
-        """,
-        orderable=False,
-        verbose_name="Actions"
-    )
+    object_type = tables.Column( verbose_name="Object Type", linkify=True )
+    enabled_fields = tables.Column( verbose_name="Enabled Fields", orderable=False )
 
     class Meta(NetBoxTable.Meta):
         model = models.TagMapping
-        fields = ('pk', 'object_type', 'field_selection')
-        default_columns = ('pk', 'object_type', 'field_selection')
+        fields = ('object_type',)
+        attrs = {'class': 'table table-hover'}
 
-    def render_field_selection(self, value):
-        return format_html_join(
-            '<br>',
-            '{}: {}',
-            ((field, '✅' if enabled else '❌') for field, enabled in value.items())
-        )
+    def __init__(self, *args, user=None, **kwargs):
+        # Accept the user kwarg to avoid errors, even if unused
+        super().__init__(*args, **kwargs)
+
+    def render_enabled_fields(self, record):
+        enabled_names = [f['name'] for f in record.field_selection if f.get('enabled')]
+        return ", ".join(enabled_names) if enabled_names else "None"

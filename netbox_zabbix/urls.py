@@ -189,10 +189,10 @@ urlpatterns = (
     path( 'zabbix/netbox-only-devices/', views.NetBoxOnlyDevicesView.as_view(), name='netboxonlydevices' ),
 
     # Netbox-only VMs
-    path( 'zabbix/netbox-only-vms/',     views.NetBoxOnlyVMsView.as_view(),     name='netboxonlyvms' ),
+    path( 'zabbix/netbox-only-vms/', views.NetBoxOnlyVMsView.as_view(), name='netboxonlyvms' ),
 
     # Zabbix-only hosts (hosts only in Zabbix and not in NetBox)
-    path( 'zabbix/zabbix-only-hosts/',   views.ZabbixOnlyHostsView.as_view(), name='zabbixonlyhosts' ),
+    path( 'zabbix/zabbix-only-hosts/', views.ZabbixOnlyHostsView.as_view(), name='zabbixonlyhosts' ),
     
 
 
@@ -254,6 +254,6 @@ urlpatterns = (
     path( 'tag/mapping/<int:pk>/',            views.TagMappingView.as_view(),       name='tagmapping' ),
     path( 'tag/mappings/<int:pk>/edit/',      views.TagMappingEditView.as_view(),   name='tagmapping_edit' ),
     path( 'tag/mappings/<int:pk>/delete/',    views.TagMappingDeleteView.as_view(), name='tagmapping_delete' ),
-    path( 'tag/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),        name='tagmappin_changelog', kwargs={'model': models.TagMapping}  ),
+    path( 'tag/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),        name='tagmapping_changelog', kwargs={'model': models.TagMapping}  ),
 
  ) 

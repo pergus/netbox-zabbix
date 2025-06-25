@@ -41,7 +41,10 @@ from netbox_zabbix.config import (
     get_tls_psk, 
     get_tls_psk_identity
 )
-from netbox_zabbix.utils import validate_and_get_mappings
+from netbox_zabbix.utils import ( 
+    validate_and_get_mappings, 
+    get_zabbix_tags_for_object
+)
 from netbox_zabbix.logger import logger
 
 
@@ -439,10 +442,14 @@ def get_tags( obj, existing_tags=[] ):
     Returns:
         list: A list of JSON-encoded tag strings.
     """
+    tags = get_zabbix_tags_for_object( obj )
+
+
+
+
+    # Add option in the configuration to enable/disable this and set the tag name.
     required_tags = [
             { "tag": "netbox", "value": "true" },
-            { "tag": "nb_site", "value": obj.site.name if obj.site else "" },
-            { "tag": "nb_role", "value": obj.role.name if obj.role else "" }                        
         ]
     
     result = [ tag for tag in existing_tags ]

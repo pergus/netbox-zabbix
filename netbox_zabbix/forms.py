@@ -760,6 +760,7 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
 # Tag Mapping
 # ------------------------------------------------------------------------------
 
+"""
 class TagMappingForm(NetBoxModelForm):
     object_type = forms.ChoiceField( choices=models.TagMapping.OBJECT_TYPE_CHOICES, initial='device' )
 
@@ -825,4 +826,78 @@ class TagMappingForm(NetBoxModelForm):
             field_name: self.cleaned_data.get( field_name, False )
             for field_name in self._dynamic_fields
         }
+        return super().save( commit=commit )
+"""
+
+from django.utils.text import slugify
+
+class TagMappingForm(NetBoxModelForm):
+    object_type = forms.ChoiceField(choices=models.TagMapping.OBJECT_TYPE_CHOICES, initial='device')
+
+    class Meta:
+        model = models.TagMapping
+        fields = ['object_type']  # exclude 'field_selection' from raw rendering
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        object_type = (
+            self.initial.get('object_type')
+            or self.data.get('object_type')
+            or getattr(self.instance, 'object_type', None)
+            or 'device'
+        )
+
+        configured_fields = PLUGIN_SETTINGS.get('field_mappings', {}).get(object_type, [])
+
+        # Prepare a lookup for existing enabled states from instance.field_selection
+        existing_selection = {}
+        if self.instance.pk and self.instance.field_selection:
+            for entry in self.instance.field_selection:
+                existing_selection[entry['value']] = entry.get('enabled', False)
+
+        # Ensure these aren't in the rendered form
+        self.fields.pop( 'tags', None )
+        
+        # Dynamically add BooleanFields for each field with initial enabled value
+        for field_name, field_value in configured_fields:
+            # Use a unique prefix for the form field key to avoid name
+            # collisions with existing NetBox fields. 
+            # This allows us to safely use common or duplicate display names in
+            # 'field_mappings', such as "Tags".
+            field_key = slugify( f"xibbaz_{field_name}" )
+            self.fields[field_key] = forms.BooleanField(
+                label=field_name,
+                required=False,
+                initial=existing_selection.get( field_value, False ),
+            )
+
+
+    def clean_object_type(self):
+        object_type = self.cleaned_data['object_type']
+        qs = models.TagMapping.objects.filter( object_type=object_type )
+        if self.instance.pk:
+            qs = qs.exclude( pk=self.instance.pk )
+        if qs.exists():
+            raise forms.ValidationError( f"A mapping for object type '{object_type}' already exists." )
+        return object_type
+
+
+    def save(self, commit=True):
+        # Build list of dicts with name, value, and enabled
+        object_type = self.cleaned_data['object_type']
+        configured_fields = PLUGIN_SETTINGS.get( 'field_mappings', {} ).get( object_type, [] )
+        
+        field_selection = []
+        for field_name, field_value in configured_fields:
+            field_key = slugify( f"xibbaz_{field_name}"  )
+
+            enabled = self.cleaned_data.get( field_key, False )
+            field_selection.append({
+                "name": field_name,
+                "value": field_value,
+                "enabled": enabled,
+            })
+
+        self.instance.field_selection = field_selection
         return super().save( commit=commit )
