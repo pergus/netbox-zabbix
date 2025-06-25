@@ -22,8 +22,8 @@ urlpatterns = (
     path( 'configs/<int:pk>/changelog/', ObjectChangeLogView.as_view(),       name='config_changelog', kwargs={'model': models.Config},  ),
 
     # Check Zabbix Connection
-    path('zabbix/check-connection',       views.ZabbixCheckConnectionView,    name='check_zabbix_connection'),
-    
+    path('zabbix/check-connection', views.zabbix_check_connection, name='check_zabbix_connection'),
+        
     # --------------------------------------------------------------------------
     # Templates + Mappings
     # --------------------------------------------------------------------------
@@ -53,7 +53,9 @@ urlpatterns = (
     # --------------------------------------------------------------------------
     # Zabbix Imports
     # --------------------------------------------------------------------------
-            
+    
+    # Import Zabbix Settings
+    path( 'zabbix/import-settings', views.zabbix_import_settings,  name='import_zabbix_settings' ),    
     path( 'zabbix/import_templates',    views.import_templates,    name='import_templates' ),
     path( 'zabbix/import_proxies',      views.import_proxies,      name='import_proxies' ),
     path( 'zabbix/import-proxy-groups', views.import_proxy_groups, name='import_proxy_groups' ),

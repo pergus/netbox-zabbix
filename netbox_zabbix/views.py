@@ -59,7 +59,7 @@ class ConfigDeleteView(generic.ObjectDeleteView):
     queryset = models.Config.objects.all()
 
 
-def ZabbixCheckConnectionView(request):
+def zabbix_check_connection(request):
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
 
     try:
@@ -80,6 +80,19 @@ def ZabbixCheckConnectionView(request):
         config.set_connection( False )
         config.set_last_checked( timezone.now() )
 
+    return redirect( redirect_url )
+
+
+def zabbix_import_settings(request):
+    redirect_url = request.META.get( 'HTTP_REFERER', '/' )
+    try:
+        run_import_templates( request )
+        run_import_proxies( request )
+        run_import_proxy_groups( request )
+        run_import_host_groups( request )
+    except Exception as e:
+        pass
+    
     return redirect( redirect_url )
 
 # ------------------------------------------------------------------------------
@@ -135,37 +148,45 @@ def templates_confirm_deletions(request):
     return redirect( 'plugins:netbox_zabbix:templates_review_deletions' )
 
 
-def import_templates(request):
+def run_import_templates(request=None):
     """
-    View-based wrapper around import templates.
+    Run the Zabbix template import logic and optionally attach messages to the request.
+    Returns a tuple: (added, deleted, error)
     """
-    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
-
     try:
         added, deleted = z.import_templates()
 
-        msg_lines = ["Importing Zabbix Templates succeeded."]
-        if added:
-            msg_lines.append( f"Added {len( added )} template{ pluralize( len( added ) )}." )
-        if deleted:
-            msg_lines.append( f"Deleted {len( deleted )} template{ pluralize( len( deleted ) )}." )
-        if not added and not deleted:
-            msg_lines.append( "No changes detected." )
+        if request is not None:
+            msg_lines = ["Importing Zabbix Templates succeeded."]
+            if added:
+                msg_lines.append( f"Added {len(added)} template{pluralize(len(added))}." )
+            if deleted:
+                msg_lines.append( f"Deleted {len(deleted)} template{pluralize(len(deleted))}." )
+            if not added and not deleted:
+                msg_lines.append( "No changes detected." )
+            messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
 
-        messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
+        return added, deleted, None
 
     except RuntimeError as e:
         error_msg = "Importing Zabbix Templates failed."
         logger.error( f"{error_msg} {e}" )
-        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
+        if request is not None:
+            messages.error( request, mark_safe( error_msg + "<br>" + f"{e}" ) )
+        return None, None, e
 
     except Exception as e:
         error_msg = "Connection to Zabbix failed."
         logger.error( f"{error_msg} {e}" )
-        messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
+        if request is not None:
+            messages.error( request, mark_safe( error_msg + "<br>" + f"{e}" ) )
         config.set_connection = False
         config.set_last_checked = timezone.now()
+        return None, None, e
 
+def import_templates(request):
+    redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
+    run_import_templates( request )
     return redirect( redirect_url )
 
 
@@ -282,16 +303,10 @@ def proxies_confirm_deletions(request):
     models.Proxy.objects.filter( id__in=selected_ids ).delete()
     return redirect( 'plugins:netbox_zabbix:proxies_review_deletions' )
 
-
-def import_proxies(request):
-    """
-    View-based wrapper around import proxies.
-    """
-    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
-
+def run_import_proxies(request=None):
     try:
         added, deleted = z.import_proxies()
-
+    
         msg_lines = ["Importing Zabbix Proxies succeeded."]
         if added:
             msg_lines.append( f"Added {len( added )} prox{pluralize(len(added), 'y,ies')}." )
@@ -299,21 +314,30 @@ def import_proxies(request):
             msg_lines.append( f"Deleted {len( deleted )} prox{pluralize(len(deleted), 'y,ies')}." )
         if not added and not deleted:
             msg_lines.append( "No changes detected." )
-
+    
         messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
-
+        return added, deleted, None
+    
     except RuntimeError as e:
         error_msg = "Importing Zabbix Proxies failed."
         logger.error( f"{error_msg} {e}" )
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
-
+        return None, None, e
+    
     except Exception as e:
         error_msg = "Connection to Zabbix failed."
         logger.error( f"{error_msg} {e}" )
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
         config.set_connection = False
         config.set_last_checked = timezone.now()
-
+        return None, None, e
+    
+def import_proxies(request):
+    """
+    View-based wrapper around import proxies.
+    """
+    redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
+    run_import_proxies()
     return redirect( redirect_url )
 
 # ------------------------------------------------------------------------------
@@ -433,15 +457,10 @@ def proxygroups_confirm_deletions(request):
     return redirect( 'plugins:netbox_zabbix:proxygroup_review_deletions' )
 
 
-def import_proxy_groups(request):
-    """
-    View-based wrapper around import proxy groups
-    """
-    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
-
+def run_import_proxy_groups(request=None):
     try:
         added, deleted = z.import_proxy_groups()
-
+    
         msg_lines = ["Import Zabbix Proxy Groups succeeded."]
         if added:
             msg_lines.append( f"Added {len( added )} proxy group{pluralize( len(added) )}." )
@@ -449,21 +468,32 @@ def import_proxy_groups(request):
             msg_lines.append( f"Deleted {len( deleted )} proxy group{pluralize( len(deleted) )}." )
         if not added and not deleted:
             msg_lines.append( "No changes detected." )
-
+    
         messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
+        return added, deleted, None
 
     except RuntimeError as e:
         error_msg = "Importing Zabbix Proxy Groups failed."
         logger.error( f"{error_msg} {e}" )
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
-
+        return None, None, e
+    
     except Exception as e:
         error_msg = "Connection to Zabbix failed."
         logger.error( f"{error_msg} {e}" )
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
         config.set_connection = False
         config.set_last_checked = timezone.now()
+        return None, None, e
+    
+    
 
+def import_proxy_groups(request):
+    """
+    View-based wrapper around import proxy groups
+    """
+    redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
+    run_import_proxy_groups()
     return redirect( redirect_url )
 
 
@@ -575,10 +605,7 @@ class HostGroupDeleteView(generic.ObjectDeleteView):
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:hostgroup_list')
 
-
-def import_host_groups(request):
-    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
-
+def run_import_host_groups(request=None):
     try:
         added, deleted = z.import_host_groups()
         msg_lines = ["Importing Zabbix Hostgroups succeeded."]
@@ -590,11 +617,13 @@ def import_host_groups(request):
             msg_lines.append( "No changes detected." )
         
         messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
-        
+        return added, deleted, None
+    
     except RuntimeError as e:
         error_msg = "Importing Zabbix Hostgroups failed."
         logger.error( f"{error_msg} {e}" )
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
+        return None, None, e
     
     except Exception as e:
         error_msg = "Connection to Zabbix failed."
@@ -602,7 +631,12 @@ def import_host_groups(request):
         messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
         config.set_connection = False
         config.set_last_checked = timezone.now()
+        return None, None, e
     
+
+def import_host_groups(request):
+    redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
+    run_import_host_groups()
     return redirect( redirect_url )
 
 

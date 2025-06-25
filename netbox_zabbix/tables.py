@@ -43,6 +43,13 @@ EXTRA_CONFIG_BUTTONS = """
                 Check Connection
             </a>
         </li>
+        <li>
+            <a class="dropdown-item"
+                href="{% url 'plugins:netbox_zabbix:import_zabbix_settings' %}">
+                Import Zabbix Settings
+            </a>
+        </li>
+        
     </ul>
 </span>
 """
