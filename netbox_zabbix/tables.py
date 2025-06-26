@@ -1,5 +1,5 @@
 # tables.py
-from django.db.models import Case, When
+from django.db.models import Case, When, Value, IntegerField
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
@@ -7,7 +7,7 @@ import django_tables2 as tables
 
 
 from netbox.tables import NetBoxTable, columns
-from netbox.tables.columns import ActionsColumn
+from netbox.tables.columns import TagColumn, ActionsColumn
 
 from dcim.models import Device
 from dcim.tables import DeviceTable
@@ -23,7 +23,6 @@ from netbox_zabbix.utils import (
     get_proxy_mapping, 
     get_proxy_group_mapping
 )
-
 
 
 # ------------------------------------------------------------------------------
@@ -447,44 +446,54 @@ EXTRA_DEVICE_ADD_ACTIONS = """
 </span>
 
 """
-from django.template import Template, Context
-from netbox_zabbix.utils import validate_and_get_mappings
-from netbox_zabbix.config import get_monitored_by
 
+from netbox_zabbix.utils import (
+    get_host_groups_mapping_bulk,
+    get_templates_mapping_bulk,
+    get_proxy_mapping_bulk,
+    get_proxy_group_mapping_bulk,
+    get_valid_device_ids
+)
 
 class NetBoxOnlyDevicesTable(DeviceTable):
-   
-    name = tables.Column( linkify=True )
-    site = tables.Column( linkify=True )
-    role = tables.Column( linkify=True )
+    name     = tables.Column( linkify=True )
+    site     = tables.Column( linkify=True )
+    role     = tables.Column( linkify=True )
     platform = tables.Column( linkify=True )
-    
-    hostgroups  = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='hostgroups' )
-    templates   = tables.Column( empty_values=(), verbose_name="Templates", order_by='templates' )
-    proxy       = tables.Column( empty_values=(), verbose_name="Proxy", order_by='proxy' )
-    proxy_group = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxy_group' )
-    
-    tags = columns.TagColumn( url_name='dcim:device_list' )
 
-    actions = columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS )
-    
+    host_groups  = tables.Column( empty_values=(), verbose_name="Host Groups", order_by='host_groups' )
+    templates    = tables.Column( empty_values=(), verbose_name="Templates",   order_by='templates' )
+    proxy        = tables.Column( empty_values=(), verbose_name="Proxy",       order_by='proxy' )
+    proxy_group  = tables.Column( empty_values=(), verbose_name="Proxy Group", order_by='proxy_group' )
+
+    tags    = TagColumn( url_name='dcim:device_list' )
+    actions = ActionsColumn( extra_buttons=[] )
+
     class Meta(DeviceTable.Meta):
         model = Device
-        fields = ("name", "site", "role", "platform", "hostgroups", "templates", "proxy", "proxy_group", "tags")
-        default_columns = ("name","site", "role", "platform", "hostgroups", "templates", "proxy", "proxy_group", "tags")
-    
+        fields = (
+            "name", "site", "role", "platform",
+            "host_groups", "templates", "proxy", "proxy_group", "tags"
+        )
+        default_columns = fields
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.host_groups_map = {}
+        self.templates_map = {}
+        self.proxy_map = {}
+        self.proxy_group_map = {}
+        self.valid_device_ids = set()
     
     def render_actions(self, record):
-        try:
-            validate_and_get_mappings( record, get_monitored_by() )
-        except:
-            return columns.ActionsColumn().render( record, self )
-
-        return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
-
-    # Generic render method for columns that return iterable mappings (hostgroups, templates)
-    def _render_mappings(self, record, get_mapping_func):
-        items = get_mapping_func( record )
+        if record.id in getattr( self, "valid_device_ids", set() ):
+            return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
+        return columns.ActionsColumn().render( record, self )
+    
+    def _render_mappings(self, record, map_data):
+        items = map_data.get( record.id, [] )
         if not items:
             return mark_safe( '<span class="text-muted">&mdash;</span>' )
         return mark_safe(", ".join(
@@ -492,66 +501,97 @@ class NetBoxOnlyDevicesTable(DeviceTable):
             for item in items
         ))
     
-    # Generic order method for columns based on counts of mappings
-    def _order_by_mapping_count(self, queryset, is_descending, get_mapping_func):
-        devices = list( queryset )
-        devices.sort(
-            key=lambda x: len( get_mapping_func(x) ),
-            reverse=is_descending
-        )
-        ordered_pks = [device.pk for device in devices]
-        preserved_order = Case(*[When( pk=pk, then=pos ) for pos, pk in enumerate( ordered_pks )])
-        queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by( preserved_order )
-        return queryset, True
-    
-    # Generic render method for single-mapping columns (proxy, proxy_group)
-    def _render_single_mapping(self, record, get_mapping_func):
-        item = get_mapping_func( record )
-        if not item:
-            return mark_safe('<span class="text-muted">&mdash;</span>')
-        return mark_safe(f'<a href="{item.get_absolute_url()}">{item.name}</a>')
-    
-    # Generic order method for single-mapping columns (proxy, prox_ygroup)
-    def _order_by_single_mapping(self, queryset, is_descending, get_mapping_func):
-        devices = list( queryset )
-        devices.sort(
-            key=lambda x: (
-                0 if get_mapping_func(x) is None else 1,
-                get_mapping_func(x).name if get_mapping_func(x) else '',
-                x.name
-            ),
-            reverse=is_descending
-        )
-        ordered_pks = [device.pk for device in devices]
-        preserved_order = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ordered_pks)])
-        queryset = queryset.model.objects.filter(pk__in=ordered_pks).order_by(preserved_order, 'name')
-        return queryset, True
-    
-    # Now, bind each column's render and order methods to the generic ones with proper function
-    
-    def render_hostgroups(self, record):
-        return self._render_mappings( record, get_hostgroups_mappings )
-    
-    def order_hostgroups(self, queryset, is_descending):
-        return self._order_by_mapping_count( queryset, is_descending, get_hostgroups_mappings )
+    def render_host_groups(self, record):
+        return self._render_mappings( record, self.host_groups_map )
     
     def render_templates(self, record):
-        return self._render_mappings( record, get_templates_mappings )
-    
-    def order_templates(self, queryset, is_descending):
-        return self._order_by_mapping_count( queryset, is_descending, get_templates_mappings )
+        return self._render_mappings( record, self.templates_map )
     
     def render_proxy(self, record):
-        return self._render_single_mapping( record, get_proxy_mapping )
-    
-    def order_proxy(self, queryset, is_descending):
-        return self._order_by_single_mapping( queryset, is_descending, get_proxy_mapping )
+        return self._render_mappings( record, self.proxy_map )
     
     def render_proxy_group(self, record):
-        return self._render_single_mapping( record, get_proxy_group_mapping )
+        return self._render_mappings( record, self.proxy_group_map )
+    
+    # N.B. Patch required attribute(s) before ordering:
+    #
+    # Django Tables2 re-instantiates the table class on every request, including
+    # sort requests triggered by clicking on column headers. As a result, any data
+    # attached to the table instance during initial construction (e.g., in the view)
+    # is *not* preserved across requests.
+    #
+    # To support ordering on computed or related fields (e.g., proxy name, site name),
+    # we must inject the necessary mapping (e.g., `proxy_map`, `site_map`, etc.)
+    # directly onto the table instance (`self`) before sorting.
+    #
+    # This pattern ensures:
+    # - The mapping is computed only once (on first use), not repeatedly per row
+    # - Sorting logic (e.g., in `_order_by_single_mapping`) has the required context
+    # - We avoid repeated or expensive DB queries during sorting
+    #
+    # This patching works because Django Tables2 calls `order_<column>()` methods
+    # after table instantiation, allowing us to lazily inject any required data
+    # as attributes on `self`.
+    #
+    # If the mapping is already present (e.g., explicitly attached in the view),
+    # it is reused to avoid recomputation.
+    
+
+    def order_host_groups(self, queryset, is_descending):
+        if not hasattr(self, 'host_groups_map') or not self.host_groups_map:
+            self.host_groups_map = get_host_groups_mapping_bulk( queryset, use_cache=True )
+        return self._order_by_mapping_count( queryset, is_descending, self.host_groups_map )
+
+    def order_templates(self, queryset, is_descending):
+        if not hasattr(self, 'templates_map') or not self.templates_map:
+            self.templates_map = get_templates_mapping_bulk( queryset, use_cache=True )        
+        return self._order_by_mapping_count( queryset, is_descending, self.templates_map )
+
+    def order_proxy(self, queryset, is_descending):
+        if not hasattr(self, 'proxy_map') or not self.proxy_map:
+            self.proxy_map = get_proxy_mapping_bulk( queryset, use_cache=True )
+        return self._order_by_single_mapping( queryset, is_descending, self.proxy_map )
     
     def order_proxy_group(self, queryset, is_descending):
-        return self._order_by_single_mapping( queryset, is_descending, get_proxy_group_mapping )
+        if not hasattr(self, 'proxy_group_map') or not self.proxy_group_map:
+            self.proxy_group_map = get_proxy_group_mapping_bulk( queryset, use_cache=True )        
+        return self._order_by_single_mapping( queryset, is_descending, self.proxy_group_map )
+
+    def _order_by_mapping_count(self, queryset, is_descending, mapping_dict):
+        device_list = list( queryset )
+        device_list.sort(
+            key=lambda d: len( mapping_dict.get( d.pk, [] ) ),
+            reverse=is_descending
+        )
+        ordered_pks = [d.pk for d in device_list]
+        preserved = Case(*[ When( pk=pk, then=pos ) for pos, pk in enumerate( ordered_pks )] )
+        return queryset.model.objects.filter( pk__in=ordered_pks ).order_by( preserved ), True
+
+    def _order_by_single_mapping(self, queryset, is_descending, mapping_dict):
+        device_list = list( queryset )
+        
+        def get_sort_key(device):
+            proxies = mapping_dict.get( device.pk )
+            proxy_name = proxies[0].name if proxies else ''
+
+            # Devices without mapping come first if not descending
+            has_mapping = 1 if proxies else 0
+            return (has_mapping, proxy_name.lower(), device.name.lower())
+    
+        device_list.sort( key=get_sort_key, reverse=is_descending )
+    
+        ordered_pks = [device.pk for device in device_list]
+    
+        # Preserve the sort order using a CASE expression
+        preserved_order = Case(
+            *[When(pk=pk, then=Value(i)) for i, pk in enumerate(ordered_pks)],
+            output_field=IntegerField()
+        )
+    
+        # Reconstruct the queryset using this ordering
+        ordered_queryset = queryset.model.objects.filter( pk__in=ordered_pks ).order_by( preserved_order, 'name' )
+    
+        return ordered_queryset, True
     
 
 # ------------------------------------------------------------------------------
@@ -679,8 +719,6 @@ class NetBoxOnlyVMsTable(VirtualMachineTable):
     def order_proxy_group(self, queryset, is_descending):
         return self._order_by_single_mapping( queryset, is_descending, get_proxy_group_mapping )
     
-    
-
 
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
@@ -788,7 +826,6 @@ class ImportableDeviceTable(NetBoxTable):
     def render_valid(self, record):
         if config.get_auto_validate_importables():
             try:
-                logger.info( f"valdating device {record} ")
                 jobs.ValidateDeviceOrVM.run( device_or_vm = record, user=None )
                 return mark_safe("✔")     
             except Exception as e:
@@ -824,7 +861,6 @@ class ImportableVMTable(NetBoxTable):
     def render_valid(self, record):
         if config.get_auto_validate_importables():
             try:
-                logger.info( f"valdating virtual machine '{record}' ")
                 jobs.ValidateDeviceOrVM.run( device_or_vm = record, user=None )
                 return mark_safe("✔")        
             except Exception as e:
@@ -933,36 +969,6 @@ class VMSNMPv3InterfaceTable(NetBoxTable):
 # ------------------------------------------------------------------------------
 # Tag Mapping
 # ------------------------------------------------------------------------------
-from django.utils.html import format_html_join
-
-#class TagMappingTable(NetBoxTable):
-#    pk = columns.ToggleColumn()
-#    object_type = tables.Column(verbose_name="Object Type")
-#
-#    field_selection = tables.Column(empty_values=(), orderable=False, verbose_name="Fields")
-#
-#    actions = tables.TemplateColumn(
-#        template_code="""
-#            <a href="{% url 'plugins:netbox_zabbix:tagmapping_edit' record.pk %}" class="btn btn-sm btn-warning">Edit</a>
-#            <a href="{% url 'plugins:netbox_zabbix:tagmapping_delete' record.pk %}" class="btn btn-sm btn-danger">Delete</a>
-#        """,
-#        orderable=False,
-#        verbose_name="Actions"
-#    )
-#
-#    class Meta(NetBoxTable.Meta):
-#        model = models.TagMapping
-#        fields = ('pk', 'object_type', 'field_selection')
-#        default_columns = ('pk', 'object_type', 'field_selection')
-#
-#    def render_field_selection(self, value):
-#        return format_html_join(
-#            '<br>',
-#            '{}: {}',
-#            ((field, '✅' if enabled else '❌') for field, enabled in value.items())
-#        )
-
-
 
 class TagMappingTable(NetBoxTable):
     object_type = tables.Column( verbose_name="Object Type", linkify=True )

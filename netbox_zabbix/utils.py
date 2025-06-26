@@ -1,4 +1,7 @@
 # utils.py
+from collections import defaultdict
+from django.core.cache import cache
+
 from netbox_zabbix import models
 from netbox_zabbix.config import get_default_tag, get_tag_prefix
 
@@ -157,45 +160,6 @@ def validate_and_get_mappings( obj, monitored_by ):
     return ( templates, hostgroups, proxy, proxy_group )
 
 
-def old_resolve_field_path(obj, path):
-    """
-    Resolve a dotted attribute path from an object (e.g., 'site.name').
-    """
-    try:
-        for part in path.split('.'):
-            obj = getattr(obj, part)
-            if obj is None:
-                return None
-        return obj
-    except AttributeError:
-        return None
-
-def old_get_zabbix_tags_for_object(obj):
-    """
-    Given a Device or VirtualMachine instance, return a list of Zabbix tag dicts.
-    Includes only enabled fields from the associated TagMapping.
-    """
-    model_map = {
-        'device': 'device',
-        'virtualmachine': 'virtualmachine',
-    }
-
-    object_type = model_map.get(obj._meta.model_name)
-    if not object_type:
-        raise ValueError(f"Unsupported object type: {obj._meta.model_name}")
-
-    try:
-        mapping = models.TagMapping.objects.get(object_type=object_type)
-    except models.TagMapping.DoesNotExist:
-        return []
-
-    return [
-        {"tag": field["name"], "value": str(value)}
-        for field in mapping.field_selection
-        if field.get("enabled") and (value := resolve_field_path(obj, field.get("value")))
-    ]
-
-
 def resolve_field_path(obj, path):
     """
     Resolve a dotted attribute path from an object (e.g., 'site.name', 'tags').
@@ -266,3 +230,214 @@ def get_zabbix_tags_for_object(obj):
             })
 
     return tags
+
+
+# ------------------------------------------------------------------------------
+# Mapping Functions
+# ------------------------------------------------------------------------------
+
+
+def _make_cache_key_for_devices(devices, name):
+    # Use min and max device id plus count as a simple proxy
+    ids = list(devices.values_list('id', flat=True))
+    if not ids:
+        return f"{name}_empty"
+    return f"{name}_{min(ids)}_{max(ids)}_{len(ids)}"
+
+
+def device_matches_mapping(device, mapping):
+    site_match = not mapping.sites.exists() or device.site in mapping.sites.all()
+    role_match = not mapping.roles.exists() or device.device_role in mapping.roles.all()
+    platform_match = not mapping.platforms.exists() or device.platform in mapping.platforms.all()
+    return site_match and role_match and platform_match
+
+
+def get_host_groups_mapping_bulk(devices, use_cache=False, timeout=300):
+    """
+    Get host groups mapping for a list/queryset of devices.
+
+    :param devices: Iterable of device instances
+    :param use_cache: If True, attempt to retrieve mapping from cache
+    :param timeout: Cache timeout in seconds (default 5 minutes)
+    :return: defaultdict(list) mapping device IDs to host groups
+    """
+
+    def compute_host_groups_mapping():
+        mappings = models.HostGroupMapping.objects.prefetch_related( "sites", "roles", "platforms", "host_groups" ).all()
+        result = defaultdict( list )
+
+        for device in devices:
+            for mapping in mappings:
+                if device_matches_mapping( device, mapping ):
+                    result[device.id].extend( mapping.host_groups.all() )
+        return result
+
+    if not use_cache:
+        return compute_host_groups_mapping()
+
+    cache_key = _make_cache_key_for_devices( devices, "host_groups" )
+    cached_result = cache.get( cache_key )
+    if cached_result is not None:
+        return cached_result
+
+    result = compute_host_groups_mapping()
+    cache.set( cache_key, result, timeout=timeout )
+    return result
+
+
+def get_templates_mapping_bulk(devices, use_cache=False, timeout=300):
+    """
+    Get templates mapping for a list/queryset of devices.
+
+    :param devices: Iterable of device instances
+    :param use_cache: If True, attempt to retrieve mapping from cache
+    :param timeout: Cache timeout in seconds (default 5 minutes)
+    :return: defaultdict(list) mapping device IDs to host groups
+    """
+
+    def compute_templates_mapping():
+        mappings = models.TemplateMapping.objects.prefetch_related( "sites", "roles", "platforms", "templates" ).all()
+        result = defaultdict( list )
+    
+        for device in devices:
+            for mapping in mappings:
+                if device_matches_mapping( device, mapping ):
+                    result[device.id].extend( mapping.templates.all() )
+        return result
+
+    if not use_cache:
+        return compute_templates_mapping()
+
+    cache_key = _make_cache_key_for_devices( devices, "templates" )
+    cached_result = cache.get(cache_key)
+    if cached_result is not None:
+        return cached_result
+
+    result = compute_templates_mapping()
+    cache.set( cache_key, result, timeout=timeout )
+    return result
+
+
+def get_proxy_mapping_bulk(devices, use_cache=False, timeout=300):
+    """
+    Get proxy mapping for a list/queryset of devices.
+
+    :param devices: Iterable of device instances
+    :param use_cache: If True, attempt to retrieve mapping from cache
+    :param timeout: Cache timeout in seconds (default 5 minutes)
+    :return: defaultdict(list) mapping device IDs to host groups
+    """
+
+    def compute_proxy_mapping():
+    #    mappings = models.ProxyMapping.objects.select_related( "proxy" ).prefetch_related( "sites", "roles", "platforms" )    
+        mappings = models.ProxyMapping.objects.prefetch_related( "sites", "roles", "platforms", "proxy" )
+        
+        result = defaultdict(list)
+    
+        for device in devices:
+            for mapping in mappings:
+                if device_matches_mapping( device, mapping ):
+                    result[device.id].append( mapping.proxy )
+        return result
+    
+
+    if not use_cache:
+        return compute_proxy_mapping()
+
+    cache_key = _make_cache_key_for_devices( devices, "proxy" )
+    cached_result = cache.get(cache_key)
+    if cached_result is not None:
+        return cached_result
+
+    result = compute_proxy_mapping()
+    cache.set( cache_key, result, timeout=timeout )
+    return result
+
+
+def get_proxy_group_mapping_bulk(devices, use_cache=False, timeout=300):
+    """
+    Get proxy group mapping for a list/queryset of devices.
+
+    :param devices: Iterable of device instances
+    :param use_cache: If True, attempt to retrieve mapping from cache
+    :param timeout: Cache timeout in seconds (default 5 minutes)
+    :return: defaultdict(list) mapping device IDs to host groups
+    """
+
+    def computer_proxy_group_mapping():
+    #    mappings = models.ProxyGroupMapping.objects.select_related( "proxy_group" ).prefetch_related( "sites", "roles", "platforms" )
+        mappings = models.ProxyGroupMapping.objects.prefetch_related( "sites", "roles", "platforms", "proxy_group" )
+        result = defaultdict( list )
+    
+        for device in devices:
+            for mapping in mappings:
+                if device_matches_mapping( device, mapping ):
+                    result[device.id].append( mapping.proxy_group )
+        return result
+    
+    
+
+    if not use_cache:
+        return computer_proxy_group_mapping()
+
+    cache_key = _make_cache_key_for_devices( devices, "proxy_group" )
+    cached_result = cache.get(cache_key)
+    if cached_result is not None:
+        return cached_result
+
+    result = computer_proxy_group_mapping()
+    cache.set( cache_key, result, timeout=timeout )
+    return result
+
+
+def validate_and_get_mappings_bulk(device, monitored_by, templates_map, host_groups_map, proxy_map, proxy_group_map):
+    device_id = device.id
+
+    templates = templates_map.get( device_id )
+    if not templates:
+        raise Exception( f"No template mappings found for obj '{device.name}'" )
+
+    host_groups = host_groups_map.get(device_id)
+    if not host_groups:
+        raise Exception( f"No host groups mappings found for obj '{device.name}'" )
+
+    proxy = None
+    if monitored_by == models.MonitoredByChoices.Proxy:
+        proxy = proxy_map.get( device_id )
+        if proxy is None:
+            raise Exception( f"obj '{device.name}' is set to be monitored by Proxy, but no proxy mapping was found." )
+
+    proxy_group = None
+    if monitored_by == models.MonitoredByChoices.ProxyGroup:
+        proxy_group = proxy_group_map.get( device_id )
+        if proxy_group is None:
+            raise Exception( f"obj '{device.name}' is set to be monitored by Proxy Group, but no proxy group mapping was found." )
+
+    return ( templates, host_groups, proxy, proxy_group )
+
+
+def get_valid_device_ids(devices, monitored_by):
+    host_groups_map = get_host_groups_mapping_bulk( devices, use_cache=True)
+    templates_map = get_templates_mapping_bulk( devices, use_cache=True )
+    proxy_map = get_proxy_mapping_bulk( devices, use_cache=True )
+    proxy_group_map = get_proxy_group_mapping_bulk( devices, use_cache=True )
+
+    valid_ids = set()
+
+    for device in devices:
+        try:
+            validate_and_get_mappings_bulk(
+                device,
+                monitored_by,
+                templates_map,
+                host_groups_map,
+                proxy_map,
+                proxy_group_map
+            )
+            valid_ids.add( device.id )
+        except Exception:
+            continue
+
+    return valid_ids
+
+

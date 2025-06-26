@@ -22,6 +22,7 @@ from utilities.views import ViewTab, register_model_view
 from virtualization.models import VirtualMachine
 
 from netbox_zabbix import filtersets, forms, jobs, models, tables, zabbix as z
+from netbox_zabbix.config import get_monitored_by
 from netbox_zabbix.logger import logger
 
 
@@ -882,34 +883,41 @@ class VMMappingsListView(generic.ObjectListView):
 # ------------------------------------------------------------------------------
 # NetBox Ony Devices
 # ------------------------------------------------------------------------------
+from netbox_zabbix.utils import (
+    get_host_groups_mapping_bulk,
+    get_templates_mapping_bulk,
+    get_proxy_mapping_bulk,
+    get_proxy_group_mapping_bulk,
+    get_valid_device_ids
+)
 
 class NetBoxOnlyDevicesView(generic.ObjectListView):
-
-    table          = tables.NetBoxOnlyDevicesTable
-    filterset      = filtersets.NetBoxOnlyDevicesFilterSet
+    table = tables.NetBoxOnlyDevicesTable
+    filterset = filtersets.NetBoxOnlyDevicesFilterSet
     filterset_form = forms.NetBoxOnlyDevicesFilterForm
-    template_name  = "netbox_zabbix/netbox_only_devices.html"
-
-    
-    def get_queryset(self, request):
-        try:
-            zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
-
-
-        # My Zabbix is down at the moment and I want to continue coding...
-        except config.ZabbixConfigNotFound as e:
-            messages.error( request, str( e ) )
-            #return Device.objects.none()
-        except Exception as e:
-            messages.error( request, f"Failed to retrieve hostnames from Zabbix: {str(e)}" )
-            #return Device.objects.none()
-
-        zabbix_hostnames = []
+    template_name = "netbox_zabbix/netbox_only_devices.html"
         
-        # Return only devices that are not in Zabbix
-        return Device.objects.exclude( name__in=zabbix_hostnames ).prefetch_related( "site", "role", "platform", "tags" )
-    
+    def get_queryset(self, request):
+        zabbix_hostnames = z.get_cached_zabbix_hostnames()
+        return (
+            Device.objects
+            .exclude( name__in=zabbix_hostnames )
+            .select_related( "site", "role", "platform" )
+            .prefetch_related( "tags" )
+        )
 
+    def get_table(self, queryset, request, has_bulk_actions, **kwargs):
+        table = super().get_table( queryset, request, has_bulk_actions, **kwargs )
+
+        # Set mapping attributes early so ordering works
+        table.host_groups_map  = get_host_groups_mapping_bulk( queryset, use_cache=True )
+        table.templates_map    = get_templates_mapping_bulk( queryset, use_cache=True )
+        table.proxy_map        = get_proxy_mapping_bulk( queryset, use_cache=True )
+        table.proxy_group_map  = get_proxy_group_mapping_bulk( queryset, use_cache=True )
+        table.valid_device_ids = get_valid_device_ids( queryset, get_monitored_by() )
+
+        return table
+    
 # ------------------------------------------------------------------------------
 # NetBox Ony VMs
 # ------------------------------------------------------------------------------

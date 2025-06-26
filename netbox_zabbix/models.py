@@ -316,11 +316,11 @@ class HostGroup(NetBoxModel):
 # ------------------------------------------------------------------------------
 
 class HostGroupMapping(NetBoxModel):
-    name       = models.CharField( max_length=255 )
+    name        = models.CharField( max_length=255 )
     host_groups = models.ManyToManyField( HostGroup, help_text="Host groups used for matching hosts." )
-    sites      = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
-    roles      = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
-    platforms  = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
+    sites       = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
+    roles       = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
+    platforms   = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
 
     def __str__(self):
         return self.name

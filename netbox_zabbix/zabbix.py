@@ -1,6 +1,7 @@
 # zabbix.py
 
 from django.utils import timezone
+from django.core.cache import cache
 from dcim.models import Device
 from virtualization.models import VirtualMachine
 from pyzabbix import ZabbixAPI
@@ -410,6 +411,19 @@ def get_zabbix_hostnames():
         logger.error( f"Get Zabbix hostnames from {get_zabbix_api_endpoint()} failed: {e}" )
         raise e
     
+def get_cached_zabbix_hostnames():
+    cache_key = "zabbix_hostnames"
+    hostnames = cache.get( cache_key )
+    if hostnames is None:
+        try:
+            logger.info( f"get all hosts from Zabbix..." )
+            hostnames = {host["name"] for host in get_zabbix_hostnames()}
+            logger.info( f"got all hosts from Zabbix..." )
+            cache.set( cache_key, hostnames, timeout=60 )  # Cache for 60 seconds
+        except Exception as e:
+            hostnames = set()
+    return hostnames
+
 
 def get_zabbix_only_hostnames():
     """
@@ -481,10 +495,10 @@ def get_host(hostname):
 
 def hostgroup_get():
     """
-    Fetch all hostgroups from Zabbix.
+    Fetch all host groups from Zabbix.
 
     Returns:
-        list: List of hostgroup dicts from Zabbix.
+        list: List of host group dicts from Zabbix.
     """
 
     try:
