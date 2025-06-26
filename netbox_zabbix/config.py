@@ -185,3 +185,23 @@ def get_inventory_mode():
         The inventory mode as specified in the configuration.
     """
     return get_config().inventory_mode
+
+
+def get_default_tag():
+    """
+    Retrieves the default tag from the configuration.
+    
+    Returns:
+        The default tag as specified in the configuration.
+    """
+    return get_config().default_tag or ""
+
+def get_tag_prefix():
+    """
+    Retrieves the tag prefix from the configuration.
+    
+    Returns:
+        The tag prefix as specified in the configuration.
+    """
+    prefix = get_config().tag_prefix
+    return prefix or ""

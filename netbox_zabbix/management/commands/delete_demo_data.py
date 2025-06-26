@@ -46,43 +46,54 @@ class Command(BaseCommand):
         self.delete_prefixes()
         self.stdout.write(self.style.SUCCESS("Successfully deleted all demo data."))
 
+    def delete_queryset(self, queryset, description):
+        count = queryset.count()
+        if count:
+            self.stdout.write(f"Deleting {count} {description}...")
+            for obj in queryset:
+                self.stdout.write(f" - {obj}")
+            queryset.delete()
+        else:
+            self.stdout.write(f"No {description} found to delete.")
+
     def delete_devices_and_vms(self):
-        Device.objects.filter(name__regex=self.device_name_regex).delete()
-        VirtualMachine.objects.filter(name__regex=self.vm_name_regex).delete()
+        self.delete_queryset(Device.objects.filter(name__regex=self.device_name_regex), "Devices")
+        self.delete_queryset(VirtualMachine.objects.filter(name__regex=self.vm_name_regex), "Virtual Machines")
 
     def delete_interfaces(self):
-        Interface.objects.filter(
-            name=self.interface_name,
-            device__name__regex=self.device_name_regex
-        ).delete()
-        VMInterface.objects.filter(
-            name=self.interface_name,
-            virtual_machine__name__regex=self.vm_name_regex
-        ).delete()
+        self.delete_queryset(
+            Interface.objects.filter(name=self.interface_name, device__name__regex=self.device_name_regex),
+            "Device Interfaces"
+        )
+        self.delete_queryset(
+            VMInterface.objects.filter(name=self.interface_name, virtual_machine__name__regex=self.vm_name_regex),
+            "VM Interfaces"
+        )
 
     def delete_ip_addresses(self):
         for prefix in self.ip_address_prefixes:
-            IPAddress.objects.filter(address__startswith=prefix).delete()
+            queryset = IPAddress.objects.filter(address__startswith=prefix)
+            self.delete_queryset(queryset, f"IP addresses starting with {prefix}")
 
     def delete_tags(self):
-        Tag.objects.filter(name__in=self.tag_names).delete()
+        self.delete_queryset(Tag.objects.filter(name__in=self.tag_names), "Tags")
 
     def delete_sites_and_regions(self):
-        Site.objects.filter(name__in=self.sites).delete()
-        Region.objects.filter(name__in=self.regions).delete()
+        self.delete_queryset(Site.objects.filter(name__in=self.sites), "Sites")
+        self.delete_queryset(Region.objects.filter(name__in=self.regions), "Regions")
 
     def delete_manufacturers_and_device_types(self):
-        DeviceType.objects.filter(manufacturer__name__in=self.manufacturers).delete()
-        Manufacturer.objects.filter(name__in=self.manufacturers).delete()
+        self.delete_queryset(DeviceType.objects.filter(manufacturer__name__in=self.manufacturers), "Device Types")
+        self.delete_queryset(Manufacturer.objects.filter(name__in=self.manufacturers), "Manufacturers")
 
     def delete_roles_platforms(self):
-        DeviceRole.objects.filter(name__in=self.device_roles).delete()
-        Platform.objects.filter(name__in=self.platforms).delete()
+        self.delete_queryset(DeviceRole.objects.filter(name__in=self.device_roles), "Device Roles")
+        self.delete_queryset(Platform.objects.filter(name__in=self.platforms), "Platforms")
 
     def delete_clusters_and_related(self):
-        clusters_to_delete = Cluster.objects.filter(group__name__in=self.cluster_groups)
-        clusters_to_delete.delete()
-        ClusterGroup.objects.filter(name__in=self.cluster_groups).delete()
+        clusters = Cluster.objects.filter(group__name__in=self.cluster_groups)
+        self.delete_queryset(clusters, "Clusters")
+        self.delete_queryset(ClusterGroup.objects.filter(name__in=self.cluster_groups), "Cluster Groups")
 
     def delete_prefixes(self):
-        Prefix.objects.filter(prefix__in=self.prefixes).delete()
+        self.delete_queryset(Prefix.objects.filter(prefix__in=self.prefixes), "Prefixes")

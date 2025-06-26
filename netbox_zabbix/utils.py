@@ -1,6 +1,6 @@
 # utils.py
 from netbox_zabbix import models
-
+from netbox_zabbix.config import get_default_tag, get_tag_prefix
 
 def get_hostgroups_mappings( obj ):
     """
@@ -201,13 +201,13 @@ def resolve_field_path(obj, path):
     Resolve a dotted attribute path from an object (e.g., 'site.name', 'tags').
     """
     try:
-        for part in path.split('.'):
-            obj = getattr(obj, part)
+        for part in path.split( '.' ):
+            obj = getattr( obj, part )
             if obj is None:
                 return None
 
-        if hasattr(obj, 'all') and callable(obj.all):
-            return list(obj.all())  # Return a list instead of string
+        if hasattr( obj, 'all' ) and callable( obj.all ):
+            return list( obj.all() )  # Return a list instead of string
         return obj
     except AttributeError:
         return None
@@ -216,7 +216,7 @@ def resolve_field_path(obj, path):
 def get_zabbix_tags_for_object(obj):
     """
     Given a Device or VirtualMachine object, return a list of Zabbix tag dicts:
-    e.g., [ {'tag': 'Site', 'value': 'ams01'}, {'tag': 'core', 'value': 'core'} ]
+    e.g., [ {'tag': 'Site', 'value': 'Lund'}, {'tag': 'core', 'value': 'core'} ]
     """
     if obj._meta.model_name == 'device':
         object_type = 'device'
@@ -225,35 +225,44 @@ def get_zabbix_tags_for_object(obj):
     else:
         raise ValueError(f"Unsupported object type: {obj._meta.model_name}")
 
-    try:
-        mapping = models.TagMapping.objects.get(object_type=object_type)
-    except models.TagMapping.DoesNotExist:
-        return []
-
     tags = []
+    
+    # Get the tag prefix
+    tag_prefix = get_tag_prefix()
+
+    # Add the default tag if it exists. Set the primary key of the obj as value.
+    default_tag_name = get_default_tag()
+    if default_tag_name:
+        tags.append( { "tag": f"{tag_prefix}{default_tag_name}", "value": str( obj.pk ) } )
+    
+    try:
+        mapping = models.TagMapping.objects.get( object_type=object_type )
+    except models.TagMapping.DoesNotExist:
+        return tags
+    
     for field in mapping.field_selection:
-        if not field.get("enabled"):
+        if not field.get( "enabled" ):
             continue
 
-        name = field.get("name")
-        path = field.get("value")
-        value = resolve_field_path(obj, path)
+        name = field.get( "name" )
+        path = field.get( "value" )
+        value = resolve_field_path( obj, path )
 
         if value is None:
             continue
 
-        if isinstance(value, list):
+        if isinstance( value, list ):
             # Special case: 'tags' (or other iterables) become multiple Zabbix tags
             for v in value:
-                label = str(v)
+                label = str( v )
                 tags.append({
-                    "tag": label,
+                    "tag": f"{tag_prefix}{label}",
                     "value": label
                 })
         else:
             tags.append({
-                "tag": name,
-                "value": str(value)
+                "tag": f"{tag_prefix}{name}",
+                "value": str( value )
             })
 
     return tags

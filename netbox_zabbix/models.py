@@ -1,4 +1,5 @@
 # models.py
+from tabnanny import verbose
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
@@ -55,56 +56,112 @@ class Config(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Configuration"
         verbose_name_plural = "Zabbix Configurations"
-    
-    name              = models.CharField( max_length=255, help_text="Name of the configuration" )
-    api_endpoint      = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to Zabbix API Endpoint" )
-    web_address       = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to Zabbix" )
-    token             = models.CharField( max_length=255, help_text="Zabbix access token" )
-    connection        = models.BooleanField( default=False )
-    last_checked_at   = models.DateTimeField( null=True, blank=True )
-    version           = models.CharField( max_length=255, blank=True, null=True )
-    inventory_mode    = models.IntegerField( verbose_name="Inventory Mode", choices=InventoryModeChoices, default=InventoryModeChoices.MANUAL, help_text="Inventory Population Mode." )
-    monitored_by      = models.IntegerField( verbose_name="Monitored By", choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Specifies how to monitor hosts" )
-    tls_connect       = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to use for outgoing connections" )
-    tls_accept        = models.IntegerField( choices=TLSConnectChoices, default=TLSConnectChoices.PSK, help_text="Type of TLS connection to accept for incoming connections" )
-    tls_psk_identity  = models.CharField( max_length=255, help_text="PSK identity", null=True, blank=True )
-    tls_psk           = models.CharField( max_length=255, help_text="Pre-shared key (PSK) must be at least 32 hex digits", null=True, blank=True )
-    
-    auto_validate_importables = models.BooleanField( default= False )
 
-    max_deletions = models.IntegerField( 
-            verbose_name="Max Deletions On Import",
-            default=3, 
-            help_text="The maximum number of entries to be deleted automatically when importing settings from Zabbix" 
+    name                     = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the configuration." )
+    api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
+    web_address              = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to the Zabbix web interface." )
+    token                    = models.CharField( verbose_name="Token", max_length=255, help_text="Zabbix access token." )
+    connection               = models.BooleanField( verbose_name="Connection", default=False )
+    last_checked_at          = models.DateTimeField( verbose_name="Last Checked At", null=True, blank=True )
+    version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
+
+    inventory_mode           = models.IntegerField(
+        verbose_name="Inventory Mode",
+        choices=InventoryModeChoices,
+        default=InventoryModeChoices.MANUAL,
+        help_text="Mode for populating inventory."
+    )
+
+    monitored_by             = models.IntegerField(
+        verbose_name="Monitored By",
+        choices=MonitoredByChoices,
+        default=MonitoredByChoices.ZabbixServer,
+        help_text="Method used to monitor hosts."
+    )
+
+    tls_connect              = models.IntegerField(
+        verbose_name="TLS Connect",
+        choices=TLSConnectChoices,
+        default=TLSConnectChoices.PSK,
+        help_text="TLS mode for outgoing connections."
+    )
+
+    tls_accept               = models.IntegerField(
+        verbose_name="TLS Accept",
+        choices=TLSConnectChoices,
+        default=TLSConnectChoices.PSK,
+        help_text="TLS mode accepted for incoming connections."
+    )
+
+    tls_psk_identity         = models.CharField(
+        verbose_name="PSK Identity",
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="PSK identity."
+    )
+
+    tls_psk                  = models.CharField(
+        verbose_name="TLS PSK",
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Pre-shared key (at least 32 hex digits)."
+    )
+
+    default_tag              = models.CharField(
+        verbose_name="Default Tag",
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Tag applied to all hosts."
+    )
+
+    tag_prefix               = models.CharField(
+        verbose_name="Tag Prefix",
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Prefix added to all tags."
+    )
+
+    auto_validate_importables = models.BooleanField( verbose_name="Validate Importables", default=False, help_text="Automatically validate importable hosts before displaying them. Otherwise, validation is manual."
+     )
+
+    max_deletions            = models.IntegerField(
+        verbose_name="Max Deletions On Import",
+        default=3,
+        help_text="Limits deletions of stale entries on Zabbix imports."
     )
 
     max_success_notifications = models.IntegerField(
-            verbose_name="Maximum Success Notifications",
-            default=3,
-            help_text="Maximum number of success notifications displayed when initiating multiple jobs."
-    )    
-    
-    default_cidr = models.CharField(
-            verbose_name="Default CIDR",
-            max_length=4,
-            choices=CIDRChoices.choices,
-            default=CIDRChoices.CIDR_24,
-            help_text="Default CIDR suffix to apply to Zabbix interface IPs when looking them up in NetBox."
-        )
+        verbose_name="Maximum Success Notifications",
+        default=3,
+        help_text="Max number of success messages shown per job."
+    )
 
-    ip_assignment_method = models.CharField(
+    default_cidr             = models.CharField(
+        verbose_name="Default CIDR",
+        max_length=4,
+        choices=CIDRChoices.choices,
+        default=CIDRChoices.CIDR_24,
+        help_text="CIDR suffix used for interface IP lookups in NetBox."
+    )
+
+    ip_assignment_method     = models.CharField(
         verbose_name="IP Assignment Method",
         max_length=16,
         choices=IPAssignmentChoices.choices,
         default=IPAssignmentChoices.PRIMARY,
-        help_text="Select how to assign IP addresses to host interfaces."
+        help_text="Method used to assign IPs to host interfaces."
     )
 
     def __str__(self):
         return self.name
 
     def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:config", args=[self.pk] )
+        return reverse("plugins:netbox_zabbix:config", args=[self.pk])
+
 
 
 # ------------------------------------------------------------------------------

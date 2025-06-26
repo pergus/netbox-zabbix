@@ -10,20 +10,6 @@
         {{ form.object_type.errors }}
     </div>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const objectTypeSelect = document.querySelector('select[name="object_type"]');
-        if (objectTypeSelect) {
-            objectTypeSelect.addEventListener('change', function () {
-                const url = new URL(window.location.href);
-                url.searchParams.set('object_type', this.value);
-                window.location.href = url.toString();
-            });
-        }
-    });
-</script>
-
 <fieldset class="card mb-3">
     <div class="card-header"><strong>Field Selection</strong></div>
     <div class="card-body">
@@ -37,4 +23,24 @@
         {% endfor %}
     </div>
 </fieldset>
+{% endblock %}
+
+
+{% block javascript %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const prefix = "{{ form.prefix }}";
+        const selectName = prefix ? prefix + "-object_type" : "object_type";
+        const objectTypeSelect = document.querySelector(`select[name="${selectName}"]`);
+        if (objectTypeSelect) {
+            objectTypeSelect.addEventListener('change', function () {
+                const url = new URL(window.location.href);
+                url.searchParams.set('object_type', this.value);
+                window.location.href = url.toString();
+            });
+        } else {
+            console.warn("object_type select element not found");
+        }
+    });
+</script>
 {% endblock %}

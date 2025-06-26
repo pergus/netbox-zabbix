@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
 from django.utils.timezone import now
 from django.conf import settings
+from django.utils.text import slugify
 
 from ipam.models import IPAddress
 from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
@@ -46,7 +47,8 @@ class ConfigForm(NetBoxModelForm):
         FieldSet( 'name', 'ip_assignment_method', 'auto_validate_importables', 'max_deletions', 'max_success_notifications', name="General"),
         FieldSet( 'api_endpoint', 'web_address', 'token', 
                  'default_cidr', 'inventory_mode', 'monitored_by', 
-                 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', name="Zabbix" )
+                 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', name="Zabbix" ),
+        FieldSet( 'default_tag', 'tag_prefix', name="Tags" )
     )
     class Meta:
         model = models.Config
@@ -760,86 +762,16 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
 # Tag Mapping
 # ------------------------------------------------------------------------------
 
-"""
-class TagMappingForm(NetBoxModelForm):
-    object_type = forms.ChoiceField( choices=models.TagMapping.OBJECT_TYPE_CHOICES, initial='device' )
-
-    class Meta:
-        model = models.TagMapping
-        fields = ['object_type']  # exclude 'field_selection' so it's not rendered as raw JSON
-
-    def __init__(self, *args, **kwargs):
-        super().__init__( *args, **kwargs )
-
-        object_type = (
-            self.initial.get( 'object_type' )
-            or self.data.get( 'object_type' )
-            or getattr( self.instance, 'object_type', None )
-            or 'device'
-        )
-        logger.info(f"{object_type=}")
-
-        if object_type == 'device':
-            configured_fields = PLUGIN_SETTINGS.get( 'field_mappings', {} ).get( 'device', [] )
-        elif object_type == 'virtualmachine':
-            configured_fields = PLUGIN_SETTINGS.get( 'field_mappings', {} ).get( 'virtualmachine', [] )
-        else:
-            configured_fields = []
-
-        logger.info(f"{configured_fields=}")
-
-        # Store for later use
-        self._dynamic_fields = [field_name for field_name, _ in configured_fields]
-
-        # Dynamically add BooleanFields for each mapping
-        for field_name, field_label in configured_fields:
-            self.fields[field_name] = forms.BooleanField(
-                label=field_label,
-                required=False,
-                initial=self.instance.field_selection.get( field_name, False ) if self.instance.pk else False,
-            )
-
-        # Ensure these aren't in the rendered form
-        self.fields.pop( 'tags', None )
-        self.fields.pop( 'field_selection', None )
-
-    def clean_object_type(self):
-        object_type = self.cleaned_data['object_type']
-    
-        # Check if another instance with this object_type exists
-        qs = models.TagMapping.objects.filter( object_type=object_type )
-        if self.instance.pk:
-            qs = qs.exclude( pk=self.instance.pk )
-    
-        if qs.exists():
-            raise forms.ValidationError( f"A mapping for object type '{object_type}' already exists." )
-    
-        return object_type
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        return cleaned_data
-
-    def save(self, commit=True):
-        # Set field_selection from current form data
-        self.instance.field_selection = {
-            field_name: self.cleaned_data.get( field_name, False )
-            for field_name in self._dynamic_fields
-        }
-        return super().save( commit=commit )
-"""
-
-from django.utils.text import slugify
-
 class TagMappingForm(NetBoxModelForm):
     object_type = forms.ChoiceField(choices=models.TagMapping.OBJECT_TYPE_CHOICES, initial='device')
+    prefix = "gurka"
 
     class Meta:
         model = models.TagMapping
         fields = ['object_type']  # exclude 'field_selection' from raw rendering
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, prefix=self.prefix, **kwargs)
 
         object_type = (
             self.initial.get('object_type')
@@ -865,7 +797,7 @@ class TagMappingForm(NetBoxModelForm):
             # collisions with existing NetBox fields. 
             # This allows us to safely use common or duplicate display names in
             # 'field_mappings', such as "Tags".
-            field_key = slugify( f"xibbaz_{field_name}" )
+            field_key = slugify( f"{self.prefix}_{field_name}" )
             self.fields[field_key] = forms.BooleanField(
                 label=field_name,
                 required=False,
@@ -890,7 +822,7 @@ class TagMappingForm(NetBoxModelForm):
         
         field_selection = []
         for field_name, field_value in configured_fields:
-            field_key = slugify( f"xibbaz_{field_name}"  )
+            field_key = slugify( f"{self.prefix}_{field_name}"  )
 
             enabled = self.cleaned_data.get( field_key, False )
             field_selection.append({
