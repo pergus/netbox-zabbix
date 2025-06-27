@@ -205,3 +205,13 @@ def get_tag_prefix():
     """
     prefix = get_config().tag_prefix
     return prefix or ""
+
+def get_tag_name_formatting():
+    """
+    Retrieves the tag name formatting from the configuration.
+    
+    Returns:
+        The tag name formatting as specified in the configuration.
+    """
+    return get_config().tag_name_formatting
+        

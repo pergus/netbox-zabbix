@@ -52,6 +52,12 @@ class InventoryModeChoices(models.IntegerChoices):
     AUTOMATIC = (1, "Automatic" )
     
 
+class TagNameFormattingChoices(models.TextChoices):
+    KEEP  = "keep",  "Keep As Entered"
+    UPPER = "upper", "Convert to Uppercase"
+    LOWER = "lower", "Convert to Lowercase"
+
+
 class Config(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Configuration"
@@ -65,35 +71,35 @@ class Config(NetBoxModel):
     last_checked_at          = models.DateTimeField( verbose_name="Last Checked At", null=True, blank=True )
     version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
 
-    inventory_mode           = models.IntegerField(
+    inventory_mode = models.IntegerField(
         verbose_name="Inventory Mode",
         choices=InventoryModeChoices,
         default=InventoryModeChoices.MANUAL,
         help_text="Mode for populating inventory."
     )
 
-    monitored_by             = models.IntegerField(
+    monitored_by = models.IntegerField(
         verbose_name="Monitored By",
         choices=MonitoredByChoices,
         default=MonitoredByChoices.ZabbixServer,
         help_text="Method used to monitor hosts."
     )
 
-    tls_connect              = models.IntegerField(
+    tls_connect = models.IntegerField(
         verbose_name="TLS Connect",
         choices=TLSConnectChoices,
         default=TLSConnectChoices.PSK,
         help_text="TLS mode for outgoing connections."
     )
 
-    tls_accept               = models.IntegerField(
+    tls_accept = models.IntegerField(
         verbose_name="TLS Accept",
         choices=TLSConnectChoices,
         default=TLSConnectChoices.PSK,
         help_text="TLS mode accepted for incoming connections."
     )
 
-    tls_psk_identity         = models.CharField(
+    tls_psk_identity = models.CharField(
         verbose_name="PSK Identity",
         max_length=255,
         null=True,
@@ -101,7 +107,7 @@ class Config(NetBoxModel):
         help_text="PSK identity."
     )
 
-    tls_psk                  = models.CharField(
+    tls_psk = models.CharField(
         verbose_name="TLS PSK",
         max_length=255,
         null=True,
@@ -109,7 +115,7 @@ class Config(NetBoxModel):
         help_text="Pre-shared key (at least 32 hex digits)."
     )
 
-    default_tag              = models.CharField(
+    default_tag = models.CharField(
         verbose_name="Default Tag",
         max_length=255,
         null=True,
@@ -117,7 +123,7 @@ class Config(NetBoxModel):
         help_text="Tag applied to all hosts."
     )
 
-    tag_prefix               = models.CharField(
+    tag_prefix = models.CharField(
         verbose_name="Tag Prefix",
         max_length=255,
         null=True,
@@ -125,10 +131,11 @@ class Config(NetBoxModel):
         help_text="Prefix added to all tags."
     )
 
-    auto_validate_importables = models.BooleanField( verbose_name="Validate Importables", default=False, help_text="Automatically validate importable hosts before displaying them. Otherwise, validation is manual."
-     )
+    tag_name_formatting =  models.CharField( verbose_name="Tag Name Formatting", choices=TagNameFormattingChoices, default=TagNameFormattingChoices.KEEP, help_text="Tag name formatting.")
 
-    max_deletions            = models.IntegerField(
+    auto_validate_importables = models.BooleanField( verbose_name="Validate Importables", default=False, help_text="Automatically validate importable hosts before displaying them. Otherwise, validation is manual." )
+
+    max_deletions = models.IntegerField(
         verbose_name="Max Deletions On Import",
         default=3,
         help_text="Limits deletions of stale entries on Zabbix imports."
@@ -140,7 +147,7 @@ class Config(NetBoxModel):
         help_text="Max number of success messages shown per job."
     )
 
-    default_cidr             = models.CharField(
+    default_cidr = models.CharField(
         verbose_name="Default CIDR",
         max_length=4,
         choices=CIDRChoices.choices,
@@ -148,7 +155,7 @@ class Config(NetBoxModel):
         help_text="CIDR suffix used for interface IP lookups in NetBox."
     )
 
-    ip_assignment_method     = models.CharField(
+    ip_assignment_method = models.CharField(
         verbose_name="IP Assignment Method",
         max_length=16,
         choices=IPAssignmentChoices.choices,

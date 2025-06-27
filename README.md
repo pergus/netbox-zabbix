@@ -9,11 +9,20 @@ NetBox plugin for Zabbix.
 
 ## Todo and Questions
 
+Verify that the mapping caches work as expected.
 
-rename all proxygroup to proxy_group
-rename all hostgroups to host_groups
+combine"host" mappings into one model.
+
+
+rename all hostgroups to host_groups <<<<<=============================  !!!!!!
 rename monitoriedby to monitored_by
+rename all proxygroup to proxy_group
 
+Reduced the number of SQL-queries 
+from 
+2083.18 ms (2219 queries including 2205 similar and 2205 duplicates ) 
+to 
+default 228.66 ms (134 queries including 118 similar and 93 duplicates )
 
 ### Questions
 

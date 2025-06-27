@@ -28,7 +28,8 @@ from netbox_zabbix.models import (
     StatusChoices,
     MonitoredByChoices,
     InventoryModeChoices,
-    TLSConnectChoices
+    TLSConnectChoices,
+    TagNameFormattingChoices
 )
 from netbox_zabbix.config import (
     get_inventory_mode,
@@ -39,7 +40,8 @@ from netbox_zabbix.config import (
     get_tls_accept, 
     get_tls_connect, 
     get_tls_psk, 
-    get_tls_psk_identity
+    get_tls_psk_identity,
+    get_tag_name_formatting
 )
 from netbox_zabbix.utils import ( 
     validate_and_get_mappings, 
@@ -446,25 +448,26 @@ def get_tags(obj, existing_tags=None):
     if existing_tags is None:
         existing_tags = []
 
-    # Start with any provided existing tags
-    result = list(existing_tags)
+    tag_name_formatting = get_tag_name_formatting()
+    tag_seen = set()
+    result = []
 
-    # Dynamic tags from tag mapping
-    dynamic_tags = get_zabbix_tags_for_object(obj)
-    for tag in dynamic_tags:
-        if tag not in result:
-            result.append(tag)
+    # Combine existing and dynamic tags, format and deduplicate in one loop
+    for tag in existing_tags + get_zabbix_tags_for_object( obj ):
+        name = tag['tag']
 
-    # Required static tags (configurable in the future)
-    required_tags = [
-        {"tag": "netbox", "value": "true"},
-    ]
+        if tag_name_formatting == TagNameFormattingChoices.LOWER:
+            name = name.lower()
+        elif tag_name_formatting == TagNameFormattingChoices.UPPER:
+            name = name.upper()
 
-    for tag in required_tags:
-        if tag not in result:
-            result.append(tag)
+        key = (name, tag['value'])
+        if key not in tag_seen:
+            tag_seen.add( key )
+            result.append( {'tag': name, 'value': tag['value']} )
 
     return result
+
 
 def get_inventory( obj ):
 
