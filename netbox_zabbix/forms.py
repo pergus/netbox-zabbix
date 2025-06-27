@@ -290,7 +290,7 @@ class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-    
+
          # Set proxyid choices dynamically on instantiation
         proxy_groupids = models.ProxyGroup.objects.order_by('proxy_groupid').distinct('proxy_groupid').values_list('proxy_groupid', flat=True)
         choices = [("", "---------")] + [(zid, zid) for zid in proxy_groupids if zid is not None]
@@ -302,7 +302,7 @@ class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
 
 class ProxyGroupMappingForm(BaseProxyMappingForm):
     mapping_model = models.ProxyGroupMapping
-    
+
     class Meta:
         model = models.ProxyGroupMapping
         fields = [ 'name', 'proxy_group', 'sites', 'roles', 'platforms', 'tags' ]
@@ -327,7 +327,7 @@ class HostGroupMappingForm(NetBoxModelForm):
             model = models.HostGroupMapping
             fields = [ 'name','host_groups','sites','roles','platforms','tags' ]
 
-        
+
         def clean(self):
             super().clean()
             
@@ -404,7 +404,7 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
         fields = ('device', 'status', 'monitored_by', 'templates', 'proxy', 'proxy_group', 'host_groups' )
 
     def __init__(self, *args, **kwargs):
-        instance = kwargs.get('instance', None)
+        instance = kwargs.get( 'instance', None )
     
         super().__init__(*args, **kwargs)
 
@@ -528,7 +528,7 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
     ip_address = DynamicModelChoiceField(
         label="IP Address",
         queryset=IPAddress.objects.all(),
-        query_params={ "interface_id": "$interface" },    
+        query_params={ "interface_id": "$interface" },
         required=True,
     )
 
@@ -577,12 +577,12 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
     port = forms.IntegerField( required=True )
 
     snmp_max_repetitions = forms.IntegerField( label="Max Repetition Count", initial=10 )
-    snmp_contextname     = forms.CharField( label="Context Name", max_length=255 )    
+    snmp_contextname     = forms.CharField( label="Context Name", max_length=255 )
     snmp_securityname    = forms.CharField( max_length=255, label="Security Name" )
     snmp_securitylevel   = forms.ChoiceField( label="Security Level", choices=models.SNMPSecurityLevelChoices, initial=models.SNMPSecurityLevelChoices.authPriv )
     snmp_authprotocol    = forms.ChoiceField( label="Authentication Protocol", choices=models.SNMPAuthProtocolChoices, initial=models.SNMPAuthProtocolChoices.SHA1 )
     snmp_authpassphrase  = forms.CharField( max_length=255, label="Authentication Passphrase", initial="{$SNMPV3_AUTHPASS}" )
-    snmp_privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )    
+    snmp_privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )
     snmp_privpassphrase  = forms.CharField( max_length=255, label="Privacy Passphrase", initial="{$SNMPV3_PRIVPASS}" )
     snmp_bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
     
@@ -642,7 +642,7 @@ class VMAgentInterfaceForm(NetBoxModelForm):
     port = forms.IntegerField( required=True )
 
     host = DynamicModelChoiceField( 
-        label="VM Zabbix Config",      
+        label="VM Zabbix Config",
         queryset=models.VMZabbixConfig.objects.all(),
         required=True,
     )
@@ -657,7 +657,7 @@ class VMAgentInterfaceForm(NetBoxModelForm):
     ip_address = DynamicModelChoiceField(
         label="IP Address",
         queryset=IPAddress.objects.all(),
-        query_params={ "vminterface_id": "$interface" },    
+        query_params={ "vminterface_id": "$interface" },
         required=True,
     )
 
@@ -706,12 +706,12 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
     port = forms.IntegerField( required=True )
 
     snmp_max_repetitions = forms.IntegerField( label="Max Repetition Count", initial=10 )
-    snmp_contextname     = forms.CharField( label="Context Name", max_length=255 )    
+    snmp_contextname     = forms.CharField( label="Context Name", max_length=255 )
     snmp_securityname    = forms.CharField( max_length=255, label="Security Name" )
     snmp_securitylevel   = forms.ChoiceField( label="Security Level", choices=models.SNMPSecurityLevelChoices, initial=models.SNMPSecurityLevelChoices.authPriv )
     snmp_authprotocol    = forms.ChoiceField( label="Authentication Protocol", choices=models.SNMPAuthProtocolChoices, initial=models.SNMPAuthProtocolChoices.SHA1 )
     snmp_authpassphrase  = forms.CharField( max_length=255, label="Authentication Passphrase", initial="{$SNMPV3_AUTHPASS}" )
-    snmp_privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )    
+    snmp_privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )
     snmp_privpassphrase  = forms.CharField( max_length=255, label="Privacy Passphrase", initial="{$SNMPV3_PRIVPASS}" )
     snmp_bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
     
@@ -731,7 +731,7 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
     ip_address = DynamicModelChoiceField(
         label="IP Address",
         queryset=IPAddress.objects.all(),
-        query_params={ "vminterface_id": "$interface" },    
+        query_params={ "vminterface_id": "$interface" },
         required=True,
     )
     
@@ -834,3 +834,129 @@ class TagMappingForm(NetBoxModelForm):
 
         self.instance.field_selection = field_selection
         return super().save( commit=commit )
+
+
+# ------------------------------------------------------------------------------
+# Device Mapping
+# ------------------------------------------------------------------------------
+
+class DeviceMappingForm(NetBoxModelForm):
+    fieldsets = (
+        FieldSet(  'name', 'description', 'default', name="General" ),
+        FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', 'interface_type', name="Settings" ),
+        FieldSet( 'sites', 'roles', 'platforms', name="Filters")
+    )
+    
+    class Meta:
+        model = models.DeviceMapping
+        fields = '__all__' 
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if not self.instance.default or models.DeviceMapping.objects.exists():
+            self.initial["default"] = False
+            self.fields.pop( "default", None )
+                        
+        if self.instance.default or not models.DeviceMapping.objects.exists():
+            self.initial["default"] = True
+            self.fields["default"].disabled = True
+            self.initial["interface_type"] = models.InterfaceTypeChoices.Any
+            self.fields["interface_type"].disabled = True
+            
+            self.fields.pop( "sites", None )
+            self.fields.pop( "roles", None )
+            self.fields.pop( "platforms", None )
+        
+    def clean(self):
+        super().clean()
+
+        default = self.cleaned_data.get( 'default' )
+        interface_type = self.cleaned_data.get( 'interface_type' )
+        
+        sites = self.cleaned_data.get( 'sites' )
+        roles = self.cleaned_data.get( 'roles' )
+        platforms = self.cleaned_data.get( 'platforms' )
+    
+        if default:
+            # The default entry must not restrict on site/role/platform
+            if sites and sites.exists() or roles and roles.exists() or platforms and platforms.exists():
+                raise forms.ValidationError( "Default mapping cannot define sites, roles, or platforms." )
+            if interface_type != models.InterfaceTypeChoices.Any:
+                raise forms.ValidationError( "Default mapping must use interface_type = 'any'." )
+        else:
+            # Non-default mappings must restrict on at least one of sites/roles/platforms
+            if not (sites.exists() or roles.exists() or platforms.exists()):
+                raise forms.ValidationError( "At least one of sites, roles, or platforms must be set for non-default mappings." )
+    
+        # Ensure there is exactly one default in the database (excluding current instance if updating)
+        if default:
+            qs = models.DeviceMapping.objects.filter( default=True )
+            if self.instance.pk:
+                qs = qs.exclude( pk=self.instance.pk )
+            if qs.exists():
+                raise forms.ValidationError( "There can only be one default mapping." )
+            return
+
+        # Check for conflicting filters
+        conflicting = []
+        
+        site_ids     = set( s.id for s in sites )
+        role_ids     = set( r.id for r in roles )
+        platform_ids = set( p.id for p in platforms )
+        
+        logger.info( f"{ models.DeviceMapping.objects.exclude( pk=self.instance.pk ).exclude( default=True)=}" )
+
+        for other in models.DeviceMapping.objects.exclude( pk=self.instance.pk ).exclude( default=True ):
+        
+            other_site_ids     = set( other.sites.values_list( 'id', flat=True ) ) if other.sites.exists() else set()
+            other_role_ids     = set( other.roles.values_list( 'id', flat=True ) ) if other.roles.exists() else set()
+            other_platform_ids = set( other.platforms.values_list( 'id', flat=True ) ) if other.platforms.exists() else set()
+        
+            # Helper function to check field overlap
+            def overlap(set1, set2):
+                # True if either set is empty (wildcard) or intersection is non-empty
+                return not set1 or not set2 or bool(set1 & set2)
+        
+            # Check sites, roles, platforms for overlap
+            if not (overlap( site_ids, other_site_ids ) and
+                    overlap( role_ids, other_role_ids ) and
+                    overlap( platform_ids, other_platform_ids ) ):
+                continue  # No conflict, skip
+                
+            conflicting.append( other.name )
+        
+        if conflicting:
+            raise forms.ValidationError( f"This mapping overlaps with existing mapping(s): {', '.join(conflicting)}." )
+
+    #def save(self, *args, **kwargs):
+    #    super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        if self.default:
+            raise ValidationError( "The default device mapping cannot be deleted." )
+        super().delete(*args, **kwargs)
+
+
+# ------------------------------------------------------------------------------
+# VM Mapping
+# ------------------------------------------------------------------------------
+
+class VMMappingForm(NetBoxModelForm):
+    class Meta:
+        model = models.VMMapping
+        fields = [ 'name', 'description', 'default', 
+                  'host_groups', 'templates', 'proxy', 'proxy_group', 'platforms', 'interface_type', 
+                  'sites', 'roles', 'platforms' ]
+
+    def clean(self):
+        super().clean()
+        sites = self.cleaned_data['sites']
+        roles = self.cleaned_data['roles']
+        platforms = self.cleaned_data['platforms']
+            
+        if not (sites or roles or platforms):
+            raise forms.ValidationError( "At least one of sites, roles or platforms must be set for mapping." )
+    
+
+# end

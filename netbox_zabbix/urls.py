@@ -124,7 +124,7 @@ urlpatterns = (
     # Zabbix Host Group Mappings    
     path( 'host-group-mappings/',                    views.HostGroupMappingListView.as_view(),       name='hostgroupmapping_list' ),
     path( 'host-group-mappings/add/',                views.HostGroupMappingEditView.as_view(),       name='hostgroupmapping_add' ),
-    path( 'host-group-mappings/delete/',             views.HostGroupMappingBulkDeleteView.as_view(), name='hostgroupmapping_bulk_delete' ),        
+    path( 'host-group-mappings/delete/',             views.HostGroupMappingBulkDeleteView.as_view(), name='hostgroupmapping_bulk_delete' ),
     path( 'host-group-mappings/<int:pk>/',           views.HostGroupMappingView.as_view(),           name='hostgroupmapping' ),
     path( 'host-group-mappings/<int:pk>/edit/',      views.HostGroupMappingEditView.as_view(),       name='hostgroupmapping_edit' ),        
     path( 'host-group-mappings/<int:pk>/delete/',    views.HostGroupMappingDeleteView.as_view(),     name='hostgroupmapping_delete' ),
@@ -195,7 +195,6 @@ urlpatterns = (
     path( 'zabbix/zabbix-only-hosts/', views.ZabbixOnlyHostsView.as_view(), name='zabbixonlyhosts' ),
     
 
-
     # --------------------------------------------------------------------------
     # Quick Add
     # --------------------------------------------------------------------------
@@ -249,6 +248,7 @@ urlpatterns = (
     # --------------------------------------------------------------------------
     # Tag Mapping
     # --------------------------------------------------------------------------
+
     path( 'tag/mappings/',                    views.TagMappingListView.as_view(),   name='tagmapping_list' ),
     path( 'tag/mappings/add/',                views.TagMappingEditView.as_view(),   name='tagmapping_add' ),
     path( 'tag/mapping/<int:pk>/',            views.TagMappingView.as_view(),       name='tagmapping' ),
@@ -256,4 +256,29 @@ urlpatterns = (
     path( 'tag/mappings/<int:pk>/delete/',    views.TagMappingDeleteView.as_view(), name='tagmapping_delete' ),
     path( 'tag/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),        name='tagmapping_changelog', kwargs={'model': models.TagMapping}  ),
 
+
+    # --------------------------------------------------------------------------
+    # Device Mapping
+    # --------------------------------------------------------------------------
+    
+    path( 'device/mappings/',                    views.DeviceMappingListView.as_view(),       name='devicemapping_list' ),
+    path( 'device/mappings/add/',                views.DeviceMappingEditView.as_view(),       name='devicemapping_add' ),
+    path( 'device/mapping/<int:pk>/',            views.DeviceMappingView.as_view(),           name='devicemapping' ),
+    path( 'device/mappings/<int:pk>/edit/',      views.DeviceMappingEditView.as_view(),       name='devicemapping_edit' ),
+    path( 'device/mappings/<int:pk>/delete/',    views.DeviceMappingDeleteView.as_view(),     name='devicemapping_delete' ),
+    path( 'device/mappings/delete/',             views.DeviceMappingBulkDeleteView.as_view(), name='devicemapping_bulk_delete' ),
+    path( 'device/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),               name='devicemapping_changelog', kwargs={'model': models.DeviceMapping}  ),
+
+
+    # --------------------------------------------------------------------------
+    # VM Mapping
+    # --------------------------------------------------------------------------
+    
+    path( 'virtual-machines/mappings/',                    views.VMMappingListView.as_view(),   name='vmmapping_list' ),
+    path( 'virtual-machines/mappings/add/',                views.VMMappingEditView.as_view(),   name='vmmapping_add' ),
+    path( 'virtual-machines/mapping/<int:pk>/',            views.VMMappingView.as_view(),       name='vmmapping' ),
+    path( 'virtual-machines/mappings/<int:pk>/edit/',      views.VMMappingEditView.as_view(),   name='vmmapping_edit' ),
+    path( 'virtual-machines/mappings/<int:pk>/delete/',    views.VMMappingDeleteView.as_view(), name='vmmapping_delete' ),
+    path( 'virtual-machines/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),       name='vmmapping_changelog', kwargs={'model': models.VMMapping}  ),
+        
  ) 

@@ -26,4 +26,9 @@ router.register( 'vmzabbixconfig',             views.VMZabbixConfigViewSet )
 router.register( 'available-device-interface', views.AvailableDeviceInterfaceViewSet, basename='availabledeviceinterface' )
 router.register( 'available-vm-interface',     views.AvailableVMInterfaceViewSet, basename='availablevminterface' )
 
+
+router.register( 'device-mappings',  views.DeviceMappingViewSet )
+router.register( 'vm-mappings',      views.VMMappingViewSet )
+
+
 urlpatterns = router.urls

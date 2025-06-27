@@ -1388,3 +1388,84 @@ class TagMappingEditView(generic.ObjectEditView):
 
 class TagMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.TagMapping.objects.all()
+
+
+# ------------------------------------------------------------------------------
+# Device Mapping
+# ------------------------------------------------------------------------------
+
+class DeviceMappingView(generic.ObjectView):
+    queryset = models.DeviceMapping.objects.all()
+    template_name = 'netbox_zabbix/device_mapping.html'
+
+class DeviceMappingListView(generic.ObjectListView):
+    queryset = models.DeviceMapping.objects.all()
+    table = tables.DeviceMappingTable
+    template_name = 'netbox_zabbix/device_mapping_list.html'
+
+class DeviceMappingEditView(generic.ObjectEditView):
+    queryset = models.DeviceMapping.objects.all()
+    form = forms.DeviceMappingForm
+    template_name = 'netbox_zabbix/device_mapping_edit.html'
+
+class DeviceMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.DeviceMapping.objects.all()
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:devicemapping_list')
+
+    def post(self, request, *args, **kwargs):
+        obj = self.get_object()
+    
+        if obj.default:
+            messages.error( request, "You cannot delete the default mapping." )
+            return redirect('plugins:netbox_zabbix:devicemapping_list' )
+    
+        return super().post( request, *args, **kwargs )
+
+class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.DeviceMapping.objects.all()
+    filterset_class = filtersets.DeviceMappingFilterSet
+    table = tables.DeviceMappingTable
+
+    def post(self, request, *args, **kwargs):
+        # Determine which objects are being deleted
+        selected_pks = request.POST.getlist( 'pk' )
+        mappings = models.Mapping.objects.filter( pk__in=selected_pks )
+    
+        # Check if any default mappings are included
+        default_mappings = mappings.filter( default=True )
+        if default_mappings.exists():
+            names = ", ".join( [m.name for m in default_mappings] )
+            messages.error( request, f"Cannot delete default mapping(s): {names}" )
+            return redirect('plugins:netbox_zabbix:devicemapping_list' )
+    
+        # No default mappings selected, proceed with normal deletion
+        return super().post(request, *args, **kwargs)
+    
+
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:devicemapping_list')
+
+# ------------------------------------------------------------------------------
+# VM Mapping
+# ------------------------------------------------------------------------------
+
+class VMMappingView(generic.ObjectView):
+    queryset = models.VMMapping.objects.all()
+
+class VMMappingListView(generic.ObjectListView):
+    queryset = models.VMMapping.objects.all()
+    table = tables.VMMappingTable
+    template_name = 'netbox_zabbix/vm_mapping_list.html'
+
+class VMMappingEditView(generic.ObjectEditView):
+    queryset = models.VMMapping.objects.all()
+    form = forms.VMMappingForm
+    template_name = 'netbox_zabbix/vm_mapping_edit.html'
+
+class VMMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.VMMapping.objects.all()
+
+# end
+

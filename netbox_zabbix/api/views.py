@@ -286,3 +286,24 @@ class AvailableVMInterfaceViewSet(NetBoxModelViewSet):
     filterset_class = AvailableVMInterfaceFilter
 
 
+# ------------------------------------------------------------------------------
+# Device Mapping
+# ------------------------------------------------------------------------------
+
+
+class DeviceMappingViewSet(NetBoxModelViewSet):
+    queryset = models.DeviceMapping.objects.all()
+    serializer_class = serializers.DeviceMappingSerializer
+    #filterset_class = DeviceMappingFilter
+
+# ------------------------------------------------------------------------------
+# VM Mapping
+# ------------------------------------------------------------------------------
+
+
+class VMMappingViewSet(NetBoxModelViewSet):
+    queryset = models.VMMapping.objects.all()
+    serializer_class = serializers.VMMappingSerializer
+    #filterset_class = VMMappingFilter
+
+# end

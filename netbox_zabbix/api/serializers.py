@@ -125,6 +125,7 @@ class TagMappingSerializer(serializers.ModelSerializer):
         model = models.TagMapping
         fields = '__all__'
 
+
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------
@@ -202,3 +203,37 @@ class VMSNMPv3InterfaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.VMSNMPv3Interface
         fields = '__all__'
+
+
+# ------------------------------------------------------------------------------
+# Mapping
+# ------------------------------------------------------------------------------
+
+class MappingSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.Mapping
+        fields = '__all__'
+
+# ------------------------------------------------------------------------------
+# Device Mapping
+# ------------------------------------------------------------------------------
+
+class DeviceMappingSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.DeviceMapping
+        fields = '__all__'
+
+
+# ------------------------------------------------------------------------------
+# VM Mapping
+# ------------------------------------------------------------------------------
+
+class VMMappingSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.VMMapping
+        fields = '__all__'
+
+# end

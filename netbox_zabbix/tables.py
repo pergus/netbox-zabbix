@@ -881,6 +881,7 @@ class ImportableVMTable(NetBoxTable):
 # ------------------------------------------------------------------------------
 
 class ZabbixOnlyHostTable(tables.Table):
+
     name = tables.TemplateColumn(
         template_code='<a href="{{web_address}}/zabbix.php?action=host.edit&hostid={{ record.hostid }}">{{ record.name }}</a>',
         verbose_name="Host"
@@ -986,3 +987,30 @@ class TagMappingTable(NetBoxTable):
     def render_enabled_fields(self, record):
         enabled_names = [f['name'] for f in record.field_selection if f.get('enabled')]
         return ", ".join(enabled_names) if enabled_names else "None"
+
+
+# ------------------------------------------------------------------------------
+# Device Mapping
+# ------------------------------------------------------------------------------
+
+class DeviceMappingTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+
+    class Meta(NetBoxTable.Meta):
+        model = models.DeviceMapping
+        fields = ( "name", "host_groups", "templates", "proxy", "proxy_group", "sites", "roles", "platforms", "default", "description" )
+        default_columns = ( "name", "host_groups", "templates", "proxy", "proxy_group", "default" ) 
+
+# ------------------------------------------------------------------------------
+# VM Mapping
+# ------------------------------------------------------------------------------
+
+class VMMappingTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+
+    class Meta(NetBoxTable.Meta):
+        model = models.VMMapping
+        fields = ( "name", "host_groups", "templates", "proxy", "proxy_group", "sites", "roles", "platforms", "default", "description" )
+        default_columns = ( "name", "host_groups", "templates", "proxy", "proxy_group", "default" ) 
+
+# end

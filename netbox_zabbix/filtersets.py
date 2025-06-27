@@ -421,3 +421,21 @@ class VMSNMPv3InterfaceFilterSet(django_filters.FilterSet):
     class Meta:
         model = models.VMSNMPv3Interface
         fields = ['host_id']
+
+
+# ------------------------------------------------------------------------------
+# Device Mapping
+# ------------------------------------------------------------------------------
+
+class DeviceMappingFilterSet(NetBoxModelFilterSet):
+    tags = TagFilter()
+
+    class Meta:
+        model = models.DeviceMapping
+        exclude = ['custom_field_data']
+
+# ------------------------------------------------------------------------------
+# VM Mapping
+# ------------------------------------------------------------------------------
+
+# end
