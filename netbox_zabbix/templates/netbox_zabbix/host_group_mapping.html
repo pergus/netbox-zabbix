@@ -23,6 +23,7 @@
                             <a href="{{ hostgroup.get_absolute_url }}">{{ host_group.name }}</a>{% if not forloop.last %}, {% endif %}
                             {% endfor %}
                         </td>
+
                     </tr>
 
                     {% if object.sites.exists %}

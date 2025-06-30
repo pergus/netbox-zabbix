@@ -62,7 +62,7 @@
             <h2 class="card-header">Related Devices</h2>
             <ul class="list-group list-group-flush" role="presentation">
                 {% for item in related_devices %}
-                <a href="{{ item.url }}" class="list-group-item list-group-item-action d-flex justify-content-between">
+                <a href="{% url 'plugins:netbox_zabbix:devicemapping_devices' pk=object.pk %}" class=" list-group-item list-group-item-action d-flex justify-content-between">
                     {{ item.label|capfirst }}
                     {% if item.count %}
                     <span class="badge text-bg-primary rounded-pill">{{ item.count }}</span>

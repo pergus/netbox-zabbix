@@ -193,13 +193,12 @@ class HostGroupMappingTable(NetBoxTable):
         default_columns = ("pk", "name", "host_groups", "sites", "roles", "platforms", "tags" )
 
 
-
 class MatchingDeviceTable(NetBoxTable):
     name = tables.Column( linkify=True )
     site = tables.Column( linkify=True )
     role = tables.Column( linkify=True )
     platform = tables.Column( linkify=True )
-    zabbix_config = tables.BooleanColumn( accessor='zabbix_config', verbose_name="Zabbix Config", orderable=True )
+    zabbix_config = tables.BooleanColumn( accessor='zabbix_config', verbose_name="Zabbix Config", orderable=False )
     tags = columns.TagColumn( url_name='dcim:device_list' )
 
     class Meta(NetBoxTable.Meta):
@@ -1000,6 +999,23 @@ class DeviceMappingTable(NetBoxTable):
         model = models.DeviceMapping
         fields = ( "name", "host_groups", "templates", "proxy", "proxy_group", "sites", "roles", "platforms", "default", "description" )
         default_columns = ( "name", "host_groups", "templates", "proxy", "proxy_group", "default" ) 
+
+
+class MatchingDeviceMappingTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+    site = tables.Column( linkify=True )
+    role = tables.Column( linkify=True )
+    platform = tables.Column( linkify=True )
+    zabbix_config = tables.BooleanColumn( accessor='zabbix_config', verbose_name="Zabbix Config", orderable=False )
+    tags = columns.TagColumn( url_name='dcim:device_list' )
+
+    class Meta(NetBoxTable.Meta):
+        model = Device
+        fields = ( "name", "zabbix_config", "site", "role", "platform", "tags" )
+
+    def render_zabbix_config(self, record):
+        return mark_safe("✔") if  models.DeviceZabbixConfig.objects.filter( device=record ).exists() else mark_safe("✘")
+
 
 # ------------------------------------------------------------------------------
 # VM Mapping

@@ -1,4 +1,5 @@
 # views.py
+from utilities import query
 import netbox_zabbix.config as config
 from urllib.parse import urlencode
 
@@ -1394,35 +1395,73 @@ class TagMappingDeleteView(generic.ObjectDeleteView):
 # Device Mapping
 # ------------------------------------------------------------------------------
 
+def count_matching_devices_for_mapping(obj):
+    return obj.get_matching_devices().count()
+
+@register_model_view(models.DeviceMapping, 'devices')
+class DeviceMappingDevicesView(generic.ObjectView):
+    queryset = models.DeviceMapping.objects.all()
+    template_name = 'netbox_zabbix/device_mapping_devices.html'
+    tab = ViewTab( label="Matching Devices",
+                   badge=lambda obj: count_matching_devices_for_mapping( obj ),
+                   weight=500 )
+    
+    def get_extra_context(self, request, instance):
+        queryset = instance.get_matching_devices()
+        table = tables.MatchingDeviceMappingTable( queryset )
+        RequestConfig( request,
+            {
+                "paginator_class": EnhancedPaginator,
+                "per_page": get_paginate_count(request),
+            }
+         ).configure( table )
+            
+        return {
+            "table": table,
+        }
+
 class DeviceMappingView(generic.ObjectView):
     queryset = models.DeviceMapping.objects.all()
     template_name = 'netbox_zabbix/device_mapping.html'
-
+    tab = ViewTab( label="Matching Devices",
+                  badge=lambda obj: obj.count(),
+                  weight=500 )
+    
     def get_extra_context(self, request, instance):
-        filter_data = {}
-        if instance.sites.exists():
-            filter_data['site_id'] = [s.pk for s in instance.sites.all()]
-        if instance.roles.exists():
-            filter_data['role_id'] = [r.pk for r in instance.roles.all()]
-        if instance.platforms.exists():
-            filter_data['platform_id'] = [p.pk for p in instance.platforms.all()]
-    
-        device_qs = Device.objects.all()
-        filtered_devices = filtersets.DeviceMappingFilterSet( data=filter_data, queryset=device_qs ).qs.distinct()
-    
-        filter_query = urlencode( filter_data, doseq=True )
-    
+        devices = instance.get_matching_devices()
         return {
             "related_devices": [
                 {
-                    "queryset": filtered_devices,
-                    "url": reverse('dcim:device_list') + f"?{filter_query}",
+                    "queryset": devices,
                     "label": "Devices",
-                    "count": filtered_devices.count(),
+                    "count": devices.count()
                 }
-            ],
+            ]
         }
-    
+#        filter_data = {}
+#        if instance.sites.exists():
+#            filter_data['site_id'] = [s.pk for s in instance.sites.all()]
+#        if instance.roles.exists():
+#            filter_data['role_id'] = [r.pk for r in instance.roles.all()]
+#        if instance.platforms.exists():
+#            filter_data['platform_id'] = [p.pk for p in instance.platforms.all()]
+#    
+#        device_qs = Device.objects.all()
+#        filtered_devices = filtersets.DeviceMappingFilterSet( data=filter_data, queryset=device_qs ).qs.distinct()
+#    
+#        filter_query = urlencode( filter_data, doseq=True )
+#    
+#        return {
+#            "related_devices": [
+#                {
+#                    "queryset": filtered_devices,
+#                    "url": reverse('dcim:device_list') + f"?{filter_query}",
+#                    "label": "Devices",
+#                    "count": filtered_devices.count(),
+#                }
+#            ],
+#        }
+#    
 
 class DeviceMappingListView(generic.ObjectListView):
     queryset = models.DeviceMapping.objects.all()

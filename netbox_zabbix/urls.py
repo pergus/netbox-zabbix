@@ -202,8 +202,7 @@ urlpatterns = (
     # Quick add Agent and SNMPv3 Device Configuration
     path( 'devices/zabbix-config/quick-add-agent/',  views.device_quick_add_agent,   name='device_quick_add_agent' ),
     path( 'devices/zabbix-config/quick-add-snmpv3/', views.device_quick_add_snmpv3,  name='device_quick_add_snmpv3' ),
-        
-    
+
 
     # --------------------------------------------------------------------------
     # Interfaces
@@ -269,6 +268,7 @@ urlpatterns = (
     path( 'device/mappings/delete/',             views.DeviceMappingBulkDeleteView.as_view(), name='devicemapping_bulk_delete' ),
     path( 'device/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),               name='devicemapping_changelog', kwargs={'model': models.DeviceMapping}  ),
 
+    path( 'device/mappings/<int:pk>/devices/',   views.DeviceMappingDevicesView.as_view(),    name='devicemapping_devices' ),
 
     # --------------------------------------------------------------------------
     # VM Mapping
