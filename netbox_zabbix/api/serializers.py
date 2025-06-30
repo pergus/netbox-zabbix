@@ -29,19 +29,6 @@ class TemplateSerializer(NetBoxModelSerializer):
 
 
 # ------------------------------------------------------------------------------
-# Template Mappings
-# ------------------------------------------------------------------------------
-
-class TemplateMappingSerializer(serializers.ModelSerializer):
-    templates    = TemplateSerializer( many=True, read_only=True )
-    template_ids = serializers.PrimaryKeyRelatedField( queryset=models.Template.objects.all(), source='templates', write_only=True, many=True )
-
-    class Meta:
-        model = models.TemplateMapping
-        fields = '__all__'
-
-
-# ------------------------------------------------------------------------------
 # Proxy
 # ------------------------------------------------------------------------------
 
@@ -52,19 +39,6 @@ class ProxySerializer(NetBoxModelSerializer):
     
     def get_display(self, obj):
         return str( obj.name )
-
-
-# ------------------------------------------------------------------------------
-# Proxy Mappings
-# ------------------------------------------------------------------------------
-
-class ProxyMappingSerializer(serializers.ModelSerializer):
-    proxy    = ProxySerializer( read_only=True )
-    proxy_id = serializers.PrimaryKeyRelatedField( queryset=models.Proxy.objects.all(), source='proxy', write_only=True )
-
-    class Meta:
-        model = models.ProxyMapping
-        fields = '__all__'
 
 
 # ------------------------------------------------------------------------------
@@ -81,19 +55,6 @@ class ProxyGroupSerializer(NetBoxModelSerializer):
 
 
 # ------------------------------------------------------------------------------
-# Proxy Group Mappings
-# ------------------------------------------------------------------------------
-
-class ProxyGroupMappingSerializer(serializers.ModelSerializer):
-    proxy_group    = ProxyGroupSerializer( read_only=True )
-    proxy_groupid = serializers.PrimaryKeyRelatedField( queryset=models.ProxyGroup.objects.all(), source='proxy_group', write_only=True )
-
-    class Meta:
-        model = models.ProxyGroupMapping
-        fields = '__all__'
-
-
-# ------------------------------------------------------------------------------
 # Host Groups
 # ------------------------------------------------------------------------------
 
@@ -102,28 +63,6 @@ class HostGroupSerializer(serializers.ModelSerializer):
         model = models.HostGroup
         fields = '__all__'
 
-
-# ------------------------------------------------------------------------------
-# Host Group Mappings
-# ------------------------------------------------------------------------------
-
-class HostGroupMappingSerializer(serializers.ModelSerializer):
-    hostgroups = HostGroupSerializer( many=True, read_only=True )
-    hostgroup_ids = serializers.PrimaryKeyRelatedField( queryset=models.HostGroup.objects.all(), source='hostgroup', write_only=True, many=True )
-
-    class Meta:
-        model = models.HostGroupMapping
-        fields = '__all__'
-
-
-# ------------------------------------------------------------------------------
-# Tag Mapping
-# ------------------------------------------------------------------------------
-
-class TagMappingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.TagMapping
-        fields = '__all__'
 
 
 # ------------------------------------------------------------------------------
@@ -204,6 +143,15 @@ class VMSNMPv3InterfaceSerializer(serializers.ModelSerializer):
         model = models.VMSNMPv3Interface
         fields = '__all__'
 
+
+# ------------------------------------------------------------------------------
+# Tag Mapping
+# ------------------------------------------------------------------------------
+
+class TagMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.TagMapping
+        fields = '__all__'
 
 # ------------------------------------------------------------------------------
 # Mapping

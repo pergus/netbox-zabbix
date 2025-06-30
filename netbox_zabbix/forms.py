@@ -152,85 +152,6 @@ class TemplateFilterForm(NetBoxModelFilterSetForm):
         self.fields["templateid"].choices = choices
 
 # ------------------------------------------------------------------------------
-# Template Mappings
-# ------------------------------------------------------------------------------
-
-class TemplateMappingForm(NetBoxModelForm):
-        class Meta:
-            model = models.TemplateMapping
-            fields = [ 'name', 'templates', 'interface_type', 'sites', 'roles', 'platforms', 'tags' ]
-
-        def clean(self):
-            super().clean()
-            
-            sites = self.cleaned_data['sites']
-            roles = self.cleaned_data['roles']
-            platforms = self.cleaned_data['platforms']
-                
-            if not (sites or roles or platforms):
-                raise forms.ValidationError(
-                    "At least one of sites, roles or platforms must be set for mapping."
-                )
-
-# ------------------------------------------------------------------------------
-# Base Proxy Mappings
-# ------------------------------------------------------------------------------
-
-class BaseProxyMappingForm(NetBoxModelForm):
-    mapping_model = None  # To be set by subclasses
-
-    def clean(self):
-        super().clean()
-    
-        sites     = self.cleaned_data.get( 'sites' )
-        roles     = self.cleaned_data.get( 'roles' )
-        platforms = self.cleaned_data.get( 'platforms' )
-        tags      = self.cleaned_data.get( 'tags' )
-    
-        if not (sites or roles or platforms):
-            raise forms.ValidationError( "At least one of sites, roles or platforms must be set for mapping." )
-    
-        site_ids     = set( s.id for s in sites )
-        role_ids     = set( r.id for r in roles )
-        platform_ids = set( p.id for p in platforms )
-        tag_slugs    = set( t.slug for t in tags )
-    
-        conflicting = []
-    
-        for other in self.mapping_model.objects.exclude( pk=self.instance.pk ):
-    
-            other_site_ids     = set( other.sites.values_list( 'id', flat=True ) ) if other.sites.exists() else set()
-            other_role_ids     = set( other.roles.values_list( 'id', flat=True ) ) if other.roles.exists() else set()
-            other_platform_ids = set( other.platforms.values_list( 'id', flat=True ) ) if other.platforms.exists() else set()
-            other_tag_slugs    = set( other.tags.values_list( 'slug', flat=True ) ) if other.tags.exists() else set()
-    
-            # Helper function to check field overlap
-            def overlap(set1, set2):
-                # True if either set is empty (wildcard) or intersection is non-empty
-                return not set1 or not set2 or bool(set1 & set2)
-    
-            # Check sites, roles, platforms for overlap
-            if not (overlap( site_ids, other_site_ids ) and
-                    overlap( role_ids, other_role_ids ) and
-                    overlap( platform_ids, other_platform_ids ) ):
-                continue  # No conflict, skip
-    
-            # For tags, conflict only if tags overlap by subset relationship in either direction
-            # i.e., either other_tag_slugs is subset of tag_slugs, or vice versa,
-            # or both empty means wildcard
-            if other_tag_slugs and tag_slugs:
-                tags_conflict = other_tag_slugs.issubset( tag_slugs ) or tag_slugs.issubset( other_tag_slugs )
-                if not tags_conflict:
-                    continue  # No conflict
-            # If either tag set empty => wildcard => assume conflict
-    
-            conflicting.append( other.name )
-    
-        if conflicting:
-            raise forms.ValidationError( f"This mapping overlaps with existing mapping(s): {', '.join(conflicting)}." )
-        
-
-# ------------------------------------------------------------------------------
 # Proxy
 # ------------------------------------------------------------------------------
 
@@ -256,18 +177,6 @@ class ProxyFilterForm(NetBoxModelFilterSetForm):
         proxyids = models.Proxy.objects.order_by('proxyid').distinct('proxyid').values_list('proxyid', flat=True)
         choices = [("", "---------")] + [(zid, zid) for zid in proxyids if zid is not None]
         self.fields["proxyid"].choices = choices
-
-         
-# ------------------------------------------------------------------------------
-# Proxy Mappings
-# ------------------------------------------------------------------------------
-
-class ProxyMappingForm(BaseProxyMappingForm):
-    mapping_model = models.ProxyMapping
-    
-    class Meta:
-        model = models.ProxyMapping
-        fields = [ 'name', 'proxy', 'sites', 'roles', 'platforms', 'tags' ]
 
 
 # ------------------------------------------------------------------------------
@@ -296,17 +205,6 @@ class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
         choices = [("", "---------")] + [(zid, zid) for zid in proxy_groupids if zid is not None]
         self.fields["proxy_groupid"].choices = choices
 
-# ------------------------------------------------------------------------------
-# Proxy Group Mappings
-# ------------------------------------------------------------------------------
-
-class ProxyGroupMappingForm(BaseProxyMappingForm):
-    mapping_model = models.ProxyGroupMapping
-
-    class Meta:
-        model = models.ProxyGroupMapping
-        fields = [ 'name', 'proxy_group', 'sites', 'roles', 'platforms', 'tags' ]
-    
 
 # ------------------------------------------------------------------------------
 # Hostgroups
@@ -319,77 +217,29 @@ class HostGroupForm(NetBoxModelForm):
 
 
 # ------------------------------------------------------------------------------
-# Hostgroup Mappings
-# ------------------------------------------------------------------------------
-
-class HostGroupMappingForm(NetBoxModelForm):
-        class Meta:
-            model = models.HostGroupMapping
-            fields = [ 'name','host_groups','sites','roles','platforms','tags' ]
-
-
-        def clean(self):
-            super().clean()
-            
-            sites = self.cleaned_data['sites']
-            roles = self.cleaned_data['roles']
-            platforms = self.cleaned_data['platforms']
-                
-            if not (sites or roles or platforms):
-                raise forms.ValidationError( "At least one of sites, roles or platforms must be set for mapping." )
-
-
-# ------------------------------------------------------------------------------
-# Device Mappings
-# ------------------------------------------------------------------------------
-
-class DeviceMappingsFilterForm(DeviceFilterForm):
-    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
-    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
-    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
-
-    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
-
-    
-# ------------------------------------------------------------------------------
-# VM Mappings
-# ------------------------------------------------------------------------------
-
-class VMMappingsFilterForm(VirtualMachineFilterForm):
-    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
-    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
-    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
-
-    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
-
-
-# ------------------------------------------------------------------------------
 # NetBox Only Devices
 # ------------------------------------------------------------------------------
 
-class NetBoxOnlyDevicesFilterForm(DeviceFilterForm):
-    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
-    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
-    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
-
-    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'prox_ygroup', name='Zabbix' ), )
-
+#class NetBoxOnlyDevicesFilterForm(DeviceFilterForm):
+#    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+#    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+#    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+#    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
+#
+#    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'prox_ygroup', name='Zabbix' ), )
 
 
 # ------------------------------------------------------------------------------
 # NetBox Only VMs
 # ------------------------------------------------------------------------------
 
-class NetBoxOnlyVMsFilterForm(VirtualMachineFilterForm):
-    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
-    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
-    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
-
-    fieldsets = VirtualMachineFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
+#class NetBoxOnlyVMsFilterForm(VirtualMachineFilterForm):
+#    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+#    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+#    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+#    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
+#
+#    fieldsets = VirtualMachineFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
 
 
 # ------------------------------------------------------------------------------
@@ -840,8 +690,6 @@ class TagMappingForm(NetBoxModelForm):
 # Device Mapping
 # ------------------------------------------------------------------------------
 
-from django.core.exceptions import FieldDoesNotExist
-
 class DeviceMappingForm(NetBoxModelForm):
     fieldsets = (
         FieldSet(  'name', 'description', 'default', name="General" ),
@@ -853,23 +701,6 @@ class DeviceMappingForm(NetBoxModelForm):
         model = models.DeviceMapping
         fields = '__all__' 
 
-    #def __init__(self, *args, **kwargs):
-    #    super().__init__(*args, **kwargs)
-    #
-    #    if not self.instance.default or models.DeviceMapping.objects.exists():
-    #        self.initial["default"] = False
-    #        self.fields.pop( "default", None )
-    #                    
-    #    if self.instance.default or not models.DeviceMapping.objects.exists():
-    #        self.initial["default"] = True
-    #        self.fields["default"].disabled = True
-    #        self.initial["interface_type"] = models.InterfaceTypeChoices.Any
-    #        self.fields["interface_type"].disabled = True
-    #        
-    #        self.fields.pop( "sites", None )
-    #        self.fields.pop( "roles", None )
-    #        self.fields.pop( "platforms", None )
-    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
     
@@ -899,7 +730,7 @@ class DeviceMappingForm(NetBoxModelForm):
             # A default exists already: drop the 'default' field entirely
             self.fields.pop( 'default', None )
 
-        
+
     def clean(self):
         super().clean()
 
@@ -941,7 +772,8 @@ class DeviceMappingForm(NetBoxModelForm):
             for other in others:
                 if self._overlaps_with( other ):
                     raise ValidationError( f"Filter overlaps with existing filter: {other.name}" )
-        
+
+
     def _overlaps_with(self, other):
         """
         Returns True if this mapping and 'other' have the same specificity and overlap.
@@ -967,14 +799,12 @@ class DeviceMappingForm(NetBoxModelForm):
             other_qs = getattr( other, field ).all()
             current_ids = set( current.values_list( 'pk', flat=True ) ) if current else set()
             other_ids   = set( other_qs.values_list( 'pk', flat=True ) ) if other_qs else set()
-            
+
             # If both are set and have no intersection, no overlap
             if current_ids and other_ids and not current_ids & other_ids:
                 return False
             # If either is empty, that's "all", so always overlap for this field
         return True  # Overlaps in all applicable fields
-
-
 
 
     def delete(self, *args, **kwargs):
@@ -1002,6 +832,6 @@ class VMMappingForm(NetBoxModelForm):
             
         if not (sites or roles or platforms):
             raise forms.ValidationError( "At least one of sites, roles or platforms must be set for mapping." )
-    
+
 
 # end

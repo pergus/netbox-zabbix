@@ -38,22 +38,6 @@ menu = PluginMenu(
         ( "Mappings",
             (
                 PluginMenuItem( 
-                    link_text="Template Mappings", 
-                    link="plugins:netbox_zabbix:templatemapping_list",
-                ),
-                PluginMenuItem( 
-                    link_text="Host Group Mappings", 
-                    link="plugins:netbox_zabbix:hostgroupmapping_list",
-                ),
-                PluginMenuItem( 
-                    link_text="Proxy Mappings", 
-                    link="plugins:netbox_zabbix:proxymapping_list",
-                ),
-                PluginMenuItem( 
-                    link_text="Proxy Group Mappings", 
-                    link="plugins:netbox_zabbix:proxygroupmapping_list",
-                ),
-                PluginMenuItem( 
                     link_text="Tag Mappings", 
                     link="plugins:netbox_zabbix:tagmapping_list",
                 ),
@@ -61,19 +45,6 @@ menu = PluginMenu(
                     link_text="Device Mappings", 
                     link="plugins:netbox_zabbix:devicemapping_list",
                 ),
-            ),
-        ),
-        ( "Mapped Hosts",
-            (
-                PluginMenuItem(
-                    link_text="Mapped Devices",
-                    link="plugins:netbox_zabbix:devicemappings_list",
-                ),
-                PluginMenuItem(
-                    link_text="Mapped Virtual Machines",
-                    link="plugins:netbox_zabbix:vmmappings_list",
-                ), 
-                
             ),
         ),
         ( "Import",

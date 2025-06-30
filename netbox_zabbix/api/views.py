@@ -18,6 +18,7 @@ class ConfigViewSet(NetBoxModelViewSet):
     queryset = models.Config.objects.all()
     serializer_class = serializers.ConfigSerializer
 
+
 # ------------------------------------------------------------------------------
 # Templates
 # ------------------------------------------------------------------------------
@@ -31,30 +32,11 @@ class TemplateFilter(filters.FilterSet):
         model = models.Template
         fields = ["q"]
 
-        
+
 class TemplateViewSet(NetBoxModelViewSet):
     queryset = models.Template.objects.all()
     serializer_class = serializers.TemplateSerializer
     filterset_class = TemplateFilter 
-
-
-class TemplateMappingFilter(filters.FilterSet):
-    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Template Mappings" )
-
-    class Meta:
-        model = models.TemplateMapping
-        fields = ["q"]
-
-
-# ------------------------------------------------------------------------------
-# Template Mapping
-# ------------------------------------------------------------------------------
-
-class TemplateMappingViewSet(NetBoxModelViewSet):
-    queryset = models.TemplateMapping.objects.all()
-    serializer_class = serializers.TemplateMappingSerializer
-    filterset_class = TemplateMappingFilter
-
 
 
 # ------------------------------------------------------------------------------
@@ -70,31 +52,11 @@ class ProxyFilter(filters.FilterSet):
         model = models.Proxy
         fields = ["q"]
 
-        
+
 class ProxyViewSet(NetBoxModelViewSet):
     queryset = models.Proxy.objects.all()
     serializer_class = serializers.ProxySerializer
     filterset_class = ProxyFilter 
-
-
-
-# ------------------------------------------------------------------------------
-# Proxy Mapping
-# ------------------------------------------------------------------------------
-
-class ProxyMappingFilter(filters.FilterSet):
-    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxy Mappings" )
-
-    class Meta:
-        model = models.ProxyMapping
-        fields = ["q"]
-
-class ProxyMappingViewSet(NetBoxModelViewSet):
-    queryset = models.ProxyMapping.objects.all()
-    serializer_class = serializers.ProxyMappingSerializer
-    filterset_class = ProxyMappingFilter
-
-
 
 
 # ------------------------------------------------------------------------------
@@ -110,28 +72,11 @@ class ProxyGroupFilter(filters.FilterSet):
         model = models.ProxyGroup
         fields = ["q"]
 
-        
+
 class ProxyGroupViewSet(NetBoxModelViewSet):
     queryset = models.ProxyGroup.objects.all()
     serializer_class = serializers.ProxyGroupSerializer
     filterset_class = ProxyGroupFilter 
-
-# ------------------------------------------------------------------------------
-# Proxy Group Mapping
-# ------------------------------------------------------------------------------
-
-class ProxyGroupMappingFilter(filters.FilterSet):
-    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxy Group Mappings" )
-
-    class Meta:
-        model = models.ProxyGroupMapping
-        fields = ["q"]
-
-class ProxyGroupMappingViewSet(NetBoxModelViewSet):
-    queryset = models.ProxyGroupMapping.objects.all()
-    serializer_class = serializers.ProxyGroupMappingSerializer
-    filterset_class = ProxyGroupMappingFilter
-
 
 
 # ------------------------------------------------------------------------------
@@ -144,31 +89,6 @@ class HostGroupViewSet(NetBoxModelViewSet):
     filterset_fields = ['groupid', 'name']
 
 
-# ------------------------------------------------------------------------------
-# Host Group Mapping
-# ------------------------------------------------------------------------------
-
-class HostGroupMappingFilter(filters.FilterSet):
-    q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Group Mappings" )
-
-    class Meta:
-        model = models.HostGroupMapping
-        fields = ["q"]
-
-class HostGroupMappingViewSet(NetBoxModelViewSet):
-    queryset = models.HostGroupMapping.objects.all()
-    serializer_class = serializers.HostGroupMappingSerializer
-    filterset_class = HostGroupMappingFilter
-
-
-# ------------------------------------------------------------------------------
-# Host Group Mapping
-# ------------------------------------------------------------------------------
-
-class TagMappingViewSet(NetBoxModelViewSet):
-    queryset = models.TagMapping.objects.all()
-    serializer_class = serializers.TagMappingSerializer
-    
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------
@@ -203,6 +123,7 @@ class DeviceZabbixConfigViewSet(NetBoxModelViewSet):
         
         return Response({})
 
+
 class VMZabbixConfigViewSet(NetBoxModelViewSet):
     queryset = models.VMZabbixConfig.objects.all()
     serializer_class = serializers.VMZabbixConfigSerializer
@@ -232,11 +153,11 @@ class VMZabbixConfigViewSet(NetBoxModelViewSet):
             return Response(data)
         
         return Response({})
-    
+
+
 # ------------------------------------------------------------------------------
 # Interfaces
 # ------------------------------------------------------------------------------
-
 
 class AvailableDeviceInterfaceFilter(filters.FilterSet):
     device_id = filters.NumberFilter( method='filter_device_id' )
@@ -287,9 +208,16 @@ class AvailableVMInterfaceViewSet(NetBoxModelViewSet):
 
 
 # ------------------------------------------------------------------------------
-# Device Mapping
+# Tag Mapping
 # ------------------------------------------------------------------------------
 
+class TagMappingViewSet(NetBoxModelViewSet):
+    queryset = models.TagMapping.objects.all()
+    serializer_class = serializers.TagMappingSerializer
+
+# ------------------------------------------------------------------------------
+# Device Mapping
+# ------------------------------------------------------------------------------
 
 class DeviceMappingViewSet(NetBoxModelViewSet):
     queryset = models.DeviceMapping.objects.all()
@@ -299,7 +227,6 @@ class DeviceMappingViewSet(NetBoxModelViewSet):
 # ------------------------------------------------------------------------------
 # VM Mapping
 # ------------------------------------------------------------------------------
-
 
 class VMMappingViewSet(NetBoxModelViewSet):
     queryset = models.VMMapping.objects.all()

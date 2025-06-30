@@ -9,9 +9,11 @@ from virtualization.models import VMInterface
 
 from netbox_zabbix.logger import logger
 
+
 # ------------------------------------------------------------------------------
-# Configuration
+# Choices
 # ------------------------------------------------------------------------------
+
 
 class IPAssignmentChoices(models.TextChoices):
     MANUAL = "manual", "Manual"
@@ -50,12 +52,28 @@ class InventoryModeChoices(models.IntegerChoices):
     DISABLED  = (-1, "Disabled")
     MANUAL    = (0, "Manual" )
     AUTOMATIC = (1, "Automatic" )
-    
+
 
 class TagNameFormattingChoices(models.TextChoices):
     KEEP  = "keep",  "Keep As Entered"
     UPPER = "upper", "Convert to Uppercase"
     LOWER = "lower", "Convert to Lowercase"
+
+
+class InterfaceTypeChoices(models.IntegerChoices):
+    Any   = (0, 'Any')
+    Agent = (1, 'Agent')
+    SNMP  = (2, 'SNMP')
+
+
+class StatusChoices(models.IntegerChoices):
+    ENABLED  = (0, 'Enabled')
+    DISABLED = (1, 'Disabled')
+
+
+# ------------------------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------------------------
 
 
 class Config(NetBoxModel):
@@ -170,7 +188,6 @@ class Config(NetBoxModel):
         return reverse("plugins:netbox_zabbix:config", args=[self.pk])
 
 
-
 # ------------------------------------------------------------------------------
 # Templates
 # ------------------------------------------------------------------------------
@@ -193,31 +210,6 @@ class Template(NetBoxModel):
 
 
 # ------------------------------------------------------------------------------
-# Template Mapping
-# ------------------------------------------------------------------------------
-
-class InterfaceTypeChoices(models.IntegerChoices):
-    Any   = (0, 'Any')
-    Agent = (1, 'Agent')
-    SNMP  = (2, 'SNMP')
-
-
-class TemplateMapping(NetBoxModel):
-    name           = models.CharField( max_length=255, help_text="Unique name for this template mapping." )
-    templates      = models.ManyToManyField( Template, help_text="Templates used for matching hosts. Multiple templates can be selected." ) 
-    sites          = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
-    roles          = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
-    platforms      = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
-    interface_type = models.IntegerField( verbose_name="Interface Type", choices=InterfaceTypeChoices, default=InterfaceTypeChoices.Any, help_text="Limit mapping to interfaces of this type. Select 'Any' to include all types." )
-
-    def __str__(self):
-        return self.name
-    
-    def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:templatemapping", args=[self.pk] )
-
-
-# ------------------------------------------------------------------------------
 # Proxy
 # ------------------------------------------------------------------------------
 
@@ -237,24 +229,6 @@ class Proxy(NetBoxModel):
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:proxy", args=[self.pk] )
-    
-    
-# ------------------------------------------------------------------------------
-# Proxy Mapping
-# ------------------------------------------------------------------------------
-
-class ProxyMapping(NetBoxModel):
-    name      = models.CharField( max_length=255, help_text="Unique name for this proxy mapping." )
-    proxy     = models.ForeignKey( Proxy, on_delete=models.CASCADE, null=True, help_text="Proxy for matching hosts." )
-    sites     = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
-    roles     = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
-    platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
-
-    def __str__(self):
-        return self.name
-    
-    def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:proxymapping", args=[self.pk] )
 
 
 # ------------------------------------------------------------------------------
@@ -276,24 +250,6 @@ class ProxyGroup(NetBoxModel):
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:proxygroup", args=[self.pk] )
-
-
-# ------------------------------------------------------------------------------
-# Proxy Group Mapping
-# ------------------------------------------------------------------------------
-
-class ProxyGroupMapping(NetBoxModel):
-    name        = models.CharField( max_length=255, help_text="Unique name for this proxy group mapping." )
-    proxy_group = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, null=True, help_text="Proxy group for matching hosts." )
-    sites       = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
-    roles       = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
-    platforms   = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
-
-    def __str__(self):
-        return self.name
-    
-    def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:proxygroupmapping", args=[self.pk] )
 
 
 # ------------------------------------------------------------------------------
@@ -319,30 +275,8 @@ class HostGroup(NetBoxModel):
 
 
 # ------------------------------------------------------------------------------
-# Host Group Mapping
-# ------------------------------------------------------------------------------
-
-class HostGroupMapping(NetBoxModel):
-    name        = models.CharField( max_length=255 )
-    host_groups = models.ManyToManyField( HostGroup, help_text="Host groups used for matching hosts." )
-    sites       = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
-    roles       = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
-    platforms   = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
-
-    def __str__(self):
-        return self.name
-    
-    def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:hostgroupmapping", args=[self.pk] )
-    
-
-# ------------------------------------------------------------------------------
 # Zabbix Configs
 # ------------------------------------------------------------------------------
-
-class StatusChoices(models.IntegerChoices):
-    ENABLED  = (0, 'Enabled')
-    DISABLED = (1, 'Disabled')
 
 
 class ZabbixConfig(NetBoxModel):
@@ -726,7 +660,7 @@ class TagMapping(NetBoxModel):
         return reverse( "plugins:netbox_zabbix:tagmapping", args=[self.pk] )
 
 # ------------------------------------------------------------------------------
-# Mapping
+# Mapping Base Object
 # ------------------------------------------------------------------------------
 
 class Mapping(NetBoxModel):
@@ -748,19 +682,20 @@ class Mapping(NetBoxModel):
     platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
 
 
-    #def delete(self, *args, **kwargs):
-    #    if self.default == True:
-    #        raise ValidationError( "Cannot delete default config" )
-    #    super().delete(*args, **kwargs)
-    
+    def delete(self, *args, **kwargs):
+        if self.default == True:
+            raise ValidationError( "Cannot delete default config" )
+        super().delete(*args, **kwargs)
+
+
     def __str__(self):
         return self.name
+
 
     def get_absolute_url(self):
         # Return None or a placeholder URL; you could log this if needed
         return None
 
-        
 # ------------------------------------------------------------------------------
 # Device Mapping
 # ------------------------------------------------------------------------------
@@ -788,6 +723,7 @@ class DeviceMapping(Mapping):
             return matches[0]
         # Fallback
         return cls.objects.get( default=True )
+
 
     def get_matching_devices(self):
     
@@ -828,7 +764,7 @@ class DeviceMapping(Mapping):
         # Step 5: Exclude devices matched by more specific mappings
         for m in more_specific_mappings:
             if is_more_specific( m, self ):
-                qs = qs.exclude(pk__in=m.get_matching_devices().values_list('pk', flat=True))
+                qs = qs.exclude( pk__in=m.get_matching_devices().values_list( 'pk', flat=True ) )
 
         return qs
     

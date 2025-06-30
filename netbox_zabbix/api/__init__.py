@@ -1,11 +1,9 @@
 from .serializers import (
     ConfigSerializer, 
     TemplateSerializer, 
-    TemplateMappingSerializer, 
     ProxySerializer, 
-    ProxyMappingSerializer, 
     ProxyGroupSerializer, 
-    ProxyGroupMappingSerializer, 
+    HostGroupSerializer,
     TagMappingSerializer,
     DeviceZabbixConfigSerializer, 
     VMZabbixConfigSerializer
