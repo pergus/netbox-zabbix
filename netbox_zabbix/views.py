@@ -1441,7 +1441,7 @@ class DeviceMappingDeleteView(generic.ObjectDeleteView):
         return reverse('plugins:netbox_zabbix:devicemapping_list')
 
     def post(self, request, *args, **kwargs):
-        obj = self.get_object()
+        obj = self.get_object( **kwargs )
     
         if obj.default:
             messages.error( request, "You cannot delete the default mapping." )

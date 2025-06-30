@@ -840,6 +840,8 @@ class TagMappingForm(NetBoxModelForm):
 # Device Mapping
 # ------------------------------------------------------------------------------
 
+from django.core.exceptions import FieldDoesNotExist
+
 class DeviceMappingForm(NetBoxModelForm):
     fieldsets = (
         FieldSet(  'name', 'description', 'default', name="General" ),
@@ -851,23 +853,51 @@ class DeviceMappingForm(NetBoxModelForm):
         model = models.DeviceMapping
         fields = '__all__' 
 
+    #def __init__(self, *args, **kwargs):
+    #    super().__init__(*args, **kwargs)
+    #
+    #    if not self.instance.default or models.DeviceMapping.objects.exists():
+    #        self.initial["default"] = False
+    #        self.fields.pop( "default", None )
+    #                    
+    #    if self.instance.default or not models.DeviceMapping.objects.exists():
+    #        self.initial["default"] = True
+    #        self.fields["default"].disabled = True
+    #        self.initial["interface_type"] = models.InterfaceTypeChoices.Any
+    #        self.fields["interface_type"].disabled = True
+    #        
+    #        self.fields.pop( "sites", None )
+    #        self.fields.pop( "roles", None )
+    #        self.fields.pop( "platforms", None )
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
     
-        is_default = self.instance.default or not models.DeviceMapping.objects.exists()
+       
+        # Are we creating the very first/default mapping?
+        fist_mapping = models.DeviceMapping.objects.filter( default=True ).exists()
+        
+        if not fist_mapping or self.instance.default:
+            # First mapping ever: it must be default
+            self.initial['default'] = True
+            self.fields['default'].disabled = True 
     
-        if is_default:
-            self.initial["default"] = True
-        if "default" in self.fields:
-            self.fields["default"].disabled = True
-            self.initial["interface_type"] = models.InterfaceTypeChoices.Any
-        if "interface_type" in self.fields:
-            self.fields["interface_type"].disabled = True
-        for field in ("sites", "roles", "platforms"):
-            self.fields.pop(field, None)
+            # force interface_type to Any
+            self.initial['interface_type'] = models.InterfaceTypeChoices.Any
+            self.fields['interface_type'].disabled = True
+    
+            # remove all filter controls
+            for field in ('sites', 'roles', 'platforms'):
+                self.fields.pop( field, None )
+            
+            # prune the empty "Filters" FieldSet so it won't render at all
+            self.fieldsets = [
+                fs for fs in self.fieldsets
+                if fs.name != 'Filters'
+            ]
         else:
-            self.initial["default"] = False
-        self.fields.pop("default", None)
+            # A default exists already: drop the 'default' field entirely
+            self.fields.pop( 'default', None )
 
         
     def clean(self):
@@ -902,26 +932,49 @@ class DeviceMappingForm(NetBoxModelForm):
 
         # Check for conflicting filters
         # Fallback filter must have all filters blank
-        if self.default:
-            if self.sites.exists() or self.roles.exists() or self.platforms.exists():
+        if default:
+            if sites.exists() or roles.exists() or platforms.exists():
                 raise ValidationError("Fallback filter cannot have any filter fields set.")
-        
-         # Check for overlap with other filters (excluding fallback and self)
-        others = models.DeviceMapping.objects.exclude( pk=self.pk ).filter( default=False )
-        for other in others:
-            if self._overlaps_with( other ):
-                raise ValidationError( f"Filter overlaps with existing filter: {other.name}" )
+        else:
+            # Check for overlap with other filters (excluding fallback and self)
+            others = models.DeviceMapping.objects.exclude( pk=self.instance.pk ).filter( default=False )
+            for other in others:
+                if self._overlaps_with( other ):
+                    raise ValidationError( f"Filter overlaps with existing filter: {other.name}" )
         
     def _overlaps_with(self, other):
-        # Returns True if this filter overlaps with 'other'
+        """
+        Returns True if this mapping and 'other' have the same specificity and overlap.
+        Allows subset/superset relationships (i.e., more specific mappings are allowed).
+        """
+        # Count how many filter fields are set for each mapping
+        def count_fields(mapping):
+            return sum(
+                1 for field in ['sites', 'roles', 'platforms']
+                if (self.cleaned_data.get( field ) if mapping is self else getattr( mapping, field ).exists())
+            )
+    
+        self_fields = count_fields( self )
+        other_fields = count_fields( other )
+    
+        # Only check for overlap if specificity is the same
+        if self_fields != other_fields:
+            return False
+    
+        # Now check for actual overlap
         for field in ['sites', 'roles', 'platforms']:
-            s1 = set(getattr(self, field).values_list('pk', flat=True))
-            s2 = set(getattr(other, field).values_list('pk', flat=True))
-            if not s1 or not s2:
-                continue  # blank means 'all', so always overlap
-            if not s1.intersection(s2):
-                return False  # No overlap on this field
-        return True
+            current = self.cleaned_data.get( field )
+            other_qs = getattr( other, field ).all()
+            current_ids = set( current.values_list( 'pk', flat=True ) ) if current else set()
+            other_ids   = set( other_qs.values_list( 'pk', flat=True ) ) if other_qs else set()
+            
+            # If both are set and have no intersection, no overlap
+            if current_ids and other_ids and not current_ids & other_ids:
+                return False
+            # If either is empty, that's "all", so always overlap for this field
+        return True  # Overlaps in all applicable fields
+
+
 
 
     def delete(self, *args, **kwargs):

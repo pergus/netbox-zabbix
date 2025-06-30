@@ -748,10 +748,10 @@ class Mapping(NetBoxModel):
     platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
 
 
-    def delete(self, *args, **kwargs):
-        if self.default == True:
-            raise ValidationError( "Cannot delete default config" )
-        super().delete(*args, **kwargs)
+    #def delete(self, *args, **kwargs):
+    #    if self.default == True:
+    #        raise ValidationError( "Cannot delete default config" )
+    #    super().delete(*args, **kwargs)
     
     def __str__(self):
         return self.name
@@ -780,17 +780,18 @@ class DeviceMapping(Mapping):
                 matches.append( f )
         if matches:
             # Return the most specific filter (most fields set)
-            matches.sort(key=lambda f: (
+            matches.sort( key=lambda f: (
                 f.sites.count() > 0,
                 f.roles.count() > 0,
                 f.platforms.count() > 0
-            ), reverse=True)
+            ), reverse=True )
             return matches[0]
         # Fallback
         return cls.objects.get( default=True )
-    
+
     def get_matching_devices(self):
-        # Step 1: Get all devices matching this mapping's filters
+    
+        # Step 1: Start with all devices and apply current mapping's filters
         qs = Device.objects.all()
         if self.sites.exists():
             qs = qs.filter( site__in=self.sites.all() )
@@ -799,39 +800,38 @@ class DeviceMapping(Mapping):
         if self.platforms.exists():
             qs = qs.filter( platform__in=self.platforms.all() )
     
-        # Step 2: Find more specific mappings
+        # Step 2: Define specificity count (how many fields are filtered)
         def count_fields(mapping):
-            return sum([
-                mapping.sites.exists(),
-                mapping.roles.exists(),
-                mapping.platforms.exists()
-            ])
+            return sum([ mapping.sites.exists(), mapping.roles.exists(), mapping.platforms.exists() ])
     
         my_fields = count_fields(self)
-        # Only consider non-default mappings
+    
+        # Step 3: Get other, more specific mappings (more filters applied)
         more_specific_mappings = DeviceMapping.objects.exclude( pk=self.pk ).filter( default=False )
         more_specific_mappings = [m for m in more_specific_mappings if count_fields(m) > my_fields]
     
-        # Step 3: For each more specific mapping, check if its filters are a subset of this mapping's filters
-        def is_subset(more_specific, current):
+        # Step 4: A mapping is more specific if it filters at least as narrowly as self in all fields
+        def is_more_specific(more_specific, current):
             for field in ['sites', 'roles', 'platforms']:
-                ms_qs = getattr( more_specific, field ).all()
-                c_qs = getattr( current, field ).all()
-                ms_ids = set( ms_qs.values_list( 'pk', flat=True ) )
-                c_ids = set( c_qs.values_list( 'pk', flat=True ) )
-                # If more specific mapping restricts this field, but current does not, it's not a subset
-                if ms_ids and not c_ids:
-                    continue  # current matches all, so subset is fine
-                if ms_ids and c_ids and not ms_ids.issubset( c_ids ):
+                current_ids  = set( getattr( current, field ).values_list( 'pk', flat=True ) )
+                specific_ids = set( getattr( more_specific, field ).values_list( 'pk', flat=True ))
+    
+                # current matches all: allow anything in more_specific
+                if not current_ids:
+                    continue
+    
+                # more_specific must match at least everything current does
+                if not specific_ids or not current_ids.issubset( specific_ids ):
                     return False
             return True
     
-        # Step 4: Exclude devices matched by more specific mappings that are subsets
+        # Step 5: Exclude devices matched by more specific mappings
         for m in more_specific_mappings:
-            if is_subset( m, self ):
-                qs = qs.exclude( pk__in=m.get_matching_devices().values_list( 'pk', flat=True ) )
-    
+            if is_more_specific( m, self ):
+                qs = qs.exclude(pk__in=m.get_matching_devices().values_list('pk', flat=True))
+
         return qs
+    
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:devicemapping", args=[self.pk] )
