@@ -73,6 +73,7 @@ def get_templates_mappings( obj ):
     return matches
 
 
+
 def get_proxy_mapping( obj ):
     """
     Retrieves the proxy associated with a given object based on proxy mapping.

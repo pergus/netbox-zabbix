@@ -28,7 +28,8 @@
                         <th scope="row">Sites</th>
                         <td>
                             {% for site in object.sites.all %}
-                            <a href="{{ site.get_absolute_url }}">{{ site.name }}</a>{% if not forloop.last %}, {% endif %}
+                            <a href="{{ site.get_absolute_url }}">{{ site.name }}</a>{% if not forloop.last %}, {% endif
+                            %}
                             {% endfor %}
                         </td>
 
@@ -40,7 +41,8 @@
                         <th scope="row">Roles</th>
                         <td>
                             {% for role in object.roles.all %}
-                            <a href="{{ role.get_absolute_url }}">{{ role.name }}</a>{% if not forloop.last %}, {% endif %}
+                            <a href="{{ role.get_absolute_url }}">{{ role.name }}</a>{% if not forloop.last %}, {% endif
+                            %}
                             {% endfor %}
                         </td>
                     </tr>
@@ -51,7 +53,8 @@
                         <th scope="row">Platforms</th>
                         <td>
                             {% for platform in object.platforms.all %}
-                            <a href="{{ platform.get_absolute_url }}">{{ platform.name }}</a>{% if not forloop.last %}, {% endif %}
+                            <a href="{{ platform.get_absolute_url }}">{{ platform.name }}</a>{% if not forloop.last %},
+                            {% endif %}
                             {% endfor %}
                         </td>
                     </tr>
@@ -62,7 +65,8 @@
                         <th scope="row">Tags</th>
                         <td>
                             {% for tag in object.tags.all %}
-                            <a href="{{ tag.get_absolute_url }}" class="badge" style="color: #000000; background-color: #9e9e9e">{{ tag.name }}</a>
+                            <a href="{{ tag.get_absolute_url }}" class="badge"
+                                style="color: #000000; background-color: #9e9e9e">{{ tag.name }}</a>
                             {% endfor %}
                         </td>
                     </tr>

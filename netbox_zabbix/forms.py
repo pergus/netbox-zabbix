@@ -853,20 +853,22 @@ class DeviceMappingForm(NetBoxModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        if not self.instance.default or models.DeviceMapping.objects.exists():
-            self.initial["default"] = False
-            self.fields.pop( "default", None )
-                        
-        if self.instance.default or not models.DeviceMapping.objects.exists():
+    
+        is_default = self.instance.default or not models.DeviceMapping.objects.exists()
+    
+        if is_default:
             self.initial["default"] = True
+        if "default" in self.fields:
             self.fields["default"].disabled = True
             self.initial["interface_type"] = models.InterfaceTypeChoices.Any
+        if "interface_type" in self.fields:
             self.fields["interface_type"].disabled = True
-            
-            self.fields.pop( "sites", None )
-            self.fields.pop( "roles", None )
-            self.fields.pop( "platforms", None )
+        for field in ("sites", "roles", "platforms"):
+            self.fields.pop(field, None)
+        else:
+            self.initial["default"] = False
+        self.fields.pop("default", None)
+
         
     def clean(self):
         super().clean()
@@ -899,39 +901,29 @@ class DeviceMappingForm(NetBoxModelForm):
             return
 
         # Check for conflicting filters
-        conflicting = []
+        # Fallback filter must have all filters blank
+        if self.default:
+            if self.sites.exists() or self.roles.exists() or self.platforms.exists():
+                raise ValidationError("Fallback filter cannot have any filter fields set.")
         
-        site_ids     = set( s.id for s in sites )
-        role_ids     = set( r.id for r in roles )
-        platform_ids = set( p.id for p in platforms )
+         # Check for overlap with other filters (excluding fallback and self)
+        others = models.DeviceMapping.objects.exclude( pk=self.pk ).filter( default=False )
+        for other in others:
+            if self._overlaps_with( other ):
+                raise ValidationError( f"Filter overlaps with existing filter: {other.name}" )
         
-        logger.info( f"{ models.DeviceMapping.objects.exclude( pk=self.instance.pk ).exclude( default=True)=}" )
+    def _overlaps_with(self, other):
+        # Returns True if this filter overlaps with 'other'
+        for field in ['sites', 'roles', 'platforms']:
+            s1 = set(getattr(self, field).values_list('pk', flat=True))
+            s2 = set(getattr(other, field).values_list('pk', flat=True))
+            if not s1 or not s2:
+                continue  # blank means 'all', so always overlap
+            if not s1.intersection(s2):
+                return False  # No overlap on this field
+        return True
 
-        for other in models.DeviceMapping.objects.exclude( pk=self.instance.pk ).exclude( default=True ):
-        
-            other_site_ids     = set( other.sites.values_list( 'id', flat=True ) ) if other.sites.exists() else set()
-            other_role_ids     = set( other.roles.values_list( 'id', flat=True ) ) if other.roles.exists() else set()
-            other_platform_ids = set( other.platforms.values_list( 'id', flat=True ) ) if other.platforms.exists() else set()
-        
-            # Helper function to check field overlap
-            def overlap(set1, set2):
-                # True if either set is empty (wildcard) or intersection is non-empty
-                return not set1 or not set2 or bool(set1 & set2)
-        
-            # Check sites, roles, platforms for overlap
-            if not (overlap( site_ids, other_site_ids ) and
-                    overlap( role_ids, other_role_ids ) and
-                    overlap( platform_ids, other_platform_ids ) ):
-                continue  # No conflict, skip
-                
-            conflicting.append( other.name )
-        
-        if conflicting:
-            raise forms.ValidationError( f"This mapping overlaps with existing mapping(s): {', '.join(conflicting)}." )
 
-    #def save(self, *args, **kwargs):
-    #    super().save(*args, **kwargs)
-    
     def delete(self, *args, **kwargs):
         if self.default:
             raise ValidationError( "The default device mapping cannot be deleted." )

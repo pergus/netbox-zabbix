@@ -25,7 +25,7 @@ urlpatterns = (
     path('zabbix/check-connection', views.zabbix_check_connection, name='check_zabbix_connection'),
         
     # --------------------------------------------------------------------------
-    # Templates + Mappings
+    # Templates
     # --------------------------------------------------------------------------
 
     # Zabbix Templates

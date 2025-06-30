@@ -3,10 +3,11 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 
-from dcim.models import DeviceRole, Interface, Platform, Site
+from dcim.models import Device, DeviceRole, Interface, Platform, Site
 from netbox.models import NetBoxModel
 from virtualization.models import VMInterface
 
+from netbox_zabbix.logger import logger
 
 # ------------------------------------------------------------------------------
 # Configuration
@@ -759,11 +760,78 @@ class Mapping(NetBoxModel):
         # Return None or a placeholder URL; you could log this if needed
         return None
 
+        
 # ------------------------------------------------------------------------------
 # Device Mapping
 # ------------------------------------------------------------------------------
 
 class DeviceMapping(Mapping):
+
+    @classmethod
+    def get_matching_filter(cls, device):
+        filters = cls.objects.filter( default=False )
+        matches = []
+        for f in filters:
+            if (
+                (not f.sites.exists() or device.site in f.sites.all()) and
+                (not f.roles.exists() or device.role in f.roles.all()) and
+                (not f.platforms.exists() or device.platform in f.platforms.all())
+            ):
+                matches.append( f )
+        if matches:
+            # Return the most specific filter (most fields set)
+            matches.sort(key=lambda f: (
+                f.sites.count() > 0,
+                f.roles.count() > 0,
+                f.platforms.count() > 0
+            ), reverse=True)
+            return matches[0]
+        # Fallback
+        return cls.objects.get( default=True )
+    
+    def get_matching_devices(self):
+        # Step 1: Get all devices matching this mapping's filters
+        qs = Device.objects.all()
+        if self.sites.exists():
+            qs = qs.filter( site__in=self.sites.all() )
+        if self.roles.exists():
+            qs = qs.filter( role__in=self.roles.all() )
+        if self.platforms.exists():
+            qs = qs.filter( platform__in=self.platforms.all() )
+    
+        # Step 2: Find more specific mappings
+        def count_fields(mapping):
+            return sum([
+                mapping.sites.exists(),
+                mapping.roles.exists(),
+                mapping.platforms.exists()
+            ])
+    
+        my_fields = count_fields(self)
+        # Only consider non-default mappings
+        more_specific_mappings = DeviceMapping.objects.exclude( pk=self.pk ).filter( default=False )
+        more_specific_mappings = [m for m in more_specific_mappings if count_fields(m) > my_fields]
+    
+        # Step 3: For each more specific mapping, check if its filters are a subset of this mapping's filters
+        def is_subset(more_specific, current):
+            for field in ['sites', 'roles', 'platforms']:
+                ms_qs = getattr( more_specific, field ).all()
+                c_qs = getattr( current, field ).all()
+                ms_ids = set( ms_qs.values_list( 'pk', flat=True ) )
+                c_ids = set( c_qs.values_list( 'pk', flat=True ) )
+                # If more specific mapping restricts this field, but current does not, it's not a subset
+                if ms_ids and not c_ids:
+                    continue  # current matches all, so subset is fine
+                if ms_ids and c_ids and not ms_ids.issubset( c_ids ):
+                    return False
+            return True
+    
+        # Step 4: Exclude devices matched by more specific mappings that are subsets
+        for m in more_specific_mappings:
+            if is_subset( m, self ):
+                qs = qs.exclude( pk__in=m.get_matching_devices().values_list( 'pk', flat=True ) )
+    
+        return qs
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:devicemapping", args=[self.pk] )

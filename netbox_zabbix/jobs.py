@@ -489,6 +489,7 @@ def get_inventory( obj ):
     }
 
 
+# Note: Delete this
 def not_used_build_zabbix_host_payload_from_config(zcfg: DeviceZabbixConfig) -> dict:
     """
     Build a Zabbix API-compatible payload for creating a host from a DeviceZabbixConfig.
@@ -602,7 +603,7 @@ def not_used_build_zabbix_host_payload_from_config(zcfg: DeviceZabbixConfig) -> 
                 
     return payload
 
-
+# Note: Delete this
 def not_used_device_quick_add_agent(device):
     """
     Automatically creates a Zabbix configuration and agent interface for the given NetBox device.
