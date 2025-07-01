@@ -1,7 +1,7 @@
 # utils.py
 from netbox_zabbix import models
 from netbox_zabbix.config import get_default_tag, get_tag_prefix
-
+from netbox_zabbix.logger import logger
 
 def resolve_field_path(obj, path):
     """
@@ -47,8 +47,8 @@ def get_zabbix_tags_for_object(obj):
     except models.TagMapping.DoesNotExist:
         return tags
     
-    # The interscetion between the mapping tags and the tags on the obj.
-    for tag in set( mapping.tags.all() & obj.tags.all() ) :
+    # Add the tags that are the intersection between the mapping tags and the tags on the obj.
+    for tag in set( mapping.tags.all() & obj.tags.all() ):
         tags.append({ "tag": f"{tag_prefix}{tag.name}", "value": tag.name })
 
     # Field Selection
