@@ -124,7 +124,7 @@ class ConfigForm(NetBoxModelForm):
             self.instance.last_checked_at = now()
         except Exception:
             self.add_error('api_endpoint', mark_safe( "Failed to verify connection to Zabbix.<br>Please check the API address and token." ))
-        
+
 
 # ------------------------------------------------------------------------------
 # Templates
@@ -133,7 +133,7 @@ class ConfigForm(NetBoxModelForm):
 class TemplateForm(NetBoxModelForm):
     class Meta:
         model = models.Template
-        fields = ( "name", "templateid", "marked_for_deletion" )
+        fields = ( "name", "templateid", "marked_for_deletion", "tags" )
 
 
 class TemplateFilterForm(NetBoxModelFilterSetForm):
@@ -614,45 +614,45 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
 # ------------------------------------------------------------------------------
 
 class TagMappingForm(NetBoxModelForm):
-    object_type = forms.ChoiceField(choices=models.TagMapping.OBJECT_TYPE_CHOICES, initial='device')
+    object_type = forms.ChoiceField( choices=models.TagMapping.OBJECT_TYPE_CHOICES, initial='device' )
     prefix = "gurka"
 
     class Meta:
         model = models.TagMapping
-        fields = ['object_type']  # exclude 'field_selection' from raw rendering
+        fields = ["object_type", "tags" ]  # exclude 'tag_selection' from raw rendering
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, prefix=self.prefix, **kwargs)
+        super().__init__( *args, prefix=self.prefix, **kwargs )
 
         object_type = (
-            self.initial.get('object_type')
-            or self.data.get('object_type')
-            or getattr(self.instance, 'object_type', None)
+            self.initial.get( 'object_type' )
+            or self.data.get( 'object_type' )
+            or getattr( self.instance, 'object_type', None )
             or 'device'
         )
-
-        configured_fields = PLUGIN_SETTINGS.get('field_mappings', {}).get(object_type, [])
-
-        # Prepare a lookup for existing enabled states from instance.field_selection
-        existing_selection = {}
-        if self.instance.pk and self.instance.field_selection:
-            for entry in self.instance.field_selection:
-                existing_selection[entry['value']] = entry.get('enabled', False)
-
-        # Ensure these aren't in the rendered form
-        self.fields.pop( 'tags', None )
         
+        tag_mappings = PLUGIN_SETTINGS.get( 'tag_mappings', {} ).get( object_type, [] )
+
+        # Prepare a lookup for existing enabled states from instance.tag_selection
+        existing_selection = {}
+        if self.instance.pk and self.instance.tag_selection:
+            for entry in self.instance.tag_selection:
+                existing_selection[entry['value']] = entry.get( 'enabled', False )
+
+        if self.instance.object_type:
+            self.fields['object_type'].disabled = True
+
         # Dynamically add BooleanFields for each field with initial enabled value
-        for field_name, field_value in configured_fields:
+        for tag_name, tag_value in tag_mappings:
             # Use a unique prefix for the form field key to avoid name
             # collisions with existing NetBox fields. 
             # This allows us to safely use common or duplicate display names in
-            # 'field_mappings', such as "Tags".
-            field_key = slugify( f"{self.prefix}_{field_name}" )
+            # 'tag_mappings', such as "Tags".
+            field_key = slugify( f"{self.prefix}_{tag_name}" )
             self.fields[field_key] = forms.BooleanField(
-                label=field_name,
+                label=tag_name,
                 required=False,
-                initial=existing_selection.get( field_value, False ),
+                initial=existing_selection.get( tag_value, False ),
             )
 
 
@@ -669,20 +669,20 @@ class TagMappingForm(NetBoxModelForm):
     def save(self, commit=True):
         # Build list of dicts with name, value, and enabled
         object_type = self.cleaned_data['object_type']
-        configured_fields = PLUGIN_SETTINGS.get( 'field_mappings', {} ).get( object_type, [] )
+        tag_mappings = PLUGIN_SETTINGS.get( 'tag_mappings', {} ).get( object_type, [] )
         
-        field_selection = []
-        for field_name, field_value in configured_fields:
-            field_key = slugify( f"{self.prefix}_{field_name}"  )
+        tag_selection = []
+        for tag_name, tag_value in tag_mappings:
+            field_key = slugify( f"{self.prefix}_{tag_name}"  )
 
             enabled = self.cleaned_data.get( field_key, False )
-            field_selection.append({
-                "name": field_name,
-                "value": field_value,
+            tag_selection.append({
+                "name": tag_name,
+                "value": tag_value,
                 "enabled": enabled,
             })
 
-        self.instance.field_selection = field_selection
+        self.instance.tag_selection = tag_selection
         return super().save( commit=commit )
 
 

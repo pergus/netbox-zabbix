@@ -192,6 +192,7 @@ class Config(NetBoxModel):
 # Templates
 # ------------------------------------------------------------------------------
 
+
 class Template(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Template"
@@ -651,7 +652,7 @@ class TagMapping(NetBoxModel):
     ]
 
     object_type = models.CharField( max_length=20, choices=OBJECT_TYPE_CHOICES, unique=True )
-    field_selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix tags" )
+    tag_selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix tags" )
 
     def __str__(self):
         return f"Tag Mapping {self.object_type}"

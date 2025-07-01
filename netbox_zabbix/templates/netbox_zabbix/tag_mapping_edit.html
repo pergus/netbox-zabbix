@@ -10,11 +10,20 @@
         {{ form.object_type.errors }}
     </div>
 </div>
+<div class="row mb-3">
+    <div class="col">
+        {{ form.tags.label_tag }}
+        {{ form.tags }}
+        {{ form.tags.errors }}
+    </div>
+</div>
+
+
 <fieldset class="card mb-3">
-    <div class="card-header"><strong>Field Selection</strong></div>
+    <div class="card-header"><strong>Tag Selection</strong></div>
     <div class="card-body">
         {% for field in form.visible_fields %}
-        {% if field.name != 'object_type' %}
+        {% if field.name != 'object_type' and field.name != 'tags' %}
         <div class="form-check mb-2">
             {{ field }} {{ field.label }}
             {{ field.errors }}

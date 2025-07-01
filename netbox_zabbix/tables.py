@@ -509,7 +509,7 @@ class TagMappingTable(NetBoxTable):
         super().__init__(*args, **kwargs)
 
     def render_enabled_fields(self, record):
-        enabled_names = [f['name'] for f in record.field_selection if f.get('enabled')]
+        enabled_names = [f['name'] for f in record.tag_selection if f.get('enabled')]
         return ", ".join(enabled_names) if enabled_names else "None"
 
 

@@ -18,25 +18,27 @@ class ZConfiguration(PluginConfig):
     base_url = "netbox_zabbix"
 
     default_settings = {
-        'field_mappings': {
+        'tag_mappings': {
             'device': [
-                ('Role', 'role.name'),
-                ('Platform', 'platform.name'),
                 ('Site', 'site.name'),
                 ('Region', 'site.region'),
                 ('Longitude', 'site.longitude'),
                 ('Latitude', 'site.latitude'),
-                ('Tags', 'tags'),
+                ('Role', 'role.name'),
+                ('Platform', 'platform.name'),
+                
+#                ('Tags', 'tags'),
             ],
             'virtualmachine': [
-                ('Role', 'role.name'),
-                ('Platform', 'platform.name'),
-                ('Cluster', 'cluster.name'),
                 ('Site', 'site.name'),
                 ('Region', 'site.region'),
                 ('Longitude', 'site.longitude'),
                 ('Latitude', 'site.latitude'),
-                ('Tags', 'tags'),
+                ('Cluster', 'cluster.name'),
+                ('Role', 'role.name'),
+                ('Platform', 'platform.name'),
+                
+#                ('Tags', 'tags'),
             ],
         }
     }

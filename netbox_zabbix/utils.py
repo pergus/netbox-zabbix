@@ -47,7 +47,12 @@ def get_zabbix_tags_for_object(obj):
     except models.TagMapping.DoesNotExist:
         return tags
     
-    for field in mapping.field_selection:
+    # The interscetion between the mapping tags and the tags on the obj.
+    for tag in set( mapping.tags.all() & obj.tags.all() ) :
+        tags.append({ "tag": f"{tag_prefix}{tag.name}", "value": tag.name })
+
+    # Field Selection
+    for field in mapping.tag_selection:
         if not field.get( "enabled" ):
             continue
 
