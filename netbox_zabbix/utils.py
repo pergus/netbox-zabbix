@@ -20,6 +20,40 @@ def resolve_field_path(obj, path):
         return None
 
 
+def get_zabbix_inventory_for_object (obj):
+    if obj._meta.model_name == 'device':
+        object_type = 'device'
+    elif obj._meta.model_name == 'virtualmachine':
+        object_type = 'virtualmachine'
+    else:
+        raise ValueError(f"Unsupported object type: {obj._meta.model_name}")
+    
+    inventory = {}
+
+    try:
+        mapping = models.InventoryMapping.objects.get( object_type=object_type )
+    except models.InventoryMapping.DoesNotExist:
+        return inventory
+    
+    for field in mapping.selection:
+        if not field.get( "enabled" ):
+            continue
+        invkey = str( field.get( "invkey" ) )
+        paths = field.get( "paths" )
+
+        for path in paths:
+            logger.info( f"{path=}" )
+            value = resolve_field_path( obj, path )
+            if value is None:
+                logger.info( f"{value=} is None" )
+                continue
+            logger.info( f"adding {invkey=} {value=} to inventory" )
+            inventory[invkey] = str( value )
+            break
+
+    return inventory
+
+
 def get_zabbix_tags_for_object(obj):
     """
     Given a Device or VirtualMachine object, return a list of Zabbix tag dicts:
@@ -47,12 +81,12 @@ def get_zabbix_tags_for_object(obj):
     except models.TagMapping.DoesNotExist:
         return tags
     
-    # Add the tags that are the intersection between the mapping tags and the tags on the obj.
+    # Add the tags that are the intersection between the mapping tags and the obj tags.
     for tag in set( mapping.tags.all() & obj.tags.all() ):
         tags.append({ "tag": f"{tag_prefix}{tag.name}", "value": tag.name })
 
     # Field Selection
-    for field in mapping.tag_selection:
+    for field in mapping.selection:
         if not field.get( "enabled" ):
             continue
 

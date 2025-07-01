@@ -45,7 +45,8 @@ from netbox_zabbix.config import (
     get_tag_name_formatting
 )
 from netbox_zabbix.utils import ( 
-    get_zabbix_tags_for_object
+    get_zabbix_tags_for_object,
+    get_zabbix_inventory_for_object
 )
 from netbox_zabbix.logger import logger
 
@@ -430,7 +431,7 @@ def import_vm_config(zabbix_host: dict, vm: VirtualMachine):
 
 
 # ------------------------------------------------------------------------------
-# ...
+# Payload Support Functions
 # ------------------------------------------------------------------------------
 
 def get_tags(obj, existing_tags=None):
@@ -469,24 +470,24 @@ def get_tags(obj, existing_tags=None):
     return result
 
 
-def get_inventory( obj ):
-
-    logger.info( f"{type(obj.site)=}" )
-    name      = obj.name if obj.name else ""
-    os        = obj.platform.name if obj.platform else ""
-    location  = obj.site.name if obj.site else ""
-    longitude = obj.site.longitude if obj.site and obj.site.longitude else ""
-    latitude  = obj.site.latitude if obj.site and obj.site.latitude else ""
-
-    logger.info( f'name": {name}, "os": {os}, "location": {location}, "location_lon": {longitude}, "location_lat": {latitude}' )
-        
-    return {
-        "name": name,
-        "os": os,
-        "location": location,
-        "location_lon": longitude,
-        "location_lat": latitude
-    }
+#def get_inventory( obj ):
+#
+#    logger.info( f"{type(obj.site)=}" )
+#    name      = obj.name if obj.name else ""
+#    os        = obj.platform.name if obj.platform else ""
+#    location  = obj.site.name if obj.site else ""
+#    longitude = obj.site.longitude if obj.site and obj.site.longitude else ""
+#    latitude  = obj.site.latitude if obj.site and obj.site.latitude else ""
+#
+#    logger.info( f'name": {name}, "os": {os}, "location": {location}, "location_lon": {longitude}, "location_lat": {latitude}' )
+#        
+#    return {
+#        "name": name,
+#        "os": os,
+#        "location": location,
+#        "location_lon": longitude,
+#        "location_lat": latitude
+#    }
 
 
 # ------------------------------------------------------------------------------
@@ -584,7 +585,7 @@ def build_payload(zcfg) -> dict:
 
     # Inventory
     if payload["inventory_mode"] == str( InventoryModeChoices.MANUAL ):
-        payload["inventory"] = get_inventory( linked_obj )
+        payload["inventory"] = get_zabbix_inventory_for_object( linked_obj )
 
     # TLS settings
     if get_tls_connect() == TLSConnectChoices.PSK or get_tls_accept() == TLSConnectChoices.PSK:

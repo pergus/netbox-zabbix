@@ -42,6 +42,10 @@ menu = PluginMenu(
                     link="plugins:netbox_zabbix:tagmapping_list",
                 ),
                 PluginMenuItem( 
+                    link_text="Inventory Mappings", 
+                    link="plugins:netbox_zabbix:inventorymapping_list",
+                ),
+                PluginMenuItem( 
                     link_text="Device Mappings", 
                     link="plugins:netbox_zabbix:devicemapping_list",
                 ),

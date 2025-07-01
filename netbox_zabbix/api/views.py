@@ -216,6 +216,14 @@ class TagMappingViewSet(NetBoxModelViewSet):
     serializer_class = serializers.TagMappingSerializer
 
 # ------------------------------------------------------------------------------
+# Inventory Mapping
+# ------------------------------------------------------------------------------
+
+class InventoryMappingViewSet(NetBoxModelViewSet):
+    queryset = models.InventoryMapping.objects.all()
+    serializer_class = serializers.InventoryMappingSerializer
+
+# ------------------------------------------------------------------------------
 # Device Mapping
 # ------------------------------------------------------------------------------
 

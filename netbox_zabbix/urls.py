@@ -201,6 +201,19 @@ urlpatterns = (
 
 
     # --------------------------------------------------------------------------
+    # Inventory Mapping
+    # --------------------------------------------------------------------------
+    
+    path( 'inventory/mappings/',                    views.InventoryMappingListView.as_view(),   name='inventorymapping_list' ),
+    path( 'inventory/mappings/add/',                views.InventoryMappingEditView.as_view(),   name='inventorymapping_add' ),
+    path( 'inventory/mapping/<int:pk>/',            views.InventoryMappingView.as_view(),       name='inventorymapping' ),
+    path( 'inventory/mappings/<int:pk>/edit/',      views.InventoryMappingEditView.as_view(),   name='inventorymapping_edit' ),
+    path( 'inventory/mappings/<int:pk>/delete/',    views.InventoryMappingDeleteView.as_view(), name='inventorymapping_delete' ),
+    path( 'inventory/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),              name='inventorymapping_changelog', kwargs={'model': models.InventoryMapping}  ),
+    
+    
+
+    # --------------------------------------------------------------------------
     # Device Mapping
     # --------------------------------------------------------------------------
     

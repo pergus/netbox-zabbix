@@ -619,7 +619,7 @@ class TagMappingForm(NetBoxModelForm):
 
     class Meta:
         model = models.TagMapping
-        fields = ["object_type", "tags" ]  # exclude 'tag_selection' from raw rendering
+        fields = ["object_type", "tags" ]  # exclude 'selection' from raw rendering
 
     def __init__(self, *args, **kwargs):
         super().__init__( *args, prefix=self.prefix, **kwargs )
@@ -633,10 +633,10 @@ class TagMappingForm(NetBoxModelForm):
         
         tag_mappings = PLUGIN_SETTINGS.get( 'tag_mappings', {} ).get( object_type, [] )
 
-        # Prepare a lookup for existing enabled states from instance.tag_selection
+        # Prepare a lookup for existing enabled states from instance.selection
         existing_selection = {}
-        if self.instance.pk and self.instance.tag_selection:
-            for entry in self.instance.tag_selection:
+        if self.instance.pk and self.instance.selection:
+            for entry in self.instance.selection:
                 existing_selection[entry['value']] = entry.get( 'enabled', False )
 
         if self.instance.object_type:
@@ -671,20 +671,96 @@ class TagMappingForm(NetBoxModelForm):
         object_type = self.cleaned_data['object_type']
         tag_mappings = PLUGIN_SETTINGS.get( 'tag_mappings', {} ).get( object_type, [] )
         
-        tag_selection = []
+        selection = []
         for tag_name, tag_value in tag_mappings:
             field_key = slugify( f"{self.prefix}_{tag_name}"  )
 
             enabled = self.cleaned_data.get( field_key, False )
-            tag_selection.append({
+            selection.append({
                 "name": tag_name,
                 "value": tag_value,
                 "enabled": enabled,
             })
 
-        self.instance.tag_selection = tag_selection
+        self.instance.selection = selection
         return super().save( commit=commit )
 
+# ------------------------------------------------------------------------------
+# Inventory Mapping
+# ------------------------------------------------------------------------------
+
+class InventoryMappingForm(NetBoxModelForm):
+    object_type = forms.ChoiceField( choices=models.InventoryMapping.OBJECT_TYPE_CHOICES, initial='device' )
+    prefix = "kullager"
+
+    class Meta:
+        model = models.InventoryMapping
+        fields = ["object_type", "tags" ]  # exclude 'selection' from raw rendering
+
+    def __init__(self, *args, **kwargs):
+        super().__init__( *args, prefix=self.prefix, **kwargs )
+
+        object_type = (
+            self.initial.get( 'object_type' )
+            or self.data.get( 'object_type' )
+            or getattr( self.instance, 'object_type', None )
+            or 'device'
+        )
+        
+        inventory_mapping = PLUGIN_SETTINGS.get( 'inventory_mapping', {} ).get( object_type, [] )
+
+        # Prepare a lookup for existing enabled states from instance.selection
+        existing_selection = {}
+        if self.instance.pk and self.instance.selection:
+            for entry in self.instance.selection:
+                existing_selection[entry['name']] = entry.get( 'enabled', False )
+
+        if self.instance.object_type:
+            self.fields['object_type'].disabled = True
+
+        # Dynamically add BooleanFields for each field with initial enabled value
+        for name, invkey, _ in inventory_mapping:
+            # Use a unique prefix for the form field key to avoid name
+            # collisions with existing NetBox fields. 
+            # This allows us to safely use common or duplicate display names in
+            # 'inventory_mapping', such as "Tags".
+            field_key = slugify( f"{self.prefix}_{name}" )
+            self.fields[field_key] = forms.BooleanField(
+                label=name,
+                required=False,
+                initial=existing_selection.get( name, False ),
+            )
+
+
+    def clean_object_type(self):
+        object_type = self.cleaned_data['object_type']
+        qs = models.InventoryMapping.objects.filter( object_type=object_type )
+        if self.instance.pk:
+            qs = qs.exclude( pk=self.instance.pk )
+        if qs.exists():
+            raise forms.ValidationError( f"A mapping for object type '{object_type}' already exists." )
+        return object_type
+
+
+    def save(self, commit=True):
+        # Build list of dicts with name, inkey, paths, and enabled
+        object_type = self.cleaned_data['object_type']
+        inventory_mapping = PLUGIN_SETTINGS.get( 'inventory_mapping', {} ).get( object_type, [] )
+        
+        selection = []
+        for name, invkey, paths in inventory_mapping:
+            field_key = slugify( f"{self.prefix}_{name}"  )
+
+            enabled = self.cleaned_data.get( field_key, False )
+            selection.append({
+                "name":    name,
+                "invkey":  invkey,
+                "paths":   paths,
+                "enabled": enabled,
+            })
+
+        self.instance.selection = selection
+        return super().save( commit=commit )
 
 # ------------------------------------------------------------------------------
 # Device Mapping

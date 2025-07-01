@@ -652,13 +652,32 @@ class TagMapping(NetBoxModel):
     ]
 
     object_type = models.CharField( max_length=20, choices=OBJECT_TYPE_CHOICES, unique=True )
-    tag_selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix tags" )
+    selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix tags" )
 
     def __str__(self):
         return f"Tag Mapping {self.object_type}"
     
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:tagmapping", args=[self.pk] )
+
+# ------------------------------------------------------------------------------
+# Inventory Mapping
+# ------------------------------------------------------------------------------
+
+class InventoryMapping(NetBoxModel):
+    OBJECT_TYPE_CHOICES = [
+        ('device', 'Device'),
+        ('virtualmachine', 'Virtual Machine'),
+    ]
+
+    object_type = models.CharField( max_length=20, choices=OBJECT_TYPE_CHOICES, unique=True )
+    selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix inventory" )
+
+    def __str__(self):
+        return f"Inventory Mapping {self.object_type}"
+    
+    def get_absolute_url(self):
+        return reverse( "plugins:netbox_zabbix:inventorymapping", args=[self.pk] )
 
 # ------------------------------------------------------------------------------
 # Mapping Base Object

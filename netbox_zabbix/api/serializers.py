@@ -154,6 +154,17 @@ class TagMappingSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 # ------------------------------------------------------------------------------
+# Inventory Mapping
+# ------------------------------------------------------------------------------
+
+class InventoryMappingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.InventoryMapping
+        fields = '__all__'
+
+
+
+# ------------------------------------------------------------------------------
 # Mapping
 # ------------------------------------------------------------------------------
 

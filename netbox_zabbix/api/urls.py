@@ -22,8 +22,9 @@ router.register( 'available-device-interface', views.AvailableDeviceInterfaceVie
 router.register( 'available-vm-interface',     views.AvailableVMInterfaceViewSet, basename='availablevminterface' )
 
 # Mappings
-router.register( 'device-mappings',  views.DeviceMappingViewSet )
-router.register( 'vm-mappings',      views.VMMappingViewSet )
-router.register( 'tag-mappings',     views.TagMappingViewSet )
+router.register( 'tag-mappings',       views.TagMappingViewSet )
+router.register( 'inventory-mappings', views.InventoryMappingViewSet )
+router.register( 'device-mappings',    views.DeviceMappingViewSet )
+router.register( 'vm-mappings',        views.VMMappingViewSet )
 
 urlpatterns = router.urls

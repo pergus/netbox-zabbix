@@ -501,7 +501,7 @@ class ZabbixOnlyHostsView(GenericTemplateView):
 # ------------------------------------------------------------------------------
 
 def device_quick_add_agent(request):
-    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+    redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
 
     if request.method == 'GET':
         device_id = request.GET.get( "device_id" )
@@ -894,6 +894,28 @@ class TagMappingEditView(generic.ObjectEditView):
 
 class TagMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.TagMapping.objects.all()
+
+
+# ------------------------------------------------------------------------------
+# Inventory Mapping
+# ------------------------------------------------------------------------------
+
+class InventoryMappingView(generic.ObjectView):
+    queryset = models.InventoryMapping.objects.all()
+
+class InventoryMappingListView(generic.ObjectListView):
+    queryset = models.InventoryMapping.objects.all()
+    table = tables.InventoryMappingTable
+    template_name = 'netbox_zabbix/inv_mapping_list.html'
+
+class InventoryMappingEditView(generic.ObjectEditView):
+    queryset = models.InventoryMapping.objects.all()
+    form = forms.InventoryMappingForm
+    template_name = 'netbox_zabbix/inv_mapping_edit.html'
+
+class InventoryMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.InventoryMapping.objects.all()
+
 
 
 # ------------------------------------------------------------------------------

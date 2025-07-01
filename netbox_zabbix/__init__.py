@@ -20,26 +20,39 @@ class ZConfiguration(PluginConfig):
     default_settings = {
         'tag_mappings': {
             'device': [
-                ('Site', 'site.name'),
-                ('Region', 'site.region'),
+                ('Site',      'site.name'),
+                ('Region',    'site.region'),
+                ('Latitude',  'site.latitude'),
                 ('Longitude', 'site.longitude'),
-                ('Latitude', 'site.latitude'),
-                ('Role', 'role.name'),
-                ('Platform', 'platform.name'),
-                
-#                ('Tags', 'tags'),
+                ('Role',      'role.name'),
+                ('Platform',  'platform.name'),
             ],
             'virtualmachine': [
-                ('Site', 'site.name'),
-                ('Region', 'site.region'),
+                ('Site',      'site.name'),
+                ('Region',    'site.region'),
+                ('Latitude',  'site.latitude'),
                 ('Longitude', 'site.longitude'),
-                ('Latitude', 'site.latitude'),
-                ('Cluster', 'cluster.name'),
-                ('Role', 'role.name'),
-                ('Platform', 'platform.name'),
-                
-#                ('Tags', 'tags'),
+                ('Cluster',   'cluster.name'),
+                ('Role',      'role.name'),
+                ('Platform',  'platform.name'),
             ],
+        },
+        "inventory_mapping": {
+            'device': [
+                ("Name",      "name",         ["name"]),
+                ("Platform",  "os",           ["platform.name"]),
+                ("Location",  "location",     ["location.name", "site.name"]),
+                ("Latitude",  "location_lat", ["location.site.latitude", "site.latitude"]),
+                ("Longitude", "location_lon", ["location.site.longitude", "site.longitude"]),
+            ],
+            'virtualmachine': [
+                ("Name",      "name",         ["name"]),
+                ("Platform",  "os",           ["platform.name"]),
+                ("Location",  "location",     ["location.name", "site.name"]),
+                ("Latitude",  "location_lat", ["location.site.latitude", "site.latitude"]),
+                ("Longitude", "location_lon", ["location.site.longitude", "site.longitude"]),
+            ]
+            
         }
     }
 

@@ -1,0 +1,48 @@
+{% extends 'generic/object_edit.html' %}
+
+{% block title %}Edit Inventory Mapping{% endblock %}
+
+{% block form %}
+<div class="row mb-3">
+    <div class="col">
+        {{ form.object_type.label_tag }}
+        {{ form.object_type }}
+        {{ form.object_type.errors }}
+    </div>
+</div>
+
+
+<fieldset class="card mb-3">
+    <div class="card-header"><strong>Inventory Selection</strong></div>
+    <div class="card-body">
+        {% for field in form.visible_fields %}
+        {% if field.name != 'object_type' and field.name != 'tags' %}
+        <div class="form-check mb-2">
+            {{ field }} {{ field.label }}
+            {{ field.errors }}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</fieldset>
+{% endblock %}
+
+
+{% block javascript %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const prefix = "{{ form.prefix }}";
+        const selectName = prefix ? prefix + "-object_type" : "object_type";
+        const objectTypeSelect = document.querySelector(`select[name="${selectName}"]`);
+        if (objectTypeSelect) {
+            objectTypeSelect.addEventListener('change', function () {
+                const url = new URL(window.location.href);
+                url.searchParams.set('object_type', this.value);
+                window.location.href = url.toString();
+            });
+        } else {
+            console.warn("object_type select element not found");
+        }
+    });
+</script>
+{% endblock %}

@@ -82,7 +82,6 @@ class HostGroupVMFilterSet(VirtualMachineFilterSet):
         fields = VirtualMachineFilterSet.Meta.fields
 
 
-
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------

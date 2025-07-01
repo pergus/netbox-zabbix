@@ -5,6 +5,7 @@ from .serializers import (
     ProxyGroupSerializer, 
     HostGroupSerializer,
     TagMappingSerializer,
+    InventoryMappingSerializer,
     DeviceZabbixConfigSerializer, 
     VMZabbixConfigSerializer
     )

@@ -1,7 +1,7 @@
 {% extends 'generic/object.html' %}
 
 
-{% block title %}{{ object.get_object_type_display }} Tag Mapping{% endblock %}
+{% block title %}{{ object.get_object_type_display }} Inventory Mapping{% endblock %}
 
 {% block content %}
 
@@ -25,13 +25,5 @@
         </div>
     </div>
 </div>
-
-<div class="row">
-    <div class="col col-12 col-xl-6">
-        {% include 'inc/panels/tags.html' %}
-    </div>
-</div>
-
-
 
 {% endblock %}

@@ -165,9 +165,9 @@ class NetBoxOnlyDevicesTable(DeviceTable):
         default_columns = fields
     
     def render_actions(self, record):
-        if record.id in getattr( self, "valid_device_ids", set() ):
-            return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
-        return columns.ActionsColumn().render( record, self )
+        #if record.id in getattr( self, "valid_device_ids", set() ):
+        return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
+        #return columns.ActionsColumn().render( record, self )
     
 #    def render_mapping_name(self, record):
 #        filter = models.DeviceMapping.get_matching_filter( record )
@@ -233,10 +233,9 @@ class NetBoxOnlyVMsTable(VirtualMachineTable):
         default_columns = fields
     
     def render_actions(self, record):
-        if record.id in getattr( self, "valid_device_ids", set() ):
-            return columns.ActionsColumn( extra_buttons=EXTRA_VM_ADD_ACTIONS ).render( record, self )
-        return columns.ActionsColumn().render( record, self )
-    
+        return columns.ActionsColumn( extra_buttons=EXTRA_VM_ADD_ACTIONS ).render( record, self )
+        #return columns.ActionsColumn().render( record, self )
+
     def render_mapping(self, record):
         return record.get_macthing_filter().name
 
@@ -506,12 +505,33 @@ class TagMappingTable(NetBoxTable):
 
     def __init__(self, *args, user=None, **kwargs):
         # Accept the user kwarg to avoid errors, even if unused
-        super().__init__(*args, **kwargs)
+        super().__init__( *args, **kwargs )
 
     def render_enabled_fields(self, record):
-        enabled_names = [f['name'] for f in record.tag_selection if f.get('enabled')]
+        enabled_names = [f['name'] for f in record.selection if f.get('enabled')]
         return ", ".join(enabled_names) if enabled_names else "None"
 
+
+# ------------------------------------------------------------------------------
+# Inventory Mapping
+# ------------------------------------------------------------------------------
+
+class InventoryMappingTable(NetBoxTable):
+    object_type = tables.Column( verbose_name="Object Type", linkify=True )
+    enabled_fields = tables.Column( verbose_name="Enabled Fields", orderable=False )
+
+    class Meta(NetBoxTable.Meta):
+        model = models.InventoryMapping
+        fields = ('object_type',)
+        attrs = {'class': 'table table-hover'}
+
+    def __init__(self, *args, user=None, **kwargs):
+        # Accept the user kwarg to avoid errors, even if unused
+        super().__init__( *args, **kwargs )
+
+    def render_enabled_fields(self, record):
+        enabled_names = [f['name'] for f in record.selection if f.get('enabled')]
+        return ", ".join(enabled_names) if enabled_names else "None"
 
 # ------------------------------------------------------------------------------
 # Device Mapping
