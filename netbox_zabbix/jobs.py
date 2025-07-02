@@ -657,6 +657,10 @@ def quick_add_interface(
             logger.info( f"{msg}" )
             raise Exception( msg )
 
+
+    # Monitored by
+    zcfg.monitored_by = monitored_by
+
     # Proxy
     if monitored_by == MonitoredByChoices.Proxy:
         try:            
