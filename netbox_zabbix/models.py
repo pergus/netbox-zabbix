@@ -72,6 +72,28 @@ class StatusChoices(models.IntegerChoices):
     DISABLED = (1, 'Disabled')
 
 
+class UseIPChoices(models.IntegerChoices):
+    DNS = (0, 'DNS Name')
+    IP = (1, 'IP Address')
+
+
+class MainChoices(models.IntegerChoices):
+    NO = (0, 'No')
+    YES = (1, 'Yes')
+
+
+class AvailableChoices(models.IntegerChoices):
+    UNKNOWN     = (0, 'Unknown')
+    AVAILABLE   = (1, 'Available')
+    UNAVAILABLE = (2, 'Unavailable')
+
+
+class TypeChoices(models.IntegerChoices):
+    AGENT = (1, 'Agent')
+    SNMP =  (2, 'SNMP')
+
+
+
 # ------------------------------------------------------------------------------
 # Configuration
 # ------------------------------------------------------------------------------
@@ -294,10 +316,10 @@ class ZabbixConfig(NetBoxModel):
     host_groups  = models.ManyToManyField( HostGroup,  blank=True , help_text="Assigned Host Groups" )
     templates    = models.ManyToManyField( Template,   blank=True , help_text="Assgiend Tempalates" )
     monitored_by = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host" )
-    proxy        = models.OneToOneField( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy" )
-    proxy_group  = models.OneToOneField( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group" )
-    
-    
+    proxy        = models.ForeignKey( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy" )
+    proxy_group  = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group" )
+
+
 class DeviceZabbixConfig(ZabbixConfig):
     class Meta:
         verbose_name = "Zabbix Device Configuration"
@@ -335,26 +357,6 @@ class VMZabbixConfig(ZabbixConfig):
 # ------------------------------------------------------------------------------
 # Interfaces
 # ------------------------------------------------------------------------------
-
-class UseIPChoices(models.IntegerChoices):
-    DNS = (0, 'DNS Name')
-    IP = (1, 'IP Address')
-
-
-class MainChoices(models.IntegerChoices):
-    NO = (0, 'No')
-    YES = (1, 'Yes')
-
-
-class AvailableChoices(models.IntegerChoices):
-    UNKNOWN     = (0, 'Unknown')
-    AVAILABLE   = (1, 'Available')
-    UNAVAILABLE = (2, 'Unavailable')
-
-
-class TypeChoices(models.IntegerChoices):
-    AGENT = (1, 'Agent')
-    SNMP =  (2, 'SNMP')
 
 
 class SNMPVersionChoices(models.IntegerChoices):
@@ -814,12 +816,12 @@ class VMMapping(Mapping):
 # ------------------------------------------------------------------------------
 
 class JobLog(NetBoxModel):
-    name = models.CharField( max_length=256, help_text="Name of the device or virtual machine" )
-    job = models.ForeignKey( Job, on_delete=models.CASCADE, null=True, related_name='logs', help_text="Job reference." )
-    payload = models.JSONField( help_text="Raw JSON payload of the log." )
-    created = models.DateTimeField( auto_now_add=True )
-    message = models.TextField(blank=True, help_text="Optional human-readable message.")
-    
+    name     = models.CharField( max_length=256, help_text="Name of the device or virtual machine" )
+    job      = models.ForeignKey( Job, on_delete=models.CASCADE, null=True, related_name='logs', help_text="Job reference." )
+    payload  = models.JSONField( help_text="Raw JSON payload of the log." )
+    created  = models.DateTimeField( auto_now_add=True )
+    message  = models.TextField(blank=True, help_text="Optional human-readable message.")
+
     class Meta:
         ordering = ['-created']
     

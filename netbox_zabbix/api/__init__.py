@@ -7,5 +7,6 @@ from .serializers import (
     TagMappingSerializer,
     InventoryMappingSerializer,
     DeviceZabbixConfigSerializer, 
-    VMZabbixConfigSerializer
+    VMZabbixConfigSerializer,
+    JobLogSerializer,
     )

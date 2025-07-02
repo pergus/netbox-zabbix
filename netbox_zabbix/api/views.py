@@ -241,4 +241,14 @@ class VMMappingViewSet(NetBoxModelViewSet):
     serializer_class = serializers.VMMappingSerializer
     #filterset_class = VMMappingFilter
 
+
+# ------------------------------------------------------------------------------
+# JobLog
+# ------------------------------------------------------------------------------
+
+class JobLogViewSet(NetBoxModelViewSet):
+    queryset = models.JobLog.objects.all()
+    serializer_class = serializers.JobLogSerializer
+
+
 # end

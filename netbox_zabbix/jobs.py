@@ -16,7 +16,7 @@ from netbox_zabbix.models import (
     DeviceZabbixConfig,
     DeviceAgentInterface,
     DeviceSNMPv3Interface,
-    TypeChoices,
+    InterfaceTypeChoices,
 #    VMAgentInterface,
 #    VMSNMPv3Interface,
     DeviceMapping,
@@ -603,24 +603,33 @@ def quick_add_interface(
 
     monitored_by = get_monitored_by()
 
+    job_log_message = ""
 
     try:
-        default_mapping = DeviceMapping.objects.filter( default=True )
+        default_mapping = DeviceMapping.objects.get( default=True )
     except DeviceMapping.DoesNotExist:
-        raise Exception( f"No default device mapping defined. Unable to add interface to {obj.name}" )
+        msg = f"No default device mapping defined. Unable to add interface to {obj.name}"
+        logger.info( f"{msg}" )
+        raise Exception( msg )
     except DeviceMapping.MultipleObjectsReturned:
-        raise Exception( f"Multiple default device mappings found. Unable to add interface to {obj.name}" )
+        msg = f"Multiple default device mappings found. Unable to add interface to {obj.name}"
+        logger.info( f"{msg}" )
+        raise Exception( msg )
     except Exception as e:
-        raise Exception(f"Unexpected error while retrieving default device mapping for {obj.name}: {e}")
+        msg = f"Unexpected error while retrieving default device mapping for {obj.name}: {e}"
+        logger.info( f"{msg}" )
+        raise Exception( msg )
     
     try:
        mapping = DeviceMapping.get_matching_filter( obj )
-       if interface_model.type != mapping.interface_type:
-           logger.info(f"Interface type mismatch for {obj.name}, falling back to default mapping.")
+       if mapping.interface_type != InterfaceTypeChoices.Any and interface_model.type != mapping.interface_type:
+           logger.info( f"Interface type mismatch for {obj.name}, falling back to default mapping." )
            mapping = default_mapping
     except Exception as e:
         logger.info( f"Using default mapping for {obj.name}: {e}" )
         mapping = default_mapping
+
+    job_log_message = f"Using mapping {mapping.name} for {obj.name}"
 
     try:
         zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
@@ -635,32 +644,42 @@ def quick_add_interface(
         try:
             zcfg.templates.add( template_model.objects.get( name=template.name ) )
         except Exception as e:
-            raise Exception( f"Failed to add template {template.name}: {e}" )
+            msg = f"Failed to add template {template.name}: {e}"
+            logger.info( f"{msg}" )
+            raise Exception( msg )
 
     # Host Groups
     for hostgroup in mapping.host_groups.all():
         try:
             zcfg.host_groups.add( hostgroup_model.objects.get( name=hostgroup.name ) )
         except Exception as e:
-            raise Exception( f"Failed to add host group {hostgroup.name}: {e}" )
+            msg = f"Failed to add host group {hostgroup.name}: {e}"
+            logger.info( f"{msg}" )
+            raise Exception( msg )
 
     # Proxy
     if monitored_by == MonitoredByChoices.Proxy:
         try:            
             zcfg.proxy = proxy_model.objects.get( name=mapping.proxy.name )
         except Exception as e:
-            raise Exception( f"Failed to add proxy {mapping.proxy.name}: {e}" )
+            msg = f"Failed to add proxy {mapping.proxy.name}: {e}"
+            logger.info( f"{msg}" )
+            raise Exception( msg )
 
     # Proxy Group
     if monitored_by == MonitoredByChoices.ProxyGroup:
         try:
             zcfg.proxy_group = proxy_group_model.objects.get( name=mapping.proxy_group.name )
         except Exception as e:
-            raise Exception( f"Failed to add proxy group {mapping.proxy_group.name}: {e}" )
+            msg = f"Failed to add proxy group {mapping.proxy_group.name}: {e}"
+            logger.info( msg )
+            raise Exception( msg )
 
     ip = getattr( obj, "primary_ip4", None )
     if not ip:
-        raise Exception( f"{get_name_fn(obj)} does not have a primary IPv4 address" )
+        msg = f"{get_name_fn(obj)} does not have a primary IPv4 address"
+        logger.info( msg )
+        raise Exception( msg )
 
     # Create the interface
     try:
@@ -675,22 +694,28 @@ def quick_add_interface(
         iface.full_clean()
         iface.save()
     except Exception as e:
-        raise Exception( f"Failed to create {interface_name_suffix} interface: {e}" )
+        msg = f"Failed to create {interface_name_suffix} interface: {e}"
+        logger.info( msg )
+        raise Exception( msg )
 
     try:
         payload = build_payload_fn( zcfg )
     except Exception as e:
-        raise Exception( f"Failed to build payload: {e}" )
+        msg = f"Failed to build payload: {e}"
+        logger.info( msg )
+        raise Exception( msg )
 
     try:
         zcfg.full_clean()
         zcfg.save()
     except Exception as e:
-        raise Exception( f"Failed to save Zabbix configuration: {e}" )
+        msg = f"Failed to save Zabbix configuration: {e}"
+        logger.info( msg )
+        raise Exception( msg )
     
     logger.info( f"{json.dumps(payload, indent=2)}" )
 
-    return payload
+    return payload, job_log_message
 
 
 # ------------------------------------------------------------------------------
@@ -857,19 +882,21 @@ class DeviceQuickAddAgent( AtomicJobRunner ):
     @classmethod
     def run(cls, *args, **kwargs):
         device = kwargs.get( "device", None )
-        #job = kwargs.get("job", None)
+        job = getattr( cls, "job", None )
 
         if not device:
             raise ValueError( "Missing required argument: device." )
-        
+
         try:
-            payload = device_quick_add_agent( device )
-            #JobLog.objects.create( name = device.name, job=job, payload=payload )
+            payload, message = device_quick_add_agent( device )
+            if get_job_log_enabled():
+                JobLog.objects.create( name=f"DeviceQuickAddAgent-{device.name}", job=job, payload=payload, message=message )
+
         except Exception as e:
             msg = f"Failed to create Zabbix configuration for device '{device.name}': { str( e ) }"
             logger.info( msg )
             raise Exception( msg )
-        
+
         return f"Created Zabbix configuration and agent interface for device '{device.name}'"
             
     @classmethod
@@ -910,8 +937,7 @@ class DebugJob( AtomicJobRunner ):
                     "inventory": {"site": "Paris", "location": None}
         }
 
-        job = getattr(cls, "job", None)
-        
+        job = getattr( cls, "job", None )
         if get_job_log_enabled():
             JobLog.objects.create( name = device.name, job=job, payload=payload )
         return f"DebugJob ok"

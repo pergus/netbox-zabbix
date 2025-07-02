@@ -51,6 +51,14 @@
                             <a href="{{ proxy_group.get_absolute_url }}">{{ object.proxy_group.name }}</a>
                         </td>
                     </tr>
+
+                    <tr>
+                        <th scope="row">Interface Type</th>
+                        <td>
+                            {{ object.get_interface_type_display }}
+                        </td>
+                    </tr>
+
                 </table>
             </div>
 

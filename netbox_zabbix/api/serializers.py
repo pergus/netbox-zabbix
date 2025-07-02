@@ -195,4 +195,15 @@ class VMMappingSerializer(serializers.ModelSerializer):
         model = models.VMMapping
         fields = '__all__'
 
+
+# ------------------------------------------------------------------------------
+# JobLog
+# ------------------------------------------------------------------------------
+
+class JobLogSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.JobLog
+        fields = '__all__'
+
 # end

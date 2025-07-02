@@ -42,12 +42,9 @@ def get_zabbix_inventory_for_object (obj):
         paths = field.get( "paths" )
 
         for path in paths:
-            logger.info( f"{path=}" )
             value = resolve_field_path( obj, path )
             if value is None:
-                logger.info( f"{value=} is None" )
                 continue
-            logger.info( f"adding {invkey=} {value=} to inventory" )
             inventory[invkey] = str( value )
             break
 

@@ -510,8 +510,9 @@ def device_quick_add_agent(request):
             messages.error( request, f"No Device with id {device_id} found" )
         else:
             try:
-                result = jobs.DeviceQuickAddAgent.run_now( device=device, user=request.user )
-                messages.success( request, result )
+                job = jobs.DeviceQuickAddAgent.run_job( device=device, user=request.user )
+                message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
+                messages.success( request, message )
             except Exception as e:
                 messages.error( request, str( e ) )
 
@@ -678,9 +679,9 @@ class ImportableDeviceListView(generic.ObjectListView):
                 try:
                     logger.info ( f"importing device {device.name}" )                    
                     job = jobs.ImportFromZabbix.run_job( device_or_vm=device, user=request.user )
-                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )                    
+                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )
                     if success_counter < max_success_messages:
-                        messages.success(request, message)
+                        messages.success( request, message )
                         success_counter += 1
 
                 except Exception as e:
