@@ -18,6 +18,7 @@ class ZConfiguration(PluginConfig):
     base_url = "netbox_zabbix"
 
     default_settings = {
+        'debug_menu_enabled': True,
         'tag_mappings': {
             'device': [
                 ('Site',      'site.name'),

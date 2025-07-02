@@ -1035,5 +1035,39 @@ class VMMappingEditView(generic.ObjectEditView):
 class VMMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.VMMapping.objects.all()
 
+
+# ------------------------------------------------------------------------------
+# JobLog
+# ------------------------------------------------------------------------------
+
+class JobLogView(generic.ObjectView):
+    queryset = models.JobLog.objects.all()
+
+    def get_extra_context(self, request, instance):
+
+        # Find previous and next logs (ordered by created)
+        prev_log = models.JobLog.objects.filter( created__lt=instance.created ).order_by( '-created' ).first()
+        next_log = models.JobLog.objects.filter( created__gt=instance.created ).order_by( 'created' ).first()
+        
+
+        if request.GET.get( 'format' ) in ['json', 'yaml']:
+            format = request.GET.get('format')
+        else:
+            format = 'json'
+
+        return { 'format': format, 'prev_log': prev_log, 'next_log': next_log, }
+    
+class JobLogListView(generic.ObjectListView):
+    queryset = models.JobLog.objects.all()
+    table = tables.JobLogTable
+
+class JobLogEditView(generic.ObjectView):
+    queryset = models.JobLog.objects.all()
+
+class JobLogDeleteView(generic.ObjectDeleteView):
+    queryset = models.JobLog.objects.all()
+
+
+
 # end
 

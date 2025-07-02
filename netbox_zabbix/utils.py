@@ -26,7 +26,7 @@ def get_zabbix_inventory_for_object (obj):
     elif obj._meta.model_name == 'virtualmachine':
         object_type = 'virtualmachine'
     else:
-        raise ValueError(f"Unsupported object type: {obj._meta.model_name}")
+        raise ValueError( f"Unsupported object type: {obj._meta.model_name}" )
     
     inventory = {}
 

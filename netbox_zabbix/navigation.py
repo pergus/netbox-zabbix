@@ -1,12 +1,29 @@
 # navigation.py
 from netbox.plugins import PluginMenu, PluginMenuItem, PluginMenuButton
 
+from django.conf import settings
+
+
 # Add permissions
+debug_menu = []
+
+if getattr(settings, 'PLUGINS_CONFIG', {}).get('netbox_zabbix', {}).get('debug_menu_enabled', False):
+    debug_menu = [
+        ( "DEBUG",
+             (
+                 PluginMenuItem( 
+                        link_text="Job Log", 
+                        link="plugins:netbox_zabbix:joblog_list", 
+                ), 
+             )
+        ),
+    ]
+
 
 menu = PluginMenu(
     label = "Zabbix",
     icon_class = "mdi mdi-bell-check",
-    groups = (
+    groups = debug_menu + [
         ( "Admin",
             (
                 PluginMenuItem( 
@@ -167,5 +184,5 @@ menu = PluginMenu(
                 ),
             ),
         ), 
-    ),
+    ]
 )

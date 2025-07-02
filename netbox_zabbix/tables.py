@@ -51,7 +51,11 @@ EXTRA_CONFIG_BUTTONS = """
 class ConfigTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.Config
-        fields = ( 'name', 'api_endpoint', 'web_address', 'token', 'connection', 'last_checked_at', 'version', 'monitored_by', 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', 'default_tag', 'tag_prefix', 'tag_name_formatting' )
+        fields = ( 
+            'name', 'ip_assignment_method', 'auto_validate_importables', 'max_deletions', 'max_success_notifications', 'job_log_enabled', 
+            'version', 'api_endpoint', 'web_address', 'token', 'default_cidr', 'connection', 'last_checked_at', 'inventory_mode', 
+            'monitored_by', 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', 
+            'default_tag', 'tag_prefix', 'tag_name_formatting' )
         default_columns = ('name', 'api_endpoint', 'version', 'connection', 'last_checked_at')
 
     name = tables.Column( linkify=True )
@@ -573,5 +577,23 @@ class VMMappingTable(NetBoxTable):
         model = models.VMMapping
         fields = ( "name", "host_groups", "templates", "proxy", "proxy_group", "sites", "roles", "platforms", "default", "description" )
         default_columns = ( "name", "host_groups", "templates", "proxy", "proxy_group", "default" ) 
+
+
+# ------------------------------------------------------------------------------
+# JobLog
+# ------------------------------------------------------------------------------
+
+class JobLogTable(NetBoxTable):
+    name = tables.Column( linkify=True )
+    job = tables.Column( linkify=True )
+    created = tables.DateTimeColumn(  format="Y-m-d H:i:s" )
+    message = tables.Column()
+    payload = tables.Column()
+
+    class Meta:
+        model = models.JobLog
+        fields = ( 'name', 'job', 'created', 'message', 'payload')
+        default_columns = ( 'name', 'job', 'created', 'message' )
+        attrs = {'class': 'table table-hover table-headings'}
 
 # end

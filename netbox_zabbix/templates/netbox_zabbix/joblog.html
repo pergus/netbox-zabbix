@@ -1,0 +1,74 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load static %}
+{% load i18n %}
+
+{% block extra_controls %}
+{% if prev_log %}
+<a class="btn btn-outline-primary" href="{{ prev_log.get_absolute_url }}">&laquo; Previous</a>
+{% else %}
+<span class="btn btn-outline-secondary disabled">&laquo; Previous</span>
+{% endif %}
+
+{% if next_log %}
+<a class="btn btn-outline-primary" href="{{ next_log.get_absolute_url }}">Next &raquo;</a>
+{% else %}
+<span class="btn btn-outline-secondary disabled">Next &raquo;</span>
+{% endif %}
+{% endblock %}
+
+
+{% block content %}
+
+
+<div class="row">
+    <div class="col col-12 col-md-12">
+        <div class="card">
+            <h5 class="card-header">Job Details</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tbody>
+                        <tr>
+                            <th>Name</th>
+                            <td>{{ object.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Created</th>
+                            <td>{{ object.created|date:"Y-m-d H:i:s" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Job</th>
+                            <td>
+                                {% if object.job %}
+                                <a href="{{ object.job.get_absolute_url }}">{{ object.job }}</a>
+                                {% else %}
+                                <em>None</em>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Status</th>
+                            <td>{% badge object.job.get_status_display object.job.get_status_color %}</td>
+                        </tr>
+                        <tr>
+                            <th>Message</th>
+                            <td>{{ object.message|linebreaksbr }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col col-12 col-md-12">
+        <div class="card">
+            {% include 'extras/inc/configcontext_data.html' with title="Payload" data=object.payload format=format copyid="payload" %}
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}

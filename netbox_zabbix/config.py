@@ -214,4 +214,13 @@ def get_tag_name_formatting():
         The tag name formatting as specified in the configuration.
     """
     return get_config().tag_name_formatting
-        
+
+def get_job_log_enabled():
+    """
+    Retrieves the debug from the configuration.
+    
+    Returns:
+        The debug as specified in the configuration.    
+    """
+
+    return get_config().job_log_enabled

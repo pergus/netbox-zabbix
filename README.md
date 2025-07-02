@@ -9,9 +9,10 @@ NetBox plugin for Zabbix.
 
 ## Todo and Questions
 
-Verify that the mapping caches work as expected.
+!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!  Interface Type  !!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-combine"host" mappings into one model.
 
 
 rename all hostgroups to host_groups <<<<<=============================  !!!!!!

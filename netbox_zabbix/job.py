@@ -40,6 +40,9 @@ class AtomicJobRunner(JobRunner):
     # Note: job.data has to be set **before** terminating the job.
     @classmethod
     def handle(cls, job, *args, **kwargs):
+        
+        cls.job = job
+
         try:
             job.start()
             with transaction.atomic():

@@ -3,6 +3,7 @@
 
 {% block content %}
 <div class="row">
+
   <div class="col col-md-6">
     <div class="card">
       <h5 class="card-header">General</h5>
@@ -19,8 +20,55 @@
             <td>{{ object.get_ip_assignment_method_display }}</td>
           </tr>
 
+          <tr>
+            <th scope="row">Auto Validate Importables</th>
+            <td>{{ object.auto_validate_importables }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">Max Deletions On Import</th>
+            <td>{{ object.max_deletions }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">Max Success Notifications</th>
+            <td>{{ object.max_success_notifications }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">IP Assignment Method</th>
+            <td>{{ object.ip_assignment_method }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">Job Log Enabled</th>
+            <td>{{ object.job_log_enabled }}</td>
+          </tr>
 
         </table>
+      </div>
+    </div>
+
+    <div class="col col-md-12">
+      <div class="card">
+        <h5 class="card-header">Zabbix Tags</h5>
+        <div class="card-body">
+          <table class="table table-hover attr-table">
+            <tr>
+              <th scope="row">Default Tag</th>
+              <td>{{ object.default_tag }}</td>
+            </tr>
+            <tr>
+              <th scope="row">Tag Prefix</th>
+              <td>{{ object.tag_prefix }}</td>
+            </tr>
+            <tr>
+              <th scope="row">Tag Name Formatting</th>
+              <td>{{ object.tag_name_formatting }}</td>
+            </tr>
+
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -44,6 +92,11 @@
           <tr>
             <th scope="row">Web Address</th>
             <td>{{ object.web_address }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">Default CIDR</th>
+            <td>{{ object.default_cidr }}</td>
           </tr>
 
           <tr>
@@ -76,6 +129,16 @@
             <td>{{ object.get_tls_accept_display }}</td>
           </tr>
 
+          <tr>
+            <th scope="row">PSK Identity</th>
+            <td>{{ object.tls_psk_identity }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">TLS PSK</th>
+            <td>{{ object.tls_psk }}</td>
+          </tr>
+
 
         </table>
       </div>
@@ -83,5 +146,8 @@
   </div>
 
 </div>
+
+
+
 
 {% endblock %}

@@ -16,6 +16,7 @@ from netbox_zabbix.models import (
     DeviceZabbixConfig,
     DeviceAgentInterface,
     DeviceSNMPv3Interface,
+    TypeChoices,
 #    VMAgentInterface,
 #    VMSNMPv3Interface,
     DeviceMapping,
@@ -30,7 +31,8 @@ from netbox_zabbix.models import (
     MonitoredByChoices,
     InventoryModeChoices,
     TLSConnectChoices,
-    TagNameFormattingChoices
+    TagNameFormattingChoices,
+    JobLog
 )
 from netbox_zabbix.config import (
     get_inventory_mode,
@@ -42,14 +44,14 @@ from netbox_zabbix.config import (
     get_tls_connect, 
     get_tls_psk, 
     get_tls_psk_identity,
-    get_tag_name_formatting
+    get_tag_name_formatting,
+    get_job_log_enabled,
 )
 from netbox_zabbix.utils import ( 
     get_zabbix_tags_for_object,
     get_zabbix_inventory_for_object
 )
 from netbox_zabbix.logger import logger
-
 
 # ------------------------------------------------------------------------------
 # Helper Classes and Functions 
@@ -470,25 +472,6 @@ def get_tags(obj, existing_tags=None):
     return result
 
 
-#def get_inventory( obj ):
-#
-#    logger.info( f"{type(obj.site)=}" )
-#    name      = obj.name if obj.name else ""
-#    os        = obj.platform.name if obj.platform else ""
-#    location  = obj.site.name if obj.site else ""
-#    longitude = obj.site.longitude if obj.site and obj.site.longitude else ""
-#    latitude  = obj.site.latitude if obj.site and obj.site.latitude else ""
-#
-#    logger.info( f'name": {name}, "os": {os}, "location": {location}, "location_lon": {longitude}, "location_lat": {latitude}' )
-#        
-#    return {
-#        "name": name,
-#        "os": os,
-#        "location": location,
-#        "location_lon": longitude,
-#        "location_lat": latitude
-#    }
-
 
 # ------------------------------------------------------------------------------
 #  Payload
@@ -620,10 +603,24 @@ def quick_add_interface(
 
     monitored_by = get_monitored_by()
 
+
+    try:
+        default_mapping = DeviceMapping.objects.filter( default=True )
+    except DeviceMapping.DoesNotExist:
+        raise Exception( f"No default device mapping defined. Unable to add interface to {obj.name}" )
+    except DeviceMapping.MultipleObjectsReturned:
+        raise Exception( f"Multiple default device mappings found. Unable to add interface to {obj.name}" )
+    except Exception as e:
+        raise Exception(f"Unexpected error while retrieving default device mapping for {obj.name}: {e}")
+    
     try:
        mapping = DeviceMapping.get_matching_filter( obj )
+       if interface_model.type != mapping.interface_type:
+           logger.info(f"Interface type mismatch for {obj.name}, falling back to default mapping.")
+           mapping = default_mapping
     except Exception as e:
-        raise Exception( f"Failed to validate mappings: {e}" )
+        logger.info( f"Using default mapping for {obj.name}: {e}" )
+        mapping = default_mapping
 
     try:
         zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
@@ -685,8 +682,15 @@ def quick_add_interface(
     except Exception as e:
         raise Exception( f"Failed to build payload: {e}" )
 
+    try:
+        zcfg.full_clean()
+        zcfg.save()
+    except Exception as e:
+        raise Exception( f"Failed to save Zabbix configuration: {e}" )
+    
     logger.info( f"{json.dumps(payload, indent=2)}" )
-    return zcfg
+
+    return payload
 
 
 # ------------------------------------------------------------------------------
@@ -852,13 +856,15 @@ class DeviceQuickAddAgent( AtomicJobRunner ):
 
     @classmethod
     def run(cls, *args, **kwargs):
-        device = kwargs.get( "device" )
+        device = kwargs.get( "device", None )
+        #job = kwargs.get("job", None)
 
         if not device:
             raise ValueError( "Missing required argument: device." )
         
         try:
-            device_quick_add_agent( device )
+            payload = device_quick_add_agent( device )
+            #JobLog.objects.create( name = device.name, job=job, payload=payload )
         except Exception as e:
             msg = f"Failed to create Zabbix configuration for device '{device.name}': { str( e ) }"
             logger.info( msg )
@@ -883,8 +889,52 @@ class DeviceQuickAddAgent( AtomicJobRunner ):
                 }
         
         if interval is None:
-            netbox_job = cls.enqueue(**job_args)
+            netbox_job = cls.enqueue( **job_args )
         else:
-            netbox_job = cls.enqueue_once(**job_args)
+            netbox_job = cls.enqueue_once( **job_args )
+        
+        return netbox_job
+    
+
+class DebugJob( AtomicJobRunner ):
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+        device = kwargs.get( "device", None )
+        if not device:
+            raise ValueError( "Missing required argument: device." )
+        
+        payload = {
+                    "Type": "Device",
+                    "tags": ["Region:eu", "Cluster:prod"],
+                    "inventory": {"site": "Paris", "location": None}
+        }
+
+        job = getattr(cls, "job", None)
+        
+        if get_job_log_enabled():
+            JobLog.objects.create( name = device.name, job=job, payload=payload )
+        return f"DebugJob ok"
+            
+    @classmethod
+    def run_job(cls, device, user, schedule_at=None, interval=None, immediate=False):
+
+        name = slugify(f"DebugJob {device.name}")
+        
+        job_args = {
+                    "name": name,
+                    "schedule_at": schedule_at,
+                    "interval": interval,
+                    "immediate": immediate,
+                    "user": user,
+                    "api_endpoint": get_zabbix_api_endpoint(),
+                    "token": SecretStr(get_zabbix_token()),
+                    "device": device,
+                }
+        
+        if interval is None:
+            netbox_job = cls.enqueue( **job_args )
+        else:
+            netbox_job = cls.enqueue_once( **job_args )
         
         return netbox_job

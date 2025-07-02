@@ -237,5 +237,17 @@ urlpatterns = (
     path( 'virtual-machines/mappings/<int:pk>/edit/',      views.VMMappingEditView.as_view(),   name='vmmapping_edit' ),
     path( 'virtual-machines/mappings/<int:pk>/delete/',    views.VMMappingDeleteView.as_view(), name='vmmapping_delete' ),
     path( 'virtual-machines/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),       name='vmmapping_changelog', kwargs={'model': models.VMMapping}  ),
-        
+    
+
+    # --------------------------------------------------------------------------
+    # JobLog
+    # --------------------------------------------------------------------------
+    
+    path( 'logs/',                   views.JobLogListView.as_view(),   name='joblog_list' ),
+    path( 'logs/add',                views.JobLogEditView.as_view(),   name='joblog_add' ),
+    path( 'logs/<int:pk>/',          views.JobLogView.as_view(),       name='joblog' ),
+    path( 'logs/<int:pk>/edit',      views.JobLogEditView.as_view(),   name='joblog_edit' ),
+    path( 'logs/<int:pk>/delete',    views.JobLogDeleteView.as_view(), name='joblog_delete' ),
+    path( 'logs/<int:pk>/changelog', ObjectChangeLogView.as_view(),    name='joblog_changelog', kwargs={'model': models.JobLog} ),
+
  ) 

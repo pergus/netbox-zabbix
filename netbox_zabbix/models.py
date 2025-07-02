@@ -4,6 +4,7 @@ from django.db import models
 from django.urls import reverse
 
 from dcim.models import Device, DeviceRole, Interface, Platform, Site
+from core.models import Job
 from netbox.models import NetBoxModel
 from virtualization.models import VMInterface
 
@@ -81,13 +82,44 @@ class Config(NetBoxModel):
         verbose_name = "Zabbix Configuration"
         verbose_name_plural = "Zabbix Configurations"
 
+    # General
     name                     = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the configuration." )
+    ip_assignment_method = models.CharField(
+        verbose_name="IP Assignment Method",
+        max_length=16,
+        choices=IPAssignmentChoices.choices,
+        default=IPAssignmentChoices.PRIMARY,
+        help_text="Method used to assign IPs to host interfaces."
+    )
+    auto_validate_importables = models.BooleanField( verbose_name="Validate Importables", default=False, help_text="Automatically validate importable hosts before displaying them. Otherwise, validation is manual." )
+    max_deletions = models.IntegerField(
+        verbose_name="Max Deletions On Import",
+        default=3,
+        help_text="Limits deletions of stale entries on Zabbix imports."
+    )    
+    max_success_notifications = models.IntegerField(
+        verbose_name="Maximum Success Notifications",
+        default=3,
+        help_text="Max number of success messages shown per job."
+    )
+    
+    job_log_enabled = models.BooleanField( verbose_name="Job Log Enabled", default=False )
+
+    # Zabbix
+    version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
     api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
     web_address              = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to the Zabbix web interface." )
     token                    = models.CharField( verbose_name="Token", max_length=255, help_text="Zabbix access token." )
+    default_cidr = models.CharField(
+        verbose_name="Default CIDR",
+        max_length=4,
+        choices=CIDRChoices.choices,
+        default=CIDRChoices.CIDR_24,
+        help_text="CIDR suffix used for interface IP lookups in NetBox."
+    )
+    
     connection               = models.BooleanField( verbose_name="Connection", default=False )
     last_checked_at          = models.DateTimeField( verbose_name="Last Checked At", null=True, blank=True )
-    version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
 
     inventory_mode = models.IntegerField(
         verbose_name="Inventory Mode",
@@ -133,6 +165,8 @@ class Config(NetBoxModel):
         help_text="Pre-shared key (at least 32 hex digits)."
     )
 
+    # Tags
+
     default_tag = models.CharField(
         verbose_name="Default Tag",
         max_length=255,
@@ -140,7 +174,7 @@ class Config(NetBoxModel):
         blank=True,
         help_text="Tag applied to all hosts."
     )
-
+    
     tag_prefix = models.CharField(
         verbose_name="Tag Prefix",
         max_length=255,
@@ -148,38 +182,9 @@ class Config(NetBoxModel):
         blank=True,
         help_text="Prefix added to all tags."
     )
-
+    
     tag_name_formatting =  models.CharField( verbose_name="Tag Name Formatting", choices=TagNameFormattingChoices, default=TagNameFormattingChoices.KEEP, help_text="Tag name formatting.")
-
-    auto_validate_importables = models.BooleanField( verbose_name="Validate Importables", default=False, help_text="Automatically validate importable hosts before displaying them. Otherwise, validation is manual." )
-
-    max_deletions = models.IntegerField(
-        verbose_name="Max Deletions On Import",
-        default=3,
-        help_text="Limits deletions of stale entries on Zabbix imports."
-    )
-
-    max_success_notifications = models.IntegerField(
-        verbose_name="Maximum Success Notifications",
-        default=3,
-        help_text="Max number of success messages shown per job."
-    )
-
-    default_cidr = models.CharField(
-        verbose_name="Default CIDR",
-        max_length=4,
-        choices=CIDRChoices.choices,
-        default=CIDRChoices.CIDR_24,
-        help_text="CIDR suffix used for interface IP lookups in NetBox."
-    )
-
-    ip_assignment_method = models.CharField(
-        verbose_name="IP Assignment Method",
-        max_length=16,
-        choices=IPAssignmentChoices.choices,
-        default=IPAssignmentChoices.PRIMARY,
-        help_text="Method used to assign IPs to host interfaces."
-    )
+    
 
     def __str__(self):
         return self.name
@@ -482,7 +487,7 @@ class BaseAgentInterface(HostInterface):
         
         
         return super().save(*args, **kwargs)
-    
+
 
 class BaseSNMPv3Interface(HostInterface):
     class Meta:
@@ -562,7 +567,7 @@ class BaseSNMPv3Interface(HostInterface):
             return self._get_primary_ip()
         else:
             return self.ip_address
-    
+
 
 class DeviceAgentInterface(BaseAgentInterface):
     class Meta:
@@ -577,7 +582,7 @@ class DeviceAgentInterface(BaseAgentInterface):
 
     # IP address used by tahe interface. Can be empty if connection is made via DNS.
     ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="device_agent_interface" )
-    
+
 
 class DeviceSNMPv3Interface(BaseSNMPv3Interface):
     class Meta:
@@ -592,7 +597,7 @@ class DeviceSNMPv3Interface(BaseSNMPv3Interface):
     
     # IP address used by the interface. Can be empty if connection is made via DNS.
     ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="device_snmp3_interface" )
-    
+
 
 class VMAgentInterface(BaseAgentInterface):
     class Meta:
@@ -607,7 +612,7 @@ class VMAgentInterface(BaseAgentInterface):
 
     # IP address used by tahe interface. Can be empty if connection is made via DNS.
     ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="vm_agent_interface" )
-    
+
 
 class VMSNMPv3Interface(BaseSNMPv3Interface):
     class Meta:
@@ -622,7 +627,7 @@ class VMSNMPv3Interface(BaseSNMPv3Interface):
     
     # IP address used by the interface. Can be empty if connection is made via DNS.
     ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="vm_snmp3_interface" )
-    
+
 
 # ------------------------------------------------------------------------------
 # Interfaces Proxy Models
@@ -801,7 +806,27 @@ class VMMapping(Mapping):
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:vmmapping", args=[self.pk] )
+
+
+
+# ------------------------------------------------------------------------------
+# JobLog
+# ------------------------------------------------------------------------------
+
+class JobLog(NetBoxModel):
+    name = models.CharField( max_length=256, help_text="Name of the device or virtual machine" )
+    job = models.ForeignKey( Job, on_delete=models.CASCADE, null=True, related_name='logs', help_text="Job reference." )
+    payload = models.JSONField( help_text="Raw JSON payload of the log." )
+    created = models.DateTimeField( auto_now_add=True )
+    message = models.TextField(blank=True, help_text="Optional human-readable message.")
     
+    class Meta:
+        ordering = ['-created']
     
+    def __str__(self):
+        return f"Log {self.name}@{self.job}"
+    
+    def get_absolute_url(self):
+       return reverse( 'plugins:netbox_zabbix:joblog', args=[self.pk] )
 
 # end
