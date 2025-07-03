@@ -53,6 +53,9 @@ from netbox_zabbix.utils import (
 )
 from netbox_zabbix.logger import logger
 
+
+
+
 # ------------------------------------------------------------------------------
 # Helper Classes and Functions 
 # ------------------------------------------------------------------------------
@@ -590,12 +593,6 @@ def quick_add_interface(
     interface_model,
     interface_name_suffix,
     interface_kwargs_fn,
-    template_model,
-    hostgroup_model,
-    proxy_model,
-    proxy_group_model,
-    get_name_fn,
-    build_payload_fn=build_payload
 ):
     """
     Shared logic for adding either Agent or SNMPv3 interfaces.
@@ -642,7 +639,7 @@ def quick_add_interface(
     # Templates
     for template in mapping.templates.all():
         try:
-            zcfg.templates.add( template_model.objects.get( name=template.name ) )
+            zcfg.templates.add( Template.objects.get( name=template.name ) )
         except Exception as e:
             msg = f"Failed to add template {template.name}: {e}"
             logger.info( f"{msg}" )
@@ -651,7 +648,7 @@ def quick_add_interface(
     # Host Groups
     for hostgroup in mapping.host_groups.all():
         try:
-            zcfg.host_groups.add( hostgroup_model.objects.get( name=hostgroup.name ) )
+            zcfg.host_groups.add( HostGroup.objects.get( name=hostgroup.name ) )
         except Exception as e:
             msg = f"Failed to add host group {hostgroup.name}: {e}"
             logger.info( f"{msg}" )
@@ -664,7 +661,7 @@ def quick_add_interface(
     # Proxy
     if monitored_by == MonitoredByChoices.Proxy:
         try:            
-            zcfg.proxy = proxy_model.objects.get( name=mapping.proxy.name )
+            zcfg.proxy = Proxy.objects.get( name=mapping.proxy.name )
         except Exception as e:
             msg = f"Failed to add proxy {mapping.proxy.name}: {e}"
             logger.info( f"{msg}" )
@@ -673,7 +670,7 @@ def quick_add_interface(
     # Proxy Group
     if monitored_by == MonitoredByChoices.ProxyGroup:
         try:
-            zcfg.proxy_group = proxy_group_model.objects.get( name=mapping.proxy_group.name )
+            zcfg.proxy_group = ProxyGroup.objects.get( name=mapping.proxy_group.name )
         except Exception as e:
             msg = f"Failed to add proxy group {mapping.proxy_group.name}: {e}"
             logger.info( msg )
@@ -681,14 +678,14 @@ def quick_add_interface(
 
     ip = getattr( obj, "primary_ip4", None )
     if not ip:
-        msg = f"{get_name_fn(obj)} does not have a primary IPv4 address"
+        msg = f"{obj.name} does not have a primary IPv4 address"
         logger.info( msg )
         raise Exception( msg )
 
     # Create the interface
     try:
         interface_fields = dict(
-            name=f"{get_name_fn(obj)}-{interface_name_suffix}",
+            name=f"{obj.name}-{interface_name_suffix}",
             host=zcfg,
             interface=ip.assigned_object,
             ip_address=ip,
@@ -703,7 +700,7 @@ def quick_add_interface(
         raise Exception( msg )
 
     try:
-        payload = build_payload_fn( zcfg )
+        payload = build_payload( zcfg )
     except Exception as e:
         msg = f"Failed to build payload: {e}"
         logger.info( msg )
@@ -734,11 +731,6 @@ def device_quick_add_agent(device):
         interface_model=DeviceAgentInterface,
         interface_name_suffix="agent",
         interface_kwargs_fn=lambda: {},
-        template_model=Template,
-        hostgroup_model=HostGroup,
-        proxy_model=Proxy,
-        proxy_group_model=ProxyGroup,
-        get_name_fn=lambda obj: obj.name,
     )
 
 
@@ -762,11 +754,6 @@ def quick_add_device_snmpv3(device):
         interface_model=DeviceSNMPv3Interface,
         interface_name_suffix="snmpv3",
         interface_kwargs_fn=lambda: snmp_defaults,
-        template_model=Template,
-        hostgroup_model=HostGroup,
-        proxy_model=Proxy,
-        proxy_group_model=ProxyGroup,
-        get_name_fn=lambda obj: obj.name,
     )
 
 

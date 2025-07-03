@@ -41,6 +41,7 @@ class ZConfiguration(PluginConfig):
         "inventory_mapping": {
             'device': [
                 ("Name",      "name",         ["name"]),
+                ("Slask",     "slask",        ["slask.name"]),
                 ("Platform",  "os",           ["platform.name"]),
                 ("Location",  "location",     ["location.name", "site.name"]),
                 ("Latitude",  "location_lat", ["location.site.latitude", "site.latitude"]),
@@ -61,7 +62,7 @@ class ZConfiguration(PluginConfig):
             super().ready()
             # Import and register signals
             from .signals import signals
-    
+            
             # Register api
             #from netbox_zabbix.api import urls as api_urls        
             #api_urls = api_urls

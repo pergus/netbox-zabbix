@@ -21,6 +21,8 @@ from virtualization.forms import VirtualMachineFilterForm
 
 from netbox_zabbix import models
 from netbox_zabbix import zabbix as z
+from netbox_zabbix.inventory_properties import inventory_properties
+
 from netbox_zabbix.logger import logger
 
 
@@ -720,16 +722,19 @@ class InventoryMappingForm(NetBoxModelForm):
 
         # Dynamically add BooleanFields for each field with initial enabled value
         for name, invkey, _ in inventory_mapping:
-            # Use a unique prefix for the form field key to avoid name
-            # collisions with existing NetBox fields. 
-            # This allows us to safely use common or duplicate display names in
-            # 'inventory_mapping', such as "Tags".
-            field_key = slugify( f"{self.prefix}_{name}" )
-            self.fields[field_key] = forms.BooleanField(
-                label=name,
-                required=False,
-                initial=existing_selection.get( name, False ),
-            )
+            if invkey in inventory_properties:
+                # Use a unique prefix for the form field key to avoid name
+                # collisions with existing NetBox fields. 
+                # This allows us to safely use common or duplicate display names in
+                # 'inventory_mapping', such as "Tags".
+                field_key = slugify( f"{self.prefix}_{name}" )
+                self.fields[field_key] = forms.BooleanField(
+                    label=name,
+                    required=False,
+                    initial=existing_selection.get( name, False ),
+                )
+            else:
+                logger.info( f"{invkey} is not a legal inventory property" )
 
 
     def clean_object_type(self):

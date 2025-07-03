@@ -1,6 +1,8 @@
 # utils.py
 from netbox_zabbix import models
 from netbox_zabbix.config import get_default_tag, get_tag_prefix
+from netbox_zabbix.inventory_properties import inventory_properties
+
 from netbox_zabbix.logger import logger
 
 def resolve_field_path(obj, path):
@@ -18,7 +20,6 @@ def resolve_field_path(obj, path):
         return obj
     except AttributeError:
         return None
-
 
 def get_zabbix_inventory_for_object (obj):
     if obj._meta.model_name == 'device':
@@ -38,7 +39,12 @@ def get_zabbix_inventory_for_object (obj):
     for field in mapping.selection:
         if not field.get( "enabled" ):
             continue
+        
         invkey = str( field.get( "invkey" ) )
+        if invkey not in inventory_properties:
+            logger.info( f"{invkey} is not a legal inventory property" )
+            continue
+
         paths = field.get( "paths" )
 
         for path in paths:
