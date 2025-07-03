@@ -25,6 +25,7 @@ class Command(BaseCommand):
     num_devices = config['num_devices']
     num_vms = config['num_vms']
 
+    dns_domain = config["dns_domain"]
     region_code = config['region_codes']
     sites = config['sites']
     cluster_types = config['cluster_types']
@@ -47,6 +48,7 @@ class Command(BaseCommand):
         self.create_devices(self.num_devices)
         self.create_virtual_machines(self.num_vms)
         self.stdout.write(self.style.SUCCESS("Successfully created demo Devices and VMs with IPs."))
+
 
     def setup_demo_data(self):
         self.create_regions()
@@ -182,7 +184,7 @@ class Command(BaseCommand):
         random.shuffle(pool)
         return pool
 
-    def allocate_ip(self):
+    def allocate_ip(self, hostname=None):
         if not self.ip_pool:
             raise RuntimeError("No IPs left in pool")
     
@@ -197,6 +199,11 @@ class Command(BaseCommand):
                 continue
     
             ip_obj, _ = IPAddress.objects.get_or_create(address=ip_with_prefix)
+
+            if hostname and not ip_obj.dns_name:
+                ip_obj.dns_name = f"{hostname}.{self.dns_domain}"
+                ip_obj.save()
+
             return ip_obj
     
         raise RuntimeError("No unused IPs available for primary assignment")
@@ -243,7 +250,7 @@ class Command(BaseCommand):
             dev.tags.set(random.sample(tags, 2))
 
             iface = Interface.objects.create(device=dev, name="eth0")
-            ip = self.allocate_ip()
+            ip = self.allocate_ip(hostname=name)
             iface.ip_addresses.add(ip)
             dev.primary_ip4 = ip
             dev.save()
@@ -281,7 +288,7 @@ class Command(BaseCommand):
             vm.tags.set(random.sample(tags, 2))
 
             iface = VMInterface.objects.create(virtual_machine=vm, name="eth0")
-            ip = self.allocate_ip()
+            ip = self.allocate_ip(hostname=name)
             iface.ip_addresses.add(ip)
             vm.primary_ip4 = ip
             vm.save()

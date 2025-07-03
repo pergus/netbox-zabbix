@@ -1,3 +1,4 @@
+from re import U
 from django.utils.text import slugify
 
 from ipam.models import IPAddress
@@ -27,12 +28,12 @@ from netbox_zabbix.models import (
     VMSNMPv3Interface,
     VMZabbixConfig,
     VMAgentInterface,
+    UseIPChoices,
     StatusChoices,
     MonitoredByChoices,
     InventoryModeChoices,
     TLSConnectChoices,
     TagNameFormattingChoices,
-    JobLog
 )
 from netbox_zabbix.config import (
     get_inventory_mode,
@@ -51,6 +52,9 @@ from netbox_zabbix.utils import (
     get_zabbix_tags_for_object,
     get_zabbix_inventory_for_object
 )
+
+from netbox_zabbix.zabbix import create_host
+
 from netbox_zabbix.logger import logger
 
 
@@ -82,7 +86,7 @@ def normalize_interface(iface: dict) -> dict:
     """Convert string values in Zabbix interface dict to appropriate types."""
 
     details = iface.get("details")
-    if not isinstance(details, dict):
+    if not isinstance( details, dict ):
         details = {}
 
     base = {
@@ -170,12 +174,12 @@ def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine])
         raise Exception( f"NetBox host name '{host.name}' does not match Zabbix host name '{zabbix_name}'" )
 
     # Check for existing Zabbix config objects
-    if isinstance(host, Device):
-        if hasattr(host, 'devicezabbixconfig') and host.devicezabbixconfig is not None:
+    if isinstance( host, Device ):
+        if hasattr( host, 'devicezabbixconfig' ) and host.devicezabbixconfig is not None:
             raise Exception(f"Device '{host.name}' already has a DeviceZabbixConfig associated")
     else:  # VirtualMachine
-        if hasattr(host, 'vmzabbixconfig') and host.vmzabbixconfig is not None:
-            raise Exception(f"VM '{host.name}' already has a VMZabbixConfig associated")
+        if hasattr( host, 'vmzabbixconfig' ) and host.vmzabbixconfig is not None:
+            raise Exception( f"VM '{host.name}' already has a VMZabbixConfig associated" )
     
     # Validate Zabbix templates exists in NetBox
     zabbix_templates = zabbix_host.get( "parentTemplates", [] )
@@ -192,7 +196,7 @@ def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine])
     valid_interface_types = {1, 2}  # 1 = Agent, 2 = SNMP
 
     # Determine the correct IPAddress foreign key field based on host type
-    ip_field = "interface" if isinstance(host, Device) else "vminterface"
+    ip_field = "interface" if isinstance( host, Device ) else "vminterface"
     
 
     netbox_ips = {
@@ -287,15 +291,14 @@ def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine])
             iface_type_str = "Agent" if iface_type == 1 else "SNMP"
             raise Exception(f"Duplicate {iface_type_str} interface for NetBox interface ID {nb_interface_id}")
         used_nb_interfaces[iface_type].add(nb_interface_id)
-        
-        
-    return True
+
+    return { "payload": zabbix_host, "message": f"'{host.name}' is valid" }
 
 # ------------------------------------------------------------------------------
 # Import from Zabbix
 # ------------------------------------------------------------------------------
 
-def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interface_model, snmpv3_interface_model, interface_model, is_vm: bool = False):
+def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interface_model, snmpv3_interface_model, is_vm: bool = False):
     """
     Generic helper to create Device or VirtualMachine Zabbix Configation from
     a Zabbix Host configuration
@@ -307,7 +310,7 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
 
     # Map the instance type to its field name on the config model
     instance_type = "virtual_machine" if is_vm else "device"
-    
+
 
     # Ensure config doesn't already exist
     if config_model.objects.filter( **{instance_type: instance} ).exists():
@@ -410,27 +413,26 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
         else:
             raise Exception( f"Unsupported Zabbix interface type {iface['type']}" )
 
+    return { "payload": zabbix_host, "message": f"imported {instance.name} from Zabbix to NetBox" }
 
 def import_device_config(zabbix_host: dict, device: Device):
-    import_zabbix_config(
+    return import_zabbix_config(
         zabbix_host,
         instance=device,
         config_model=DeviceZabbixConfig,
         agent_interface_model=DeviceAgentInterface,
         snmpv3_interface_model=DeviceSNMPv3Interface,
-        interface_model=DeviceInterface,
         is_vm=False
     )
 
 
 def import_vm_config(zabbix_host: dict, vm: VirtualMachine):
-    import_zabbix_config(
+    return import_zabbix_config(
         zabbix_host,
         instance=vm,
         config_model=VMZabbixConfig,
         agent_interface_model=VMAgentInterface,
         snmpv3_interface_model=VMSNMPv3Interface,
-        interface_model=VMInterface,
         is_vm=True
     )
 
@@ -475,7 +477,6 @@ def get_tags(obj, existing_tags=None):
     return result
 
 
-
 # ------------------------------------------------------------------------------
 #  Payload
 # ------------------------------------------------------------------------------
@@ -499,14 +500,14 @@ def build_payload(zcfg) -> dict:
         raise Exception( "Zabbix config is not linked to a device or virtual machine." )
 
     payload = {}
-    payload["host"] = zcfg.get_name()
+    payload["host"] = linked_obj.name
 
     # Host ID (for updates)
     if zcfg.hostid:
-        payload["hostid"] = zcfg.hostid
+        payload["hostid"] = str( zcfg.hostid )
 
     # Status
-    payload["status"] = zcfg.status
+    payload["status"] = str( zcfg.status )
 
     # Monitoring proxy/proxy group
     monitored_by = zcfg.monitored_by
@@ -616,7 +617,7 @@ def quick_add_interface(
         msg = f"Unexpected error while retrieving default device mapping for {obj.name}: {e}"
         logger.info( f"{msg}" )
         raise Exception( msg )
-    
+
     try:
        mapping = DeviceMapping.get_matching_filter( obj )
        if mapping.interface_type != InterfaceTypeChoices.Any and interface_model.type != mapping.interface_type:
@@ -629,7 +630,8 @@ def quick_add_interface(
     job_log_message = f"Using mapping {mapping.name} for {obj.name}"
 
     try:
-        zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
+        # TODO(pergus): Disable mointoring by default while testing
+        zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.DISABLED }
         zcfg = zabbix_config_model( **zcfg_kwargs )
         zcfg.full_clean()
         zcfg.save()
@@ -653,7 +655,6 @@ def quick_add_interface(
             msg = f"Failed to add host group {hostgroup.name}: {e}"
             logger.info( f"{msg}" )
             raise Exception( msg )
-
 
     # Monitored by
     zcfg.monitored_by = monitored_by
@@ -682,6 +683,13 @@ def quick_add_interface(
         logger.info( msg )
         raise Exception( msg )
 
+    # If there is a dns name then Zabbix should connect using the dns name
+    if getattr( ip, "dns_name", None ):
+        useip = UseIPChoices.DNS
+    else:
+        useip = UseIPChoices.IP
+
+
     # Create the interface
     try:
         interface_fields = dict(
@@ -689,8 +697,10 @@ def quick_add_interface(
             host=zcfg,
             interface=ip.assigned_object,
             ip_address=ip,
+            useip=useip
         )
         interface_fields.update( interface_kwargs_fn() )
+        logger.info( f"{interface_fields['interface']=}" )
         iface = interface_model( **interface_fields )
         iface.full_clean()
         iface.save()
@@ -706,6 +716,25 @@ def quick_add_interface(
         logger.info( msg )
         raise Exception( msg )
 
+
+
+    # Create the host in Zabbix
+    try:
+        result = create_host( **payload )
+        logger.info( f"{json.dumps( result, indent=2 )}" )
+        hostid = result.get("hostids", [None])[0]  # Safely get first hostid or None if missing
+        if not hostid:
+            msg = f"Failed to create host configuration in Zabbix for {obj.name}: {e}"
+            logger.info( msg )
+            raise Exception( msg )
+        zcfg.hostid = int( hostid )
+    
+    except Exception as e:
+        msg = f"Failed to create host configuration in Zabbix for {obj.name}: {e}"
+        logger.info( msg )
+        raise Exception( msg )
+    
+    # Store the Zabbix configuration 
     try:
         zcfg.full_clean()
         zcfg.save()
@@ -714,9 +743,10 @@ def quick_add_interface(
         logger.info( msg )
         raise Exception( msg )
     
-    logger.info( f"{json.dumps(payload, indent=2)}" )
+    logger.info( f"{json.dumps( payload, indent=2 )}" )
 
-    return payload, job_log_message
+
+    return { "payload": payload, "message": job_log_message }
 
 
 # ------------------------------------------------------------------------------
@@ -757,7 +787,6 @@ def quick_add_device_snmpv3(device):
     )
 
 
-
 #-------------------------------------------------------------------------------
 # Jobs
 # ------------------------------------------------------------------------------
@@ -767,6 +796,7 @@ class ValidateDeviceOrVM( AtomicJobRunner ):
     @classmethod
     def run(cls, *args, **kwargs):
         device_or_vm = kwargs.get( "device_or_vm" )
+                
         if not device_or_vm:
             raise ValueError( "Missing required argument: device_or_vm." )
         try:
@@ -776,13 +806,10 @@ class ValidateDeviceOrVM( AtomicJobRunner ):
             raise ValueError( e )
         
         try:
-            validate_zabbix_host( zabbix_host, device_or_vm )
+            return validate_zabbix_host( zabbix_host, device_or_vm )
         except Exception as e:
             logger.info( f"validating '{device_or_vm.name}' failed: {str( e ) }" )
             raise ValueError( e )
-        
-        logger.info( f"'{device_or_vm.name}' is valid" )
-        return f"'{device_or_vm.name}' is valid"
 
     @classmethod
     def run_job(cls, device_or_vm, user, schedule_at=None, interval=None, immediate=False):
@@ -804,7 +831,7 @@ class ValidateDeviceOrVM( AtomicJobRunner ):
             netbox_job = cls.enqueue_once(**job_args)
     
         return netbox_job
-    
+
 
 class ImportFromZabbix( AtomicJobRunner ):
     """
@@ -826,7 +853,6 @@ class ImportFromZabbix( AtomicJobRunner ):
     @classmethod
     def run(cls, *args, **kwargs):
         device_or_vm = kwargs.get( "device_or_vm" )
-
         if not device_or_vm:
             raise ValueError( "Missing required argument: device_or_vm." )
 
@@ -835,16 +861,14 @@ class ImportFromZabbix( AtomicJobRunner ):
             
             # Call appropriate create function based on type
             if isinstance( device_or_vm, Device):
-                import_device_config( zbx_host, device_or_vm )
+                return import_device_config( zbx_host, device_or_vm )
             elif isinstance( device_or_vm, VirtualMachine ):
-                import_vm_config( zbx_host, device_or_vm )
+                return import_vm_config( zbx_host, device_or_vm )
             else:
                 raise TypeError(f"Unsupported object type: {type(device_or_vm).__name__}")
-            
+
         except Exception as e:
             raise e
-        
-        return f"imported {device_or_vm.name} from Zabbix to NetBox"
 
     @classmethod
     def run_job(cls, device_or_vm, user, schedule_at=None, interval=None, immediate=False):
@@ -867,76 +891,26 @@ class ImportFromZabbix( AtomicJobRunner ):
 
         return netbox_job
 
-
 class DeviceQuickAddAgent( AtomicJobRunner ):
 
     @classmethod
     def run(cls, *args, **kwargs):
         device = kwargs.get( "device", None )
-        job = getattr( cls, "job", None )
 
         if not device:
             raise ValueError( "Missing required argument: device." )
 
         try:
-            payload, message = device_quick_add_agent( device )
-            if get_job_log_enabled():
-                JobLog.objects.create( name=f"DeviceQuickAddAgent-{device.name}", job=job, payload=payload, message=message )
-
+            return device_quick_add_agent( device )
         except Exception as e:
             msg = f"Failed to create Zabbix configuration for device '{device.name}': { str( e ) }"
             logger.info( msg )
             raise Exception( msg )
 
-        return f"Created Zabbix configuration and agent interface for device '{device.name}'"
-            
     @classmethod
     def run_job(cls, device, user, schedule_at=None, interval=None, immediate=False):
 
         name = slugify(f"ZBX Device Quick Add Agent {device.name}")
-        
-        job_args = {
-                    "name": name,
-                    "schedule_at": schedule_at,
-                    "interval": interval,
-                    "immediate": immediate,
-                    "user": user,
-                    "api_endpoint": get_zabbix_api_endpoint(),
-                    "token": SecretStr(get_zabbix_token()),
-                    "device": device,
-                }
-        
-        if interval is None:
-            netbox_job = cls.enqueue( **job_args )
-        else:
-            netbox_job = cls.enqueue_once( **job_args )
-        
-        return netbox_job
-    
-
-class DebugJob( AtomicJobRunner ):
-
-    @classmethod
-    def run(cls, *args, **kwargs):
-        device = kwargs.get( "device", None )
-        if not device:
-            raise ValueError( "Missing required argument: device." )
-        
-        payload = {
-                    "Type": "Device",
-                    "tags": ["Region:eu", "Cluster:prod"],
-                    "inventory": {"site": "Paris", "location": None}
-        }
-
-        job = getattr( cls, "job", None )
-        if get_job_log_enabled():
-            JobLog.objects.create( name = device.name, job=job, payload=payload )
-        return f"DebugJob ok"
-            
-    @classmethod
-    def run_job(cls, device, user, schedule_at=None, interval=None, immediate=False):
-
-        name = slugify(f"DebugJob {device.name}")
         
         job_args = {
                     "name": name,

@@ -93,11 +93,13 @@ urlpatterns = (
     # --------------------------------------------------------------------------
     
     # Zabbix Device Configuration
-    path( 'devices/zabbix-config/',                    views.DeviceZabbixConfigListView.as_view(),   name='devicezabbixconfig_list' ),
-    path( 'devices/zabbix-config/add/',                views.DeviceZabbixConfigEditView.as_view(),   name='devicezabbixconfig_add' ),
-    path( 'devices/zabbix-config/<int:pk>/',           views.DeviceZabbixConfigView.as_view(),       name='devicezabbixconfig' ),
-    path( 'devices/zabbix-config/<int:pk>/edit/',      views.DeviceZabbixConfigEditView.as_view(),   name='devicezabbixconfig_edit' ),
-    path( 'devices/zabbix-config/<int:pk>/delete/',    views.DeviceZabbixConfigDeleteView.as_view(), name='devicezabbixconfig_delete' ),
+    path( 'devices/zabbix-config/',                    views.DeviceZabbixConfigListView.as_view(),       name='devicezabbixconfig_list' ),
+    path( 'devices/zabbix-config/add/',                views.DeviceZabbixConfigEditView.as_view(),       name='devicezabbixconfig_add' ),
+    path( 'devices/zabbix-config/<int:pk>/',           views.DeviceZabbixConfigView.as_view(),           name='devicezabbixconfig' ),
+    path( 'devices/zabbix-config/<int:pk>/edit/',      views.DeviceZabbixConfigEditView.as_view(),       name='devicezabbixconfig_edit' ),
+    path( 'devices/zabbix-config/<int:pk>/delete/',    views.DeviceZabbixConfigDeleteView.as_view(),     name='devicezabbixconfig_delete' ),
+    path( 'devices/zabbix-config/delete/',             views.DeviceZabbixConfigBulkDeleteView.as_view(), name='devicezabbixconfig_bulk_delete' ),
+    
     path( 'devices/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                name='devicezabbixconfig_changelog', kwargs={'model': models.DeviceZabbixConfig} ),
 
     # VM Zabbix Configuration
@@ -243,11 +245,12 @@ urlpatterns = (
     # JobLog
     # --------------------------------------------------------------------------
     
-    path( 'logs/',                   views.JobLogListView.as_view(),   name='joblog_list' ),
-    path( 'logs/add',                views.JobLogEditView.as_view(),   name='joblog_add' ),
-    path( 'logs/<int:pk>/',          views.JobLogView.as_view(),       name='joblog' ),
-    path( 'logs/<int:pk>/edit',      views.JobLogEditView.as_view(),   name='joblog_edit' ),
-    path( 'logs/<int:pk>/delete',    views.JobLogDeleteView.as_view(), name='joblog_delete' ),
+    path( 'logs/',                   views.JobLogListView.as_view(),       name='joblog_list' ),
+    path( 'logs/add',                views.JobLogEditView.as_view(),       name='joblog_add' ),
+    path( 'logs/<int:pk>/',          views.JobLogView.as_view(),           name='joblog' ),
+    path( 'logs/<int:pk>/edit',      views.JobLogEditView.as_view(),       name='joblog_edit' ),
+    path( 'logs/<int:pk>/delete',    views.JobLogDeleteView.as_view(),     name='joblog_delete' ),
+    path( 'logs/delete/',            views.JobLogBulkDeleteView.as_view(), name='joblog_bulk_delete' ),
     path( 'logs/<int:pk>/changelog', ObjectChangeLogView.as_view(),    name='joblog_changelog', kwargs={'model': models.JobLog} ),
 
  ) 

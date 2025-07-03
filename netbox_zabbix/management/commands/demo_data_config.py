@@ -3,6 +3,7 @@
 config = {
     "num_devices": 100,
     "num_vms": 100,
+    "dns_domain": "se.axis.com",
     "region_codes": {'Sweden': 'se', 'Norway': 'no', 'Denmark': 'dk'},
 
     "sites": [

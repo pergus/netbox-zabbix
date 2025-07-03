@@ -404,6 +404,34 @@ def import_host_groups(request):
     run_import_host_groups()
     return redirect( redirect_url )
 
+# ------------------------------------------------------------------------------
+# Quick Add Zabbix Interface
+# ------------------------------------------------------------------------------
+
+def device_quick_add_agent(request):
+    redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
+
+    if request.method == 'GET':
+        device_id = request.GET.get( "device_id" )
+        device = Device.objects.filter( pk=device_id ).first()
+        if not device:
+            messages.error( request, f"No Device with id {device_id} found" )
+        else:
+            try:
+                job = jobs.DeviceQuickAddAgent.run_job( device=device, user=request.user )
+                message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
+                messages.success( request, message )
+            except Exception as e:
+                messages.error( request, str( e ) )
+
+    return redirect( redirect_url )
+
+
+def device_quick_add_snmpv3(request):
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+    return redirect( redirect_url )    
+
+
 
 # ------------------------------------------------------------------------------
 # NetBox Ony Devices
@@ -424,6 +452,39 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
             .prefetch_related( "tags" )
         )
     
+    def post(self, request, *args, **kwargs):
+    
+        if '_quick_add_agent' in request.POST:
+    
+            # Add a check to make sure there are any selected hosts, print a warning if not.    
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = Device.objects.filter( pk__in=selected_ids )
+            
+            success_counter = 0
+            max_success_messages = config.get_max_success_notifications()
+            
+            for device in queryset:
+                try:
+                    logger.info ( f"quick add agent to {device.name}" )
+                    job = jobs.DeviceQuickAddAgent.run_job( device=device, user=request.user )
+                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
+                    if success_counter < max_success_messages:
+                        messages.success( request, message )
+                        success_counter += 1
+    
+                except Exception as e:
+                    msg = f"Failed to create job for {request.user} to quick add agent to '{device}' {str( e )}"
+                    messages.error( request, msg )
+                    logger.error( msg )
+
+            if len( queryset ) > max_success_messages:
+                suppressed = len(queryset) - max_success_messages
+                messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
+
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+    
+        return super().get( request, *args, **kwargs )
+
 # ------------------------------------------------------------------------------
 # NetBox Ony VMs
 # ------------------------------------------------------------------------------
@@ -497,34 +558,6 @@ class ZabbixOnlyHostsView(GenericTemplateView):
 
 
 # ------------------------------------------------------------------------------
-# Quick Add Zabbix Interface
-# ------------------------------------------------------------------------------
-
-def device_quick_add_agent(request):
-    redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
-
-    if request.method == 'GET':
-        device_id = request.GET.get( "device_id" )
-        device = Device.objects.filter( pk=device_id ).first()
-        if not device:
-            messages.error( request, f"No Device with id {device_id} found" )
-        else:
-            try:
-                job = jobs.DeviceQuickAddAgent.run_job( device=device, user=request.user )
-                message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
-                messages.success( request, message )
-            except Exception as e:
-                messages.error( request, str( e ) )
-
-    return redirect( redirect_url )
-
-
-def device_quick_add_snmpv3(request):
-    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
-    return redirect( redirect_url )    
-    
-
-# ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------
 
@@ -548,6 +581,15 @@ class DeviceZabbixConfigDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceZabbixConfig.objects.all()
 
 
+class DeviceZabbixConfigBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.DeviceZabbixConfig.objects.all()
+    #filterset_class = filtersets.JobLogFilterSet
+    table = tables.DeviceZabbixConfigTable
+
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:devicezabbixconfig_list')
+
+
 class VMZabbixConfigView(generic.ObjectView):
     queryset = models.VMZabbixConfig.objects.all()
 
@@ -567,6 +609,10 @@ class VMZabbixConfigEditView(generic.ObjectEditView):
 class VMZabbixConfigDeleteView(generic.ObjectDeleteView):
     queryset = models.VMZabbixConfig.objects.all()
 
+
+# ------------------------------------------------------------------------------
+#  Device & VM Zabbix Configurations (Combined)
+# ------------------------------------------------------------------------------
 
 class ZabbixConfigListView(SingleTableView):
     template_name = 'netbox_zabbix/zabbixconfig_list.html'
@@ -621,6 +667,10 @@ class ZabbixConfigDeleteView(View):
         raise Http404("Host not found")
 
 
+# ------------------------------------------------------------------------------
+#  Importable Devices
+# ------------------------------------------------------------------------------
+
 class ImportableDeviceListView(generic.ObjectListView):
     table = tables.ImportableDeviceTable
     template_name = "netbox_zabbix/importabledevice_list.html"
@@ -646,6 +696,7 @@ class ImportableDeviceListView(generic.ObjectListView):
 
 
     def post(self, request, *args, **kwargs):
+
         if '_validate_device' in request.POST:
             selected_ids = request.POST.getlist( 'pk' )
         
@@ -658,7 +709,7 @@ class ImportableDeviceListView(generic.ObjectListView):
                 if device:
                     try:
                         logger.info( f"Validating device: {device.name}" )
-                        result = jobs.ValidateDeviceOrVM.run_now( device_or_vm=device, user=request.user )
+                        result = jobs.ValidateDeviceOrVM.run_now( device_or_vm=device, user=request.user, name=f"validate {device.name}" )
                         messages.success( request, result )
                     except Exception as e:
                         messages.error( request, str( e ) )
@@ -677,7 +728,7 @@ class ImportableDeviceListView(generic.ObjectListView):
             
             for device in queryset:
                 try:
-                    logger.info ( f"importing device {device.name}" )                    
+                    logger.info ( f"importing device {device.name}" )
                     job = jobs.ImportFromZabbix.run_job( device_or_vm=device, user=request.user )
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )
                     if success_counter < max_success_messages:
@@ -689,15 +740,18 @@ class ImportableDeviceListView(generic.ObjectListView):
                     messages.error( request, msg )
                     logger.error( msg )
 
-            if success_counter == max_success_messages:
-                messages.info(request, f"Queued {len(queryset) - success_counter} more jobs without notifications.")
-
+            if len( queryset ) > max_success_messages:
+                suppressed = len(queryset) - max_success_messages
+                messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
+            
             return redirect( request.POST.get( 'return_url' ) or request.path )
-        
-
 
         return super().get( request, *args, **kwargs )
 
+
+# ------------------------------------------------------------------------------
+#  Importable VMs
+# ------------------------------------------------------------------------------
 
 class ImportableVMListView(generic.ObjectListView):
     table = tables.ImportableVMTable
@@ -761,7 +815,7 @@ class ImportableVMListView(generic.ObjectListView):
 
             for vm in queryset:
                 try:
-                    logger.info ( f"importing vm {vm.name}" )                    
+                    logger.info ( f"importing vm {vm.name}" )
                     job = jobs.ImportFromZabbix.run_job( device_or_vm=vm, user=request.user )    
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {vm.name} from Zabbix' )
                     if success_counter < max_success_messages:
@@ -772,13 +826,14 @@ class ImportableVMListView(generic.ObjectListView):
                     messages.error( request, msg )
                     logger.error( msg )
 
-            if success_counter == max_success_messages:
-                messages.info(request, f"Queued {len(queryset) - success_counter} more jobs without notifications.")
-            
+            if len( queryset ) > max_success_messages:
+                suppressed = len(queryset) - max_success_messages
+                messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
+
             return redirect( request.POST.get( 'return_url' ) or request.path )
         
         return super().get( request, *args, **kwargs )
-    
+
 
 # ------------------------------------------------------------------------------
 # Interfaces
@@ -916,7 +971,6 @@ class InventoryMappingEditView(generic.ObjectEditView):
 
 class InventoryMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.InventoryMapping.objects.all()
-
 
 
 # ------------------------------------------------------------------------------
@@ -1068,6 +1122,13 @@ class JobLogEditView(generic.ObjectView):
 class JobLogDeleteView(generic.ObjectDeleteView):
     queryset = models.JobLog.objects.all()
 
+class JobLogBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.JobLog.objects.all()
+    #filterset_class = filtersets.JobLogFilterSet
+    table = tables.JobLogTable
+
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:joblog_list')
 
 
 # end

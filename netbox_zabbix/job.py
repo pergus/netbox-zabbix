@@ -4,6 +4,8 @@ from django.db import transaction
 from core.choices import JobStatusChoices
 from netbox.jobs import JobRunner
 
+from netbox_zabbix.models import JobLog
+from netbox_zabbix.config import get_job_log_enabled
 from netbox_zabbix.logger import logger
 
 class AtomicJobRunner(JobRunner):
@@ -42,6 +44,7 @@ class AtomicJobRunner(JobRunner):
     def handle(cls, job, *args, **kwargs):
         
         cls.job = job
+        result = None
 
         try:
             job.start()
@@ -49,11 +52,23 @@ class AtomicJobRunner(JobRunner):
                 result = cls(job).run(*args, **kwargs)
                 job.data = { "status": "success", "result": result }
                 job.terminate( status=JobStatusChoices.STATUS_COMPLETED )
-
+            
+            if get_job_log_enabled():
+                if isinstance( result, dict ) and "payload" in result:
+                    JobLog.objects.create( name=job.name, job=job, payload=result["payload"], message=result.get("message", "") )
+                else:
+                    JobLog.objects.create( name=job.name, job=job, message=str( result ) )
+            
         except Exception as e:
-            job.data = { "status": "failed", "error": str(e), "message": "Database changes have been reverted automatically." }            
+            job.data = { "status": "failed", "error": str(e), "message": "Database changes have been reverted automatically." }
             job.terminate( status=JobStatusChoices.STATUS_ERRORED, error=str(e) )
             logger.error( e )
+
+            if get_job_log_enabled():
+                if isinstance( result, dict ) and "payload" in result:
+                    JobLog.objects.create( name=job.name, job=job, payload=result["payload"], message=result.get("message", "") + str( e ))
+                else:
+                    JobLog.objects.create( name=job.name, job=job, message=str( e ) )
             raise
 
         finally:
@@ -70,6 +85,24 @@ class AtomicJobRunner(JobRunner):
 
     @classmethod
     def run_now(cls, *args, **kwargs):
-        with transaction.atomic():
-            return cls.run( *args, **kwargs )
+        name = kwargs.get( "name", cls.name)
+        result = None
+
+        try:
+            with transaction.atomic():
+                result = cls.run( *args, **kwargs )
+            if get_job_log_enabled():
+                if isinstance( result, dict ) and "payload" in result:
+                    message=result.get("message", "")
+                    JobLog.objects.create( name=name, job=None, payload=result["payload"],  message=message)
+                    return message
+                else:
+                    message=str( result )
+                    JobLog.objects.create( name=name, job=None, message=message )
+                    return message
+
+        except Exception as e:
+            if get_job_log_enabled():
+                JobLog.objects.create( name=name, job=None, message=str( e ) )
+            raise Exception( e )
     

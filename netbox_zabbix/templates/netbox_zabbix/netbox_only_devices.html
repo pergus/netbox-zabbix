@@ -1,9 +1,19 @@
 {% extends 'generic/object_list.html' %}
 {% load render_table from django_tables2 %}
-{% load helpers %}
+{% load helpers buttons %}
 
 {% block title %}
 {{ model|meta:"verbose_name_plural"|bettertitle }} Exclusive To NetBox
+{% endblock %}
+
+{% block bulk_buttons %}
+{{ block.super }}
+<button type="submit" name="_quick_add_agent" class="btn btn-success">
+    <i class="mdi mdi-database-import-outline"></i> Quick Add Agent
+</button>
+<button type="submit" name="_quick_add_snmpv3" class="btn btn-success">
+    <i class="mdi mdi-database-import-outline"></i> Quick Add SNMPv3
+</button>
 {% endblock %}
 
 

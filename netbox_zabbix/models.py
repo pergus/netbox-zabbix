@@ -93,6 +93,40 @@ class TypeChoices(models.IntegerChoices):
     SNMP =  (2, 'SNMP')
 
 
+class SNMPVersionChoices(models.IntegerChoices):
+    SNMPv1  = (1, 'SNMPv1')
+    SNMPv2c = (2, 'SNMPv2c')
+    SNMPv3  = (3, 'SNMPv3')
+
+
+class SNMPBulkChoices(models.IntegerChoices):
+    NO  = (0, 'No')
+    YES = (1, 'Yes')
+
+
+class SNMPSecurityLevelChoices(models.IntegerChoices):
+    noAuthNoPriv = (0, 'noAuthNoPriv')
+    authNoPriv   = (1, 'authNoPriv')
+    authPriv     = (2, 'authPriv')
+
+
+class SNMPAuthProtocolChoices(models.IntegerChoices):
+    MD5    = (0, 'MD5')
+    SHA1   = (1, 'SHA1')
+    SHA224 = (2, 'SHA224')
+    SHA256 = (3, 'SHA256')
+    SHA384 = (4, 'SHA384')
+    SHA512 = (5, 'SHA512')
+
+
+class SNMPPrivProtocolChoices(models.IntegerChoices):
+    DES     = (0, 'DES')
+    AES128  = (1, 'AES128')
+    AES192  = (2, 'AES192')
+    AES256  = (3, 'AES256')
+    AES192C  = (4, 'AES192C')
+    AES256C = (5, 'AES256C')
+
 
 # ------------------------------------------------------------------------------
 # Configuration
@@ -357,42 +391,6 @@ class VMZabbixConfig(ZabbixConfig):
 # ------------------------------------------------------------------------------
 # Interfaces
 # ------------------------------------------------------------------------------
-
-
-class SNMPVersionChoices(models.IntegerChoices):
-    SNMPv1  = (1, 'SNMPv1')
-    SNMPv2c = (2, 'SNMPv2c')
-    SNMPv3  = (3, 'SNMPv3')
-
-
-class SNMPBulkChoices(models.IntegerChoices):
-    NO  = (0, 'No')
-    YES = (1, 'Yes')
-
-
-class SNMPSecurityLevelChoices(models.IntegerChoices):
-    noAuthNoPriv = (0, 'noAuthNoPriv')
-    authNoPriv   = (1, 'authNoPriv')
-    authPriv     = (2, 'authPriv')
-
-
-class SNMPAuthProtocolChoices(models.IntegerChoices):
-    MD5    = (0, 'MD5')
-    SHA1   = (1, 'SHA1')
-    SHA224 = (2, 'SHA224')
-    SHA256 = (3, 'SHA256')
-    SHA384 = (4, 'SHA384')
-    SHA512 = (5, 'SHA512')
-
-
-class SNMPPrivProtocolChoices(models.IntegerChoices):
-    DES     = (0, 'DES')
-    AES128  = (1, 'AES128')
-    AES192  = (2, 'AES192')
-    AES256  = (3, 'AES256')
-    AES192C  = (4, 'AES192C')
-    AES256C = (5, 'AES256C')
-    
 
 class HostInterface(NetBoxModel):
     class Meta:
@@ -816,11 +814,11 @@ class VMMapping(Mapping):
 # ------------------------------------------------------------------------------
 
 class JobLog(NetBoxModel):
-    name     = models.CharField( max_length=256, help_text="Name of the device or virtual machine" )
+    name     = models.CharField( verbose_name="Name", max_length=256, help_text="Name of the device or virtual machine" )
     job      = models.ForeignKey( Job, on_delete=models.CASCADE, null=True, related_name='logs', help_text="Job reference." )
-    payload  = models.JSONField( help_text="Raw JSON payload of the log." )
-    created  = models.DateTimeField( auto_now_add=True )
-    message  = models.TextField(blank=True, help_text="Optional human-readable message.")
+    payload  = models.JSONField( verbose_name="Payload", null=True, blank=True, default=dict, help_text="Raw JSON payload of the log." )
+    created  = models.DateTimeField( verbose_name="Created", auto_now_add=True )
+    message  = models.TextField( verbose_name="Message", blank=True, default="", help_text="Optional human-readable message.")
 
     class Meta:
         ordering = ['-created']

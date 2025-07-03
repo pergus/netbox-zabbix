@@ -265,7 +265,7 @@ class DeviceZabbixConfigTable(NetBoxTable):
         model = models.DeviceZabbixConfig
         fields = ('name', 'device', 'status', 'monitored_by', 'hostid', 'templates', 'proxies', 'proxy_groups', 'host_groups' )
         default_columns = ('name', 'device', 'status', 'monitored_by', 'templates', 'proxies', 'proxy_groups', 'host_groups')
-    
+
 
 class VMZabbixConfigTable(NetBoxTable):
     name            = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
@@ -282,7 +282,7 @@ class VMZabbixConfigTable(NetBoxTable):
         fields = ('name', 'virtual_machine', 'status', 'monitored_by', 'hostid',  'templates', 'proxies', 'proxy_groups', 'host_groups')
         default_columns = ('name', 'virtual_machine', 'status', 'monitored_by', 'templates', 'proxies', 'proxy_groups', 'host_groups')
 
-        
+
 class ZabbixConfigActionsColumn(ActionsColumn):
 
     def get_actions(self, record):
@@ -335,7 +335,6 @@ class ZabbixConfigTable(NetBoxTable):
 # Importable Devices
 # ------------------------------------------------------------------------------
 
-
 class ImportableDeviceTable(NetBoxTable):
     name = tables.Column( linkify=True )
     valid = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
@@ -365,7 +364,7 @@ class ImportableDeviceTable(NetBoxTable):
         if config.get_auto_validate_importables():
             return self.reasons[record] if record in self.reasons else ""
         return ""
-    
+
 
 # ------------------------------------------------------------------------------
 # Importable VMs
@@ -400,7 +399,6 @@ class ImportableVMTable(NetBoxTable):
         if config.get_auto_validate_importables():
             return self.reasons[record] if record in self.reasons else ""
         return ""
-    
 
 
 # ------------------------------------------------------------------------------
@@ -433,7 +431,7 @@ class DeviceAgentInterfaceTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.DeviceAgentInterface
         fields = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "hostid", "interfaceid", "available", "useip", "main",  "port" )
-        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port" )
+        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main")
 
 
 class DeviceSNMPv3InterfaceTable(NetBoxTable):
@@ -456,7 +454,7 @@ class DeviceSNMPv3InterfaceTable(NetBoxTable):
                     "snmp_privprotocol",
                     "snmp_privpassphrase",
                     "snmp_bulk" )
-        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port" )
+        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main" )
 
 
 class VMAgentInterfaceTable(NetBoxTable):
@@ -468,7 +466,7 @@ class VMAgentInterfaceTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.VMAgentInterface
         fields = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "hostid", "interfaceid", "available", "useip", "main",  "port" )
-        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port" )
+        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main" )
 
 
 class VMSNMPv3InterfaceTable(NetBoxTable):
@@ -491,7 +489,7 @@ class VMSNMPv3InterfaceTable(NetBoxTable):
                     "snmp_privprotocol",
                     "snmp_privpassphrase",
                     "snmp_bulk" )
-        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port" )
+        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main" )
 
 
 # ------------------------------------------------------------------------------

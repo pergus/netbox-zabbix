@@ -41,7 +41,6 @@ class ZConfiguration(PluginConfig):
         "inventory_mapping": {
             'device': [
                 ("Name",      "name",         ["name"]),
-                ("Slask",     "slask",        ["slask.name"]),
                 ("Platform",  "os",           ["platform.name"]),
                 ("Location",  "location",     ["location.name", "site.name"]),
                 ("Latitude",  "location_lat", ["location.site.latitude", "site.latitude"]),

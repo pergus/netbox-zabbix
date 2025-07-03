@@ -7,12 +7,80 @@ NetBox plugin for Zabbix.
 * Documentation: https://pergus.github.io/netbox-zabbix/
 
 
+## WARNING
+
+Remove the code that hard sets status when creating an agent.
+
+
+## Maintenance
+
+```python
+
+from datetime import datetime
+
+maintenance = {
+    'maintenanceid': '1',
+    'name': 'Sample',
+    'maintenance_type': '0',
+    'description': 'Sample Maintenance',
+    'active_since': '1751493600',
+    'active_till': '1751580000',
+    'tags_evaltype': '0'
+}
+
+# Convert to datetime
+active_since = datetime.fromtimestamp(int(maintenance['active_since']), tz=timezone.utc)
+active_till = datetime.fromtimestamp(int(maintenance['active_till']), tz=timezone.utc)
+
+print(f"Active Since: {active_since}")
+print(f"Active Till: {active_till}")
+```
+
+```python
+from datetime import datetime, timezone
+
+# Your datetime object (e.g., in UTC)
+dt = datetime(2025, 8, 1, 1, 0, 0, tzinfo=timezone.utc)
+
+# Convert to Unix timestamp
+unix_timestamp = int(dt.timestamp())
+
+print(unix_timestamp)  # → 1751493600
+````
+
+Converting a Django datetime to a Zabbix-compatible Unix timestamp
+```python
+from django.utils import timezone
+
+# Get a timezone-aware datetime (UTC or local based on settings)
+dt = timezone.now()
+
+# Convert to Unix timestamp
+unix_timestamp = int(dt.timestamp())
+````
+
+Converting a specific datetime to a timestamp using Django's timezone
+
+```python
+from django.utils import timezone
+from datetime import datetime
+
+# Define a naive datetime
+naive_dt = datetime(2025, 8, 1, 1, 0, 0)
+
+# Make it timezone-aware using Django settings
+aware_dt = timezone.make_aware(naive_dt)
+
+# Convert to Unix timestamp
+timestamp = int(aware_dt.timestamp())
+```
+
+
+
+
 ## Todo and Questions
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!  Interface Type  !!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+Add Quick Add buttons to "Devices Exclusive To NetBox" that adds multiple hosts.
 
 
 rename all hostgroups to host_groups <<<<<=============================  !!!!!!

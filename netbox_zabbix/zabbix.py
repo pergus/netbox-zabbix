@@ -507,7 +507,7 @@ def hostgroup_get():
     except Exception as e:
         raise e        
 
-
+# TODO(pergus): max_deletions is not used
 def import_host_groups(max_deletions=None):
     """
     Import host groups from Zabbix to the local database.
@@ -561,6 +561,6 @@ def import_host_groups(max_deletions=None):
 def create_host(**host):
     try:
         z = get_zabbix_client()
-        z.host.create(**host)
+        return z.host.create(**host)
     except Exception as e:
         raise e
