@@ -60,7 +60,9 @@ from netbox_zabbix.zabbix import (
     import_proxies,
     import_proxy_groups,
     import_host_groups,
-    create_host
+    create_host,
+    get_host_by_id,
+    delete_host,
 )
 
 from netbox_zabbix.logger import logger
@@ -639,8 +641,7 @@ def quick_add_interface(
     event_message = f"Using mapping {mapping.name} for {obj.name}"
 
     try:
-        # TODO(pergus): Disable mointoring by default whileetesting
-        zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.DISABLED }
+        zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
         zcfg = zabbix_config_model( **zcfg_kwargs )
         zcfg.full_clean()
         zcfg.save()
@@ -813,6 +814,23 @@ def import_zabbix_settings():
         }
     except Exception as e:
         raise e
+
+
+#-------------------------------------------------------------------------------
+# Delete Zabbix Host
+# ------------------------------------------------------------------------------
+
+def delete_zabbix_host( hostid ):
+
+    if hostid:
+        try:
+            data = get_host_by_id( hostid )
+            delete_host( hostid )
+            return { "message": f"Deleted zabbix host {hostid}", "data": data }
+        except Exception as e:
+            msg = f"Failed to delete zabbix host {hostid}: {str( e )}"
+            raise Exception( msg )
+
 
 #-------------------------------------------------------------------------------
 # Jobs
@@ -999,4 +1017,44 @@ class ImportZabbixSetting( AtomicJobRunner ):
         else:
             netbox_job = cls.enqueue_once( **job_args )
 
+        return netbox_job
+
+
+class DeleteZabbixHost( AtomicJobRunner ):
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+        hostid = kwargs.get( "hostid", None )
+
+        if not hostid:
+            raise ValueError( "Missing required argument: hostid." )
+
+        try:
+            return delete_zabbix_host( hostid )
+        except Exception as e:
+            msg = f"{ str( e ) }"
+            logger.info( msg )
+            raise Exception( msg )
+
+    @classmethod
+    def run_job(cls, hostid, user=None, schedule_at=None, interval=None, immediate=False, name=None):
+        if name is None:
+            name = slugify( f"ZBX Delete Zabbix Host {hostid}" )
+        
+        job_args = {
+                    "name": name,
+                    "schedule_at": schedule_at,
+                    "interval": interval,
+                    "immediate": immediate,
+                    "user": user,
+                    "api_endpoint": get_zabbix_api_endpoint(),
+                    "token": SecretStr(get_zabbix_token()),
+                    "hostid": hostid,
+                }
+        
+        if interval is None:
+            netbox_job = cls.enqueue( **job_args )
+        else:
+            netbox_job = cls.enqueue_once( **job_args )
+        
         return netbox_job

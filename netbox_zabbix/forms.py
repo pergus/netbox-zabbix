@@ -223,12 +223,12 @@ class HostGroupForm(NetBoxModelForm):
 # ------------------------------------------------------------------------------
 
 #class NetBoxOnlyDevicesFilterForm(DeviceFilterForm):
-#    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+#    host_groups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
 #    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
 #    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
 #    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
 #
-#    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'prox_ygroup', name='Zabbix' ), )
+#    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'host_groups', 'templates', 'proxy', 'prox_ygroup', name='Zabbix' ), )
 
 
 # ------------------------------------------------------------------------------
@@ -236,12 +236,12 @@ class HostGroupForm(NetBoxModelForm):
 # ------------------------------------------------------------------------------
 
 #class NetBoxOnlyVMsFilterForm(VirtualMachineFilterForm):
-#    hostgroups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+#    host_groups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
 #    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
 #    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
 #    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
 #
-#    fieldsets = VirtualMachineFilterForm.fieldsets + ( FieldSet( 'hostgroups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
+#    fieldsets = VirtualMachineFilterForm.fieldsets + ( FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
 
 
 # ------------------------------------------------------------------------------

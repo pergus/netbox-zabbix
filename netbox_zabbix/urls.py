@@ -75,8 +75,8 @@ urlpatterns = (
     path( 'proxy-groups/<int:pk>/delete/',   views.ProxyGroupDeleteView.as_view(),     name='proxygroup_delete' ),
     path( 'proxy-groups/delete/',            views.ProxyGroupBulkDeleteView.as_view(), name='proxygroup_bulk_delete' ),
     path( 'proxy-groups/<int:pk>/changelog', ObjectChangeLogView.as_view(),            name='proxygroup_changelog', kwargs={'model': models.ProxyGroup} ),
-    path( 'proxy-groups/review-deletions/',  views.proxygroups_review_deletions,       name='proxygroups_review_deletions' ), 
-    path( 'proxy-groups/confirm-deletions/', views.proxygroups_confirm_deletions,      name='proxygroups_confirm_deletions' ),
+    path( 'proxy-groups/review-deletions/',  views.proxy_groups_review_deletions,      name='proxygroups_review_deletions' ), 
+    path( 'proxy-groups/confirm-deletions/', views.proxy_groups_confirm_deletions,     name='proxygroups_confirm_deletions' ),
 
 
     # --------------------------------------------------------------------------

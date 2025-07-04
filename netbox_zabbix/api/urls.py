@@ -8,15 +8,15 @@ router.register( 'templates',                  views.TemplateViewSet )
 
 router.register( 'proxy',                      views.ProxyViewSet )
 
-router.register( 'proxygroups',                views.ProxyGroupViewSet )
+router.register( 'proxy-groups',                views.ProxyGroupViewSet )
 
-router.register( 'hostgroups',                 views.HostGroupViewSet )
+router.register( 'host-groups',                 views.HostGroupViewSet )
 
 
 # Rename devicezabbixconfig to device-zabbix-config
-router.register( 'devicezabbixconfig',         views.DeviceZabbixConfigViewSet )
+router.register( 'device-zabbix-config',         views.DeviceZabbixConfigViewSet )
 # Rename vmzabbixconfig to vm-zabbix-config
-router.register( 'vmzabbixconfig',             views.VMZabbixConfigViewSet )
+router.register( 'vm-zabbix-config',             views.VMZabbixConfigViewSet )
 
 router.register( 'available-device-interface', views.AvailableDeviceInterfaceViewSet, basename='availabledeviceinterface' )
 router.register( 'available-vm-interface',     views.AvailableVMInterfaceViewSet, basename='availablevminterface' )
@@ -29,6 +29,6 @@ router.register( 'vm-mappings',        views.VMMappingViewSet )
 
 # EventLog
 
-router.register( 'eventlog', views.EventLogViewSet )
+router.register( 'event-log', views.EventLogViewSet )
 
 urlpatterns = router.urls

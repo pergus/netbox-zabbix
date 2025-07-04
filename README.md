@@ -7,11 +7,6 @@ NetBox plugin for Zabbix.
 * Documentation: https://pergus.github.io/netbox-zabbix/
 
 
-## WARNING
-
-Remove the code that hard sets status when creating an agent.
-
-
 ## Maintenance
 
 ```python
@@ -76,16 +71,7 @@ timestamp = int(aware_dt.timestamp())
 ```
 
 
-
-
 ## Todo and Questions
-
-Add Quick Add buttons to "Devices Exclusive To NetBox" that adds multiple hosts.
-
-
-rename all hostgroups to host_groups <<<<<=============================  !!!!!!
-rename monitoriedby to monitored_by
-rename all proxygroup to proxy_group
 
 Reduced the number of SQL-queries 
 from 

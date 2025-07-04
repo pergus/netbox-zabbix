@@ -303,6 +303,54 @@ def get_host_groups():
         raise e        
 
 
+def get_host_by_id(hostid):
+    """
+    Retrieves detailed information about a single host from Zabbix by hostid.
+    
+    The returned host includes interfaces, templates, tags, groups, and inventory
+    data. Validates that exactly one host is found.
+    
+    Args:
+        hostid (str): The hostid of the Zabbix host to retrieve.
+    
+    Returns:
+        dict: A dictionary containing the Zabbix host's details.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        Exception: If no host, multiple hosts, or an API error occurs.
+    """
+    try:
+        z = get_zabbix_client()
+        hosts = z.host.get(
+            filter={"hostid": str( hostid )},
+            selectInterfaces="extend",
+            selectParentTemplates="extend",
+            selectTags="extend",
+            selectGroups="extend",
+            selectInventory="extend"
+        )
+
+    except ZabbixConfigNotFound as e:
+        raise e
+    
+    except Exception as e:
+        msg = f"Failed to retrieve host with host id '{hostid}' from Zabbix, error: {e}"
+        logger.error( msg )
+        raise Exception( msg )
+    
+    if not hosts:
+        msg = f"No host with host id '{hostid}' found in Zabbix"
+        logger.error( msg )
+        raise Exception( msg )
+    
+    if len(hosts) > 1:
+        msg = f"Multiple hosts with host id '{hostid}' found in Zabbix"
+        logger.error( msg )
+        raise Exception( msg )
+    
+    return hosts[0]
+
 # ------------------------------------------------------------------------------
 # Import Settings
 # ------------------------------------------------------------------------------
@@ -450,7 +498,7 @@ def import_host_groups(max_deletions=None):
 
 
 # ------------------------------------------------------------------------------
-# Create/Update
+# Create/Update/Delete
 # ------------------------------------------------------------------------------
 
 def create_host(**host):
@@ -459,3 +507,12 @@ def create_host(**host):
         return z.host.create(**host)
     except Exception as e:
         raise e
+
+
+def delete_host(id):
+    ids = [ id ]
+    try:
+        z = get_zabbix_client()
+        return z.host.delete( *ids ) 
+    except Exception as e:
+                raise e
