@@ -1,9 +1,10 @@
-from re import U
 from django.utils.text import slugify
 
 from ipam.models import IPAddress
 from dcim.models import Device, Interface as DeviceInterface
 from virtualization.models import VirtualMachine, VMInterface
+
+from core.models import Job
 
 import netaddr
 import json
@@ -35,6 +36,7 @@ from netbox_zabbix.models import (
     TLSConnectChoices,
     TagNameFormattingChoices,
 )
+
 from netbox_zabbix.config import (
     get_inventory_mode,
     get_zabbix_api_endpoint, 
@@ -47,12 +49,19 @@ from netbox_zabbix.config import (
     get_tls_psk_identity,
     get_tag_name_formatting,
 )
+
 from netbox_zabbix.utils import ( 
     get_zabbix_tags_for_object,
     get_zabbix_inventory_for_object
 )
 
-from netbox_zabbix.zabbix import create_host
+from netbox_zabbix.zabbix import (
+    import_templates,
+    import_proxies,
+    import_proxy_groups,
+    import_host_groups,
+    create_host
+)
 
 from netbox_zabbix.logger import logger
 
@@ -783,6 +792,29 @@ def quick_add_device_snmpv3(device):
 
 
 #-------------------------------------------------------------------------------
+# Import Zabbix Settings
+# ------------------------------------------------------------------------------
+
+def import_zabbix_settings():
+    try:
+        added_templates, deleted_templates = import_templates()
+        added_proxies, deleted_proxies = import_proxies()
+        added_proxy_groups, deleted_proxy_groups = import_proxy_groups()
+        added_host_groups, deleted_host_groups = import_host_groups()
+
+        return { 
+            "message": "imported zabbix configuration", 
+            "data": { 
+                "templates": { "added": added_templates, "deleted": deleted_templates },
+                "proxies": { "added":  added_proxies, "deleted": deleted_proxies },
+                "proxy_groups": { "added":  added_proxy_groups, "deleted": deleted_proxy_groups },
+                "host_groups": { "added":  added_host_groups, "deleted": deleted_host_groups }
+            }
+        }
+    except Exception as e:
+        raise e
+
+#-------------------------------------------------------------------------------
 # Jobs
 # ------------------------------------------------------------------------------
 
@@ -808,7 +840,7 @@ class ValidateDeviceOrVM( AtomicJobRunner ):
 
     @classmethod
     def run_job(cls, device_or_vm, user, schedule_at=None, interval=None, immediate=False):
-        name = slugify(f"ZBX Validate {device_or_vm.name}")
+        name = slugify( f"ZBX Validate {device_or_vm.name}" )
         job_args = {
             "name": name,
             "schedule_at": schedule_at,
@@ -867,7 +899,7 @@ class ImportFromZabbix( AtomicJobRunner ):
 
     @classmethod
     def run_job(cls, device_or_vm, user, schedule_at=None, interval=None, immediate=False):
-        name = slugify(f"ZBX Import {device_or_vm.name}")
+        name = slugify( f"ZBX Import {device_or_vm.name}" )
         job_args = {
             "name": name,
             "schedule_at": schedule_at,
@@ -906,7 +938,7 @@ class DeviceQuickAddAgent( AtomicJobRunner ):
     @classmethod
     def run_job(cls, device, user, schedule_at=None, interval=None, immediate=False):
 
-        name = slugify(f"ZBX Device Quick Add Agent {device.name}")
+        name = slugify( f"ZBX Device Quick Add Agent {device.name}" )
         
         job_args = {
                     "name": name,
@@ -924,4 +956,47 @@ class DeviceQuickAddAgent( AtomicJobRunner ):
         else:
             netbox_job = cls.enqueue_once( **job_args )
         
+        return netbox_job
+
+
+class ImportZabbixSetting( AtomicJobRunner ):
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+        try:
+            return import_zabbix_settings()
+        except Exception as e:
+            msg = f"Failed to import zabbix settings: { str( e ) }"
+            logger.info( msg )
+            raise Exception( msg )
+    
+    @classmethod
+    def run_job(cls, user=None, schedule_at=None, interval=None, immediate=False, name=None):
+        if name is None:
+            name = slugify( f"Zabbix Sync" )
+
+        # Look for existing job with the same name and user
+        existing_jobs = Job.objects.filter( name=name, user=user, status__in=["scheduled", "queued"] ).order_by("-created")
+
+        # If a job exists, check if we need to replace it
+        for job in existing_jobs:
+            if job.interval == interval and job.schedule_at == schedule_at:
+                return job     # Job is already correctly scheduled
+            job.delete()
+
+        job_args = {
+            "name": name,
+            "schedule_at": schedule_at,
+            "interval": interval,
+            "immediate": immediate,
+            "user": user,
+            "api_endpoint": get_zabbix_api_endpoint(),
+            "token": SecretStr( get_zabbix_token() ),
+        }
+
+        if interval is None:
+            netbox_job = cls.enqueue( **job_args )
+        else:
+            netbox_job = cls.enqueue_once( **job_args )
+
         return netbox_job

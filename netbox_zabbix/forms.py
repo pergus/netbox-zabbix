@@ -47,7 +47,7 @@ PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 class ConfigForm(NetBoxModelForm):
     fieldsets = (
         FieldSet( 'name', 'ip_assignment_method', 'auto_validate_importables', 
-                  'max_deletions', 'max_success_notifications', 'event_log_enabled', name="General" ),
+                  'max_deletions', 'max_success_notifications', 'event_log_enabled', 'zabbix_sync_interval', name="General" ),
         FieldSet( 'api_endpoint', 'web_address', 'token', 
                   'default_cidr', 'inventory_mode', 'monitored_by', 
                   'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', name="Zabbix" ),
@@ -71,7 +71,7 @@ class ConfigForm(NetBoxModelForm):
             #
             # Therefore, we set 'initial' in the __init__ method, but *only*
             # when adding a new object (instance.pk is None), to avoid
-            # overwriting existing values when editing an existing instance.s
+            # overwriting existing values when editing an existing instance.
             if not self.instance.pk:
                 self.initial['name'] = "config"
                 self.initial['api_endpoint'] = f"https://{zhost}/api_jsonrpc.php"

@@ -3,6 +3,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
 
+from utilities.choices import ChoiceSet
+
 from dcim.models import Device, DeviceRole, Interface, Platform, Site
 from core.models import Job
 from netbox.models import NetBoxModel
@@ -128,6 +130,49 @@ class SNMPPrivProtocolChoices(models.IntegerChoices):
     AES256C = (5, 'AES256C')
 
 
+class SyncJobIntervalChoices(ChoiceSet):
+    INTERVAL_MINUTELY = 1
+    INTERVAL_EVERY_5_MINUTES = 5
+    INTERVAL_EVERY_15_MINUTES = 15
+    INTERVAL_EVERY_30_MINUTES = 30
+    INTERVAL_HOURLY = 60
+    INTERVAL_EVERY_2_HOURS = 60 * 2
+    INTERVAL_EVERY_3_HOURS = 60 * 3
+    INTERVAL_EVERY_4_HOURS = 60 * 4
+    INTERVAL_EVERY_5_HOURS = 60 * 5
+    INTERVAL_EVERY_6_HOURS = 60 * 6
+    INTERVAL_EVERY_7_HOURS = 60 * 7
+    INTERVAL_EVERY_8_HOURS = 60 * 8
+    INTERVAL_EVERY_9_HOURS = 60 * 9
+    INTERVAL_EVERY_10_HOURS = 60 * 10
+    INTERVAL_EVERY_11_HOURS = 60 * 11
+    INTERVAL_EVERY_12_HOURS = 60 * 12
+    INTERVAL_DAILY = 60 * 24
+    INTERVAL_WEEKLY = 60 * 24 * 7
+    INTERVAL_30_DAYS = 60 * 24 * 30
+
+    CHOICES = (
+        (INTERVAL_MINUTELY, 'Minutely'),
+        (INTERVAL_EVERY_5_MINUTES, 'Every 5 minutes'),
+        (INTERVAL_EVERY_15_MINUTES, 'Every 15 minutes'),
+        (INTERVAL_EVERY_30_MINUTES, 'Every 30 minutes'),
+        (INTERVAL_HOURLY, 'Hourly'),
+        (INTERVAL_EVERY_2_HOURS, 'Every 2 hours'),
+        (INTERVAL_EVERY_3_HOURS, 'Every 3 hours'),
+        (INTERVAL_EVERY_4_HOURS, 'Every 4 hours'),
+        (INTERVAL_EVERY_5_HOURS, 'Every 5 hours'),
+        (INTERVAL_EVERY_6_HOURS, 'Every 6 hours'),
+        (INTERVAL_EVERY_4_HOURS, 'Every 7 hours'),
+        (INTERVAL_EVERY_8_HOURS, 'Every 8 hours'),
+        (INTERVAL_EVERY_8_HOURS, 'Every 9 hours'),
+        (INTERVAL_EVERY_8_HOURS, 'Every 10 hours'),
+        (INTERVAL_EVERY_8_HOURS, 'Every 11 hours'),
+        (INTERVAL_EVERY_12_HOURS, 'Every 12 hours'),
+        (INTERVAL_DAILY, 'Daily'),
+        (INTERVAL_WEEKLY, 'Weekly'),
+        (INTERVAL_30_DAYS, '30 days'),
+    )
+
 # ------------------------------------------------------------------------------
 # Configuration
 # ------------------------------------------------------------------------------
@@ -159,13 +204,14 @@ class Config(NetBoxModel):
         help_text="Max number of success messages shown per job."
     )
     event_log_enabled         = models.BooleanField( verbose_name="Event Log Enabled", default=False )
+    zabbix_sync_interval      = models.PositiveSmallIntegerField( verbose_name="Zabbix Sync Interval", null=True, blank=True, choices=SyncJobIntervalChoices, default=SyncJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix sync. Must be at least 1 minute." )
 
     # Zabbix
     version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
     api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
     web_address              = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to the Zabbix web interface." )
     token                    = models.CharField( verbose_name="Token", max_length=255, help_text="Zabbix access token." )
-    default_cidr = models.CharField(
+    default_cidr             = models.CharField(
         verbose_name="Default CIDR",
         max_length=4,
         choices=CIDRChoices.choices,
@@ -244,9 +290,15 @@ class Config(NetBoxModel):
     def __str__(self):
         return self.name
 
+
     def get_absolute_url(self):
         return reverse("plugins:netbox_zabbix:config", args=[self.pk])
 
+
+    def save(self, *args, **kwargs):
+        from netbox_zabbix import jobs
+        super().save(*args, **kwargs)
+        jobs.ImportZabbixSetting.run_job( interval=self.zabbix_sync_interval )
 
 # ------------------------------------------------------------------------------
 # Templates
@@ -664,6 +716,7 @@ class TagMapping(NetBoxModel):
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:tagmapping", args=[self.pk] )
 
+
 # ------------------------------------------------------------------------------
 # Inventory Mapping
 # ------------------------------------------------------------------------------
@@ -682,6 +735,7 @@ class InventoryMapping(NetBoxModel):
     
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:inventorymapping", args=[self.pk] )
+
 
 # ------------------------------------------------------------------------------
 # Mapping Base Object
@@ -805,7 +859,6 @@ class VMMapping(Mapping):
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:vmmapping", args=[self.pk] )
-
 
 
 # ------------------------------------------------------------------------------

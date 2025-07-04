@@ -23,7 +23,6 @@ from utilities.views import ViewTab, register_model_view
 from virtualization.models import VirtualMachine
 
 from netbox_zabbix import filtersets, forms, jobs, models, tables, zabbix as z
-from netbox_zabbix.config import get_monitored_by
 from netbox_zabbix.logger import logger
 
 
@@ -88,12 +87,13 @@ def zabbix_check_connection(request):
 def zabbix_import_settings(request):
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
     try:
-        run_import_templates( request )
-        run_import_proxies( request )
-        run_import_proxy_groups( request )
-        run_import_host_groups( request )
+        jobs.ImportZabbixSetting.run_now( name=f"import zabbix settings" )
+        #run_import_templates( request )
+        #run_import_proxies( request )
+        #run_import_proxy_groups( request )
+        #run_import_host_groups( request )
     except Exception as e:
-        pass
+        raise e
     
     return redirect( redirect_url )
 
@@ -137,6 +137,14 @@ class TemplateEditView(generic.ObjectEditView):
 
 class TemplateDeleteView(generic.ObjectDeleteView):
     queryset = models.Template.objects.all()
+
+
+class TemplateBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.Template.objects.all()
+    table = tables.TemplateTable
+
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:template_list')
 
 
 def templates_review_deletions(request):
@@ -187,6 +195,7 @@ def run_import_templates(request=None):
         config.set_last_checked = timezone.now()
         return None, None, e
 
+
 def import_templates(request):
     redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
     run_import_templates( request )
@@ -216,6 +225,14 @@ class ProxyEditView(generic.ObjectEditView):
 
 class ProxyDeleteView(generic.ObjectDeleteView):
     queryset = models.Proxy.objects.all()
+
+
+class ProxyBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.Proxy.objects.all()
+    table = tables.ProxyTable
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:proxy_list')
 
 
 def proxies_review_deletions(request):
@@ -293,6 +310,14 @@ class ProxyGroupDeleteView(generic.ObjectDeleteView):
     queryset = models.ProxyGroup.objects.all()
 
 
+class ProxyGroupBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.ProxyGroup.objects.all()
+    table = tables.ProxyGroupTable
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:proxygroup_list')
+
+
 def proxygroups_review_deletions(request):
     items = models.ProxyGroup.objects.filter( marked_for_deletion=True )
     return render( request, 'netbox_zabbix/proxygroup_review_deletions.html', {'items': items} )
@@ -366,6 +391,14 @@ class HostGroupEditView(generic.ObjectEditView):
 
 class HostGroupDeleteView(generic.ObjectDeleteView):
     queryset = models.HostGroup.objects.all()
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:hostgroup_list')
+
+
+class HostGroupBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.HostGroup.objects.all()
+    table = tables.HostGroupTable
 
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:hostgroup_list')
@@ -586,7 +619,6 @@ class DeviceZabbixConfigDeleteView(generic.ObjectDeleteView):
 
 class DeviceZabbixConfigBulkDeleteView(generic.BulkDeleteView):
     queryset = models.DeviceZabbixConfig.objects.all()
-    #filterset_class = filtersets.EventLogFilterSet
     table = tables.DeviceZabbixConfigTable
 
     def get_return_url(self, request, obj=None):
@@ -797,7 +829,7 @@ class ImportableVMListView(generic.ObjectListView):
                 if vm:
                     try:
                         logger.info( f"Validating VM: {vm.name}" )
-                        result = jobs.ValidateDeviceOrVM.run_now( device_or_vm=vm, user=request.user )
+                        result = jobs.ValidateDeviceOrVM.run_now( device_or_vm=vm, user=request.user, name=f"validate {vm.name}" )
                         messages.success( request, result )
                     except Exception as e:
                         messages.error( request, str( e ) )
@@ -1142,7 +1174,6 @@ class EventLogEditView(generic.ObjectView):
 
 class EventLogDeleteView(generic.ObjectDeleteView):
     queryset = models.EventLog.objects.all()
-
 
 class EventLogBulkDeleteView(generic.BulkDeleteView):
     queryset = models.EventLog.objects.all()
