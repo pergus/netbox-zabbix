@@ -46,7 +46,6 @@ from netbox_zabbix.config import (
     get_tls_psk, 
     get_tls_psk_identity,
     get_tag_name_formatting,
-    get_job_log_enabled,
 )
 from netbox_zabbix.utils import ( 
     get_zabbix_tags_for_object,
@@ -292,7 +291,7 @@ def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine])
             raise Exception(f"Duplicate {iface_type_str} interface for NetBox interface ID {nb_interface_id}")
         used_nb_interfaces[iface_type].add(nb_interface_id)
 
-    return { "payload": zabbix_host, "message": f"'{host.name}' is valid" }
+    return { "message": f"'{host.name}' is valid", "data": {} }
 
 # ------------------------------------------------------------------------------
 # Import from Zabbix
@@ -413,7 +412,8 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
         else:
             raise Exception( f"Unsupported Zabbix interface type {iface['type']}" )
 
-    return { "payload": zabbix_host, "message": f"imported {instance.name} from Zabbix to NetBox" }
+    return { "message": f"imported {instance.name} from Zabbix to NetBox",  "data": zabbix_host }
+
 
 def import_device_config(zabbix_host: dict, device: Device):
     return import_zabbix_config(
@@ -601,7 +601,7 @@ def quick_add_interface(
 
     monitored_by = get_monitored_by()
 
-    job_log_message = ""
+    event_message = ""
 
     try:
         default_mapping = DeviceMapping.objects.get( default=True )
@@ -627,10 +627,10 @@ def quick_add_interface(
         logger.info( f"Using default mapping for {obj.name}: {e}" )
         mapping = default_mapping
 
-    job_log_message = f"Using mapping {mapping.name} for {obj.name}"
+    event_message = f"Using mapping {mapping.name} for {obj.name}"
 
     try:
-        # TODO(pergus): Disable mointoring by default while testing
+        # TODO(pergus): Disable mointoring by default whileetesting
         zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.DISABLED }
         zcfg = zabbix_config_model( **zcfg_kwargs )
         zcfg.full_clean()
@@ -683,12 +683,12 @@ def quick_add_interface(
         logger.info( msg )
         raise Exception( msg )
 
+
     # If there is a dns name then Zabbix should connect using the dns name
     if getattr( ip, "dns_name", None ):
         useip = UseIPChoices.DNS
     else:
         useip = UseIPChoices.IP
-
 
     # Create the interface
     try:
@@ -716,8 +716,6 @@ def quick_add_interface(
         logger.info( msg )
         raise Exception( msg )
 
-
-
     # Create the host in Zabbix
     try:
         result = create_host( **payload )
@@ -742,11 +740,8 @@ def quick_add_interface(
         msg = f"Failed to save Zabbix configuration: {e}"
         logger.info( msg )
         raise Exception( msg )
-    
-    logger.info( f"{json.dumps( payload, indent=2 )}" )
 
-
-    return { "payload": payload, "message": job_log_message }
+    return { "message": event_message, "data": payload,}
 
 
 # ------------------------------------------------------------------------------
@@ -890,6 +885,7 @@ class ImportFromZabbix( AtomicJobRunner ):
             netbox_job = cls.enqueue_once(**job_args)
 
         return netbox_job
+
 
 class DeviceQuickAddAgent( AtomicJobRunner ):
 

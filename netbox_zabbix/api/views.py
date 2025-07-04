@@ -243,12 +243,12 @@ class VMMappingViewSet(NetBoxModelViewSet):
 
 
 # ------------------------------------------------------------------------------
-# JobLog
+# Event Log
 # ------------------------------------------------------------------------------
 
-class JobLogViewSet(NetBoxModelViewSet):
-    queryset = models.JobLog.objects.all()
-    serializer_class = serializers.JobLogSerializer
+class EventLogViewSet(NetBoxModelViewSet):
+    queryset = models.EventLog.objects.all()
+    serializer_class = serializers.EventLogSerializer
 
 
 # end

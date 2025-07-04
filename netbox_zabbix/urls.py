@@ -242,15 +242,15 @@ urlpatterns = (
     
 
     # --------------------------------------------------------------------------
-    # JobLog
+    # Event Log
     # --------------------------------------------------------------------------
     
-    path( 'logs/',                   views.JobLogListView.as_view(),       name='joblog_list' ),
-    path( 'logs/add',                views.JobLogEditView.as_view(),       name='joblog_add' ),
-    path( 'logs/<int:pk>/',          views.JobLogView.as_view(),           name='joblog' ),
-    path( 'logs/<int:pk>/edit',      views.JobLogEditView.as_view(),       name='joblog_edit' ),
-    path( 'logs/<int:pk>/delete',    views.JobLogDeleteView.as_view(),     name='joblog_delete' ),
-    path( 'logs/delete/',            views.JobLogBulkDeleteView.as_view(), name='joblog_bulk_delete' ),
-    path( 'logs/<int:pk>/changelog', ObjectChangeLogView.as_view(),    name='joblog_changelog', kwargs={'model': models.JobLog} ),
+    path( 'events/',                   views.EventLogListView.as_view(),       name='eventlog_list' ),
+    path( 'events/add',                views.EventLogEditView.as_view(),       name='eventlog_add' ),
+    path( 'events/<int:pk>/',          views.EventLogView.as_view(),           name='eventlog' ),
+    path( 'events/<int:pk>/edit',      views.EventLogEditView.as_view(),       name='eventlog_edit' ),
+    path( 'events/<int:pk>/delete',    views.EventLogDeleteView.as_view(),     name='eventlog_delete' ),
+    path( 'events/delete/',            views.EventLogBulkDeleteView.as_view(), name='eventlog_bulk_delete' ),
+    path( 'events/<int:pk>/changelog', ObjectChangeLogView.as_view(),          name='eventlog_changelog', kwargs={'model': models.EventLog} ),
 
  ) 

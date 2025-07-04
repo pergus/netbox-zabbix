@@ -8,5 +8,5 @@ from .serializers import (
     InventoryMappingSerializer,
     DeviceZabbixConfigSerializer, 
     VMZabbixConfigSerializer,
-    JobLogSerializer,
+    EventLogSerializer,
     )

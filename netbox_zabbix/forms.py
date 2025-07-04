@@ -47,7 +47,7 @@ PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 class ConfigForm(NetBoxModelForm):
     fieldsets = (
         FieldSet( 'name', 'ip_assignment_method', 'auto_validate_importables', 
-                  'max_deletions', 'max_success_notifications', 'job_log_enabled', name="General" ),
+                  'max_deletions', 'max_success_notifications', 'event_log_enabled', name="General" ),
         FieldSet( 'api_endpoint', 'web_address', 'token', 
                   'default_cidr', 'inventory_mode', 'monitored_by', 
                   'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', name="Zabbix" ),

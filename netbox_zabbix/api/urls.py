@@ -27,8 +27,8 @@ router.register( 'inventory-mappings', views.InventoryMappingViewSet )
 router.register( 'device-mappings',    views.DeviceMappingViewSet )
 router.register( 'vm-mappings',        views.VMMappingViewSet )
 
-# JobLog
+# EventLog
 
-router.register( 'joblog',        views.JobLogViewSet )
+router.register( 'eventlog', views.EventLogViewSet )
 
 urlpatterns = router.urls

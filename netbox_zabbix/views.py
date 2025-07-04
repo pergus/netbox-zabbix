@@ -370,6 +370,7 @@ class HostGroupDeleteView(generic.ObjectDeleteView):
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:hostgroup_list')
 
+
 def run_import_host_groups(request=None):
     try:
         added, deleted = z.import_host_groups()
@@ -397,12 +398,13 @@ def run_import_host_groups(request=None):
         config.set_connection = False
         config.set_last_checked = timezone.now()
         return None, None, e
-    
+
 
 def import_host_groups(request):
     redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
     run_import_host_groups()
     return redirect( redirect_url )
+
 
 # ------------------------------------------------------------------------------
 # Quick Add Zabbix Interface
@@ -484,6 +486,7 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
             return redirect( request.POST.get( 'return_url' ) or request.path )
     
         return super().get( request, *args, **kwargs )
+
 
 # ------------------------------------------------------------------------------
 # NetBox Ony VMs
@@ -583,7 +586,7 @@ class DeviceZabbixConfigDeleteView(generic.ObjectDeleteView):
 
 class DeviceZabbixConfigBulkDeleteView(generic.BulkDeleteView):
     queryset = models.DeviceZabbixConfig.objects.all()
-    #filterset_class = filtersets.JobLogFilterSet
+    #filterset_class = filtersets.EventLogFilterSet
     table = tables.DeviceZabbixConfigTable
 
     def get_return_url(self, request, obj=None):
@@ -938,15 +941,18 @@ class VMSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
 class TagMappingView(generic.ObjectView):
     queryset = models.TagMapping.objects.all()
 
+
 class TagMappingListView(generic.ObjectListView):
     queryset = models.TagMapping.objects.all()
     table = tables.TagMappingTable
     template_name = 'netbox_zabbix/tag_mapping_list.html'
 
+
 class TagMappingEditView(generic.ObjectEditView):
     queryset = models.TagMapping.objects.all()
     form = forms.TagMappingForm
     template_name = 'netbox_zabbix/tag_mapping_edit.html'
+
 
 class TagMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.TagMapping.objects.all()
@@ -959,15 +965,18 @@ class TagMappingDeleteView(generic.ObjectDeleteView):
 class InventoryMappingView(generic.ObjectView):
     queryset = models.InventoryMapping.objects.all()
 
+
 class InventoryMappingListView(generic.ObjectListView):
     queryset = models.InventoryMapping.objects.all()
     table = tables.InventoryMappingTable
     template_name = 'netbox_zabbix/inv_mapping_list.html'
 
+
 class InventoryMappingEditView(generic.ObjectEditView):
     queryset = models.InventoryMapping.objects.all()
     form = forms.InventoryMappingForm
     template_name = 'netbox_zabbix/inv_mapping_edit.html'
+
 
 class InventoryMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.InventoryMapping.objects.all()
@@ -979,6 +988,7 @@ class InventoryMappingDeleteView(generic.ObjectDeleteView):
 
 def count_matching_devices_for_mapping(obj):
     return obj.get_matching_devices().count()
+
 
 @register_model_view(models.DeviceMapping, 'devices')
 class DeviceMappingDevicesView(generic.ObjectView):
@@ -1002,6 +1012,7 @@ class DeviceMappingDevicesView(generic.ObjectView):
             "table": table,
         }
 
+
 class DeviceMappingView(generic.ObjectView):
     queryset = models.DeviceMapping.objects.all()
     template_name = 'netbox_zabbix/device_mapping.html'
@@ -1021,15 +1032,18 @@ class DeviceMappingView(generic.ObjectView):
             ]
         }
 
+
 class DeviceMappingListView(generic.ObjectListView):
     queryset = models.DeviceMapping.objects.all()
     table = tables.DeviceMappingTable
     template_name = 'netbox_zabbix/device_mapping_list.html'
 
+
 class DeviceMappingEditView(generic.ObjectEditView):
     queryset = models.DeviceMapping.objects.all()
     form = forms.DeviceMappingForm
     template_name = 'netbox_zabbix/device_mapping_edit.html'
+
 
 class DeviceMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceMapping.objects.all()
@@ -1045,6 +1059,7 @@ class DeviceMappingDeleteView(generic.ObjectDeleteView):
             return redirect('plugins:netbox_zabbix:devicemapping_list' )
     
         return super().post( request, *args, **kwargs )
+
 
 class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
     queryset = models.DeviceMapping.objects.all()
@@ -1077,32 +1092,35 @@ class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
 class VMMappingView(generic.ObjectView):
     queryset = models.VMMapping.objects.all()
 
+
 class VMMappingListView(generic.ObjectListView):
     queryset = models.VMMapping.objects.all()
     table = tables.VMMappingTable
     template_name = 'netbox_zabbix/vm_mapping_list.html'
+
 
 class VMMappingEditView(generic.ObjectEditView):
     queryset = models.VMMapping.objects.all()
     form = forms.VMMappingForm
     template_name = 'netbox_zabbix/vm_mapping_edit.html'
 
+
 class VMMappingDeleteView(generic.ObjectDeleteView):
     queryset = models.VMMapping.objects.all()
 
 
 # ------------------------------------------------------------------------------
-# JobLog
+# Event Log
 # ------------------------------------------------------------------------------
 
-class JobLogView(generic.ObjectView):
-    queryset = models.JobLog.objects.all()
+class EventLogView(generic.ObjectView):
+    queryset = models.EventLog.objects.all()
 
     def get_extra_context(self, request, instance):
 
-        # Find previous and next logs (ordered by created)
-        prev_log = models.JobLog.objects.filter( created__lt=instance.created ).order_by( '-created' ).first()
-        next_log = models.JobLog.objects.filter( created__gt=instance.created ).order_by( 'created' ).first()
+        # Find previous and next events (ordered by created)
+        prev_event = models.EventLog.objects.filter( created__lt=instance.created ).order_by( '-created' ).first()
+        next_event = models.EventLog.objects.filter( created__gt=instance.created ).order_by( 'created' ).first()
         
 
         if request.GET.get( 'format' ) in ['json', 'yaml']:
@@ -1110,25 +1128,28 @@ class JobLogView(generic.ObjectView):
         else:
             format = 'json'
 
-        return { 'format': format, 'prev_log': prev_log, 'next_log': next_log, }
-    
-class JobLogListView(generic.ObjectListView):
-    queryset = models.JobLog.objects.all()
-    table = tables.JobLogTable
+        return { 'format': format, 'prev_event': prev_event, 'next_event': next_event, }
 
-class JobLogEditView(generic.ObjectView):
-    queryset = models.JobLog.objects.all()
 
-class JobLogDeleteView(generic.ObjectDeleteView):
-    queryset = models.JobLog.objects.all()
+class EventLogListView(generic.ObjectListView):
+    queryset = models.EventLog.objects.all()
+    table = tables.EventLogTable
 
-class JobLogBulkDeleteView(generic.BulkDeleteView):
-    queryset = models.JobLog.objects.all()
-    #filterset_class = filtersets.JobLogFilterSet
-    table = tables.JobLogTable
+
+class EventLogEditView(generic.ObjectView):
+    queryset = models.EventLog.objects.all()
+
+
+class EventLogDeleteView(generic.ObjectDeleteView):
+    queryset = models.EventLog.objects.all()
+
+
+class EventLogBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.EventLog.objects.all()
+    table = tables.EventLogTable
 
     def get_return_url(self, request, obj=None):
-            return reverse('plugins:netbox_zabbix:joblog_list')
+            return reverse('plugins:netbox_zabbix:eventlog_list')
 
 
 # end

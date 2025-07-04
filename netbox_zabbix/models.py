@@ -139,8 +139,8 @@ class Config(NetBoxModel):
         verbose_name_plural = "Zabbix Configurations"
 
     # General
-    name                     = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the configuration." )
-    ip_assignment_method = models.CharField(
+    name                      = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the configuration." )
+    ip_assignment_method      = models.CharField(
         verbose_name="IP Assignment Method",
         max_length=16,
         choices=IPAssignmentChoices.choices,
@@ -148,7 +148,7 @@ class Config(NetBoxModel):
         help_text="Method used to assign IPs to host interfaces."
     )
     auto_validate_importables = models.BooleanField( verbose_name="Validate Importables", default=False, help_text="Automatically validate importable hosts before displaying them. Otherwise, validation is manual." )
-    max_deletions = models.IntegerField(
+    max_deletions             = models.IntegerField(
         verbose_name="Max Deletions On Import",
         default=3,
         help_text="Limits deletions of stale entries on Zabbix imports."
@@ -158,8 +158,7 @@ class Config(NetBoxModel):
         default=3,
         help_text="Max number of success messages shown per job."
     )
-    
-    job_log_enabled = models.BooleanField( verbose_name="Job Log Enabled", default=False )
+    event_log_enabled         = models.BooleanField( verbose_name="Event Log Enabled", default=False )
 
     # Zabbix
     version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
@@ -810,23 +809,24 @@ class VMMapping(Mapping):
 
 
 # ------------------------------------------------------------------------------
-# JobLog
+# Event Log
 # ------------------------------------------------------------------------------
 
-class JobLog(NetBoxModel):
-    name     = models.CharField( verbose_name="Name", max_length=256, help_text="Name of the device or virtual machine" )
-    job      = models.ForeignKey( Job, on_delete=models.CASCADE, null=True, related_name='logs', help_text="Job reference." )
-    payload  = models.JSONField( verbose_name="Payload", null=True, blank=True, default=dict, help_text="Raw JSON payload of the log." )
-    created  = models.DateTimeField( verbose_name="Created", auto_now_add=True )
-    message  = models.TextField( verbose_name="Message", blank=True, default="", help_text="Optional human-readable message.")
+class EventLog(NetBoxModel):
+    name       = models.CharField( verbose_name="Name", max_length=256, help_text="Event name" )
+    job       = models.ForeignKey( Job, on_delete=models.CASCADE, null=True, related_name='logs', help_text="Job reference." )
+    message   = models.TextField( verbose_name="Message", blank=True, default="", help_text="Event message." )
+    exception = models.TextField( verbose_name="Exception", blank=True, default="", help_text="Exception." )
+    data      = models.JSONField( verbose_name="Data", null=True, blank=True, default=dict, help_text="Event data." )
+    created   = models.DateTimeField( verbose_name="Created", auto_now_add=True )
 
     class Meta:
         ordering = ['-created']
     
     def __str__(self):
-        return f"Log {self.name}@{self.job}"
-    
+        return f"{self.name}"
+
     def get_absolute_url(self):
-       return reverse( 'plugins:netbox_zabbix:joblog', args=[self.pk] )
+       return reverse( 'plugins:netbox_zabbix:eventlog', args=[self.pk] )
 
 # end

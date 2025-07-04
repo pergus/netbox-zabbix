@@ -215,12 +215,12 @@ def get_tag_name_formatting():
     """
     return get_config().tag_name_formatting
 
-def get_job_log_enabled():
+def get_event_log_enabled():
     """
-    Retrieves the debug from the configuration.
+    Retrieves the event log enabled  from the configuration.
     
     Returns:
-        The debug as specified in the configuration.    
+        The event log enabled as specified in the configuration.
     """
 
-    return get_config().job_log_enabled
+    return get_config().event_log_enabled

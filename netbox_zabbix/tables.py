@@ -52,7 +52,7 @@ class ConfigTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.Config
         fields = ( 
-            'name', 'ip_assignment_method', 'auto_validate_importables', 'max_deletions', 'max_success_notifications', 'job_log_enabled', 
+            'name', 'ip_assignment_method', 'auto_validate_importables', 'max_deletions', 'max_success_notifications', 'event_log_enabled', 
             'version', 'api_endpoint', 'web_address', 'token', 'default_cidr', 'connection', 'last_checked_at', 'inventory_mode', 
             'monitored_by', 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', 
             'default_tag', 'tag_prefix', 'tag_name_formatting' )
@@ -578,19 +578,20 @@ class VMMappingTable(NetBoxTable):
 
 
 # ------------------------------------------------------------------------------
-# JobLog
+# Event Log
 # ------------------------------------------------------------------------------
 
-class JobLogTable(NetBoxTable):
-    name = tables.Column( linkify=True )
-    job = tables.Column( linkify=True )
-    created = tables.DateTimeColumn(  format="Y-m-d H:i:s" )
-    message = tables.Column()
-    payload = tables.Column()
+class EventLogTable(NetBoxTable):
+    name      = tables.Column( linkify=True )
+    job       = tables.Column( linkify=True )
+    message   = tables.Column()
+    exception = tables.Column()
+    data      = tables.Column()
+    created   = tables.DateTimeColumn(  format="Y-m-d H:i:s" )
 
     class Meta:
-        model = models.JobLog
-        fields = ( 'name', 'job', 'created', 'message', 'payload')
+        model = models.EventLog
+        fields = ( 'name', 'job', 'created', 'message', 'exception', 'data')
         default_columns = ( 'name', 'job', 'created', 'message' )
         attrs = {'class': 'table table-hover table-headings'}
 

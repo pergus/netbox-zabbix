@@ -197,13 +197,13 @@ class VMMappingSerializer(serializers.ModelSerializer):
 
 
 # ------------------------------------------------------------------------------
-# JobLog
+# Event Log
 # ------------------------------------------------------------------------------
 
-class JobLogSerializer(serializers.ModelSerializer):
+class EventLogSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = models.JobLog
+        model = models.EventLog
         fields = '__all__'
 
 # end
