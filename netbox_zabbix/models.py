@@ -204,8 +204,8 @@ class Config(NetBoxModel):
         help_text="Max number of success messages shown per job."
     )
     event_log_enabled         = models.BooleanField( verbose_name="Event Log Enabled", default=False )
-    zabbix_sync_interval      = models.PositiveSmallIntegerField( verbose_name="Zabbix Sync Interval", null=True, blank=True, choices=SyncJobIntervalChoices, default=SyncJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix sync. Must be at least 1 minute." )
-
+    zabbix_sync_interval      = models.PositiveIntegerField( verbose_name="Zabbix Sync Interval", null=True, blank=True, choices=SyncJobIntervalChoices, default=SyncJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix sync. Must be at least 1 minute." )
+    
     # Zabbix
     version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
     api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
@@ -286,7 +286,6 @@ class Config(NetBoxModel):
     
     tag_name_formatting =  models.CharField( verbose_name="Tag Name Formatting", choices=TagNameFormattingChoices, default=TagNameFormattingChoices.KEEP, help_text="Tag name formatting.")
     
-
     def __str__(self):
         return self.name
 
@@ -296,9 +295,7 @@ class Config(NetBoxModel):
 
 
     def save(self, *args, **kwargs):
-        from netbox_zabbix import jobs
         super().save(*args, **kwargs)
-        jobs.ImportZabbixSetting.run_job( interval=self.zabbix_sync_interval )
 
 # ------------------------------------------------------------------------------
 # Templates

@@ -5,6 +5,9 @@ from dcim.models import Device, Interface as DeviceInterface
 from virtualization.models import VirtualMachine, VMInterface
 
 from core.models import Job
+from core.choices import JobIntervalChoices
+from netbox.jobs import JobRunner, system_job
+from netbox.registry import registry
 
 import netaddr
 import json
@@ -992,16 +995,6 @@ class ImportZabbixSetting( AtomicJobRunner ):
     def run_job(cls, user=None, schedule_at=None, interval=None, immediate=False, name=None):
         if name is None:
             name = slugify( f"Zabbix Sync" )
-
-        # Look for existing job with the same name and user
-        existing_jobs = Job.objects.filter( name=name, user=user, status__in=["scheduled", "queued"] ).order_by("-created")
-
-        # If a job exists, check if we need to replace it
-        for job in existing_jobs:
-            if job.interval == interval and job.schedule_at == schedule_at:
-                return job     # Job is already correctly scheduled
-            job.delete()
-
         job_args = {
             "name": name,
             "schedule_at": schedule_at,
@@ -1058,3 +1051,38 @@ class DeleteZabbixHost( AtomicJobRunner ):
             netbox_job = cls.enqueue_once( **job_args )
         
         return netbox_job
+
+
+#-------------------------------------------------------------------------------
+# System Jobs
+# ------------------------------------------------------------------------------
+
+
+@system_job(interval=JobIntervalChoices.INTERVAL_HOURLY)
+class ImportZabbixSystemJob(JobRunner):
+    class Meta:
+        name = "Import Zabbix System Job"
+
+    def run(self, *args, **kwargs):
+        logger.info( "Running Import Zabbix System Job..." )
+    
+    @classmethod
+    def schedule(cls, interval):
+        
+        jobs = Job.objects.filter( name=cls.Meta.name, status__in = [ "scheduled", "pending", "running" ] )
+
+        if len(jobs) != 1:
+            logger.error( f"Internal error: there can only be one instance of system job '{cls.Meta.name}'" )
+            return
+
+        registry['system_jobs'][cls] = {
+              'interval': interval
+        }
+
+        if jobs[0].interval == interval:
+            logger.info( f"No need to update interval for system job {cls.Meta.name}" )
+            return
+        
+        jobs[0].delete()
+        system_job = cls.enqueue( interval=interval )
+        logger.info( f"updated interval for system job {system_job}" )

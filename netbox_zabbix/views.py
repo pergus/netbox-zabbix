@@ -44,7 +44,7 @@ class ConfigListView(generic.ObjectListView):
     table = tables.ConfigTable
 
     def get_extra_context(self, request):
-        # Hide the add button if a configuration already exists.      
+        # Hide the add button if a configuration already exists.
         context = super().get_extra_context( request )
         if models.Config.objects.exists():
             context['actions'] = []

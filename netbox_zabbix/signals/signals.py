@@ -1,7 +1,13 @@
-from django.db.models.signals import post_delete, pre_delete
+from django.db.models.signals import post_delete, pre_delete, post_save
 from django.dispatch import receiver
 
 from netbox_zabbix.models import DeviceAgentInterface, DeviceSNMPv3Interface, DeviceZabbixConfig, MainChoices
+
+from netbox_zabbix.models import Config
+from netbox_zabbix.jobs import ImportZabbixSystemJob
+from django.db import transaction
+
+
 
 import logging
 from netbox_zabbix.jobs import DeleteZabbixHost
@@ -9,10 +15,19 @@ from netbox_zabbix.jobs import DeleteZabbixHost
 
 logger = logging.getLogger('netbox.plugins.netbox_zabbix')
 
+
+# ------------------------------------------------------------------------------
+# Reschedule System Jobs
+#
+
+@receiver(post_save, sender=Config)
+def update_job_schedule(sender, instance, **kwargs):
+    transaction.on_commit(lambda: ImportZabbixSystemJob.schedule(instance.zabbix_sync_interval))
+
+
 #
 # Add singal handler for rename & delete...
 #
-
 
 @receiver(post_delete, sender=DeviceAgentInterface)
 def promot_agent_interface_to_main(sender, instance, **kwargs):
