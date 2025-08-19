@@ -176,8 +176,6 @@ class SyncJobIntervalChoices(ChoiceSet):
 # ------------------------------------------------------------------------------
 # Configuration
 # ------------------------------------------------------------------------------
-
-
 class Config(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Configuration"
@@ -205,7 +203,7 @@ class Config(NetBoxModel):
     )
     event_log_enabled         = models.BooleanField( verbose_name="Event Log Enabled", default=False )
     zabbix_sync_interval      = models.PositiveIntegerField( verbose_name="Zabbix Sync Interval", null=True, blank=True, choices=SyncJobIntervalChoices, default=SyncJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix sync. Must be at least 1 minute." )
-    
+
     # Zabbix
     version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
     api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )

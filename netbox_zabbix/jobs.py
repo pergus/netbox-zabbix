@@ -5,9 +5,7 @@ from dcim.models import Device, Interface as DeviceInterface
 from virtualization.models import VirtualMachine, VMInterface
 
 from core.models import Job
-from core.choices import JobIntervalChoices
-from netbox.jobs import JobRunner, system_job
-from netbox.registry import registry
+from datetime import timedelta, datetime
 
 import netaddr
 import json
@@ -1057,32 +1055,52 @@ class DeleteZabbixHost( AtomicJobRunner ):
 # System Jobs
 # ------------------------------------------------------------------------------
 
-
-@system_job(interval=JobIntervalChoices.INTERVAL_HOURLY)
-class ImportZabbixSystemJob(JobRunner):
+class ImportZabbixSystemJob( AtomicJobRunner ):
     class Meta:
         name = "Import Zabbix System Job"
-
-    def run(self, *args, **kwargs):
-        logger.info( "Running Import Zabbix System Job..." )
     
     @classmethod
-    def schedule(cls, interval):
+    def run(cls, *args, **kwargs):
+        try:
+            return import_zabbix_settings()
+        except Exception as e:
+            msg = f"Failed to import zabbix settings: { str( e ) }"
+            logger.info( msg )
+            raise Exception( msg )
         
-        jobs = Job.objects.filter( name=cls.Meta.name, status__in = [ "scheduled", "pending", "running" ] )
+    @classmethod
+    def schedule(cls, interval=None):
+        
+        if interval == None:
+            logger.info( "Import Zabbix System Job required an interval" )
+            return None
+        
+        name = cls.Meta.name
 
-        if len(jobs) != 1:
-            logger.error( f"Internal error: there can only be one instance of system job '{cls.Meta.name}'" )
-            return
+        jobs = Job.objects.filter( name=name, status__in = [ "scheduled", "pending", "running" ] )
 
-        registry['system_jobs'][cls] = {
-              'interval': interval
+        if len(jobs) > 1:
+            logger.error( f"Internal error: there can only be one instance of system job '{name}'" )
+            return None
+        
+        existing_job = jobs[0] if len(jobs) == 1 else None
+
+        if existing_job:
+            if existing_job.interval == interval:
+                logger.info( f"No need to update interval for system job {name}" )
+                return existing_job
+            logger.info( f"Deleted old job instance for '{name}'")
+            existing_job.delete()
+        
+        
+        job_args = {
+            "name":         name,
+            "interval":     interval,
+            "schedule_at":  datetime.now() + timedelta(minutes=interval),
+            "api_endpoint": get_zabbix_api_endpoint(),
+            "token":        SecretStr( get_zabbix_token() ),
         }
 
-        if jobs[0].interval == interval:
-            logger.info( f"No need to update interval for system job {cls.Meta.name}" )
-            return
-        
-        jobs[0].delete()
-        system_job = cls.enqueue( interval=interval )
-        logger.info( f"updated interval for system job {system_job}" )
+        job = cls.enqueue_once( **job_args )
+        logger.info( f"Scheduled new system job '{name}' with interval {interval}" )
+        return job

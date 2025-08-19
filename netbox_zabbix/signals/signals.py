@@ -1,4 +1,4 @@
-from django.db.models.signals import post_delete, pre_delete, post_save
+from django.db.models.signals import post_delete, pre_delete, pre_save
 from django.dispatch import receiver
 
 from netbox_zabbix.models import DeviceAgentInterface, DeviceSNMPv3Interface, DeviceZabbixConfig, MainChoices
@@ -20,9 +20,15 @@ logger = logging.getLogger('netbox.plugins.netbox_zabbix')
 # Reschedule System Jobs
 #
 
-@receiver(post_save, sender=Config)
+@receiver(pre_save, sender=Config)
 def update_job_schedule(sender, instance, **kwargs):
-    transaction.on_commit(lambda: ImportZabbixSystemJob.schedule(instance.zabbix_sync_interval))
+
+    if not instance.pk:
+        return
+    
+    prev_config = sender.objects.get( pk=instance.pk )
+    if prev_config.zabbix_sync_interval != instance.zabbix_sync_interval:
+        transaction.on_commit(lambda: ImportZabbixSystemJob.schedule(instance.zabbix_sync_interval))
 
 
 #

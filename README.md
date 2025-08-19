@@ -127,8 +127,11 @@ I added it to makemigrations without having to dump the database.
 | Add TLS settings                                             | Done          |
 | Add Max deletions on import                                  | Done          |
 | Add Maximum Success Notifications                            | Done          |
-| Add Background Job for Zabbix Config Sync                    | Todo          |
+| Add Background Job for Zabbix Config Sync                    | Done          |
 | Should Max deletions on import be enabled/disabled?          | Todo          |
+| Add defaults for zabbix interfaces                           | Todo          |
+
+
 
 
 ### NetBox Only Devices
