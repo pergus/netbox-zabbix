@@ -12,7 +12,6 @@ from netbox.tables.columns import TagColumn, ActionsColumn
 from dcim.models import Device
 from dcim.tables import DeviceTable
 
-from utilities import query
 from virtualization.models import VirtualMachine
 from virtualization.tables import VirtualMachineTable
 
@@ -169,16 +168,10 @@ class NetBoxOnlyDevicesTable(DeviceTable):
         default_columns = fields
     
     def render_actions(self, record):
-        #if record.id in getattr( self, "valid_device_ids", set() ):
         return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
-        #return columns.ActionsColumn().render( record, self )
     
-#    def render_mapping_name(self, record):
-#        filter = models.DeviceMapping.get_matching_filter( record )
-#        return mark_safe( filter.name )
-
     def render_mapping_name(self, record):
-        mapping = models.DeviceMapping.get_matching_filter(record)
+        mapping = models.DeviceMapping.get_matching_filter( record )
         if not mapping:
             return "—"  # or mark_safe("<em>No mapping</em>") or similar
     
@@ -244,6 +237,7 @@ class NetBoxOnlyVMsTable(VirtualMachineTable):
         return record.get_macthing_filter().name
 
     def render_zabbix_config(self, record):
+        # TODO: Should not use DeviceZabbixConfig here
         return mark_safe("✔") if  models.DeviceZabbixConfig.objects.filter( device=record ).exists() else mark_safe("✘")
 
 

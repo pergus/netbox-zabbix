@@ -8,7 +8,6 @@ from core.models import Job
 from datetime import timedelta, datetime
 
 import netaddr
-import json
 
 from typing import Union
 
@@ -48,6 +47,11 @@ from netbox_zabbix.config import (
     get_tls_connect, 
     get_tls_psk, 
     get_tls_psk_identity,
+    get_snmpv3_securityname,
+    get_snmpv3_authprotocol,
+    get_snmpv3_authpassphrase,
+    get_snmpv3_privprotocol,
+    get_snmpv3_privpassphrase,
     get_tag_name_formatting,
 )
 
@@ -61,10 +65,15 @@ from netbox_zabbix.zabbix import (
     import_proxies,
     import_proxy_groups,
     import_host_groups,
-    create_host,
     get_host_by_id,
+    create_host,
+    update_host,
     delete_host,
+    get_host_interfaces,
 )
+
+from core.choices import ObjectChangeActionChoices
+
 
 from netbox_zabbix.logger import logger
 
@@ -74,6 +83,38 @@ from netbox_zabbix.logger import logger
 # ------------------------------------------------------------------------------
 # Helper Classes and Functions 
 # ------------------------------------------------------------------------------
+
+class ExceptionWithData(Exception):
+    """
+    A custom exception class that carries additional structured data alongside 
+    the error message.
+    
+    This is useful in scenarios where simply raising an exception with a string 
+    is not enough, and additional context (such as a failed API payload, 
+    validation results, or debug metadata) needs to be passed along with the 
+    error.  
+    
+    The additional data can be consumed by higher-level handlers (e.g. job 
+    runners or UI code) to provide richer error reporting, troubleshooting 
+    output, or rollback logic.
+    
+    Attributes:
+        data (Any): Arbitrary structured data associated with the exception.
+    
+    Example:
+        >>> payload = {"host": "router1", "status": "failed"}
+        >>> raise ExceptionWithData("Failed to create host in Zabbix", payload)
+    
+        try:
+            ...
+        except ExceptionWithData as e:
+            print(e)        # Output: Failed to create host in Zabbix
+            print(e.data)   # Output: {'host': 'router1', 'status': 'failed'}
+    """
+    def __init__(self, message, data):
+        super().__init__( message )
+        self.data = data
+
 
 class SecretStr(str):
     """
@@ -327,7 +368,7 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
     if config_model.objects.filter( **{instance_type: instance} ).exists():
         raise Exception( f"Zabbix config for '{instance.name}' already exists" )
 
-    logger.info( f"Creating Zabbix config for {instance.name}" )
+    logger.error( f"Creating Zabbix config for {instance.name}" )
 
     # Create config instance
     config = config_model( **{instance_type: instance} )
@@ -342,7 +383,7 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
         if template_name:
             template_obj = Template.objects.get( name=template_name )
             config.templates.add( template_obj )
-            logger.info( f"Added template '{template_name}' to {instance.name}" )
+            logger.error( f"Added template '{template_name}' to {instance.name}" )
 
 
     # Add interfaces
@@ -354,7 +395,7 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
             # searching for an IP, a configuratbe CIDR is added to the Zabbix IP.
             cidr = get_default_cidr()
             address = f"{iface['ip']}{cidr}"
-            logger.info( f"Looking up {address=}" )
+            logger.error( f"Looking up {address=}" )
             nb_ip_address = IPAddress.objects.get( address=address )
 
         elif iface["useip"] == 0 and iface["dns"]:
@@ -386,7 +427,7 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
                 )
                 agent_iface.full_clean()
                 agent_iface.save()
-                logger.info( f"Added AgentInterface for {instance.name} using IP {nb_ip_address}" )
+                logger.error( f"Added AgentInterface for {instance.name} using IP {nb_ip_address}" )
             except Exception as e:
                 raise Exception( f"Failed to create agent interface for '{instance.name}', reason: {str( e )}" )
 
@@ -418,7 +459,7 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
                 )
                 snmpv3_iface.full_clean()
                 snmpv3_iface.save()
-                logger.info( f"Added SNMPv3tInterface for {instance.name} using IP {nb_ip_address}" )
+                logger.error( f"Added SNMPv3tInterface for {instance.name} using IP {nb_ip_address}" )
             except Exception as e:
                 raise Exception( f"Failed to create snmpv3 interface for '{instance.name}', reason: {str( e )}" )
         else:
@@ -555,6 +596,18 @@ def build_payload(zcfg) -> dict:
             "ip": str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
             "dns": iface.resolved_dns_name or "",
             "port": str( iface.port ),
+            "details": {
+                "version": str( iface.version ) ,
+                "bulk": str( iface.bulk ),
+                "max_repetitions": str( iface.max_repetitions ),
+                "contextname": str( iface.contextname ),
+                "securityname": str( iface.securityname ),
+                "securitylevel": str( iface.securitylevel ),
+                "authprotocol": str( iface.authprotocol ),
+                "authpassphrase": str( iface.authpassphrase ),
+                "privprotocol": str( iface.privprotocol ),
+                "privpassphrase": str( iface.privpassphrase ),
+            }
         })
 
     if not interfaces:
@@ -606,6 +659,8 @@ def quick_add_interface(
     interface_model,
     interface_name_suffix,
     interface_kwargs_fn,
+    user,
+    requestid
 ):
     """
     Shared logic for adding either Agent or SNMPv3 interfaces.
@@ -615,37 +670,69 @@ def quick_add_interface(
 
     event_message = ""
 
+    # TODO: I guess adding a VM require a VM mapping. Maybe it is easier to
+    # split this function into two parts. When I get it to work properly for
+    # a device I'll think about reimplementing this.
+
     try:
         default_mapping = DeviceMapping.objects.get( default=True )
     except DeviceMapping.DoesNotExist:
         msg = f"No default device mapping defined. Unable to add interface to {obj.name}"
-        logger.info( f"{msg}" )
+        logger.error( f"{msg}" )
         raise Exception( msg )
     except DeviceMapping.MultipleObjectsReturned:
         msg = f"Multiple default device mappings found. Unable to add interface to {obj.name}"
-        logger.info( f"{msg}" )
+        logger.error( f"{msg}" )
         raise Exception( msg )
     except Exception as e:
         msg = f"Unexpected error while retrieving default device mapping for {obj.name}: {e}"
-        logger.info( f"{msg}" )
+        logger.error( f"{msg}" )
         raise Exception( msg )
 
     try:
        mapping = DeviceMapping.get_matching_filter( obj )
        if mapping.interface_type != InterfaceTypeChoices.Any and interface_model.type != mapping.interface_type:
-           logger.info( f"Interface type mismatch for {obj.name}, falling back to default mapping." )
+           logger.error( f"Interface type mismatch for {obj.name}, falling back to default mapping." )
            mapping = default_mapping
     except Exception as e:
-        logger.info( f"Using default mapping for {obj.name}: {e}" )
+        logger.error( f"Using default mapping for {obj.name}: {e}" )
         mapping = default_mapping
 
     event_message = f"Using mapping {mapping.name} for {obj.name}"
 
     try:
+
+        # Create a ZabbixConfig instance
+        # --------------------------------
+        # This creates the actual database object for the device's Zabbix configuration.
+        # full_clean() ensures all model validation rules are satisfied before saving.
+        # Adding a many-to-many relationship which we do when we associate the
+        # Zabbix Configuration with a Device/VM require an id field. That is
+        # why we need to save the Zabbix Configuration here  as well as at the
+        # end of the function.
+
         zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
         zcfg = zabbix_config_model( **zcfg_kwargs )
         zcfg.full_clean()
         zcfg.save()
+        #zcfg.snapshot() # We want to get 
+
+        # Manually add the ZabbixConfig instance to the change log
+        # ---------------------------------------------------------
+        # Normally, when objects are created via the NetBox UI, the change log
+        # (ObjectChange) is automatically created by signals that have access to
+        # the current HTTP request. However, this code runs in a background job,
+        # which does not have a live request object, so the signals will not fire.
+        # To ensure the creation is logged, we manually create an ObjectChange.
+        #
+        # We pass the user and request_id explicitly so the change log accurately
+        # reflects who initiated the action and which request triggered it.
+        #obj_change = zcfg.to_objectchange( action=ObjectChangeActionChoices.ACTION_CREATE )
+        #obj_change.user = user
+        #obj_change.request_id = requestid
+        #obj_change.save()
+        
+
     except Exception as e:
         raise Exception( f"Failed to create Zabbix configuration: {e}" )
 
@@ -655,7 +742,7 @@ def quick_add_interface(
             zcfg.templates.add( Template.objects.get( name=template.name ) )
         except Exception as e:
             msg = f"Failed to add template {template.name}: {e}"
-            logger.info( f"{msg}" )
+            logger.error( f"{msg}" )
             raise Exception( msg )
 
     # Host Groups
@@ -664,7 +751,7 @@ def quick_add_interface(
             zcfg.host_groups.add( HostGroup.objects.get( name=hostgroup.name ) )
         except Exception as e:
             msg = f"Failed to add host group {hostgroup.name}: {e}"
-            logger.info( f"{msg}" )
+            logger.error( f"{msg}" )
             raise Exception( msg )
 
     # Monitored by
@@ -676,7 +763,7 @@ def quick_add_interface(
             zcfg.proxy = Proxy.objects.get( name=mapping.proxy.name )
         except Exception as e:
             msg = f"Failed to add proxy {mapping.proxy.name}: {e}"
-            logger.info( f"{msg}" )
+            logger.error( f"{msg}" )
             raise Exception( msg )
 
     # Proxy Group
@@ -685,13 +772,13 @@ def quick_add_interface(
             zcfg.proxy_group = ProxyGroup.objects.get( name=mapping.proxy_group.name )
         except Exception as e:
             msg = f"Failed to add proxy group {mapping.proxy_group.name}: {e}"
-            logger.info( msg )
+            logger.error( msg )
             raise Exception( msg )
 
     ip = getattr( obj, "primary_ip4", None )
     if not ip:
         msg = f"{obj.name} does not have a primary IPv4 address"
-        logger.info( msg )
+        logger.error( msg )
         raise Exception( msg )
 
 
@@ -711,46 +798,79 @@ def quick_add_interface(
             useip=useip
         )
         interface_fields.update( interface_kwargs_fn() )
-        logger.info( f"{interface_fields['interface']=}" )
         iface = interface_model( **interface_fields )
         iface.full_clean()
         iface.save()
     except Exception as e:
         msg = f"Failed to create {interface_name_suffix} interface: {e}"
-        logger.info( msg )
+        logger.error( msg )
         raise Exception( msg )
 
     try:
         payload = build_payload( zcfg )
     except Exception as e:
         msg = f"Failed to build payload: {e}"
-        logger.info( msg )
+        logger.error( msg )
         raise Exception( msg )
+
+
+    # TODO: If something fails after the host has been created in Zabbix e.g.
+    # we cannot add the Zabbix interface id to the Zabbix Configuration,
+    # then the host in Zabbix has to be deleted.
+    
 
     # Create the host in Zabbix
     try:
         result = create_host( **payload )
-        logger.info( f"{json.dumps( result, indent=2 )}" )
-        hostid = result.get("hostids", [None])[0]  # Safely get first hostid or None if missing
+        hostid = result.get( "hostids", [None] )[0]  # Safely get first hostid or None if missing
         if not hostid:
-            msg = f"Failed to create host configuration in Zabbix for {obj.name}: {e}"
-            logger.info( msg )
-            raise Exception( msg )
+            msg = f"Zabbix failed to create hostid for {obj.name}: {e}"
+            logger.error( msg )
+            raise ExceptionWithData( msg, payload )
         zcfg.hostid = int( hostid )
-    
     except Exception as e:
         msg = f"Failed to create host configuration in Zabbix for {obj.name}: {e}"
-        logger.info( msg )
-        raise Exception( msg )
+        logger.error( msg )
+        raise ExceptionWithData( msg, payload )
     
+    # Add the interface id to the Zabbix configuration
+    try:
+        result = get_host_interfaces( hostid )
+        logger.debug( f" DEBUG: {result} " )
+        if len(result) == 1:
+            id = result[0].get( "interfaceid", None )
+            iface.interfaceid = id
+            iface.full_clean()
+            iface.save()
+        else:
+            msg = f"Failed to add interface id to {obj.name}"
+            # TODO: Delete the host in Zabbix.
+            logger.error( msg )
+            raise ExceptionWithData( msg, payload )
+
+    except Exception as e:
+        msg = f"Failed to get host interfaces ids from Zabbix for {obj.name}: {e}"
+        logger.error( msg )
+        # TODO: Delete the host in Zabbix.
+        raise ExceptionWithData( msg, payload )
+
     # Store the Zabbix configuration 
     try:
+
         zcfg.full_clean()
         zcfg.save()
+        
+        obj_change = zcfg.to_objectchange( action=ObjectChangeActionChoices.ACTION_CREATE )
+        obj_change.user = user
+        obj_change.request_id = requestid
+        obj_change.save()
+
+                
     except Exception as e:
         msg = f"Failed to save Zabbix configuration: {e}"
-        logger.info( msg )
-        raise Exception( msg )
+        logger.error( msg )
+        # TODO: Delete the host in Zabbix.
+        raise ExceptionWithData( msg, payload )
 
     return { "message": event_message, "data": payload,}
 
@@ -759,7 +879,7 @@ def quick_add_interface(
 #  Quick Add Device Agent
 # ------------------------------------------------------------------------------
 
-def device_quick_add_agent(device):
+def device_quick_add_agent(device, user, requestid):
     return quick_add_interface(
         obj=device,
         host_field_name="device",
@@ -767,6 +887,8 @@ def device_quick_add_agent(device):
         interface_model=DeviceAgentInterface,
         interface_name_suffix="agent",
         interface_kwargs_fn=lambda: {},
+        user=user,
+        requestid=requestid
     )
 
 
@@ -774,13 +896,14 @@ def device_quick_add_agent(device):
 #  Quick Add Device SNMPv3
 # ------------------------------------------------------------------------------
 
-def quick_add_device_snmpv3(device):
+def device_quick_add_snmpv3(device, user, requestid):
+    
     snmp_defaults = {
-        "security_name": "myuser",
-        "auth_protocol": "SHA",
-        "auth_passphrase": "authpass",
-        "priv_protocol": "AES",
-        "priv_passphrase": "privpass",
+        "securityname":   get_snmpv3_securityname(),
+        "authprotocol":   get_snmpv3_authprotocol(),
+        "authpassphrase": get_snmpv3_authpassphrase(),
+        "privprotocol":   get_snmpv3_privprotocol(),
+        "privpassphrase": get_snmpv3_privpassphrase(),
     }
 
     return quick_add_interface(
@@ -790,7 +913,45 @@ def quick_add_device_snmpv3(device):
         interface_model=DeviceSNMPv3Interface,
         interface_name_suffix="snmpv3",
         interface_kwargs_fn=lambda: snmp_defaults,
+        user=user,
+        requestid=requestid
     )
+
+
+#-------------------------------------------------------------------------------
+# Update Zabbix Host
+# ------------------------------------------------------------------------------
+
+def device_update_zabbix_host( zabbix_config ):
+
+    if zabbix_config:
+        pre_data = get_host_by_id( zabbix_config.hostid )
+
+        payload = build_payload( zabbix_config )
+        
+        try:
+            update_host( **payload )
+        except Exception as e:
+            raise ExceptionWithData( e, payload )
+
+        # TODO: Do I need more data "fields"? pre_data post_data?
+        return { "message": f"Updated Zabbix host {zabbix_config.hostid}", "data": pre_data }
+
+
+#-------------------------------------------------------------------------------
+# Delete Zabbix Host
+# ------------------------------------------------------------------------------
+
+def delete_zabbix_host( hostid ):
+
+    if hostid:
+        try:
+            data = get_host_by_id( hostid )
+            delete_host( hostid )
+            return { "message": f"Deleted zabbix host {hostid}", "data": data }
+        except Exception as e:
+            msg = f"Failed to delete zabbix host {hostid}: {str( e )}"
+            raise Exception( msg )
 
 
 #-------------------------------------------------------------------------------
@@ -818,22 +979,6 @@ def import_zabbix_settings():
 
 
 #-------------------------------------------------------------------------------
-# Delete Zabbix Host
-# ------------------------------------------------------------------------------
-
-def delete_zabbix_host( hostid ):
-
-    if hostid:
-        try:
-            data = get_host_by_id( hostid )
-            delete_host( hostid )
-            return { "message": f"Deleted zabbix host {hostid}", "data": data }
-        except Exception as e:
-            msg = f"Failed to delete zabbix host {hostid}: {str( e )}"
-            raise Exception( msg )
-
-
-#-------------------------------------------------------------------------------
 # Jobs
 # ------------------------------------------------------------------------------
 
@@ -848,13 +993,13 @@ class ValidateDeviceOrVM( AtomicJobRunner ):
         try:
             zabbix_host = get_host( device_or_vm.name )
         except Exception as e:
-            logger.info( f"get zabbix host '{device_or_vm.name}' failed: {str( e ) }" )
+            logger.error( f"get zabbix host '{device_or_vm.name}' failed: {str( e ) }" )
             raise ValueError( e )
         
         try:
             return validate_zabbix_host( zabbix_host, device_or_vm )
         except Exception as e:
-            logger.info( f"validating '{device_or_vm.name}' failed: {str( e ) }" )
+            logger.error( f"validating '{device_or_vm.name}' failed: {str( e ) }" )
             raise ValueError( e )
 
     @classmethod
@@ -942,32 +1087,97 @@ class DeviceQuickAddAgent( AtomicJobRunner ):
 
     @classmethod
     def run(cls, *args, **kwargs):
+
         device = kwargs.get( "device", None )
-
         if not device:
-            raise ValueError( "Missing required argument: device." )
+            raise ValueError( "Missing required argument 'device'." )
 
+        user = kwargs.get( "_user", None )
+        if not user:
+            raise ValueError( "Missing required argument 'user'." )
+        
+        requestid = kwargs.get( "requestid", None )
+        if not requestid:
+            raise ValueError( "Missing required argument 'requestid'." )
+        
         try:
-            return device_quick_add_agent( device )
+            return device_quick_add_agent( device, user, requestid )
         except Exception as e:
-            msg = f"Failed to create Zabbix configuration for device '{device.name}': { str( e ) }"
-            logger.info( msg )
-            raise Exception( msg )
+            #msg = f"Failed to create Zabbix configuration for device '{device.name}': { str( e ) }"
+            #logger.error( msg )
+            raise Exception( e )
 
     @classmethod
-    def run_job(cls, device, user, schedule_at=None, interval=None, immediate=False):
+    def run_job(cls, device, user, requestid, schedule_at=None, interval=None, immediate=False):
 
         name = slugify( f"ZBX Device Quick Add Agent {device.name}" )
         
         job_args = {
-                    "name": name,
-                    "schedule_at": schedule_at,
-                    "interval": interval,
-                    "immediate": immediate,
-                    "user": user,
+                    "name":         name,
+                    "schedule_at":  schedule_at,
+                    "interval":     interval,
+                    "immediate":    immediate,
+                    "user":         user, # This user instance is required by the job
+                    "_user":        user, # This user instance is required to add the zabbix configuration to the change log
+                    "requestid":    requestid,
                     "api_endpoint": get_zabbix_api_endpoint(),
-                    "token": SecretStr(get_zabbix_token()),
-                    "device": device,
+                    "token":        SecretStr(get_zabbix_token()),
+                    "device":       device,
+                }
+        
+        if interval is None:
+            netbox_job = cls.enqueue( **job_args )
+        else:
+            netbox_job = cls.enqueue_once( **job_args )
+        
+        return netbox_job
+
+
+class DeviceQuickAddSNMPv3( AtomicJobRunner ):
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+
+        device = kwargs.get( "device", None )
+        if not device:
+            raise ValueError( "Missing required argument: device." )
+
+        user = kwargs.get( "_user", None )
+        if not user:
+            raise ValueError( "Missing required argument '_user'." )
+        
+        requestid = kwargs.get( "requestid", None )
+        if not requestid:
+            raise ValueError( "Missing required argument 'requestid'." )
+        
+
+        try:
+            return device_quick_add_snmpv3( device, user, requestid )
+        except Exception as e:
+            msg = f"Failed to quick add SNMPv3 interface for device '{device.name}': { str( e ) }"
+            logger.error( msg )
+            if hasattr( e, "data" ):
+                data = getattr( e, "data", "")
+                raise ExceptionWithData( e, data )
+            else:
+                raise Exception( e )
+
+    @classmethod
+    def run_job(cls, device, user, requestid, schedule_at=None, interval=None, immediate=False):
+
+        name = slugify( f"ZBX Device Quick Add SNMPv3 {device.name}" )
+        
+        job_args = {
+                    "name":         name,
+                    "schedule_at":  schedule_at,
+                    "interval":     interval,
+                    "immediate":    immediate,
+                    "user":         user, # This user instance is required by the job
+                    "_user":        user, # This user instance is required to add the zabbix configuration to the change log
+                    "requestid":    requestid,
+                    "api_endpoint": get_zabbix_api_endpoint(),
+                    "token":        SecretStr(get_zabbix_token()),
+                    "device":       device,
                 }
         
         if interval is None:
@@ -986,7 +1196,7 @@ class ImportZabbixSetting( AtomicJobRunner ):
             return import_zabbix_settings()
         except Exception as e:
             msg = f"Failed to import zabbix settings: { str( e ) }"
-            logger.info( msg )
+            logger.error( msg )
             raise Exception( msg )
     
     @classmethod
@@ -1011,8 +1221,57 @@ class ImportZabbixSetting( AtomicJobRunner ):
         return netbox_job
 
 
-class DeleteZabbixHost( AtomicJobRunner ):
+class DeviceUpdateZabbixHost( AtomicJobRunner ):
 
+    @classmethod
+    def run(cls, *args, **kwargs):
+
+        device_name = kwargs.get( "device_name", None )        
+        if not device_name:
+            raise ValueError( "Missing required argument 'device_name'." )
+        
+        device_zabbix_config = kwargs.get( "device_zabbix_config", None )
+        if not device_zabbix_config:
+            raise ValueError( "Missing required argument 'device_zabbix_config'." )
+                
+        try:
+            return device_update_zabbix_host( device_zabbix_config )
+        except Exception as e:
+            msg = f"Failed update Zabbix host for device '{device_name}': { str( e ) }"
+            logger.error( msg )
+            if hasattr( e, "data" ):
+                data = getattr( e, "data", "")
+                raise ExceptionWithData( e, data )
+            else:
+                raise Exception( e )
+
+    @classmethod
+    def run_job(cls, device_name, device_zabbix_config, user, schedule_at=None, interval=None, immediate=False):
+        # TODO: Add parameter checks here
+        name = slugify( f"ZBX Update Zabbix Host for device {device_name}" )
+        
+        job_args = {
+                    "name":                 name,
+                    "schedule_at":          schedule_at,
+                    "interval":             interval,
+                    "immediate":            immediate,
+                    "user":                 user,
+                    "api_endpoint":         get_zabbix_api_endpoint(),
+                    "token":                SecretStr(get_zabbix_token()),
+                    "device_name":          device_name,
+                    "device_zabbix_config": device_zabbix_config,
+                }
+        
+        if interval is None:
+            netbox_job = cls.enqueue( **job_args )
+        else:
+            netbox_job = cls.enqueue_once( **job_args )
+        
+        return netbox_job
+
+
+class DeleteZabbixHost( AtomicJobRunner ):
+    # TODO: What about the user name of the person who deleted the host?
     @classmethod
     def run(cls, *args, **kwargs):
         hostid = kwargs.get( "hostid", None )
@@ -1024,7 +1283,7 @@ class DeleteZabbixHost( AtomicJobRunner ):
             return delete_zabbix_host( hostid )
         except Exception as e:
             msg = f"{ str( e ) }"
-            logger.info( msg )
+            logger.error( msg )
             raise Exception( msg )
 
     @classmethod
@@ -1065,14 +1324,14 @@ class ImportZabbixSystemJob( AtomicJobRunner ):
             return import_zabbix_settings()
         except Exception as e:
             msg = f"Failed to import zabbix settings: { str( e ) }"
-            logger.info( msg )
+            logger.error( msg )
             raise Exception( msg )
         
     @classmethod
     def schedule(cls, interval=None):
         
         if interval == None:
-            logger.info( "Import Zabbix System Job required an interval" )
+            logger.error( "Import Zabbix System Job required an interval" )
             return None
         
         name = cls.Meta.name
@@ -1087,9 +1346,9 @@ class ImportZabbixSystemJob( AtomicJobRunner ):
 
         if existing_job:
             if existing_job.interval == interval:
-                logger.info( f"No need to update interval for system job {name}" )
+                logger.error( f"No need to update interval for system job {name}" )
                 return existing_job
-            logger.info( f"Deleted old job instance for '{name}'")
+            logger.error( f"Deleted old job instance for '{name}'")
             existing_job.delete()
         
         
@@ -1102,5 +1361,5 @@ class ImportZabbixSystemJob( AtomicJobRunner ):
         }
 
         job = cls.enqueue_once( **job_args )
-        logger.info( f"Scheduled new system job '{name}' with interval {interval}" )
+        logger.error( f"Scheduled new system job '{name}' with interval {interval}" )
         return job

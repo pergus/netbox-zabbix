@@ -79,6 +79,15 @@ from
 to 
 default 228.66 ms (134 queries including 118 similar and 93 duplicates )
 
+
+### Todo
+
+The date when scheduling the background job should use
+django.utils.timezone.now() to remove the warning:
+RuntimeWarning: DateTimeField Job.scheduled received a naive datetime (2025-08-21 17:43:35.860721) while time zone support is active.
+
+
+
 ### Questions
 
 Is it possible to let other views inherit field etc like NetBoxOnlyDevicesView does?
@@ -90,6 +99,10 @@ as host_groups, proxies etc.
 
 Remove the null=True in Proxy Mappings and Proxy Group Mappings model.
 I added it to makemigrations without having to dump the database.
+
+
+Is useip in Configuration required?
+
 
 ### General
 | Action                                                       | Status        |
@@ -119,6 +132,8 @@ I added it to makemigrations without having to dump the database.
 | Add Proxy Group mappings                                     | Done          |
 | Add support for TLS certificates                             | Todo          |
 
+
+
 ### Config
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
@@ -130,8 +145,6 @@ I added it to makemigrations without having to dump the database.
 | Add Background Job for Zabbix Config Sync                    | Done          |
 | Should Max deletions on import be enabled/disabled?          | Todo          |
 | Add defaults for zabbix interfaces                           | Todo          |
-
-
 
 
 ### NetBox Only Devices
@@ -146,16 +159,23 @@ I added it to makemigrations without having to dump the database.
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
 | Add action button to create new config                       | Todo          |
-| Add action button to quick add Agent                         | Todo          |
+| Add action button to quick add Agent                         | Done          |
 | Add action button to quick Add SNMPv3                        | Todo          |
 
 
 ### Mappings
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
-| Related objects for Proxy Mappings                           | Done          |
-| Related objects for Proxy Group Mappings                     | Done          |
+| Tag Mappings                                                 | Done          |
+| Inventory Mappings                                           | Done          |
+| Device Mappings                                              | Done          |
+| VM Mappings                                                  | Todo          |
 
+
+### Event Log
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| List events                                                  | Done          |
 
 
 

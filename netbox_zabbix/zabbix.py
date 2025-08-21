@@ -498,21 +498,34 @@ def import_host_groups(max_deletions=None):
 
 
 # ------------------------------------------------------------------------------
-# Create/Update/Delete
+# Host Actions
 # ------------------------------------------------------------------------------
 
 def create_host(**host):
     try:
         z = get_zabbix_client()
-        return z.host.create(**host)
+        return z.host.create( **host )
     except Exception as e:
         raise e
 
-
-def delete_host(id):
-    ids = [ id ]
+def update_host(**host):
     try:
         z = get_zabbix_client()
-        return z.host.delete( *ids ) 
+        return z.host.update( **host )
     except Exception as e:
-                raise e
+        raise e
+
+def delete_host(hostid):
+    hostids = [ hostid ]
+    try:
+        z = get_zabbix_client()
+        return z.host.delete( *hostids ) 
+    except Exception as e:
+        raise e
+    
+def get_host_interfaces(hostid):
+    try:
+        z = get_zabbix_client()
+        return z.hostinterface.get( output=["interfaceid", "type"], hostids=hostid )
+    except Exception as e:
+        raise e

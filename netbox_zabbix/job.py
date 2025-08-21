@@ -53,15 +53,20 @@ class AtomicJobRunner(JobRunner):
             cls._log_event( name=job.name, job=job, result=result )
 
         except Exception as e:
+
             error_msg = str( e )
+            data = getattr( e, "data", None )
             job.data = {
                 "status": "failed",
                 "error": error_msg,
                 "message": "Database changes have been reverted automatically.",
             }
+            if data:
+                job.data["data"] = data
+            
             job.terminate( status=JobStatusChoices.STATUS_ERRORED, error=error_msg )
-            logger.error(e)
-            cls._log_event( name=job.name, job=job, result=result, exception=error_msg )
+            logger.error( e )
+            cls._log_event( name=job.name, job=job, result=result, exception=error_msg, data=data )
             raise
 
         finally:
@@ -95,7 +100,7 @@ class AtomicJobRunner(JobRunner):
         return result.get( "message", str( result ) )
     
     @staticmethod
-    def _log_event(name, job=None, result=None, exception=None):
+    def _log_event(name, job=None, result=None, exception=None, data=None ):
         from netbox_zabbix.models import EventLog # Here to prevent circular imports
         if not get_event_log_enabled():
             return
@@ -107,7 +112,7 @@ class AtomicJobRunner(JobRunner):
             "name": name,
             "job": job,
             "message": result.get("message", str( result ) if not exception else "" ),
-            "data": result.get( "data" ),
+            "data": data if data else result.get( "data" ),
         }
 
         if exception:

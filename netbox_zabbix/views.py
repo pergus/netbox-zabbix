@@ -456,7 +456,7 @@ def device_quick_add_agent(request):
             messages.error( request, f"No Device with id {device_id} found" )
         else:
             try:
-                job = jobs.DeviceQuickAddAgent.run_job( device=device, user=request.user )
+                job = jobs.DeviceQuickAddAgent.run_job( device=device, user=request.user, requestid=request.id )
                 message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
                 messages.success( request, message )
             except Exception as e:
@@ -467,6 +467,19 @@ def device_quick_add_agent(request):
 
 def device_quick_add_snmpv3(request):
     redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+
+    if request.method == 'GET':
+        device_id = request.GET.get( "device_id" )
+        device = Device.objects.filter( pk=device_id ).first()
+        if not device:
+            messages.error( request, f"No Device with id {device_id} found" )
+        else:
+            try:
+                job = jobs.DeviceQuickAddSNMPv3.run_job( device=device, user=request.user, requestid=request.id )
+                message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {device.name}' )
+                messages.success( request, message )
+            except Exception as e:
+                messages.error( request, str( e ) )
     return redirect( redirect_url )    
 
 

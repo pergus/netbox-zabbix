@@ -190,7 +190,10 @@ class Config(NetBoxModel):
         default=IPAssignmentChoices.PRIMARY,
         help_text="Method used to assign IPs to host interfaces."
     )
+    event_log_enabled         = models.BooleanField( verbose_name="Event Log Enabled", default=False )
     auto_validate_importables = models.BooleanField( verbose_name="Validate Importables", default=False, help_text="Automatically validate importable hosts before displaying them. Otherwise, validation is manual." )
+
+    # Background Job(s)
     max_deletions             = models.IntegerField(
         verbose_name="Max Deletions On Import",
         default=3,
@@ -201,10 +204,9 @@ class Config(NetBoxModel):
         default=3,
         help_text="Max number of success messages shown per job."
     )
-    event_log_enabled         = models.BooleanField( verbose_name="Event Log Enabled", default=False )
     zabbix_sync_interval      = models.PositiveIntegerField( verbose_name="Zabbix Sync Interval", null=True, blank=True, choices=SyncJobIntervalChoices, default=SyncJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix sync. Must be at least 1 minute." )
 
-    # Zabbix
+    # Zabbix Server
     version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
     api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
     web_address              = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to the Zabbix web interface." )
@@ -220,6 +222,7 @@ class Config(NetBoxModel):
     connection               = models.BooleanField( verbose_name="Connection", default=False )
     last_checked_at          = models.DateTimeField( verbose_name="Last Checked At", null=True, blank=True )
 
+    # Common Defaults
     inventory_mode = models.IntegerField(
         verbose_name="Inventory Mode",
         choices=InventoryModeChoices,
@@ -264,8 +267,22 @@ class Config(NetBoxModel):
         help_text="Pre-shared key (at least 32 hex digits)."
     )
 
-    # Tags
+    # Agent Specific Defaults
+    agent_port = models.IntegerField( verbose_name="Port", default=10050 )
 
+    # SNMPv3 Specific Defaults
+    snmpv3_port            = models.IntegerField( verbose_name="Port", default=161 )
+    snmpv3_bulk            = models.IntegerField( verbose_name="Bulk", choices=SNMPBulkChoices, default=1 )
+    snmpv3_max_repetitions = models.IntegerField( verbose_name="Max Repetitions", default=10 )
+    snmpv3_contextname     = models.CharField( verbose_name="Context Name", max_length=255, null=True, blank=True )
+    snmpv3_securityname    = models.CharField( verbose_name="Security Name", max_length=255, default="{$SNMPV3_USER}" )
+    snmpv3_securitylevel   = models.IntegerField( verbose_name="Security Level", choices=SNMPSecurityLevelChoices, default=SNMPSecurityLevelChoices.authPriv )
+    snmpv3_authprotocol    = models.IntegerField( verbose_name="Authentication Protocol", choices=SNMPAuthProtocolChoices, default=SNMPAuthProtocolChoices.SHA1 )
+    snmpv3_authpassphrase  = models.CharField( verbose_name="Authentication Passphrase", max_length=255, default="{$SNMPV3_AUTHPASS}" )
+    snmpv3_privprotocol    = models.IntegerField( verbose_name="Privacy Protocol", choices=SNMPPrivProtocolChoices, default=SNMPPrivProtocolChoices.AES128 )
+    snmpv3_privpassphrase  = models.CharField( verbose_name="Privacy Passphrase", max_length=255, default="{$SNMPV3_PRIVPASS}" )
+    
+    # Tags
     default_tag = models.CharField(
         verbose_name="Default Tag",
         max_length=255,
@@ -447,7 +464,7 @@ class HostInterface(NetBoxModel):
     # Zabbix Host ID
     hostid = models.IntegerField( blank=True, null=True )
 
-    # Zabbix Host Interface ID
+    # Zabbix Interface ID
     interfaceid = models.IntegerField( blank=True, null=True )
 
     # Availablility of host interface. 
@@ -548,34 +565,34 @@ class BaseSNMPv3Interface(HostInterface):
     port = models.IntegerField( default=161 )
     
     # SNMP interface version
-    snmp_version = models.IntegerField( choices=SNMPVersionChoices, default=SNMPVersionChoices.SNMPv3, blank=True, null=True )
+    version = models.IntegerField( choices=SNMPVersionChoices, default=SNMPVersionChoices.SNMPv3, blank=True, null=True )
 
     # Whether to use bulk SNMP requests
-    snmp_bulk = models.IntegerField( choices=SNMPBulkChoices, default=1, blank=True, null=True )
+    bulk = models.IntegerField( choices=SNMPBulkChoices, default=1, blank=True, null=True )
 
     # Max repetition value for native SNMP bulk requests
-    snmp_max_repetitions = models.IntegerField( default=10, blank=True, null=True )
+    max_repetitions = models.IntegerField( default=10, blank=True, null=True )
 
+    # SNMPv3 context name.
+    contextname = models.CharField( max_length=255, blank=True, null=True )
+    
     # SNMPv3 security name 
-    snmp_securityname = models.CharField( max_length=255, blank=True, null=True )
+    securityname = models.CharField( max_length=255, default="{$SNMPV3_USER}", blank=True, null=True )
 
     # SNMPv3 Secuirty level           
-    snmp_securitylevel = models.IntegerField( choices=SNMPSecurityLevelChoices, default=SNMPSecurityLevelChoices.authPriv, blank=True, null=True )
-    
-    # SNMPv3 authentication passphrase
-    snmp_authpassphrase = models.CharField( max_length=255, default="{$SNMPV3_AUTHPASS}", blank=True, null=True)
-
-    # SNMPv3 privacy passphrase
-    snmp_privpassphrase = models.CharField( max_length=255, default="{$SNMPV3_PRIVPASS}", blank=True, null=True )
+    securitylevel = models.IntegerField( choices=SNMPSecurityLevelChoices, default=SNMPSecurityLevelChoices.authPriv, blank=True, null=True )
 
     # SNMPv3 authentication protocol
-    snmp_authprotocol = models.IntegerField( choices=SNMPAuthProtocolChoices, default=SNMPAuthProtocolChoices.SHA1, blank=True, null=True )
+    authprotocol = models.IntegerField( choices=SNMPAuthProtocolChoices, default=SNMPAuthProtocolChoices.SHA1, blank=True, null=True )
+
+    # SNMPv3 authentication passphrase
+    authpassphrase = models.CharField( max_length=255, default="{$SNMPV3_AUTHPASS}", blank=True, null=True)
 
     # SNMPv3 privacy protocol.
-    snmp_privprotocol = models.IntegerField( choices=SNMPPrivProtocolChoices, default=SNMPPrivProtocolChoices.AES128, blank=True, null=True )
-    
-    # SNMPv3 context name.
-    snmp_contextname = models.CharField( max_length=255, blank=True, null=True )
+    privprotocol = models.IntegerField( choices=SNMPPrivProtocolChoices, default=SNMPPrivProtocolChoices.AES128, blank=True, null=True )
+
+    # SNMPv3 privacy passphrase
+    privpassphrase = models.CharField( max_length=255, default="{$SNMPV3_PRIVPASS}", blank=True, null=True )
 
 
     def __str__(self):

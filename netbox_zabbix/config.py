@@ -6,6 +6,7 @@ class ZabbixConfigNotFound(Exception):
     """Raised when the required Zabbix configuration is not present in the database."""
     pass
 
+
 def get_config():
     """
     Retrieve the first Zabbix Config object from the database.
@@ -23,32 +24,10 @@ def get_config():
         raise ZabbixConfigNotFound( msg )
     return cfg
 
-def get_zabbix_api_endpoint():
-    """
-    Retrieve the Zabbix API endpoint from the configuration.
-    
-    Returns:
-        str: The Zabbix API endpoint URL.
-    """
-    return get_config().api_endpoint
 
-def get_zabbix_web_address():
-    """
-    Retrieve the Zabbix web interface URL from the configuration.
-    
-    Returns:
-        str: The Zabbix web interface URL.
-    """
-    return get_config().web_address
-
-def get_zabbix_token():
-    """
-    Retrieve the Zabbix API token from the configuration.
-    
-    Returns:
-        str: The Zabbix API token.
-    """
-    return get_config().token
+# ------------------------------------------------------------------------------
+# General
+# ------------------------------------------------------------------------------
 
 
 def get_auto_validate_importables():
@@ -59,6 +38,77 @@ def get_auto_validate_importables():
         bool: True if automatic validation is enabled; False otherwise.
     """
     return get_config().auto_validate_importables
+
+
+def get_event_log_enabled():
+    """
+    Retrieves the event log enabled  from the configuration.
+    
+    Returns:
+        The event log enabled as specified in the configuration.
+    """
+
+    return get_config().event_log_enabled
+
+
+# ------------------------------------------------------------------------------
+# Background Job(s)
+# ------------------------------------------------------------------------------
+
+
+def get_max_deletions():
+    """
+    Retrieves the max deletions from the configuration.
+
+    Returns:
+        The max deletions as specified in the configuration.
+    """
+    return get_config().max_deletions
+
+
+def get_max_success_notifications():
+    """
+    Retrieves the max success notifications from the configuration.
+
+    Returns:
+        The max success notifications as specified in the configuration.
+    """
+    return get_config().max_success_notifications
+
+
+# ------------------------------------------------------------------------------
+# Zabbix Server
+# ------------------------------------------------------------------------------
+
+
+def get_zabbix_api_endpoint():
+    """
+    Retrieve the Zabbix API endpoint from the configuration.
+    
+    Returns:
+        str: The Zabbix API endpoint URL.
+    """
+    return get_config().api_endpoint
+
+
+def get_zabbix_web_address():
+    """
+    Retrieve the Zabbix web interface URL from the configuration.
+    
+    Returns:
+        str: The Zabbix web interface URL.
+    """
+    return get_config().web_address
+
+
+def get_zabbix_token():
+    """
+    Retrieve the Zabbix API token from the configuration.
+    
+    Returns:
+        str: The Zabbix API token.
+    """
+    return get_config().token
 
 
 def get_default_cidr():
@@ -73,6 +123,7 @@ def get_default_cidr():
     """
     return get_config().default_cidr
 
+
 def set_version( version ):
     """
     Update the stored Zabbix version in the configuration.
@@ -84,6 +135,7 @@ def set_version( version ):
     cfg.version = version
     cfg.save()
 
+
 def set_connection( status ):
     """
     Update the connection status in the configuration.
@@ -94,6 +146,7 @@ def set_connection( status ):
     cfg = get_config()
     cfg.connection = status
     cfg.save()
+
 
 def set_last_checked( timestamp ):
     """
@@ -107,6 +160,10 @@ def set_last_checked( timestamp ):
     cfg.save()
 
 
+# ------------------------------------------------------------------------------
+# Common Defaults
+# ------------------------------------------------------------------------------
+
 def get_monitored_by():
     """
     Retrieves the default monitored_by value from the configuration.
@@ -115,6 +172,16 @@ def get_monitored_by():
         The default monitored_by value as specified in the configuration.
     """
     return get_config().monitored_by
+
+
+def get_inventory_mode():
+    """
+    Retrieves the inventory mode from the configuration.
+
+    Returns:
+        The inventory mode as specified in the configuration.
+    """
+    return get_config().inventory_mode
 
 
 def get_tls_connect():
@@ -157,34 +224,127 @@ def get_tls_psk():
     return get_config().tls_psk
 
 
+# ------------------------------------------------------------------------------
+# Agent Specific Defaults
+# ------------------------------------------------------------------------------
 
-def get_max_deletions():
+def get_agent_port():
     """
-    Retrieves the max deletions from the configuration.
-
+    Retrieves the default agent port from the configuration.
+    
     Returns:
-        The max deletions as specified in the configuration.
+        The default agent port as specified in the configuration.
     """
-    return get_config().max_deletions
+    return get_config().agent_port
+    
 
+# ------------------------------------------------------------------------------
+# SNMPv3 Specific Defaults
+# ------------------------------------------------------------------------------
 
-def get_max_success_notifications():
+def get_snmpv3_port():
     """
-    Retrieves the max success notifications from the configuration.
-
+    Retrieves the default snmpv3 port from the configuration.
+    
     Returns:
-        The max success notifications as specified in the configuration.
+        The default snmpv3 port as specified in the configuration.
     """
-    return get_config().max_success_notifications
+    return get_config().snmpv3_port
 
-def get_inventory_mode():
+
+def get_snmpv3_bulk():
     """
-    Retrieves the inventory mode from the configuration.
-
+    Retrieves the default snmpv3 bulk from the configuration.
+    
     Returns:
-        The inventory mode as specified in the configuration.
+        The default snmpv3 bulk as specified in the configuration.
     """
-    return get_config().inventory_mode
+    return get_config().snmpv3_bulk
+
+
+def get_snmpv3_max_repetitions():
+    """
+    Retrieves the default snmpv3 max_repetitions from the configuration.
+    
+    Returns:
+        The default snmpv3 max_repetitions as specified in the configuration.
+    """
+    return get_config().snmpv3_max_repetitions
+
+
+def get_snmpv3_contextname():
+    """
+    Retrieves the default snmpv3 context name from the configuration.
+    
+    Returns:
+        The default snmpv3 context name as specified in the configuration.
+    """
+    return get_config().snmpv3_contextname
+
+
+def get_snmpv3_securityname():
+    """
+    Retrieves the default snmpv3 security name from the configuration.
+    
+    Returns:
+        The default snmpv3 security name as specified in the configuration.
+    """
+    return get_config().snmpv3_securityname
+
+
+def get_snmpv3_securitylevel():
+    """
+    Retrieves the default snmpv3 security level from the configuration.
+    
+    Returns:
+        The default snmpv3 security level as specified in the configuration.
+    """
+    return get_config().snmpv3_securitylevel
+
+
+def get_snmpv3_authprotocol():
+    """
+    Retrieves the default snmpv3 auth protocol from the configuration.
+    
+    Returns:
+        The default snmpv3 auth protocol as specified in the configuration.
+    """
+    return get_config().snmpv3_authprotocol
+
+
+def get_snmpv3_authpassphrase():
+    """
+    Retrieves the default snmpv3 auth passphrase from the configuration.
+    
+    Returns:
+        The default snmpv3 auth passphrase as specified in the configuration.
+    """
+    return get_config().snmpv3_authpassphrase
+
+
+def get_snmpv3_privprotocol():
+    """
+    Retrieves the default snmpv3 priv protocol from the configuration.
+    
+    Returns:
+        The default snmpv3 priv protocol as specified in the configuration.
+    """
+    return get_config().snmpv3_privprotocol
+
+
+def get_snmpv3_privpassphrase():
+    """
+    Retrieves the default snmpv3 priv passphrase from the configuration.
+    
+    Returns:
+        The default snmpv3 priv passphrase as specified in the configuration.
+    """
+    return get_config().snmpv3_privpassphrase
+
+
+# ------------------------------------------------------------------------------
+# Tags
+# ------------------------------------------------------------------------------
 
 
 def get_default_tag():
@@ -196,6 +356,7 @@ def get_default_tag():
     """
     return get_config().default_tag or ""
 
+
 def get_tag_prefix():
     """
     Retrieves the tag prefix from the configuration.
@@ -206,6 +367,7 @@ def get_tag_prefix():
     prefix = get_config().tag_prefix
     return prefix or ""
 
+
 def get_tag_name_formatting():
     """
     Retrieves the tag name formatting from the configuration.
@@ -215,12 +377,3 @@ def get_tag_name_formatting():
     """
     return get_config().tag_name_formatting
 
-def get_event_log_enabled():
-    """
-    Retrieves the event log enabled  from the configuration.
-    
-    Returns:
-        The event log enabled as specified in the configuration.
-    """
-
-    return get_config().event_log_enabled

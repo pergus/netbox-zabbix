@@ -12,6 +12,12 @@
                         <th scope="row">Name</th>
                         <td>{{ object.name }}</td>
                     </tr>
+                    
+                    <tr>
+                        <th scope="row">Interface ID</th>
+                        <td>{{ object.interfaceid }}</td>
+                    </tr>
+
                     <tr>
                         <th scope="row">Device</th>
                         <td><a href="{{ object.host.device.get_absolute_url }}">{{ object.host.device.name }}</a></td>

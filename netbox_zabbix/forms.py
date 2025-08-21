@@ -46,13 +46,47 @@ PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 
 class ConfigForm(NetBoxModelForm):
     fieldsets = (
-        FieldSet( 'name', 'ip_assignment_method', 'auto_validate_importables', 
-                  'max_deletions', 'max_success_notifications', 'event_log_enabled', 'zabbix_sync_interval', name="General" ),
-        FieldSet( 'api_endpoint', 'web_address', 'token', 
-                  'default_cidr', 'inventory_mode', 'monitored_by', 
-                  'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', name="Zabbix" ),
-        FieldSet( 'default_tag', 'tag_prefix', 'tag_name_formatting', name="Tags" )
+        FieldSet( 'name',
+                  'ip_assignment_method',
+                  'event_log_enabled',
+                  'auto_validate_importables',
+                  name="General" ),
+        FieldSet( 'max_deletions',
+                  'max_success_notifications',
+                  'zabbix_sync_interval',
+                  name="Background Jobs" ),
+        FieldSet( 'api_endpoint',
+                  'web_address',
+                  'token',
+                  'default_cidr',
+                  name="Zabbix Server" ),
+        FieldSet( 'inventory_mode',
+                  'monitored_by',
+                  'tls_connect', 
+                  'tls_accept', 
+                  'tls_psk_identity', 
+                  'tls_psk', 
+                  'use_ip', 
+                  name="Common Defaults" ),
+        FieldSet( 'agent_port', 
+                  name="Agent Specific Defaults"),
+        FieldSet( 'snmpv3_port', 
+                  'snmpv3_bulk',
+                  'snmpv3_max_repetitions',
+                  'snmpv3_contextname',
+                  'snmpv3_securityname',
+                  'snmpv3_securitylevel',
+                  'snmpv3_authprotocol',
+                  'snmpv3_authpassphrase',
+                  'snmpv3_privprotocol',
+                  'snmpv3_privpassphrase',
+                  name="SNMPv3 Specific Defaults"),
+        FieldSet( 'default_tag', 
+                  'tag_prefix', 
+                  'tag_name_formatting',
+                  name="Tags" ),
     )
+    
     class Meta:
         model = models.Config
         fields = '__all__'
