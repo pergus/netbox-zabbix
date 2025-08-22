@@ -9,32 +9,52 @@ NetBox plugin for Zabbix.
 
 
 ### Todo
+
+* Test delete of interface(s) etc.
+
+* When the implementation works for Devices, implement the corresponding code
+  for Virual Machines.
+
 * Not all interface default settings are used, e.g. snmpv3_contextname.
+  
   So go over the import code in jobs.py and make use of the default settings.
 
-* How do I get reflect interface default settings in forms?
-  The default settings when creating say, a DeviceAgentInterface, are taken
-  from models.py and not from the Config model.
-  I guess I can do it in init(), but that's not pretty.
 
-* Split the quick_add_interface into multiple functions so that it takes
-  a ZConfig instance as argument. So, separate the conserns.
+* The helper function 'quick_add_interface' should take a Zabbix Config
+  
+  instance as argument and only add an interface. Now it also creates
+  
+  the Zabbix Config which isn't correct if we want separations of concerns.
+
 
 * The date when scheduling the background job should use
-django.utils.timezone.now() to remove the warning:
-RuntimeWarning: DateTimeField Job.scheduled received a naive datetime 
-(2025-08-21 17:43:35.860721) while time zone support is active.
+  
+  django.utils.timezone.now() to remove the warning:
+  
+  RuntimeWarning: DateTimeField Job.scheduled received a naive datetime 
+  
+  (2025-08-21 17:43:35.860721) while time zone support is active.
 
 * Since the background job doesn't use the system job decorator it isn't
-started automatically by NB when the rqworker is started.
-Look into how this can be fixed.
+  
+  started automatically by NB when the rqworker is started.
+  
+  Look into how this can be fixed.
 
-* Remove the null=True in Proxy Mappings and Proxy Group Mappings model.
-I added it to makemigrations without having to dump the database.
+* Go over all models and make sure that the fields doesn't have unnecessary
 
-* Is useip in Configuration required?
+  null=True and blank=True settings. Many of them were added to prevent having
+  
+  to dump the database when running makemigrations.
 
-* Add support for IPv6primary interfaces.
+* Should the system issue a warning when a template is removed while it is still used by a default mapping?
+
+  Should it also block the removal?
+
+  Blocking the removal doesn’t make sense, since if the template has already been removed from Zabbix, it no longer exists anyway.
+ 
+
+* Add support for IPv6primary interfaces. (Maybe)
 
 
 #### General
@@ -67,7 +87,8 @@ I added it to makemigrations without having to dump the database.
 | Add Proxy mappings                                           | Done          |
 | Add Proxy Group mappings                                     | Done          |
 | Add support for TLS certificates                             | Todo          |
-
+| Add Maintenance                                              | Todo          |
+| Add a tab to vm and device that show the Zabbix Configuration. | Todo         |
 
 
 #### Config
@@ -75,7 +96,7 @@ I added it to makemigrations without having to dump the database.
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
 | Add CIDR to the config                                       | Done          |
-| Add Automatic Validation                                     | Done          |
+| Add Automatic Host Validation                                | Done          |
 | Add TLS settings                                             | Done          |
 | Add Max deletions on import                                  | Done          |
 | Add Maximum Success Notifications                            | Done          |

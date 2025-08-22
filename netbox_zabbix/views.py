@@ -916,7 +916,6 @@ class DeviceAgentInterfaceListView(generic.ObjectListView):
 #    filterset_form = forms.DeviceAgentInterfaceFilterForm
     table = tables.DeviceAgentInterfaceTable
 
-
 class DeviceAgentInterfaceEditView(generic.ObjectEditView):
     queryset = models.DeviceAgentInterface.objects.all()
     form = forms.DeviceAgentInterfaceForm
@@ -1221,6 +1220,40 @@ class EventLogBulkDeleteView(generic.BulkDeleteView):
 
     def get_return_url(self, request, obj=None):
             return reverse('plugins:netbox_zabbix:eventlog_list')
+
+
+# ------------------------------------------------------------------------------
+# Device Tab for Zabbix Details
+# ------------------------------------------------------------------------------
+from django.shortcuts import get_object_or_404
+
+def device_has_zabbix_config(obj):
+    config = models.DeviceZabbixConfig.objects.filter( device=obj ).first()
+    return 1 if config else 0
+
+@register_model_view(Device, name="Zabbix", path="zabbix")
+class ZabbixDeviceTabView(generic.ObjectView):
+    queryset = models.DeviceZabbixConfig.objects.all()
+
+    # Hide the tab if the device doesn't have a Zabbix Configuration.
+    # The tab is automatically hidden if the hide_if_empty is true
+    # and the badge is zero.
+    tab = ViewTab( label="Zabbix", 
+                    hide_if_empty=True,
+                    badge=lambda obj: device_has_zabbix_config( obj )
+                  )
+    def get(self, request, pk):
+        device = get_object_or_404( Device, pk=pk )
+        config = models.DeviceZabbixConfig.objects.filter( device=device ).first()
+
+        return render(request, 
+                      "netbox_zabbix/additional_device_tab.html", 
+                      context={ 
+                          "tab": self.tab, 
+                          "object": device,
+                          "config": config
+                        }
+                      )
 
 
 # end
