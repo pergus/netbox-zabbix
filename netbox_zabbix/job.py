@@ -1,4 +1,8 @@
 # job.py
+#
+# Description:
+#
+
 from datetime import timedelta
 from django.db import transaction
 from core.choices import JobStatusChoices
@@ -56,17 +60,27 @@ class AtomicJobRunner(JobRunner):
 
             error_msg = str( e )
             data = getattr( e, "data", None )
+            pre_data = getattr( e, "pre_data", None )
+            post_data = getattr( e, "pos_data", None )
+
             job.data = {
                 "status": "failed",
                 "error": error_msg,
                 "message": "Database changes have been reverted automatically.",
             }
+
             if data:
-                job.data["data"] = data
+                job.data["data"] = data # This is very confusing!
+
+            if pre_data:
+                job.data["pre_data"] = pre_data
+
+            if post_data:
+                job.data["post_data"] = post_data
             
             job.terminate( status=JobStatusChoices.STATUS_ERRORED, error=error_msg )
             logger.error( e )
-            cls._log_event( name=job.name, job=job, result=result, exception=error_msg, data=data )
+            cls._log_event( name=job.name, job=job, result=result, exception=error_msg, data=data, pre_data=pre_data, post_data=post_data )
             raise
 
         finally:
@@ -100,7 +114,7 @@ class AtomicJobRunner(JobRunner):
         return result.get( "message", str( result ) )
     
     @staticmethod
-    def _log_event(name, job=None, result=None, exception=None, data=None ):
+    def _log_event(name, job=None, result=None, exception=None, data=None, pre_data=None, post_data=None ):
         from netbox_zabbix.models import EventLog # Here to prevent circular imports
         if not get_event_log_enabled():
             return
@@ -109,16 +123,18 @@ class AtomicJobRunner(JobRunner):
         result = result or {}
 
         payload = {
-            "name": name,
-            "job": job,
-            "message": result.get("message", str( result ) if not exception else "" ),
-            "data": data if data else result.get( "data" ),
+            "name":      name,
+            "job":       job,
+            "message":   result.get("message", str( result ) if not exception else "" ),
+            "data":      data      if data      else result.get( "data" ),
+            "pre_data":  pre_data  if pre_data  else result.get( "pre_data" ),
+            "post_data": post_data if post_data else result.get( "post_data" )
         }
 
         if exception:
             payload["exception"] = exception
 
         # Only pass allowed keys to EventLog
-        allowed_fields = { "name", "job", "message", "data", "exception" }
+        allowed_fields = { "name", "job", "message", "data", "pre_data", "post_data", "exception" }
         safe_payload = { k: v for k, v in payload.items() if k in allowed_fields and v is not None }
         EventLog.objects.create( **safe_payload )

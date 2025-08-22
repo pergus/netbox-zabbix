@@ -1,4 +1,8 @@
 # forms.py
+#
+# Description:
+#
+
 import re
 
 from django import forms
@@ -290,11 +294,14 @@ class HostGroupForm(NetBoxModelForm):
 
 
 class DeviceZabbixConfigForm(NetBoxModelForm):
-    device = forms.ModelChoiceField( queryset=Device.objects.all(), label='Device', help_text='Select the NetBox Device to link this Zabbix host to.' )
+    device = forms.ModelChoiceField( queryset=Device.objects.all(), 
+                                    label='Device', 
+                                    help_text='Select the NetBox Device to link this Zabbix host to.' )
 
     class Meta:
         model = models.DeviceZabbixConfig
-        fields = ('device', 'status', 'monitored_by', 'templates', 'proxy', 'proxy_group', 'host_groups' )
+        fields = ('device', 'status', 'monitored_by', 'templates', 'proxy', 
+                  'proxy_group', 'host_groups', 'description' )
 
     def __init__(self, *args, **kwargs):
         instance = kwargs.get( 'instance', None )
@@ -317,6 +324,9 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
             # Editing an existing DeviceZabbixConfig
             used_device_ids = models.DeviceZabbixConfig.objects.exclude( id=instance.id ).values_list( 'device_id', flat=True )
             self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
+            # Don't allow to change the associated device. 
+            # If a user need to change it they have to delete the zabbix configuration
+            self.fields['device'].disabled = True 
 
 
 class DeviceZabbixConfigFilterForm(NetBoxModelFilterSetForm):
@@ -368,7 +378,10 @@ class VMZabbixConfigForm(NetBoxModelForm):
             # Editing an existing VMZabbixConfig
             used_vms_ids = models.VMZabbixConfig.objects.exclude( id=instance.id ).values_list( 'virtual_machine_id', flat=True )
             self.fields['virtual_machine'].queryset = VirtualMachine.objects.exclude( id__in=used_vms_ids )
-
+            # Don't allow to change the associated virtual machine. 
+            # If a user need to change it they have to delete the zabbix configuration
+            self.fields['virtual_machine'].disabled = True 
+            
 
 class VMZabbixConfigFilterForm(NetBoxModelFilterSetForm):
     model = models.ZabbixConfig
@@ -454,36 +467,21 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
         model = models.DeviceSNMPv3Interface
         fields = ( 'name', 'host', 'interface', 'ip_address', 'dns_name', 
                    'available', 'useip', 'useip', 'main', 'port',
-                   'snmp_max_repetitions',
-                   'snmp_contextname',
-                   'snmp_securityname',
-                   'snmp_securitylevel',
-                   'snmp_authprotocol',
-                   'snmp_authpassphrase',
-                   'snmp_privprotocol',
-                   'snmp_privpassphrase',
-                   'snmp_bulk' )
+                   'max_repetitions',
+                   'contextname',
+                   'securityname',
+                   'securitylevel',
+                   'authprotocol',
+                   'authpassphrase',
+                   'privprotocol',
+                   'privpassphrase',
+                   'bulk' )
 
-    name = forms.CharField( max_length=255, required=True )
-    available = forms.ChoiceField( choices=models.AvailableChoices )
-    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
-    main = forms.ChoiceField( choices=models.MainChoices )
-    port = forms.IntegerField( required=True )
-
-    snmp_max_repetitions = forms.IntegerField( label="Max Repetition Count", initial=10 )
-    snmp_contextname     = forms.CharField( label="Context Name", max_length=255 )
-    snmp_securityname    = forms.CharField( max_length=255, label="Security Name" )
-    snmp_securitylevel   = forms.ChoiceField( label="Security Level", choices=models.SNMPSecurityLevelChoices, initial=models.SNMPSecurityLevelChoices.authPriv )
-    snmp_authprotocol    = forms.ChoiceField( label="Authentication Protocol", choices=models.SNMPAuthProtocolChoices, initial=models.SNMPAuthProtocolChoices.SHA1 )
-    snmp_authpassphrase  = forms.CharField( max_length=255, label="Authentication Passphrase", initial="{$SNMPV3_AUTHPASS}" )
-    snmp_privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )
-    snmp_privpassphrase  = forms.CharField( max_length=255, label="Privacy Passphrase", initial="{$SNMPV3_PRIVPASS}" )
-    snmp_bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
-    
     host = DynamicModelChoiceField( 
-           label="Device Zabbix Config",      
+           label="Device Zabbix Config",
            queryset=models.DeviceZabbixConfig.objects.all(),
            required=True,
+           help_text="The NetBox Zabbix Config that the interface is associated with."
        )
     
     interface = DynamicModelChoiceField( 
@@ -491,6 +489,7 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
         queryset = models.AvailableDeviceInterface.objects.all(),
         query_params={"device_id": "$host"},
         required=True,
+        help_text="The NetBox Device Interface that the interface is associated with."
     )
     
     ip_address = DynamicModelChoiceField(
@@ -498,6 +497,7 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
         queryset=IPAddress.objects.all(),
         query_params={ "interface_id": "$interface" },    
         required=True,
+        help_text="The NetBox IP address of the interface."
     )
     
     dns_name = forms.CharField(
@@ -505,7 +505,8 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
            max_length=255,
            required=False,
            disabled=True,
-           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
+           widget=forms.TextInput(attrs={'data-field': 'dns_name'}),
+           help_text="The NetBox DNS name for the interface."
     )
 
     def __init__(self, *args, **kwargs):
@@ -583,15 +584,15 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
         model = models.VMSNMPv3Interface
         fields = ( 'name', 'host', 'interface', 'ip_address', 'dns_name', 
                    'available', 'useip', 'useip', 'main', 'port',
-                   'snmp_max_repetitions',
-                   'snmp_contextname',
-                   'snmp_securityname',
-                   'snmp_securitylevel',
-                   'snmp_authprotocol',
-                   'snmp_authpassphrase',
-                   'snmp_privprotocol',
-                   'snmp_privpassphrase',
-                   'snmp_bulk' )
+                   'max_repetitions',
+                   'contextname',
+                   'securityname',
+                   'securitylevel',
+                   'authprotocol',
+                   'authpassphrase',
+                   'privprotocol',
+                   'privpassphrase',
+                   'bulk' )
 
     name = forms.CharField( max_length=255, required=True )
     available = forms.ChoiceField( choices=models.AvailableChoices )
@@ -599,15 +600,15 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
     main = forms.ChoiceField( choices=models.MainChoices )
     port = forms.IntegerField( required=True )
 
-    snmp_max_repetitions = forms.IntegerField( label="Max Repetition Count", initial=10 )
-    snmp_contextname     = forms.CharField( label="Context Name", max_length=255 )
-    snmp_securityname    = forms.CharField( max_length=255, label="Security Name" )
-    snmp_securitylevel   = forms.ChoiceField( label="Security Level", choices=models.SNMPSecurityLevelChoices, initial=models.SNMPSecurityLevelChoices.authPriv )
-    snmp_authprotocol    = forms.ChoiceField( label="Authentication Protocol", choices=models.SNMPAuthProtocolChoices, initial=models.SNMPAuthProtocolChoices.SHA1 )
-    snmp_authpassphrase  = forms.CharField( max_length=255, label="Authentication Passphrase", initial="{$SNMPV3_AUTHPASS}" )
-    snmp_privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )
-    snmp_privpassphrase  = forms.CharField( max_length=255, label="Privacy Passphrase", initial="{$SNMPV3_PRIVPASS}" )
-    snmp_bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
+    max_repetitions = forms.IntegerField( label="Max Repetition Count", initial=10 )
+    contextname     = forms.CharField( label="Context Name", max_length=255 )
+    securityname    = forms.CharField( max_length=255, label="Security Name" )
+    securitylevel   = forms.ChoiceField( label="Security Level", choices=models.SNMPSecurityLevelChoices, initial=models.SNMPSecurityLevelChoices.authPriv )
+    authprotocol    = forms.ChoiceField( label="Authentication Protocol", choices=models.SNMPAuthProtocolChoices, initial=models.SNMPAuthProtocolChoices.SHA1 )
+    authpassphrase  = forms.CharField( max_length=255, label="Authentication Passphrase", initial="{$SNMPV3_AUTHPASS}" )
+    privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )
+    privpassphrase  = forms.CharField( max_length=255, label="Privacy Passphrase", initial="{$SNMPV3_PRIVPASS}" )
+    bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
     
     host = DynamicModelChoiceField( 
            label="VM Zabbix Config",      

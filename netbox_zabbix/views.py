@@ -30,6 +30,7 @@ from netbox_zabbix.logger import logger
 # Configuration 
 # ------------------------------------------------------------------------------
 
+
 class ConfigView(generic.ObjectView):
     queryset = models.Config.objects.all()
 
@@ -97,6 +98,7 @@ def zabbix_import_settings(request):
 # ------------------------------------------------------------------------------
 # Templates
 # ------------------------------------------------------------------------------
+
 
 class TemplateView(generic.ObjectView):
     queryset = models.Template.objects.all()
@@ -202,6 +204,7 @@ def import_templates(request):
 # Proxy
 # ------------------------------------------------------------------------------
 
+
 class ProxyView(generic.ObjectView):
     queryset = models.Proxy.objects.all()
 
@@ -286,6 +289,7 @@ def import_proxies(request):
 # ------------------------------------------------------------------------------
 # Proxy Groups
 # ------------------------------------------------------------------------------
+
 
 class ProxyGroupView(generic.ObjectView):
     queryset = models.ProxyGroup.objects.all()
@@ -373,6 +377,7 @@ def import_proxy_groups(request):
 # Host Groups
 # ------------------------------------------------------------------------------
 
+
 class HostGroupView(generic.ObjectView):
     queryset = models.HostGroup.objects.all()
 
@@ -446,6 +451,7 @@ def import_host_groups(request):
 # Quick Add Zabbix Interface
 # ------------------------------------------------------------------------------
 
+
 def device_quick_add_agent(request):
     redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
 
@@ -483,10 +489,10 @@ def device_quick_add_snmpv3(request):
     return redirect( redirect_url )    
 
 
-
 # ------------------------------------------------------------------------------
 # NetBox Ony Devices
 # ------------------------------------------------------------------------------
+
 
 class NetBoxOnlyDevicesView(generic.ObjectListView):
     table = tables.NetBoxOnlyDevicesTable
@@ -541,6 +547,7 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
 # NetBox Ony VMs
 # ------------------------------------------------------------------------------
 
+
 class NetBoxOnlyVMsView(generic.ObjectListView):
     table = tables.NetBoxOnlyVMsTable
     #filterset = filtersets.NetBoxOnlyVMsFilterSet
@@ -563,6 +570,7 @@ class NetBoxOnlyVMsView(generic.ObjectListView):
 # ------------------------------------------------------------------------------
 # Zabbix Only Hosts
 # ------------------------------------------------------------------------------
+
 
 class ZabbixOnlyHostsView(GenericTemplateView):
     template_name = 'netbox_zabbix/zabbixonlyhosts.html'
@@ -612,6 +620,7 @@ class ZabbixOnlyHostsView(GenericTemplateView):
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------
+
 
 class DeviceZabbixConfigView(generic.ObjectView):
     queryset = models.DeviceZabbixConfig.objects.all()
@@ -664,6 +673,7 @@ class VMZabbixConfigDeleteView(generic.ObjectDeleteView):
 # ------------------------------------------------------------------------------
 #  Device & VM Zabbix Configurations (Combined)
 # ------------------------------------------------------------------------------
+
 
 class ZabbixConfigListView(SingleTableView):
     template_name = 'netbox_zabbix/zabbixconfig_list.html'
@@ -721,6 +731,7 @@ class ZabbixConfigDeleteView(View):
 # ------------------------------------------------------------------------------
 #  Importable Devices
 # ------------------------------------------------------------------------------
+
 
 class ImportableDeviceListView(generic.ObjectListView):
     table = tables.ImportableDeviceTable
@@ -803,6 +814,7 @@ class ImportableDeviceListView(generic.ObjectListView):
 # ------------------------------------------------------------------------------
 #  Importable VMs
 # ------------------------------------------------------------------------------
+
 
 class ImportableVMListView(generic.ObjectListView):
     table = tables.ImportableVMTable
@@ -890,7 +902,9 @@ class ImportableVMListView(generic.ObjectListView):
 # Interfaces
 # ------------------------------------------------------------------------------
 
+#
 # Device Agent
+#
 
 class DeviceAgentInterfaceView(generic.ObjectView):
     queryset = models.DeviceAgentInterface.objects.all()
@@ -912,8 +926,9 @@ class DeviceAgentInterfaceEditView(generic.ObjectEditView):
 class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()
 
-
+#
 # Device SNMPv3
+#
 
 class DeviceSNMPv3InterfaceView(generic.ObjectView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
@@ -935,8 +950,9 @@ class DeviceSNMPv3InterfaceEditView(generic.ObjectEditView):
 class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
 
-
+#
 # VM Agent
+#
 
 class VMAgentInterfaceView(generic.ObjectView):
     queryset = models.VMAgentInterface.objects.all()
@@ -958,8 +974,9 @@ class VMAgentInterfaceEditView(generic.ObjectEditView):
 class VMAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.VMAgentInterface.objects.all()
 
-
+#
 # VM SNMPv3
+#
 
 class VMSNMPv3InterfaceView(generic.ObjectView):
     queryset = models.VMSNMPv3Interface.objects.all()
@@ -986,6 +1003,7 @@ class VMSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
 # Tag Mapping
 # ------------------------------------------------------------------------------
 
+
 class TagMappingView(generic.ObjectView):
     queryset = models.TagMapping.objects.all()
 
@@ -1010,6 +1028,7 @@ class TagMappingDeleteView(generic.ObjectDeleteView):
 # Inventory Mapping
 # ------------------------------------------------------------------------------
 
+
 class InventoryMappingView(generic.ObjectView):
     queryset = models.InventoryMapping.objects.all()
 
@@ -1033,6 +1052,7 @@ class InventoryMappingDeleteView(generic.ObjectDeleteView):
 # ------------------------------------------------------------------------------
 # Device Mapping
 # ------------------------------------------------------------------------------
+
 
 def count_matching_devices_for_mapping(obj):
     return obj.get_matching_devices().count()
@@ -1133,9 +1153,11 @@ class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
     def get_return_url(self, request, obj=None):
             return reverse('plugins:netbox_zabbix:devicemapping_list')
 
+
 # ------------------------------------------------------------------------------
 # VM Mapping
 # ------------------------------------------------------------------------------
+
 
 class VMMappingView(generic.ObjectView):
     queryset = models.VMMapping.objects.all()
@@ -1160,6 +1182,7 @@ class VMMappingDeleteView(generic.ObjectDeleteView):
 # ------------------------------------------------------------------------------
 # Event Log
 # ------------------------------------------------------------------------------
+
 
 class EventLogView(generic.ObjectView):
     queryset = models.EventLog.objects.all()
@@ -1191,6 +1214,7 @@ class EventLogEditView(generic.ObjectView):
 class EventLogDeleteView(generic.ObjectDeleteView):
     queryset = models.EventLog.objects.all()
 
+
 class EventLogBulkDeleteView(generic.BulkDeleteView):
     queryset = models.EventLog.objects.all()
     table = tables.EventLogTable
@@ -1200,4 +1224,3 @@ class EventLogBulkDeleteView(generic.BulkDeleteView):
 
 
 # end
-

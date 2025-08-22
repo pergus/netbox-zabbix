@@ -14,6 +14,7 @@ from django.shortcuts import get_object_or_404
 # Configuration
 # ------------------------------------------------------------------------------
 
+
 class ConfigViewSet(NetBoxModelViewSet):
     queryset = models.Config.objects.all()
     serializer_class = serializers.ConfigSerializer
@@ -22,6 +23,7 @@ class ConfigViewSet(NetBoxModelViewSet):
 # ------------------------------------------------------------------------------
 # Templates
 # ------------------------------------------------------------------------------
+
 
 class TemplateFilter(filters.FilterSet):
     # The TemplateFilter class is a filter set designed to filter templates based on the name field.
@@ -43,6 +45,7 @@ class TemplateViewSet(NetBoxModelViewSet):
 # Proxy
 # ------------------------------------------------------------------------------
 
+
 class ProxyFilter(filters.FilterSet):
     # The ProxyFilter class is a filter set designed to filter proxies based on the name field.
     # This is required to search for proxy names in filter forms.
@@ -62,6 +65,7 @@ class ProxyViewSet(NetBoxModelViewSet):
 # ------------------------------------------------------------------------------
 # Proxy Group
 # ------------------------------------------------------------------------------
+
 
 class ProxyGroupFilter(filters.FilterSet):
     # The ProxyFilter class is a filter set designed to filter proxies based on the name field.
@@ -83,6 +87,7 @@ class ProxyGroupViewSet(NetBoxModelViewSet):
 # Host Groups
 # ------------------------------------------------------------------------------
 
+
 class HostGroupViewSet(NetBoxModelViewSet):
     queryset = models.HostGroup.objects.all()
     serializer_class = serializers.HostGroupSerializer
@@ -92,6 +97,7 @@ class HostGroupViewSet(NetBoxModelViewSet):
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------
+
 
 class DeviceZabbixConfigViewSet(NetBoxModelViewSet):
     queryset = models.DeviceZabbixConfig.objects.all()
@@ -159,6 +165,7 @@ class VMZabbixConfigViewSet(NetBoxModelViewSet):
 # Interfaces
 # ------------------------------------------------------------------------------
 
+
 class AvailableDeviceInterfaceFilter(filters.FilterSet):
     device_id = filters.NumberFilter( method='filter_device_id' )
 
@@ -211,21 +218,26 @@ class AvailableVMInterfaceViewSet(NetBoxModelViewSet):
 # Tag Mapping
 # ------------------------------------------------------------------------------
 
+
 class TagMappingViewSet(NetBoxModelViewSet):
     queryset = models.TagMapping.objects.all()
     serializer_class = serializers.TagMappingSerializer
+
 
 # ------------------------------------------------------------------------------
 # Inventory Mapping
 # ------------------------------------------------------------------------------
 
+
 class InventoryMappingViewSet(NetBoxModelViewSet):
     queryset = models.InventoryMapping.objects.all()
     serializer_class = serializers.InventoryMappingSerializer
 
+
 # ------------------------------------------------------------------------------
 # Device Mapping
 # ------------------------------------------------------------------------------
+
 
 class DeviceMappingViewSet(NetBoxModelViewSet):
     queryset = models.DeviceMapping.objects.all()
@@ -236,6 +248,7 @@ class DeviceMappingViewSet(NetBoxModelViewSet):
 # VM Mapping
 # ------------------------------------------------------------------------------
 
+
 class VMMappingViewSet(NetBoxModelViewSet):
     queryset = models.VMMapping.objects.all()
     serializer_class = serializers.VMMappingSerializer
@@ -245,6 +258,7 @@ class VMMappingViewSet(NetBoxModelViewSet):
 # ------------------------------------------------------------------------------
 # Event Log
 # ------------------------------------------------------------------------------
+
 
 class EventLogViewSet(NetBoxModelViewSet):
     queryset = models.EventLog.objects.all()

@@ -1,26 +1,57 @@
 {% extends 'generic/object.html' %}
+{% load buttons %}
+{% load custom_links %}
 {% load helpers %}
-{% load static %}
+{% load perms %}
+{% load plugins %}
+{% load tabs %}
 {% load i18n %}
 
-{% block extra_controls %}
-{% if prev_event %}
-<a class="btn btn-outline-primary" href="{{ prev_event.get_absolute_url }}">&laquo; Previous</a>
-{% else %}
-<span class="btn btn-outline-secondary disabled">&laquo; Previous</span>
-{% endif %}
 
-{% if next_event %}
-<a class="btn btn-outline-primary" href="{{ next_event.get_absolute_url }}">Next &raquo;</a>
-{% else %}
-<span class="btn btn-outline-secondary disabled">Next &raquo;</span>
-{% endif %}
-{% endblock %}
+
+{% block controls %}
+<div class="btn-list justify-content-end mb-2">
+    {% plugin_buttons object %}
+
+    {# Add/edit/delete/etc. buttons #}
+    {% block control-buttons %}
+
+    {# Extra buttons #}
+    {% if prev_event %}
+    <a class="btn btn-outline-primary" href="{{ prev_event.get_absolute_url }}">&laquo; Previous</a>
+    {% else %}
+    <span class="btn btn-outline-secondary disabled">&laquo; Previous</span>
+    {% endif %}
+
+    {% if next_event %}
+    <a class="btn btn-outline-primary" href="{{ next_event.get_absolute_url }}">Next &raquo;</a>
+    {% else %}
+    <span class="btn btn-outline-secondary disabled">Next &raquo;</span>
+    {% endif %}
+
+
+    {# Default buttons #}
+    {% if request.user|can_delete:object %}
+    {% delete_button object %}
+    {% endif %}
+    {% endblock control-buttons %}
+</div>
+
+{# Custom links #}
+<div class="d-flex justify-content-end">
+    <div class="btn-list">
+        {% block custom-links %}
+        {% custom_links object %}
+        {% endblock custom-links %}
+    </div>
+</div>
+{% endblock controls %}
+
+
+
 
 
 {% block content %}
-
-
 <div class="row">
     <div class="col col-12 col-md-12">
         <div class="card">
@@ -80,6 +111,21 @@
     <div class="col col-12 col-md-12">
         <div class="card">
             {% include 'extras/inc/configcontext_data.html' with title="Data" data=object.data format=format copyid="data" %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if object.pre_data or object.post_data %}
+<div class="row">
+    <div class="col col-6 col-md-6">
+        <div class="card">
+            {% include 'extras/inc/configcontext_data.html' with title="Pre-Change Data" data=object.pre_data format=format copyid="pre_data" %}
+        </div>
+    </div>
+    <div class="col col-6 col-md-6">
+        <div class="card">
+            {% include 'extras/inc/configcontext_data.html' with title="Post-Change Data" data=object.post_data format=format copyid="post_data" %}
         </div>
     </div>
 </div>

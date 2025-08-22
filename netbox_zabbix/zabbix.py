@@ -1,4 +1,7 @@
 # zabbix.py
+# 
+# Description: Wrapper functions for the Zabbix API
+#
 
 from django.utils import timezone
 from django.core.cache import cache
@@ -533,3 +536,5 @@ def get_host_interfaces(hostid):
         return z.hostinterface.get( output=["interfaceid", "type"], hostids=hostid )
     except Exception as e:
         raise e
+
+# end

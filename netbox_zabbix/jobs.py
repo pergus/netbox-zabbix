@@ -78,11 +78,10 @@ from core.choices import ObjectChangeActionChoices
 from netbox_zabbix.logger import logger
 
 
-
-
 # ------------------------------------------------------------------------------
 # Helper Classes and Functions 
 # ------------------------------------------------------------------------------
+
 
 class ExceptionWithData(Exception):
     """
@@ -111,9 +110,11 @@ class ExceptionWithData(Exception):
             print(e)        # Output: Failed to create host in Zabbix
             print(e.data)   # Output: {'host': 'router1', 'status': 'failed'}
     """
-    def __init__(self, message, data):
+    def __init__(self, message, data=None, pre_data=None, post_data=None):
         super().__init__( message )
         self.data = data
+        self.pre_data = pre_data
+        self.post_data = post_data
 
 
 class SecretStr(str):
@@ -143,11 +144,11 @@ def normalize_interface(iface: dict) -> dict:
 
     base = {
             **iface,
-            "type": int( iface["type"] ),
-            "useip": int( iface["useip"] ),
-            "available": int(iface["available"] ),
-            "main": int( iface["main"] ),
-            "port": int( iface["port"] ),
+            "type":        int( iface["type"] ),
+            "useip":       int( iface["useip"] ),
+            "available":   int( iface["available"] ),
+            "main":        int( iface["main"] ),
+            "port":        int( iface["port"] ),
             "interfaceid": int( iface["interfaceid"] ),
     }
     
@@ -161,34 +162,34 @@ def normalize_interface(iface: dict) -> dict:
     if version == 3:    
         base.update({
             # SNMPv3
-            "snmp_version":         int( details.get("version", "0") ),
-            "snmp_bulk":            int( details.get("bulk", "1") ),
-            "snmp_max_repetitions": int( details.get("max_repetitions", "10") ),
-            "snmp_securityname":    details.get("securityname", ""),
-            "snmp_securitylevel":   int( details.get("securitylevel", "0") ),
-            "snmp_authpassphrase":  details.get("authpassphrase", ""),
-            "snmp_privpassphrase":  details.get("privpassphrase", ""),
-            "snmp_authprotocol":    int( details.get("authprotocol", "") ),
-            "snmp_privprotocol":    int( details.get("privprotocol", "") ),
-            "snmp_contextname":     details.get("contextname", ""),
+            "version":         int( details.get("version", "0") ),
+            "bulk":            int( details.get("bulk", "1") ),
+            "max_repetitions": int( details.get("max_repetitions", "10") ),
+            "securityname":    details.get("securityname", ""),
+            "securitylevel":   int( details.get("securitylevel", "0") ),
+            "authpassphrase":  details.get("authpassphrase", ""),
+            "privpassphrase":  details.get("privpassphrase", ""),
+            "authprotocol":    int( details.get("authprotocol", "") ),
+            "privprotocol":    int( details.get("privprotocol", "") ),
+            "contextname":     details.get("contextname", ""),
         })
 
     # These are not implemented!
     elif version == 2:    
         base.update({
             # SNMPv2c
-            "snmp_version":         int( details.get("version", "0") ),
-            "snmp_bulk":            int( details.get("bulk", "0") ),
-            "snmp_max_repetitions": int( details.get("max_repetitions", "0") ),
-            "snmp_community":       details.get("snmp_community", ""),
+            "version":         int( details.get("version", "0") ),
+            "bulk":            int( details.get("bulk", "0") ),
+            "max_repetitions": int( details.get("max_repetitions", "0") ),
+            "community":       details.get("snmp_community", ""),
         })
     
     elif version == 1:    
         base.update({
             # SNMPv1
-            "snmp_version":   int( details.get("version", "0") ),
-            "snmp_bulk":      int( details.get("bulk", "0") ),
-            "snmp_community": details.get("snmp_community", ""),
+            "version":   int( details.get("version", "0") ),
+            "bulk":      int( details.get("bulk", "0") ),
+            "community": details.get("snmp_community", ""),
         })
     else:
         pass
@@ -346,9 +347,11 @@ def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine])
 
     return { "message": f"'{host.name}' is valid", "data": {} }
 
+
 # ------------------------------------------------------------------------------
 # Import from Zabbix
 # ------------------------------------------------------------------------------
+
 
 def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interface_model, snmpv3_interface_model, is_vm: bool = False):
     """
@@ -358,7 +361,7 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
     try:
         validate_zabbix_host( zabbix_host, instance )
     except Exception as e:
-        raise Exception( f"validation failed: {str(e)}" )
+        raise Exception( f"Validation failed: {str(e)}" )
 
     # Map the instance type to its field name on the config model
     instance_type = "virtual_machine" if is_vm else "device"
@@ -368,12 +371,11 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
     if config_model.objects.filter( **{instance_type: instance} ).exists():
         raise Exception( f"Zabbix config for '{instance.name}' already exists" )
 
-    logger.error( f"Creating Zabbix config for {instance.name}" )
-
     # Create config instance
-    config = config_model( **{instance_type: instance} )
-    config.hostid = int( zabbix_host["hostid"] )
-    config.status = StatusChoices.DISABLED if int( zabbix_host.get( "status", 0 ) ) else StatusChoices.ENABLED
+    config             = config_model( **{instance_type: instance} )
+    config.hostid      = int( zabbix_host["hostid"] )
+    config.status      = StatusChoices.DISABLED if int( zabbix_host.get( "status", 0 ) ) else StatusChoices.ENABLED
+    config.description = zabbix_host.get( "description", "" )
     config.full_clean()
     config.save()
 
@@ -383,7 +385,6 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
         if template_name:
             template_obj = Template.objects.get( name=template_name )
             config.templates.add( template_obj )
-            logger.error( f"Added template '{template_name}' to {instance.name}" )
 
 
     # Add interfaces
@@ -393,14 +394,12 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
             # Since it isn't possible to use CIDR notation when specifying
             # the IP address in Zabbix and NetBox require a CIDR when
             # searching for an IP, a configuratbe CIDR is added to the Zabbix IP.
-            cidr = get_default_cidr()
-            address = f"{iface['ip']}{cidr}"
-            logger.error( f"Looking up {address=}" )
+            cidr          = get_default_cidr()
+            address       = f"{iface['ip']}{cidr}"
             nb_ip_address = IPAddress.objects.get( address=address )
 
         elif iface["useip"] == 0 and iface["dns"]:
             nb_ip_address = IPAddress.objects.get( dns_name=iface["dns"] )
-
         else:
             raise Exception( f"Cannot resolve IP for Zabbix interface {iface['interfaceid']}" )
 
@@ -414,16 +413,16 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
         if iface["type"] == 1:  # Agent
             try:
                 agent_iface = agent_interface_model.objects.create(
-                    name=f"{instance.name}-agent",
-                    hostid=config.hostid,
-                    interfaceid=iface["interfaceid"],
-                    available=iface["available"],
-                    useip=iface["useip"],
-                    main=iface["main"],
-                    port=iface["port"],
-                    host=config,
-                    interface=nb_interface,
-                    ip_address=nb_ip_address,
+                    name        = f"{instance.name}-agent",
+                    hostid      = config.hostid,
+                    interfaceid = iface["interfaceid"],
+                    available   = iface["available"],
+                    useip       = iface["useip"],
+                    main        = iface["main"],
+                    port        = iface["port"],
+                    host        = config,
+                    interface   = nb_interface,
+                    ip_address  = nb_ip_address,
                 )
                 agent_iface.full_clean()
                 agent_iface.save()
@@ -434,28 +433,28 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
         elif iface["type"] == 2 and iface["snmp_version"] == 3:
             try:
                 snmpv3_iface = snmpv3_interface_model.objects.create(
-                    name=f"{instance.name}-snmpv3",
-                    hostid=config.hostid,
-                    interfaceid=iface["interfaceid"],
-                    available=iface["available"],
-                    useip=iface["useip"],
-                    main=iface["main"],
-                    port=iface["port"],
-                    host=config,
-                    interface=nb_interface,
-                    ip_address=nb_ip_address,
+                    name        = f"{instance.name}-snmpv3",
+                    hostid      = config.hostid,
+                    interfaceid = iface["interfaceid"],
+                    available   = iface["available"],
+                    useip       = iface["useip"],
+                    main        = iface["main"],
+                    port        = iface["port"],
+                    host        = config,
+                    interface   = nb_interface,
+                    ip_address  = nb_ip_address,
 
                     # SNMPv3 details
-                    snmp_version=iface["snmp_version"],
-                    snmp_bulk=iface["snmp_bulk"],
-                    snmp_max_repetitions=iface["snmp_max_repetitions"],
-                    snmp_securityname=iface["snmp_securityname"],
-                    snmp_securitylevel=iface["snmp_securitylevel"],
-                    snmp_authpassphrase=iface["snmp_authpassphrase"],
-                    snmp_privpassphrase=iface["snmp_privpassphrase"],
-                    snmp_authprotocol=iface["snmp_authprotocol"],
-                    snmp_privprotocol=iface["snmp_privprotocol"],
-                    snmp_contextname=iface["snmp_contextname"],
+                    version         = iface["version"],
+                    bulk            = iface["bulk"],
+                    max_repetitions = iface["max_repetitions"],
+                    securityname    = iface["securityname"],
+                    securitylevel   = iface["securitylevel"],
+                    authpassphrase  = iface["authpassphrase"],
+                    privpassphrase  = iface["privpassphrase"],
+                    authprotocol    = iface["authprotocol"],
+                    privprotocol    = iface["privprotocol"],
+                    contextname     = iface["contextname"],
                 )
                 snmpv3_iface.full_clean()
                 snmpv3_iface.save()
@@ -493,6 +492,7 @@ def import_vm_config(zabbix_host: dict, vm: VirtualMachine):
 # ------------------------------------------------------------------------------
 # Payload Support Functions
 # ------------------------------------------------------------------------------
+
 
 def get_tags(obj, existing_tags=None):
     """
@@ -533,6 +533,7 @@ def get_tags(obj, existing_tags=None):
 # ------------------------------------------------------------------------------
 #  Payload
 # ------------------------------------------------------------------------------
+
 
 def build_payload(zcfg) -> dict:
     """
@@ -579,36 +580,42 @@ def build_payload(zcfg) -> dict:
     # Interfaces
     interfaces = []
     for iface in zcfg.agent_interfaces.all():
-        interfaces.append({
-            "type": str( 1 ),  # Zabbix Agent
-            "main": str( iface.main ),
-            "useip": str( iface.useip ),
-            "ip": str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
-            "dns": iface.resolved_dns_name or "",
-            "port": str( iface.port ),
-        })
+        entry = {
+            "type":        str( 1 ),  # Zabbix Agent
+            "main":        str( iface.main ),
+            "useip":       str( iface.useip ),
+            "ip":          str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
+            "dns":         iface.resolved_dns_name or "",
+            "port":        str( iface.port ),
+        }
+        if iface.interfaceid:
+            entry["interfaceid"] = str( iface.interfaceid )
+        interfaces.append( entry )
 
     for iface in zcfg.snmpv3_interfaces.all():
-        interfaces.append({
-            "type": str( 2 ),  # SNMP
-            "main":  str( iface.main ),
-            "useip": str( iface.useip ),
-            "ip": str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
-            "dns": iface.resolved_dns_name or "",
-            "port": str( iface.port ),
+        entry = {
+            "type":        str( 2 ),  # SNMP
+            "main":        str( iface.main ),
+            "useip":       str( iface.useip ),
+            "ip":          str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
+            "dns":         iface.resolved_dns_name or "",
+            "port":        str( iface.port ),
             "details": {
-                "version": str( iface.version ) ,
-                "bulk": str( iface.bulk ),
+                "version":         str( iface.version ) ,
+                "bulk":            str( iface.bulk ),
                 "max_repetitions": str( iface.max_repetitions ),
-                "contextname": str( iface.contextname ),
-                "securityname": str( iface.securityname ),
-                "securitylevel": str( iface.securitylevel ),
-                "authprotocol": str( iface.authprotocol ),
-                "authpassphrase": str( iface.authpassphrase ),
-                "privprotocol": str( iface.privprotocol ),
-                "privpassphrase": str( iface.privpassphrase ),
+                "contextname":     str( iface.contextname ),
+                "securityname":    str( iface.securityname ),
+                "securitylevel":   str( iface.securitylevel ),
+                "authprotocol":    str( iface.authprotocol ),
+                "authpassphrase":  str( iface.authpassphrase ),
+                "privprotocol":    str( iface.privprotocol ),
+                "privpassphrase":  str( iface.privpassphrase ),
             }
-        })
+        }
+        if iface.interfaceid:
+            entry["interfaceid"] = str( iface.interfaceid )
+        interfaces.append( entry )
 
     if not interfaces:
         raise Exception(f"No interfaces defined for host '{payload['host']}'")
@@ -621,6 +628,11 @@ def build_payload(zcfg) -> dict:
         raise Exception(f"No host groups assigned to host '{payload['host']}'")
 
     payload["groups"] = [ { "groupid": g.groupid } for g in host_groups ]
+
+
+    # Description
+    payload["description"] = zcfg.description
+    
 
     # Tags
     payload["tags"] = get_tags( linked_obj )
@@ -650,6 +662,7 @@ def build_payload(zcfg) -> dict:
 # ------------------------------------------------------------------------------
 #  Quick Add Interface
 # ------------------------------------------------------------------------------
+
 
 def quick_add_interface(
     *,
@@ -877,6 +890,7 @@ def quick_add_interface(
 #  Quick Add Device Agent
 # ------------------------------------------------------------------------------
 
+
 def device_quick_add_agent(device, user, requestid):
     return quick_add_interface(
         obj=device,
@@ -920,6 +934,7 @@ def device_quick_add_snmpv3(device, user, requestid):
 # Update Zabbix Host
 # ------------------------------------------------------------------------------
 
+
 def device_update_zabbix_host( zabbix_config ):
 
     if zabbix_config:
@@ -930,15 +945,19 @@ def device_update_zabbix_host( zabbix_config ):
         try:
             update_host( **payload )
         except Exception as e:
-            raise ExceptionWithData( e, payload )
+            raise ExceptionWithData( e, pre_data=pre_data, post_data=payload )
 
-        # TODO: Do I need more data "fields"? pre_data post_data?
-        return { "message": f"Updated Zabbix host {zabbix_config.hostid}", "data": pre_data }
+        return { 
+            "message":   f"Updated Zabbix host {zabbix_config.hostid}", 
+            "pre_data":  pre_data, 
+            "post_data": payload 
+        }
 
 
 #-------------------------------------------------------------------------------
 # Delete Zabbix Host
 # ------------------------------------------------------------------------------
+
 
 def delete_zabbix_host( hostid ):
 
@@ -955,6 +974,7 @@ def delete_zabbix_host( hostid ):
 #-------------------------------------------------------------------------------
 # Import Zabbix Settings
 # ------------------------------------------------------------------------------
+
 
 def import_zabbix_settings():
     try:
@@ -979,6 +999,7 @@ def import_zabbix_settings():
 #-------------------------------------------------------------------------------
 # Jobs
 # ------------------------------------------------------------------------------
+
 
 class ValidateDeviceOrVM( AtomicJobRunner ):
 
@@ -1224,7 +1245,7 @@ class DeviceUpdateZabbixHost( AtomicJobRunner ):
     @classmethod
     def run(cls, *args, **kwargs):
 
-        device_name = kwargs.get( "device_name", None )        
+        device_name = kwargs.get( "device_name", None ) 
         if not device_name:
             raise ValueError( "Missing required argument 'device_name'." )
         
@@ -1312,6 +1333,7 @@ class DeleteZabbixHost( AtomicJobRunner ):
 # System Jobs
 # ------------------------------------------------------------------------------
 
+
 class ImportZabbixSystemJob( AtomicJobRunner ):
     class Meta:
         name = "Import Zabbix System Job"
@@ -1361,3 +1383,5 @@ class ImportZabbixSystemJob( AtomicJobRunner ):
         job = cls.enqueue_once( **job_args )
         logger.error( f"Scheduled new system job '{name}' with interval {interval}" )
         return job
+
+# end

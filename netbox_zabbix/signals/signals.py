@@ -1,3 +1,8 @@
+# singals.py
+#
+# Description: Handle signals
+#
+
 from django.db.models.signals import post_delete, pre_delete, pre_save, post_save
 from django.dispatch import receiver
 
@@ -12,14 +17,14 @@ from netbox_zabbix.models import Config
 from netbox_zabbix.jobs import ImportZabbixSystemJob
 from django.db import transaction
 
+from core.models import ObjectChange
 
-
-import logging
 from netbox_zabbix.jobs import (
     DeleteZabbixHost,
     DeviceUpdateZabbixHost
 )
 
+import logging
 
 logger = logging.getLogger('netbox.plugins.netbox_zabbix')
 
@@ -108,24 +113,20 @@ def dev_promote_snmpv3_interface_to_main(sender, instance, **kwargs):
 #
 # Save Zabbix configuration
 #
-from core.models import ObjectChange
-import json
 @receiver(post_save, sender=DeviceZabbixConfig)
 def dev_save_zabbix_config(sender, instance, created, **kwargs):
+    """
+    Update the corresponding host in Zabbix for a device when the Zabbix 
+    configuration in NetBox has changed.
+    """
 
+    # Don't update upon creation
     if created:
-        logger.info( f"dev_save_zabbix_config: Object {instance.get_name()} created" )
         return
     
-    logger.info( "Process dev_save_zabbix_config change:" )
     change = ObjectChange.objects.filter( changed_object_id=instance.pk ).order_by( '-time' ).first()
-    if change:
-        print( f"DIFF:  {json.dumps(change.diff(), indent=2) }" )
-#
-#    #if change and change.user:
-#    #    user = change.user
-#    #    DeviceUpdateZabbixHost.run_job( device_name=instance.device.name, device_zabbix_config=instance, user=user )
-
+    if change and change.user:
+        DeviceUpdateZabbixHost.run_job( device_name=instance.device.name, device_zabbix_config=instance, user=change.user )
 
 #
 # Delete Zabbix configuration
@@ -154,6 +155,24 @@ def dev_delete_zabbix_config(sender, instance, **kwargs):
         DeleteZabbixHost.run_job( hostid=instance.hostid )
     except Exception as e:
         raise e
+
+#
+# Interface
+#
+@receiver(post_save, sender=DeviceAgentInterface)
+@receiver(post_save, sender=DeviceSNMPv3Interface)
+def dev_save_zabbix_interface(sender, instance, created, **kwargs):
+    """
+    """
+    # Don't update upon creation
+    if created:
+        return
+
+    logger.info( f"Update Interface for {instance.host.device.name}" )    
+    change = ObjectChange.objects.filter( changed_object_id=instance.pk ).order_by( '-time' ).first()
+    if change and change.user:
+        DeviceUpdateZabbixHost.run_job( device_name=instance.host.device.name, device_zabbix_config=instance.host, user=change.user )
+
 
 
 # ------------------------------------------------------------------------------

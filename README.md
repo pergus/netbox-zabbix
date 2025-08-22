@@ -27,6 +27,8 @@ I added it to makemigrations without having to dump the database.
 
 * Is useip in Configuration required?
 
+* Add support for IPv6primary interfaces.
+
 
 #### General
 

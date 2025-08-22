@@ -23,6 +23,7 @@ from netbox_zabbix.logger import logger
 # Configuration
 # ------------------------------------------------------------------------------
 
+
 EXTRA_CONFIG_BUTTONS = """
 <span class="dropdown">
     <button id="actions" type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
@@ -65,6 +66,7 @@ class ConfigTable(NetBoxTable):
 # Templates
 # ------------------------------------------------------------------------------
 
+
 class TemplateTable(NetBoxTable):
     name = tables.Column( linkify=True )
     host_count = columns.LinkedCountColumn( 
@@ -82,6 +84,7 @@ class TemplateTable(NetBoxTable):
 # Proxy
 # ------------------------------------------------------------------------------
 
+
 class ProxyTable(NetBoxTable):
     name = tables.Column( linkify=True )
         
@@ -93,6 +96,7 @@ class ProxyTable(NetBoxTable):
 # ------------------------------------------------------------------------------
 # Proxy Group
 # ------------------------------------------------------------------------------
+
 
 class ProxyGroupTable(NetBoxTable):
     name = tables.Column( linkify=True )
@@ -107,6 +111,7 @@ class ProxyGroupTable(NetBoxTable):
 # Host Groups
 # ------------------------------------------------------------------------------
 
+
 class HostGroupTable(NetBoxTable):
     name = tables.Column( linkify=True, order_by="name", accessor="name" )
     
@@ -119,6 +124,7 @@ class HostGroupTable(NetBoxTable):
 # ------------------------------------------------------------------------------
 # NetBox Only Devices
 # ------------------------------------------------------------------------------
+
 
 EXTRA_DEVICE_ADD_ACTIONS = """
 <span class="btn-group dropdown">
@@ -186,6 +192,7 @@ class NetBoxOnlyDevicesTable(DeviceTable):
 # NetBox Only VMs
 # ------------------------------------------------------------------------------
 
+
 EXTRA_VM_ADD_ACTIONS = """
 <span class="btn-group dropdown">
 
@@ -245,6 +252,7 @@ class NetBoxOnlyVMsTable(VirtualMachineTable):
 # Zabbix Configurations
 # ------------------------------------------------------------------------------
 
+
 class DeviceZabbixConfigTable(NetBoxTable):
     name         = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
     device       = tables.Column( accessor='device', verbose_name='Device', linkify=True )
@@ -254,11 +262,15 @@ class DeviceZabbixConfigTable(NetBoxTable):
     proxies      = tables.ManyToManyColumn( linkify_item=True )
     proxy_groups = tables.ManyToManyColumn( linkify_item=True )
     host_groups  = tables.ManyToManyColumn( linkify_item=True )
+    description  = tables.Column()
     
     class Meta(NetBoxTable.Meta):
         model = models.DeviceZabbixConfig
-        fields = ('name', 'device', 'status', 'monitored_by', 'hostid', 'templates', 'proxies', 'proxy_groups', 'host_groups' )
-        default_columns = ('name', 'device', 'status', 'monitored_by', 'templates', 'proxies', 'proxy_groups', 'host_groups')
+        fields = ('name', 'device', 'status', 'monitored_by', 'hostid', 
+                  'templates', 'proxies', 'proxy_groups', 'host_groups', 
+                  'description' )
+        default_columns = ('name', 'device', 'status', 'monitored_by', 
+                           'templates', 'proxies', 'proxy_groups', 'host_groups')
 
 
 class VMZabbixConfigTable(NetBoxTable):
@@ -329,6 +341,7 @@ class ZabbixConfigTable(NetBoxTable):
 # Importable Devices
 # ------------------------------------------------------------------------------
 
+
 class ImportableDeviceTable(NetBoxTable):
     name = tables.Column( linkify=True )
     valid = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
@@ -363,6 +376,7 @@ class ImportableDeviceTable(NetBoxTable):
 # ------------------------------------------------------------------------------
 # Importable VMs
 # ------------------------------------------------------------------------------
+
 
 class ImportableVMTable(NetBoxTable):
     name = tables.Column( linkify=True )
@@ -399,6 +413,7 @@ class ImportableVMTable(NetBoxTable):
 # Zabbix Only Hosts
 # ------------------------------------------------------------------------------
 
+
 class ZabbixOnlyHostTable(tables.Table):
 
     name = tables.TemplateColumn(
@@ -415,6 +430,7 @@ class ZabbixOnlyHostTable(tables.Table):
 # ------------------------------------------------------------------------------
 # Interfaces
 # ------------------------------------------------------------------------------
+
 
 class DeviceAgentInterfaceTable(NetBoxTable):
     name = tables.Column( linkify=True )
@@ -439,15 +455,15 @@ class DeviceSNMPv3InterfaceTable(NetBoxTable):
         fields = ( "name", "host", "interface", 
                     "resolved_ip_address", "resolved_dns_name", 
                     "hostid", "interfaceid", "available", "useip", "main",  "port",
-                    "snmp_max_repetitions",
-                    "snmp_contextname",
-                    "snmp_securityname",
-                    "snmp_securitylevel",
-                    "snmp_authprotocol",
-                    "snmp_authpassphrase",
-                    "snmp_privprotocol",
-                    "snmp_privpassphrase",
-                    "snmp_bulk" )
+                    "max_repetitions",
+                    "contextname",
+                    "securityname",
+                    "securitylevel",
+                    "authprotocol",
+                    "authpassphrase",
+                    "privprotocol",
+                    "privpassphrase",
+                    "bulk" )
         default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main" )
 
 
@@ -490,6 +506,7 @@ class VMSNMPv3InterfaceTable(NetBoxTable):
 # Tag Mapping
 # ------------------------------------------------------------------------------
 
+
 class TagMappingTable(NetBoxTable):
     object_type = tables.Column( verbose_name="Object Type", linkify=True )
     enabled_fields = tables.Column( verbose_name="Enabled Fields", orderable=False )
@@ -511,6 +528,7 @@ class TagMappingTable(NetBoxTable):
 # ------------------------------------------------------------------------------
 # Inventory Mapping
 # ------------------------------------------------------------------------------
+
 
 class InventoryMappingTable(NetBoxTable):
     object_type = tables.Column( verbose_name="Object Type", linkify=True )
@@ -562,6 +580,7 @@ class MatchingDeviceMappingTable(NetBoxTable):
 # VM Mapping
 # ------------------------------------------------------------------------------
 
+
 class VMMappingTable(NetBoxTable):
     name = tables.Column( linkify=True )
 
@@ -575,17 +594,20 @@ class VMMappingTable(NetBoxTable):
 # Event Log
 # ------------------------------------------------------------------------------
 
+
 class EventLogTable(NetBoxTable):
     name      = tables.Column( linkify=True )
     job       = tables.Column( linkify=True )
     message   = tables.Column()
     exception = tables.Column()
     data      = tables.Column()
+    pre_data  = tables.Column()
+    post_data = tables.Column()
     created   = tables.DateTimeColumn(  format="Y-m-d H:i:s" )
 
     class Meta:
         model = models.EventLog
-        fields = ( 'name', 'job', 'created', 'message', 'exception', 'data')
+        fields = ( 'name', 'job', 'created', 'message', 'exception', 'data', 'pre_data', 'post_data')
         default_columns = ( 'name', 'job', 'created', 'message' )
         attrs = {'class': 'table table-hover table-headings'}
 
