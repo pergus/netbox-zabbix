@@ -9,6 +9,13 @@ NetBox plugin for Zabbix.
 
 
 ### Todo
+* Not all interface default settings are used, e.g. snmpv3_contextname.
+  So go over the import code in jobs.py and make use of the default settings.
+
+* How do I get reflect interface default settings in forms?
+  The default settings when creating say, a DeviceAgentInterface, are taken
+  from models.py and not from the Config model.
+  I guess I can do it in init(), but that's not pretty.
 
 * Split the quick_add_interface into multiple functions so that it takes
   a ZConfig instance as argument. So, separate the conserns.

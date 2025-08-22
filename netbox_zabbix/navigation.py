@@ -78,7 +78,7 @@ menu = PluginMenu(
                     link="plugins:netbox_zabbix:devicezabbixconfig_list",
                     buttons=( 
                         PluginMenuButton( "plugins:netbox_zabbix:devicezabbixconfig_add", "Add", "mdi mdi-plus-thick" ),
-                        ),
+                    ),
                 ),
             )        
         ),
@@ -101,7 +101,7 @@ menu = PluginMenu(
                     link="plugins:netbox_zabbix:devicesnmpv3interface_list", 
                     buttons=( 
                         PluginMenuButton( "plugins:netbox_zabbix:devicesnmpv3interface_add", "Add", "mdi mdi-plus-thick" ), 
-                        ),
+                    ),
                 ),
             )
         ),

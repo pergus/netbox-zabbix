@@ -24,6 +24,7 @@ from virtualization.models import VirtualMachine
 from virtualization.forms import VirtualMachineFilterForm
 
 from netbox_zabbix import models
+from netbox_zabbix import config
 from netbox_zabbix import zabbix as z
 from netbox_zabbix.inventory_properties import inventory_properties
 
@@ -456,7 +457,10 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
             self.fields['host'].queryset = queryset
             self.initial['host'] = specific_device_zabbix_config_id
             self.initial['name'] = f"{queryset[0].get_name()}-agent"
-
+            
+            # Initialize the default Agent interface settings from the Config
+            self.initial['port']            = config.get_agent_port()
+            
         # Set the initial value of the calculated DNS name if editing an existing instance
         if self.instance.pk:
             self.fields['dns_name'].initial = self.instance.resolved_dns_name
@@ -513,17 +517,31 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
         super().__init__(*args, **kwargs)
 
 
-        if self.initial.get('device_zabbix_config_id'):
+        if self.initial.get( 'device_zabbix_config_id' ):
             specific_device_zabbix_confighost_id = self.initial.get( 'device_zabbix_config_id' )
             queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_zabbix_confighost_id )
             self.fields['host'].queryset = queryset
             self.initial['host'] = specific_device_zabbix_confighost_id
             self.initial['name'] = f"{queryset[0].get_name()}-snmpv3"
-        
-        # Set the initial value of the calculated DNS name if editing an existing instance
-        if self.instance.pk:
-            self.fields['dns_name'].initial = self.instance.resolved_dns_name
 
+            # Initialize the default SNMPv3 interface settings from the Config
+            self.initial['port']            = config.get_snmpv3_port()
+            self.initial['bulk']            = config.get_snmpv3_bulk()
+            self.initial['max_repetitions'] = config.get_snmpv3_max_repetitions()
+            self.initial['contextname']     = config.get_snmpv3_contextname()
+            self.initial['securityname']    = config.get_snmpv3_securityname()
+            self.initial['securitylevel']   = config.get_snmpv3_securitylevel()
+            self.initial['authprotocol']    = config.get_snmpv3_authprotocol()
+            self.initial['authpassphrase']  = config.get_snmpv3_authpassphrase()
+            self.initial['privprotocol']    = config.get_snmpv3_privprotocol()
+            self.initial['privpassphrase']  = config.get_snmpv3_privpassphrase()
+            
+
+        # If editing an existing instance the user cannot change the 'host'.
+        if self.instance.pk:
+            self.fields['host'].disabled = True
+            # Set the initial value of the calculated DNS name
+            self.fields['dns_name'].initial = self.instance.resolved_dns_name
 
 class VMAgentInterfaceForm(NetBoxModelForm):
     class Meta:
@@ -574,6 +592,9 @@ class VMAgentInterfaceForm(NetBoxModelForm):
             self.initial['host'] = specific_vm_zabbix_config_id
             self.initial['name'] = f"{queryset[0].get_name()}-agent"
 
+            # Initialize the default Agent interface settings from the Config
+            self.initial['port'] = config.get_agent_port()
+            
         # Set the initial value of the calculated DNS name if editing an existing instance
         if self.instance.pk:
             self.fields['dns_name'].initial = self.instance.resolved_dns_name
