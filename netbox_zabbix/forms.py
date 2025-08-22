@@ -39,10 +39,11 @@ from netbox_zabbix.logger import logger
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 
 # ------------------------------------------------------------------------------
-# Settings
+# Configuration
 # ------------------------------------------------------------------------------
 
-# Since only one configuration is allowed there is no need for a FilterForm.
+# Since only one instance of the configuration is allowed there is no need for 
+# a FilterForm.
 
 class ConfigForm(NetBoxModelForm):
     fieldsets = (
@@ -126,7 +127,7 @@ class ConfigForm(NetBoxModelForm):
             logger.error( f"Edit config form cleaned_data is None" )
             raise ValidationError( f"Edit config form cleaned_data is None" )
         
-        # Prevent second config
+        # Prevent second config instance from being created
         if not self.instance.pk and models.Config.objects.exists():
             raise ValidationError("Only one Zabbix configuration is allowed.")
 
@@ -166,6 +167,7 @@ class ConfigForm(NetBoxModelForm):
 # Templates
 # ------------------------------------------------------------------------------
 
+
 class TemplateForm(NetBoxModelForm):
     class Meta:
         model = models.Template
@@ -187,9 +189,11 @@ class TemplateFilterForm(NetBoxModelFilterSetForm):
         choices = [("", "---------")] + [(zid, zid) for zid in templateids if zid is not None]
         self.fields["templateid"].choices = choices
 
+
 # ------------------------------------------------------------------------------
 # Proxy
 # ------------------------------------------------------------------------------
+
 
 class ProxyForm(NetBoxModelForm):
     class Meta:
@@ -219,6 +223,7 @@ class ProxyFilterForm(NetBoxModelFilterSetForm):
 # Proxy Groups
 # ------------------------------------------------------------------------------
 
+
 class ProxyGroupForm(NetBoxModelForm):
     class Meta:
         model = models.ProxyGroup
@@ -245,6 +250,7 @@ class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
 # ------------------------------------------------------------------------------
 # Hostgroups
 # ------------------------------------------------------------------------------
+
 
 class HostGroupForm(NetBoxModelForm):
     class Meta:
@@ -281,6 +287,7 @@ class HostGroupForm(NetBoxModelForm):
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------
+
 
 class DeviceZabbixConfigForm(NetBoxModelForm):
     device = forms.ModelChoiceField( queryset=Device.objects.all(), label='Device', help_text='Select the NetBox Device to link this Zabbix host to.' )
@@ -386,6 +393,7 @@ class VMZabbixConfigFilterForm(NetBoxModelFilterSetForm):
 # ------------------------------------------------------------------------------
 # Interfaces
 # ------------------------------------------------------------------------------
+
 
 class DeviceAgentInterfaceForm(NetBoxModelForm):
     class Meta:
@@ -649,6 +657,7 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
 # Tag Mapping
 # ------------------------------------------------------------------------------
 
+
 class TagMappingForm(NetBoxModelForm):
     object_type = forms.ChoiceField( choices=models.TagMapping.OBJECT_TYPE_CHOICES, initial='device' )
     prefix = "gurka"
@@ -721,9 +730,11 @@ class TagMappingForm(NetBoxModelForm):
         self.instance.selection = selection
         return super().save( commit=commit )
 
+
 # ------------------------------------------------------------------------------
 # Inventory Mapping
 # ------------------------------------------------------------------------------
+
 
 class InventoryMappingForm(NetBoxModelForm):
     object_type = forms.ChoiceField( choices=models.InventoryMapping.OBJECT_TYPE_CHOICES, initial='device' )
@@ -801,9 +812,11 @@ class InventoryMappingForm(NetBoxModelForm):
         self.instance.selection = selection
         return super().save( commit=commit )
 
+
 # ------------------------------------------------------------------------------
 # Device Mapping
 # ------------------------------------------------------------------------------
+
 
 class DeviceMappingForm(NetBoxModelForm):
     fieldsets = (
@@ -931,6 +944,7 @@ class DeviceMappingForm(NetBoxModelForm):
 # ------------------------------------------------------------------------------
 # VM Mapping
 # ------------------------------------------------------------------------------
+
 
 class VMMappingForm(NetBoxModelForm):
     class Meta:

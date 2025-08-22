@@ -7,7 +7,147 @@ NetBox plugin for Zabbix.
 * Documentation: https://pergus.github.io/netbox-zabbix/
 
 
-## Maintenance
+
+### Todo
+
+* Split the quick_add_interface into multiple functions so that it takes
+  a ZConfig instance as argument. So, separate the conserns.
+
+* The date when scheduling the background job should use
+django.utils.timezone.now() to remove the warning:
+RuntimeWarning: DateTimeField Job.scheduled received a naive datetime 
+(2025-08-21 17:43:35.860721) while time zone support is active.
+
+* Since the background job doesn't use the system job decorator it isn't
+started automatically by NB when the rqworker is started.
+Look into how this can be fixed.
+
+* Remove the null=True in Proxy Mappings and Proxy Group Mappings model.
+I added it to makemigrations without having to dump the database.
+
+* Is useip in Configuration required?
+
+
+#### General
+
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| Document and format the code                                 | Todo          |
+| Write a user manual                                          | Todo          |
+| Format for exception and logging messages                    | Todo          |
+| Replace plugin settings with configuration variables         | Done          |
+| Create Importable Devices/VMs                                | Done          |
+| Create Devices/VM Zabbix configurations                      | Done          |
+| Create Devices/VM components                                 | Done          |
+| Create ALL Zabbix Configurations                             | Done          |
+| Create NetBox only Devices/VMs                               | Done          |
+| Create Zabbix only Hosts                                     | Done          |
+| Create model and form for Agent interfaces                   | Done          |
+| Create model and form for SNMPv3 interfaces                  | Done          |
+| Create model and form for SNMPv1 interfaces                  | Todo          |
+| Create model and form for SNMPv2c interfaces                 | Todo          |
+| Create class or function to run background jobs              | Done          |
+| Implement signals for create, update and delete              | Todo          |
+| Auto hide validate button depending on if automatic validation is enabled or not | Done |
+| Add Host information as a tab for Device and VM              | Done          |
+| Add filtersets to the views                                  | Todo          |
+| Implement GraphQL                                            | Todo          |
+| Add template mappings                                        | Done          |
+| Add host group mappings                                      | Done          |
+| Add models for Proxy and Proxy Groups                        | Done          |
+| Add Proxy mappings                                           | Done          |
+| Add Proxy Group mappings                                     | Done          |
+| Add support for TLS certificates                             | Todo          |
+
+
+
+#### Config
+
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| Add CIDR to the config                                       | Done          |
+| Add Automatic Validation                                     | Done          |
+| Add TLS settings                                             | Done          |
+| Add Max deletions on import                                  | Done          |
+| Add Maximum Success Notifications                            | Done          |
+| Add Background Job for Zabbix Config Sync                    | Done          |
+| Should Max deletions on import be enabled/disabled?          | Todo          |
+| Add defaults for zabbix interfaces                           | Done          |
+
+
+#### NetBox Only Devices
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| Add action button to create new Zabbix config                | Todo          |
+| Add action button to quick add Agent                         | Done          |
+| Add action button to quick Add SNMPv3                        | Done          |
+
+
+#### NetBox Only VMs
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| Add action button to create new config                       | Todo          |
+| Add action button to quick add Agent                         | Todo          |
+| Add action button to quick Add SNMPv3                        | Todo          |
+
+
+#### Mappings
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| Tag Mappings                                                 | Done          |
+| Inventory Mappings                                           | Done          |
+| Device Mappings                                              | Done          |
+| VM Mappings                                                  | Todo          |
+
+
+#### Event Log
+| Action                                                       | Status        |
+| ------------------------------------------------------------ | ------------- |
+| List events                                                  | Done          |
+| Add support for pre/post data                                | Todo          |
+
+
+## Features
+
+The features the plugin provides should be listed here.
+
+## Compatibility
+
+| NetBox Version | Plugin Version |
+|----------------|----------------|
+|     4.0        |      0.1.0     |
+
+## Installing
+
+For adding to a NetBox Docker setup see
+[the general instructions for using netbox-docker with plugins](https://github.com/netbox-community/netbox-docker/wiki/Using-Netbox-Plugins).
+
+While this is still in development and not yet on pypi you can install with pip:
+
+```bash
+pip install git+https://github.com/pergus/netbox-zabbix
+```
+
+or by adding to your `local_requirements.txt` or `plugin_requirements.txt` (netbox-docker):
+
+```bash
+git+https://github.com/pergus/netbox-zabbix
+```
+
+Enable the plugin in `/opt/netbox/netbox/netbox/configuration.py`,
+ or if you use netbox-docker, your `/configuration/plugins.py` file :
+
+```python
+PLUGINS = [
+    'netbox-zabbix'
+]
+
+PLUGINS_CONFIG = {
+    "netbox-zabbix": {},
+}
+```
+
+## Notes on date conversion for Zabbix Maintenance
 
 ```python
 
@@ -71,153 +211,7 @@ timestamp = int(aware_dt.timestamp())
 ```
 
 
-## Todo and Questions
 
-Reduced the number of SQL-queries 
-from 
-2083.18 ms (2219 queries including 2205 similar and 2205 duplicates ) 
-to 
-default 228.66 ms (134 queries including 118 similar and 93 duplicates )
-
-
-### Todo
-
-The date when scheduling the background job should use
-django.utils.timezone.now() to remove the warning:
-RuntimeWarning: DateTimeField Job.scheduled received a naive datetime (2025-08-21 17:43:35.860721) while time zone support is active.
-
-
-
-### Questions
-
-Is it possible to let other views inherit field etc like NetBoxOnlyDevicesView does?
-Yes!
-
-Greate one view for device and another for vm that show all added fields such
-as host_groups, proxies etc.
-
-
-Remove the null=True in Proxy Mappings and Proxy Group Mappings model.
-I added it to makemigrations without having to dump the database.
-
-
-Is useip in Configuration required?
-
-
-### General
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| Format for exception and logging messages                    | Todo          |
-| Replace plugin settings with configuration variables         | Done          |
-| Create Importable Devices/VMs                                | Done          |
-| Create Devices/VM Zabbix configurations                      | Done          |
-| Create Devices/VM components                                 | Done          |
-| Create ALL Zabbix Configurations                             | Done          |
-| Create NetBox only Devices/VMs                               | Done          |
-| Create Zabbix only Hosts                                     | Done          |
-| Create model and form for Agent interfaces                   | Done          |
-| Create model and form for SNMPv3 interfaces                  | Done          |
-| Create model and form for SNMPv1 interfaces                  | Todo          |
-| Create model and form for SNMPv2c interfaces                 | Todo          |
-| Create class or function to run background jobs              | Done          |
-| Implement signals for create, update and delete              | Todo          |
-| Auto hide validate button depending on if automatic validation is enabled or not | Done |
-| Add Host information as a tab for Device and VM              | Done          |
-| Add filtersets to the views                                  | Todo          |
-| Implement GraphQL                                            | Todo          |
-| Add template mappings                                        | Done          |
-| Add host group mappings                                      | Done          |
-| Add models for Proxy and Proxy Groups                        | Done          |
-| Add Proxy mappings                                           | Done          |
-| Add Proxy Group mappings                                     | Done          |
-| Add support for TLS certificates                             | Todo          |
-
-
-
-### Config
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| Add CIDR to the config                                       | Done          |
-| Add Automatic Validation                                     | Done          |
-| Add TLS settings                                             | Done          |
-| Add Max deletions on import                                  | Done          |
-| Add Maximum Success Notifications                            | Done          |
-| Add Background Job for Zabbix Config Sync                    | Done          |
-| Should Max deletions on import be enabled/disabled?          | Todo          |
-| Add defaults for zabbix interfaces                           | Todo          |
-
-
-### NetBox Only Devices
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| Add action button to create new config                       | Todo          |
-| Add action button to quick add Agent                         | Todo          |
-| Add action button to quick Add SNMPv3                        | Todo          |
-
-
-### NetBox Only VMs
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| Add action button to create new config                       | Todo          |
-| Add action button to quick add Agent                         | Done          |
-| Add action button to quick Add SNMPv3                        | Todo          |
-
-
-### Mappings
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| Tag Mappings                                                 | Done          |
-| Inventory Mappings                                           | Done          |
-| Device Mappings                                              | Done          |
-| VM Mappings                                                  | Todo          |
-
-
-### Event Log
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| List events                                                  | Done          |
-
-
-
-## Features
-
-The features the plugin provides should be listed here.
-
-## Compatibility
-
-| NetBox Version | Plugin Version |
-|----------------|----------------|
-|     4.0        |      0.1.0     |
-
-## Installing
-
-For adding to a NetBox Docker setup see
-[the general instructions for using netbox-docker with plugins](https://github.com/netbox-community/netbox-docker/wiki/Using-Netbox-Plugins).
-
-While this is still in development and not yet on pypi you can install with pip:
-
-```bash
-pip install git+https://github.com/pergus/netbox-zabbix
-```
-
-or by adding to your `local_requirements.txt` or `plugin_requirements.txt` (netbox-docker):
-
-```bash
-git+https://github.com/pergus/netbox-zabbix
-```
-
-Enable the plugin in `/opt/netbox/netbox/netbox/configuration.py`,
- or if you use netbox-docker, your `/configuration/plugins.py` file :
-
-```python
-PLUGINS = [
-    'netbox-zabbix'
-]
-
-PLUGINS_CONFIG = {
-    "netbox-zabbix": {},
-}
-```
 
 ## Credits
 

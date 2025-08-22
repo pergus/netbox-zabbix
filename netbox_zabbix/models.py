@@ -176,6 +176,8 @@ class SyncJobIntervalChoices(ChoiceSet):
 # ------------------------------------------------------------------------------
 # Configuration
 # ------------------------------------------------------------------------------
+
+
 class Config(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Configuration"
@@ -470,7 +472,7 @@ class HostInterface(NetBoxModel):
     # Availablility of host interface. 
     available = models.IntegerField( choices=AvailableChoices, default=AvailableChoices.AVAILABLE )
 
-    # Whether a connection should be made via IP or DNS.
+    # Whether a connection to the monitoried 'host' should be made via IP or DNS.
     useip = models.IntegerField( choices=UseIPChoices, default=UseIPChoices.IP )
 
     # Whether the interface is used as default on the host.

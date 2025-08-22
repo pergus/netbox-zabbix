@@ -92,6 +92,7 @@ def validate_zabbix_credentials_from_config():
 # Get Settings
 # ------------------------------------------------------------------------------
 
+
 def get_version():
     """
     Retrieves the Zabbix server version from the API.
@@ -351,9 +352,11 @@ def get_host_by_id(hostid):
     
     return hosts[0]
 
+
 # ------------------------------------------------------------------------------
 # Import Settings
 # ------------------------------------------------------------------------------
+
 
 def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item", max_deletions=None ):
     """
@@ -500,6 +503,7 @@ def import_host_groups(max_deletions=None):
 # ------------------------------------------------------------------------------
 # Host Actions
 # ------------------------------------------------------------------------------
+
 
 def create_host(**host):
     try:

@@ -671,8 +671,13 @@ def quick_add_interface(
     event_message = ""
 
     # TODO: I guess adding a VM require a VM mapping. Maybe it is easier to
-    # split this function into two parts. When I get it to work properly for
-    # a device I'll think about reimplementing this.
+    # split this function into two parts, one part that creates the ZConfig 
+    # instance and the other that adds an interface. When I get it to work 
+    # properly for a device I'll think about reimplementing this.
+    # Note: Creating the ZConfig is done in two parts, first the instance
+    # is created in the database since associating it with a device or vm
+    # require an id. The second part is done after the interface etc is added.
+    # I.e. adding the change log event.
 
     try:
         default_mapping = DeviceMapping.objects.get( default=True )
@@ -715,22 +720,6 @@ def quick_add_interface(
         zcfg = zabbix_config_model( **zcfg_kwargs )
         zcfg.full_clean()
         zcfg.save()
-        #zcfg.snapshot() # We want to get 
-
-        # Manually add the ZabbixConfig instance to the change log
-        # ---------------------------------------------------------
-        # Normally, when objects are created via the NetBox UI, the change log
-        # (ObjectChange) is automatically created by signals that have access to
-        # the current HTTP request. However, this code runs in a background job,
-        # which does not have a live request object, so the signals will not fire.
-        # To ensure the creation is logged, we manually create an ObjectChange.
-        #
-        # We pass the user and request_id explicitly so the change log accurately
-        # reflects who initiated the action and which request triggered it.
-        #obj_change = zcfg.to_objectchange( action=ObjectChangeActionChoices.ACTION_CREATE )
-        #obj_change.user = user
-        #obj_change.request_id = requestid
-        #obj_change.save()
         
 
     except Exception as e:
@@ -813,12 +802,6 @@ def quick_add_interface(
         logger.error( msg )
         raise Exception( msg )
 
-
-    # TODO: If something fails after the host has been created in Zabbix e.g.
-    # we cannot add the Zabbix interface id to the Zabbix Configuration,
-    # then the host in Zabbix has to be deleted.
-    
-
     # Create the host in Zabbix
     try:
         result = create_host( **payload )
@@ -833,6 +816,9 @@ def quick_add_interface(
         logger.error( msg )
         raise ExceptionWithData( msg, payload )
     
+    # From this point on there is a host in Zabbix which needs to be deleted
+    # if an error occures.
+
     # Add the interface id to the Zabbix configuration
     try:
         result = get_host_interfaces( hostid )
@@ -844,32 +830,44 @@ def quick_add_interface(
             iface.save()
         else:
             msg = f"Failed to add interface id to {obj.name}"
-            # TODO: Delete the host in Zabbix.
             logger.error( msg )
             raise ExceptionWithData( msg, payload )
 
     except Exception as e:
+        # Delete the host in Zabbix.
+        delete_host( hostid )
         msg = f"Failed to get host interfaces ids from Zabbix for {obj.name}: {e}"
         logger.error( msg )
-        # TODO: Delete the host in Zabbix.
         raise ExceptionWithData( msg, payload )
 
     # Store the Zabbix configuration 
     try:
-
-        zcfg.full_clean()
-        zcfg.save()
-        
+        # Manually add the ZabbixConfig instance to the change log
+        # ---------------------------------------------------------
+        # Normally, when objects are created via the NetBox UI, the change log
+        # (ObjectChange) is automatically created by signals that have access to
+        # the current HTTP request. However, this code runs in a background job,
+        # which does not have a live request object, so the signals will not fire.
+        # To ensure the creation is logged, we manually create an ObjectChange.
+        #
+        # We pass the user and request_id explicitly so the change log accurately
+        # reflects who initiated the action and which request triggered it.
         obj_change = zcfg.to_objectchange( action=ObjectChangeActionChoices.ACTION_CREATE )
         obj_change.user = user
         obj_change.request_id = requestid
         obj_change.save()
-
+        
+        # Finally save the Zabbix Configuration to the data base.
+        zcfg.full_clean()
+        zcfg.save()
+        
+        
                 
     except Exception as e:
+        # Delete the host in Zabbix.
+        delete_host( hostid )
         msg = f"Failed to save Zabbix configuration: {e}"
         logger.error( msg )
-        # TODO: Delete the host in Zabbix.
         raise ExceptionWithData( msg, payload )
 
     return { "message": event_message, "data": payload,}

@@ -9,6 +9,7 @@ from netbox_zabbix import models
 # Configuration
 # ------------------------------------------------------------------------------
 
+
 class ConfigSerializer(NetBoxModelSerializer):
     class Meta:
         model = models.Config
@@ -18,6 +19,7 @@ class ConfigSerializer(NetBoxModelSerializer):
 # ------------------------------------------------------------------------------
 # Templates
 # ------------------------------------------------------------------------------
+
 
 class TemplateSerializer(NetBoxModelSerializer):
     class Meta:
@@ -32,6 +34,7 @@ class TemplateSerializer(NetBoxModelSerializer):
 # Proxy
 # ------------------------------------------------------------------------------
 
+
 class ProxySerializer(NetBoxModelSerializer):
     class Meta:
         model = models.Proxy
@@ -44,6 +47,7 @@ class ProxySerializer(NetBoxModelSerializer):
 # ------------------------------------------------------------------------------
 # Proxy Group
 # ------------------------------------------------------------------------------
+
 
 class ProxyGroupSerializer(NetBoxModelSerializer):
     class Meta:
@@ -58,16 +62,17 @@ class ProxyGroupSerializer(NetBoxModelSerializer):
 # Host Groups
 # ------------------------------------------------------------------------------
 
+
 class HostGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.HostGroup
         fields = '__all__'
 
 
-
 # ------------------------------------------------------------------------------
 # Zabbix Configurations
 # ------------------------------------------------------------------------------
+
 
 class DeviceZabbixConfigSerializer(NetBoxModelSerializer):
     name = serializers.SerializerMethodField()
@@ -107,6 +112,7 @@ class VMZabbixConfigSerializer(NetBoxModelSerializer):
 # ------------------------------------------------------------------------------
 # Interfaces
 # ------------------------------------------------------------------------------
+
 
 class AvailableDeviceInterfaceSerializer(InterfaceSerializer):
     class Meta(InterfaceSerializer.Meta):
@@ -148,6 +154,7 @@ class VMSNMPv3InterfaceSerializer(serializers.ModelSerializer):
 # Tag Mapping
 # ------------------------------------------------------------------------------
 
+
 class TagMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.TagMapping
@@ -157,16 +164,17 @@ class TagMappingSerializer(serializers.ModelSerializer):
 # Inventory Mapping
 # ------------------------------------------------------------------------------
 
+
 class InventoryMappingSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.InventoryMapping
         fields = '__all__'
 
 
-
 # ------------------------------------------------------------------------------
 # Mapping
 # ------------------------------------------------------------------------------
+
 
 class MappingSerializer(serializers.ModelSerializer):
 
@@ -174,9 +182,11 @@ class MappingSerializer(serializers.ModelSerializer):
         model = models.Mapping
         fields = '__all__'
 
+
 # ------------------------------------------------------------------------------
 # Device Mapping
 # ------------------------------------------------------------------------------
+
 
 class DeviceMappingSerializer(serializers.ModelSerializer):
 
@@ -189,6 +199,7 @@ class DeviceMappingSerializer(serializers.ModelSerializer):
 # VM Mapping
 # ------------------------------------------------------------------------------
 
+
 class VMMappingSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -199,6 +210,7 @@ class VMMappingSerializer(serializers.ModelSerializer):
 # ------------------------------------------------------------------------------
 # Event Log
 # ------------------------------------------------------------------------------
+
 
 class EventLogSerializer(serializers.ModelSerializer):
 
