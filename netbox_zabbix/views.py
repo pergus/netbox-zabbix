@@ -496,7 +496,7 @@ def device_quick_add_snmpv3(request):
 
 class NetBoxOnlyDevicesView(generic.ObjectListView):
     table = tables.NetBoxOnlyDevicesTable
-    #filterset = filtersets.NetBoxOnlyDevicesFilterSet
+    filterset = filtersets.NetBoxOnlyDevicesFilterSet
     #filterset_form = forms.NetBoxOnlyDevicesFilterForm
     template_name = "netbox_zabbix/netbox_only_devices.html"
         
@@ -916,6 +916,7 @@ class DeviceAgentInterfaceListView(generic.ObjectListView):
 #    filterset_form = forms.DeviceAgentInterfaceFilterForm
     table = tables.DeviceAgentInterfaceTable
 
+
 class DeviceAgentInterfaceEditView(generic.ObjectEditView):
     queryset = models.DeviceAgentInterface.objects.all()
     form = forms.DeviceAgentInterfaceForm
@@ -1227,10 +1228,6 @@ class EventLogBulkDeleteView(generic.BulkDeleteView):
 # ------------------------------------------------------------------------------
 from django.shortcuts import get_object_or_404
 
-def device_has_zabbix_config(obj):
-    config = models.DeviceZabbixConfig.objects.filter( device=obj ).first()
-    return 1 if config else 0
-
 @register_model_view(Device, name="Zabbix", path="zabbix")
 class ZabbixDeviceTabView(generic.ObjectView):
     queryset = models.DeviceZabbixConfig.objects.all()
@@ -1239,9 +1236,10 @@ class ZabbixDeviceTabView(generic.ObjectView):
     # The tab is automatically hidden if the hide_if_empty is true
     # and the badge is zero.
     tab = ViewTab( label="Zabbix", 
-                    hide_if_empty=True,
-                    badge=lambda obj: device_has_zabbix_config( obj )
+                    #hide_if_empty=True,
+                    #badge=lambda obj: 1 if models.DeviceZabbixConfig.objects.filter( device=obj ).first() else 0
                   )
+
     def get(self, request, pk):
         device = get_object_or_404( Device, pk=pk )
         config = models.DeviceZabbixConfig.objects.filter( device=device ).first()

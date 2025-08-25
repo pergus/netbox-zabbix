@@ -93,6 +93,13 @@
         </div>
     </div>
 </div>
+
+{% else %}
+
+<div class="alert alert-info">
+    {% trans "No Zabbix configuration has been assigned." %}
+</div>
+
 {% endif %}
 
 {% endblock %}

@@ -10,6 +10,8 @@ NetBox plugin for Zabbix.
 
 ### Todo
 
+* There might a logical error in how Device/VM mapping is working.
+
 * Test delete of interface(s) etc.
 
 * When the implementation works for Devices, implement the corresponding code

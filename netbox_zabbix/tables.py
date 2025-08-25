@@ -187,7 +187,7 @@ class NetBoxOnlyDevicesTable(DeviceTable):
     def render_zabbix_config(self, record):
         return mark_safe("✔") if  models.DeviceZabbixConfig.objects.filter( device=record ).exists() else mark_safe("✘")
 
-    
+
 # ------------------------------------------------------------------------------
 # NetBox Only VMs
 # ------------------------------------------------------------------------------
