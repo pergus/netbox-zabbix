@@ -664,7 +664,7 @@ def build_payload(zcfg) -> dict:
 
 
 # ------------------------------------------------------------------------------
-#  Device/VM Mapping
+#  Mapping
 # ------------------------------------------------------------------------------
 
 
@@ -720,9 +720,8 @@ def resolve_vm_mapping(obj, interface_model):
 
 
 # ------------------------------------------------------------------------------
-#  Create Zabbix Configuration
+#  NetBox
 # ------------------------------------------------------------------------------
-
 
 def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
     """
@@ -737,11 +736,6 @@ def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
     
     except Exception as e:
         raise Exception( f"Failed to create Zabbix configuration: {e}" )
-
-
-# ------------------------------------------------------------------------------
-#  Apply Mapping to Zabbix Configuration
-# ------------------------------------------------------------------------------
 
 
 def apply_mapping_to_config( zcfg, mapping, monitored_by ):
@@ -791,11 +785,6 @@ def apply_mapping_to_config( zcfg, mapping, monitored_by ):
             raise Exception( msg )
 
 
-# ------------------------------------------------------------------------------
-#  Add Zabbix Interface to Zabbix Configuration
-# ------------------------------------------------------------------------------
-
-
 def add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, interface_kwargs_fn ):
     """
     Create and persist a Zabbix interface in NetBox for the given object.
@@ -825,9 +814,12 @@ def add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, int
         raise Exception( msg )
 
 
-# ------------------------------------------------------------------------------
-#  Add Zabbix Interface to Zabbix Configuration
-# ------------------------------------------------------------------------------
+def save_zabbix_config( zcfg ):
+    """
+    Save the ZabbixConfig to NetBox after it has been updated.
+    """
+    zcfg.full_clean()
+    zcfg.save()
 
 
 def create_zabbix_host( zcfg, iface, obj, user, requestid ):
@@ -896,36 +888,102 @@ def create_zabbix_host( zcfg, iface, obj, user, requestid ):
     return { "message": f"Created {obj.name}", "data": payload }
 
 
+def log_config_change( zcfg, user, requestid ):
+    """
+    Manually create an ObjectChange log entry for the ZabbixConfig.
+    """
+    obj_change = zcfg.to_objectchange( action=ObjectChangeActionChoices.ACTION_CREATE )
+    obj_change.user = user
+    obj_change.request_id = requestid
+    obj_change.save()
+
+
+# ------------------------------------------------------------------------------
+#  Zabbix
+# ------------------------------------------------------------------------------
+
+def register_host_in_zabbix( zcfg, obj ):
+    """
+    Create the host in Zabbix via API.
+    """
+    payload = build_payload( zcfg )
+    result = create_host( **payload )
+    hostid = result.get( "hostids", [None] )[0]
+    if not hostid:
+        raise ExceptionWithData( f"Zabbix failed to return hostid for {obj.name}", payload )
+    return int( hostid ), payload
+
+
+def link_interface_in_zabbix( hostid, iface, obj ):
+    """
+    Fetch Zabbix interface IDs and link to local iface.
+    """
+    result = get_host_interfaces( hostid )
+    if len( result ) != 1:
+        raise ExceptionWithData( f"Unexpected number of interfaces returned for {obj.name}", result )
+
+    iface.interfaceid = result[0].get( "interfaceid", None )
+    iface.full_clean()
+    iface.save()
+
+
+
+# ------------------------------------------------------------------------------
+#  Create Zabbix Configuration in NetBox and a Host in Zabbix
+# ------------------------------------------------------------------------------
+
+#def provision_zabbix_host( obj, host_field_name, zabbix_config_model, 
+#                          interface_model, interface_name_suffix, 
+#                          interface_kwargs_fn, user, requestid ):
+#    """
+#    Add Zabbix Configuration to NetBox and create a Host in Zabbix
+#
+#    - Resolve mapping
+#    - Create ZabbixConfig
+#    - Apply mapping
+#    - Add interface
+#    - Create host in Zabbix
+#    """
+#    monitored_by = get_monitored_by()
+#
+#    if isinstance( obj, Device ):
+#        mapping = resolve_device_mapping( obj, interface_model )
+#    else:
+#        mapping = resolve_vm_mapping( obj, interface_model )
+#
+#    zcfg = create_zabbix_config( obj, host_field_name, zabbix_config_model )
+#    apply_mapping_to_config( zcfg, mapping, monitored_by )
+#
+#    iface = add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, interface_kwargs_fn )
+#    return_message = create_zabbix_host( zcfg, iface, obj, user, requestid )
+#
+#    return_message["message"] = return_message["message"] + f" with {mapping.name} mapping"
+#    return return_message
+
 def provision_zabbix_host( obj, host_field_name, zabbix_config_model, 
                           interface_model, interface_name_suffix, 
                           interface_kwargs_fn, user, requestid ):
-    """
-    Add Zabbix Configuration to NetBox and create a Host in Zabbix
-
-    - Resolve mapping
-    - Create ZabbixConfig
-    - Apply mapping
-    - Add interface
-    - Create host in Zabbix
-    """
     monitored_by = get_monitored_by()
 
-    if isinstance( obj, Device ):
-        mapping = resolve_device_mapping( obj, interface_model )
-    else:
-        mapping = resolve_vm_mapping( obj, interface_model )
+    mapping = (resolve_device_mapping if isinstance( obj, Device ) else resolve_vm_mapping)( obj, interface_model )
 
     zcfg = create_zabbix_config( obj, host_field_name, zabbix_config_model )
     apply_mapping_to_config( zcfg, mapping, monitored_by )
-
     iface = add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, interface_kwargs_fn )
-    return_message = create_zabbix_host( zcfg, iface, obj, user, requestid )
-    
 
+    try:
+        hostid, payload = register_host_in_zabbix( zcfg, obj )
+        zcfg.hostid = hostid
+        link_interface_in_zabbix( hostid, iface, obj )
+        save_zabbix_config( zcfg )
+        log_config_change( zcfg, user, requestid )
 
-    return_message["message"] = return_message["message"] + f" with {mapping.name} mapping"
-    return return_message
+    except Exception as e:
+        if 'hostid' in locals():
+            delete_host( hostid )
+        raise
 
+    return { "message": f"Created {obj.name} with {mapping.name} mapping", "data": payload }
 
 # ------------------------------------------------------------------------------
 #  Quick Add Device Agent

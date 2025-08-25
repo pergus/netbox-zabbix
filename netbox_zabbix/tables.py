@@ -178,7 +178,7 @@ class NetBoxOnlyDevicesTable(DeviceTable):
     def render_actions(self, record):
         return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
     
-    
+
     def render_agent_mapping_name(self, record):
         mapping = models.DeviceMapping.get_matching_filter( record, models.InterfaceTypeChoices.Agent)
         if not mapping:
@@ -569,8 +569,8 @@ class DeviceMappingTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = models.DeviceMapping
-        fields = ( "name", "host_groups", "templates", "proxy", "proxy_group", "sites", "roles", "platforms", "default", "description" )
-        default_columns = ( "name", "host_groups", "templates", "proxy", "proxy_group", "default" ) 
+        fields = ( "name", "interface_type", "host_groups", "templates", "proxy", "proxy_group", "sites", "roles", "platforms", "default", "description" )
+        default_columns = ( "name", "interface_type", "host_groups", "templates", "proxy", "proxy_group", "default" ) 
 
 
 class MatchingDeviceMappingTable(NetBoxTable):

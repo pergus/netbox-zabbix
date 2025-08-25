@@ -942,7 +942,14 @@ class DeviceMappingForm(NetBoxModelForm):
         # Only check for overlap if specificity is the same
         if self_fields != other_fields:
             return False
-    
+
+        # If the interface type differ, then there can not be any filter overlap
+        self_interface_type = self.cleaned_data.get( 'interface_type' )
+        other_interface_type = other.interface_type
+        
+        if self_interface_type != other_interface_type:
+            return False
+
         # Now check for actual overlap
         for field in ['sites', 'roles', 'platforms']:
             current = self.cleaned_data.get( field )
