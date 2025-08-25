@@ -22,6 +22,7 @@ from netbox_zabbix.models import (
 #    VMAgentInterface,
 #    VMSNMPv3Interface,
     DeviceMapping,
+    VMMapping,
     Template,
     HostGroup,
     Proxy,
@@ -660,91 +661,82 @@ def build_payload(zcfg) -> dict:
 
 
 # ------------------------------------------------------------------------------
-#  Quick Add Interface
+#  Device/VM Mapping
 # ------------------------------------------------------------------------------
 
 
-def quick_add_interface(
-    *,
-    obj,
-    host_field_name,
-    zabbix_config_model,
-    interface_model,
-    interface_name_suffix,
-    interface_kwargs_fn,
-    user,
-    requestid
-):
+def _resolve_mapping(obj, interface_model, mapping_model, mapping_name: str):
     """
-    Shared logic for adding either Agent or SNMPv3 interfaces.
+    Shared logic to resolve a mapping for Device or VM.
     """
-
-    monitored_by = get_monitored_by()
-
-    event_message = ""
-
-    # TODO: I guess adding a VM require a VM mapping. Maybe it is easier to
-    # split this function into two parts, one part that creates the ZConfig 
-    # instance and the other that adds an interface. When I get it to work 
-    # properly for a device I'll think about reimplementing this.
-    # Note: Creating the ZConfig is done in two parts, first the instance
-    # is created in the database since associating it with a device or vm
-    # require an id. The second part is done after the interface etc is added.
-    # I.e. adding the change log event.
+    try:
+        default_mapping = mapping_model.objects.get( default=True )
+    except mapping_model.DoesNotExist:
+        raise Exception( f"No default {mapping_name} mapping defined. Unable to add interface to {obj.name}" )
+    except mapping_model.MultipleObjectsReturned:
+        raise Exception( f"Multiple default {mapping_name} mappings found. Unable to add interface to {obj.name}" )
 
     try:
-        default_mapping = DeviceMapping.objects.get( default=True )
-    except DeviceMapping.DoesNotExist:
-        msg = f"No default device mapping defined. Unable to add interface to {obj.name}"
-        logger.error( f"{msg}" )
-        raise Exception( msg )
-    except DeviceMapping.MultipleObjectsReturned:
-        msg = f"Multiple default device mappings found. Unable to add interface to {obj.name}"
-        logger.error( f"{msg}" )
-        raise Exception( msg )
+        mapping = mapping_model.get_matching_filter(obj)
+        if mapping.interface_type != InterfaceTypeChoices.Any and interface_model.type != mapping.interface_type:
+            logger.error( f"Interface type mismatch for {obj.name}, falling back to default {mapping_name} mapping." )
+            mapping = default_mapping
     except Exception as e:
-        msg = f"Unexpected error while retrieving default device mapping for {obj.name}: {e}"
-        logger.error( f"{msg}" )
-        raise Exception( msg )
-
-    try:
-       mapping = DeviceMapping.get_matching_filter( obj )
-       if mapping.interface_type != InterfaceTypeChoices.Any and interface_model.type != mapping.interface_type:
-           logger.error( f"Interface type mismatch for {obj.name}, falling back to default mapping." )
-           mapping = default_mapping
-    except Exception as e:
-        logger.error( f"Using default mapping for {obj.name}: {e}" )
+        logger.error( f"Using default {mapping_name} mapping for {obj.name}: {e}" )
         mapping = default_mapping
 
-    event_message = f"Using mapping {mapping.name} for {obj.name}"
+    return mapping
 
+
+def resolve_device_mapping(obj, interface_model):
+    """
+    Resolve mapping for a Device.
+    """
+    return _resolve_mapping( obj, interface_model, DeviceMapping, "Device" )
+
+
+def resolve_vm_mapping(obj, interface_model):
+    """
+    Resolve mapping for a Virtual Machine.
+    """
+    return _resolve_mapping( obj, interface_model, VMMapping, "VM" )
+
+
+# ------------------------------------------------------------------------------
+#  Create Zabbix Configuration
+# ------------------------------------------------------------------------------
+
+
+def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
+    """
+    Create a ZabbixConfig object for the given device or VM.
+    """
     try:
-
-        # Create a ZabbixConfig instance
-        # --------------------------------
-        # This creates the actual database object for the device's Zabbix configuration.
-        # full_clean() ensures all model validation rules are satisfied before saving.
-        # Adding a many-to-many relationship which we do when we associate the
-        # Zabbix Configuration with a Device/VM require an id field. That is
-        # why we need to save the Zabbix Configuration here  as well as at the
-        # end of the function.
-
         zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
         zcfg = zabbix_config_model( **zcfg_kwargs )
         zcfg.full_clean()
         zcfg.save()
-        
-
+        return zcfg
     except Exception as e:
         raise Exception( f"Failed to create Zabbix configuration: {e}" )
 
+
+# ------------------------------------------------------------------------------
+#  Apply Mapping to Zabbix Configuration
+# ------------------------------------------------------------------------------
+
+
+def apply_mapping_to_config( zcfg, mapping, monitored_by ):
+    """
+    Apply templates, host groups, monitored_by, and proxies from the mapping onto the ZabbixConfig.
+    """
     # Templates
     for template in mapping.templates.all():
         try:
             zcfg.templates.add( Template.objects.get( name=template.name ) )
         except Exception as e:
             msg = f"Failed to add template {template.name}: {e}"
-            logger.error( f"{msg}" )
+            logger.error( msg )
             raise Exception( msg )
 
     # Host Groups
@@ -753,7 +745,7 @@ def quick_add_interface(
             zcfg.host_groups.add( HostGroup.objects.get( name=hostgroup.name ) )
         except Exception as e:
             msg = f"Failed to add host group {hostgroup.name}: {e}"
-            logger.error( f"{msg}" )
+            logger.error( msg )
             raise Exception( msg )
 
     # Monitored by
@@ -761,11 +753,11 @@ def quick_add_interface(
 
     # Proxy
     if monitored_by == MonitoredByChoices.Proxy:
-        try:            
+        try:
             zcfg.proxy = Proxy.objects.get( name=mapping.proxy.name )
         except Exception as e:
             msg = f"Failed to add proxy {mapping.proxy.name}: {e}"
-            logger.error( f"{msg}" )
+            logger.error( msg )
             raise Exception( msg )
 
     # Proxy Group
@@ -777,50 +769,62 @@ def quick_add_interface(
             logger.error( msg )
             raise Exception( msg )
 
+
+# ------------------------------------------------------------------------------
+#  Add Zabbix Interface to Zabbix Configuration
+# ------------------------------------------------------------------------------
+
+
+def add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, interface_kwargs_fn ):
+    """
+    Create and persist a Zabbix interface in NetBox for the given object.
+    """
     ip = getattr( obj, "primary_ip4", None )
     if not ip:
-        msg = f"{obj.name} does not have a primary IPv4 address"
-        logger.error( msg )
-        raise Exception( msg )
+        raise Exception( f"{obj.name} does not have a primary IPv4 address" )
 
+    useip = UseIPChoices.DNS if getattr( ip, "dns_name", None ) else UseIPChoices.IP
 
-    # If there is a dns name then Zabbix should connect using the dns name
-    if getattr( ip, "dns_name", None ):
-        useip = UseIPChoices.DNS
-    else:
-        useip = UseIPChoices.IP
-
-    # Create the interface
     try:
         interface_fields = dict(
             name=f"{obj.name}-{interface_name_suffix}",
             host=zcfg,
             interface=ip.assigned_object,
             ip_address=ip,
-            useip=useip
+            useip=useip,
         )
         interface_fields.update( interface_kwargs_fn() )
         iface = interface_model( **interface_fields )
         iface.full_clean()
         iface.save()
+        return iface
     except Exception as e:
-        msg = f"Failed to create {interface_name_suffix} interface: {e}"
+        msg = f"Failed to create {interface_name_suffix} interface for {obj.name}: {e}"
         logger.error( msg )
         raise Exception( msg )
 
+
+# ------------------------------------------------------------------------------
+#  Add Zabbix Interface to Zabbix Configuration
+# ------------------------------------------------------------------------------
+
+
+def create_zabbix_host( zcfg, iface, obj, user, requestid ):
+    """
+    Register a host in Zabbix and link the interface with its Zabbix ID.
+    """
     try:
         payload = build_payload( zcfg )
     except Exception as e:
-        msg = f"Failed to build payload: {e}"
+        msg = f"Failed to build payload for {obj.name}: {e}"
         logger.error( msg )
         raise Exception( msg )
 
-    # Create the host in Zabbix
     try:
         result = create_host( **payload )
-        hostid = result.get( "hostids", [None] )[0]  # Safely get first hostid or None if missing
+        hostid = result.get( "hostids", [None] )[0]
         if not hostid:
-            msg = f"Zabbix failed to create hostid for {obj.name}: {e}"
+            msg = f"Zabbix failed to return hostid for {obj.name}"
             logger.error( msg )
             raise ExceptionWithData( msg, payload )
         zcfg.hostid = int( hostid )
@@ -828,62 +832,62 @@ def quick_add_interface(
         msg = f"Failed to create host configuration in Zabbix for {obj.name}: {e}"
         logger.error( msg )
         raise ExceptionWithData( msg, payload )
-    
-    # From this point on there is a host in Zabbix which needs to be deleted
-    # if an error occures.
 
-    # Add the interface id to the Zabbix configuration
     try:
         result = get_host_interfaces( hostid )
-        logger.debug( f" DEBUG: {result} " )
-        if len(result) == 1:
-            id = result[0].get( "interfaceid", None )
-            iface.interfaceid = id
+        if len( result ) == 1:
+            iface.interfaceid = result[0].get( "interfaceid", None )
             iface.full_clean()
             iface.save()
         else:
-            msg = f"Failed to add interface id to {obj.name}"
+            msg = f"Unexpected number of interfaces returned for {obj.name}"
             logger.error( msg )
             raise ExceptionWithData( msg, payload )
-
     except Exception as e:
-        # Delete the host in Zabbix.
         delete_host( hostid )
-        msg = f"Failed to get host interfaces ids from Zabbix for {obj.name}: {e}"
+        msg = f"Failed to link interface to host {obj.name}: {e}"
         logger.error( msg )
         raise ExceptionWithData( msg, payload )
 
-    # Store the Zabbix configuration 
     try:
-        # Manually add the ZabbixConfig instance to the change log
-        # ---------------------------------------------------------
-        # Normally, when objects are created via the NetBox UI, the change log
-        # (ObjectChange) is automatically created by signals that have access to
-        # the current HTTP request. However, this code runs in a background job,
-        # which does not have a live request object, so the signals will not fire.
-        # To ensure the creation is logged, we manually create an ObjectChange.
-        #
-        # We pass the user and request_id explicitly so the change log accurately
-        # reflects who initiated the action and which request triggered it.
         obj_change = zcfg.to_objectchange( action=ObjectChangeActionChoices.ACTION_CREATE )
         obj_change.user = user
         obj_change.request_id = requestid
         obj_change.save()
-        
-        # Finally save the Zabbix Configuration to the data base.
+
         zcfg.full_clean()
         zcfg.save()
-        
-        
-                
     except Exception as e:
-        # Delete the host in Zabbix.
         delete_host( hostid )
-        msg = f"Failed to save Zabbix configuration: {e}"
+        msg = f"Failed to save Zabbix configuration for {obj.name}: {e}"
         logger.error( msg )
         raise ExceptionWithData( msg, payload )
 
-    return { "message": event_message, "data": payload,}
+    return { "payload": payload, "hostid": hostid, "interfaceid": iface.interfaceid }
+
+
+def provision_zabbix_host( obj, host_field_name, zabbix_config_model, interface_model, interface_name_suffix, interface_kwargs_fn, user, requestid ):
+    """
+    Add Zabbix Configuration to NetBox and create a Host in Zabbix
+
+    - Resolve mapping
+    - Create ZabbixConfig
+    - Apply mapping
+    - Add interface
+    - Create host in Zabbix
+    """
+    monitored_by = get_monitored_by()
+
+    if isinstance( obj, Device ):
+        mapping = resolve_device_mapping( obj, interface_model )
+    else:
+        mapping = resolve_vm_mapping( obj, interface_model )
+
+    zcfg = create_zabbix_config( obj, host_field_name, zabbix_config_model )
+    apply_mapping_to_config( zcfg, mapping, monitored_by )
+
+    iface = add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, interface_kwargs_fn )
+    return create_zabbix_host( zcfg, iface, obj, user, requestid )
 
 
 # ------------------------------------------------------------------------------
@@ -892,7 +896,7 @@ def quick_add_interface(
 
 
 def device_quick_add_agent(device, user, requestid):
-    return quick_add_interface(
+    return provision_zabbix_host(
         obj=device,
         host_field_name="device",
         zabbix_config_model=DeviceZabbixConfig,
@@ -908,6 +912,7 @@ def device_quick_add_agent(device, user, requestid):
 #  Quick Add Device SNMPv3
 # ------------------------------------------------------------------------------
 
+
 def device_quick_add_snmpv3(device, user, requestid):
     
     snmp_defaults = {
@@ -918,7 +923,7 @@ def device_quick_add_snmpv3(device, user, requestid):
         "privpassphrase": get_snmpv3_privpassphrase(),
     }
 
-    return quick_add_interface(
+    return provision_zabbix_host(
         obj=device,
         host_field_name="device",
         zabbix_config_model=DeviceZabbixConfig,

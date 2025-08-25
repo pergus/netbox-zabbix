@@ -267,14 +267,14 @@ class HostGroupForm(NetBoxModelForm):
 # NetBox Only Devices
 # ------------------------------------------------------------------------------
 
-#class NetBoxOnlyDevicesFilterForm(DeviceFilterForm):
+class NetBoxOnlyDevicesFilterForm(DeviceFilterForm):
 #    host_groups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-#    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
-#    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
-#    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
+#    templates    = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+#    proxy        = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+#    proxy_group  = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
 #
 #    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'host_groups', 'templates', 'proxy', 'prox_ygroup', name='Zabbix' ), )
-
+    fieldsets = DeviceFilterForm.fieldsets
 
 # ------------------------------------------------------------------------------
 # NetBox Only VMs

@@ -10,9 +10,14 @@ NetBox plugin for Zabbix.
 
 ### Todo
 
+
+
 * There might a logical error in how Device/VM mapping is working.
 
 * Test delete of interface(s) etc.
+
+* If a global default setting changes, then all ZC in NB and Z should be updated.
+
 
 * When the implementation works for Devices, implement the corresponding code
   for Virual Machines.

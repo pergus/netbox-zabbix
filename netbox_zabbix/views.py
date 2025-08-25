@@ -497,7 +497,7 @@ def device_quick_add_snmpv3(request):
 class NetBoxOnlyDevicesView(generic.ObjectListView):
     table = tables.NetBoxOnlyDevicesTable
     filterset = filtersets.NetBoxOnlyDevicesFilterSet
-    #filterset_form = forms.NetBoxOnlyDevicesFilterForm
+#    filterset_form = forms.NetBoxOnlyDevicesFilterForm
     template_name = "netbox_zabbix/netbox_only_devices.html"
         
     def get_queryset(self, request):
@@ -513,7 +513,7 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
     
         if '_quick_add_agent' in request.POST:
     
-            # Add a check to make sure there are any selected hosts, print a warning if not.    
+            # Add a check to make sure there are any selected hosts, print a warning if not.
             selected_ids = request.POST.getlist( 'pk' )
             queryset = Device.objects.filter( pk__in=selected_ids )
             
@@ -523,7 +523,7 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
             for device in queryset:
                 try:
                     logger.info ( f"quick add agent to {device.name}" )
-                    job = jobs.DeviceQuickAddAgent.run_job( device=device, user=request.user )
+                    job = jobs.DeviceQuickAddAgent.run_job( device=device, user=request.user, requestid=request.id )
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
                     if success_counter < max_success_messages:
                         messages.success( request, message )
@@ -539,7 +539,37 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
                 messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
 
             return redirect( request.POST.get( 'return_url' ) or request.path )
-    
+
+        if '_quick_add_snmpv3' in request.POST:
+        
+            # Add a check to make sure there are any selected hosts, print a warning if not.
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = Device.objects.filter( pk__in=selected_ids )
+            
+            success_counter = 0
+            max_success_messages = config.get_max_success_notifications()
+            
+            for device in queryset:
+                try:
+                    logger.info ( f"quick add snmpv3t to {device.name}" )
+                    job = jobs.DeviceQuickAddSNMPv3.run_job( device=device, user=request.user, requestid=request.id )
+                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {device.name}' )
+                    if success_counter < max_success_messages:
+                        messages.success( request, message )
+                        success_counter += 1
+        
+                except Exception as e:
+                    msg = f"Failed to create job for {request.user} to quick add snmpv3 to '{device}' {str( e )}"
+                    messages.error( request, msg )
+                    logger.error( msg )
+        
+            if len( queryset ) > max_success_messages:
+                suppressed = len(queryset) - max_success_messages
+                messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
+        
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+        
+
         return super().get( request, *args, **kwargs )
 
 
