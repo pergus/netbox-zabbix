@@ -798,16 +798,17 @@ class Mapping(NetBoxModel):
 class DeviceMapping(Mapping):
 
     @classmethod
-    def get_matching_filter(cls, device):
+    def get_matching_filter(cls, device, interface_type=InterfaceTypeChoices.Any):
         filters = cls.objects.filter( default=False )
         matches = []
         for f in filters:
-            if (
-                (not f.sites.exists() or device.site in f.sites.all()) and
-                (not f.roles.exists() or device.role in f.roles.all()) and
-                (not f.platforms.exists() or device.platform in f.platforms.all())
-            ):
-                matches.append( f )
+            if f.interface_type == interface_type:
+                if (
+                    (not f.sites.exists() or device.site in f.sites.all()) and
+                    (not f.roles.exists() or device.role in f.roles.all()) and
+                    (not f.platforms.exists() or device.platform in f.platforms.all())
+                ):
+                    matches.append( f )
         if matches:
             # Return the most specific filter (most fields set)
             matches.sort( key=lambda f: (
@@ -816,7 +817,8 @@ class DeviceMapping(Mapping):
                 f.platforms.count() > 0
             ), reverse=True )
             return matches[0]
-        # Fallback
+        
+        # Fallback return the default mapping
         return cls.objects.get( default=True )
 
 

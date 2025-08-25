@@ -1,5 +1,7 @@
 from django.utils.text import slugify
 
+from graphene import Interface
+from graphql import InterfaceTypeExtensionNode
 from ipam.models import IPAddress
 from dcim.models import Device, Interface as DeviceInterface
 from virtualization.models import VirtualMachine, VMInterface
@@ -19,6 +21,7 @@ from netbox_zabbix.models import (
     DeviceAgentInterface,
     DeviceSNMPv3Interface,
     InterfaceTypeChoices,
+    TypeChoices,
 #    VMAgentInterface,
 #    VMSNMPv3Interface,
     DeviceMapping,
@@ -669,18 +672,32 @@ def _resolve_mapping(obj, interface_model, mapping_model, mapping_name: str):
     """
     Shared logic to resolve a mapping for Device or VM.
     """
+    
+    interface_model_to_interface_type = {
+        DeviceAgentInterface:  InterfaceTypeChoices.Agent,
+        DeviceSNMPv3Interface: InterfaceTypeChoices.SNMP,
+        VMAgentInterface:      InterfaceTypeChoices.Agent,
+        VMSNMPv3Interface:     InterfaceTypeChoices.SNMP
+    }
+
+    # Load mapping
     try:
         default_mapping = mapping_model.objects.get( default=True )
     except mapping_model.DoesNotExist:
-        raise Exception( f"No default {mapping_name} mapping defined. Unable to add interface to {obj.name}" )
+        msg = f"No default {mapping_name} mapping defined. Unable to add interface to {obj.name}"
+        logger.error( msg )
+        raise Exception( msg )
     except mapping_model.MultipleObjectsReturned:
-        raise Exception( f"Multiple default {mapping_name} mappings found. Unable to add interface to {obj.name}" )
+        msg = f"Multiple default {mapping_name} mappings found. Unable to add interface to {obj.name}"
+        logger.error( msg )
+        raise Exception( msg )
 
+    # Get interface type - use Any as fallback.
+    interface_type = interface_model_to_interface_type.get( interface_model, InterfaceTypeChoices.Any )
+
+    # Match mapping
     try:
-        mapping = mapping_model.get_matching_filter(obj)
-        if mapping.interface_type != InterfaceTypeChoices.Any and interface_model.type != mapping.interface_type:
-            logger.error( f"Interface type mismatch for {obj.name}, falling back to default {mapping_name} mapping." )
-            mapping = default_mapping
+        mapping = mapping_model.get_matching_filter( obj, interface_type )
     except Exception as e:
         logger.error( f"Using default {mapping_name} mapping for {obj.name}: {e}" )
         mapping = default_mapping
@@ -717,6 +734,7 @@ def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
         zcfg.full_clean()
         zcfg.save()
         return zcfg
+    
     except Exception as e:
         raise Exception( f"Failed to create Zabbix configuration: {e}" )
 
@@ -730,6 +748,9 @@ def apply_mapping_to_config( zcfg, mapping, monitored_by ):
     """
     Apply templates, host groups, monitored_by, and proxies from the mapping onto the ZabbixConfig.
     """
+    
+    logger.debug( f"Apply mapping {mapping.name} to {zcfg.get_name()}" )
+
     # Templates
     for template in mapping.templates.all():
         try:
@@ -850,6 +871,15 @@ def create_zabbix_host( zcfg, iface, obj, user, requestid ):
         raise ExceptionWithData( msg, payload )
 
     try:
+
+        # Manually add the ZabbixConfig instance to the change log
+        # ---------------------------------------------------------
+        # Normally, when objects are created via the NetBox UI, the change log
+        # (ObjectChange) is automatically created by signals that have access to
+        # the current HTTP request. However, this code runs in a background job,
+        # which does not have a live request object, so the signals will not fire.
+        # To ensure the creation is logged, we manually create an ObjectChange.
+            
         obj_change = zcfg.to_objectchange( action=ObjectChangeActionChoices.ACTION_CREATE )
         obj_change.user = user
         obj_change.request_id = requestid
@@ -863,10 +893,12 @@ def create_zabbix_host( zcfg, iface, obj, user, requestid ):
         logger.error( msg )
         raise ExceptionWithData( msg, payload )
 
-    return { "payload": payload, "hostid": hostid, "interfaceid": iface.interfaceid }
+    return { "message": f"Created {obj.name}", "data": payload }
 
 
-def provision_zabbix_host( obj, host_field_name, zabbix_config_model, interface_model, interface_name_suffix, interface_kwargs_fn, user, requestid ):
+def provision_zabbix_host( obj, host_field_name, zabbix_config_model, 
+                          interface_model, interface_name_suffix, 
+                          interface_kwargs_fn, user, requestid ):
     """
     Add Zabbix Configuration to NetBox and create a Host in Zabbix
 
@@ -887,7 +919,12 @@ def provision_zabbix_host( obj, host_field_name, zabbix_config_model, interface_
     apply_mapping_to_config( zcfg, mapping, monitored_by )
 
     iface = add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, interface_kwargs_fn )
-    return create_zabbix_host( zcfg, iface, obj, user, requestid )
+    return_message = create_zabbix_host( zcfg, iface, obj, user, requestid )
+    
+
+
+    return_message["message"] = return_message["message"] + f" with {mapping.name} mapping"
+    return return_message
 
 
 # ------------------------------------------------------------------------------

@@ -163,26 +163,39 @@ class NetBoxOnlyDevicesTable(DeviceTable):
     platform = tables.Column( linkify=True )
 
     zabbix_config = tables.Column( verbose_name='Zabbix Configuration', empty_values=(), orderable=False)
-    mapping_name  = tables.Column( verbose_name='Mapping', empty_values=(), orderable=False )
+    #mapping_name  = tables.Column( verbose_name='Mapping', empty_values=(), orderable=False )
+    agent_mapping_name   = tables.Column( verbose_name='Agent Mapping', empty_values=(), orderable=False )
+    snmpv3_mapping_name  = tables.Column( verbose_name='SNMPv3 Mapping', empty_values=(), orderable=False )
 
     tags    = TagColumn( url_name='dcim:device_list' )
     actions = ActionsColumn( extra_buttons=[] )
 
     class Meta(DeviceTable.Meta):
         model = Device
-        fields = ( "name", "zabbix_config", "site", "role", "platform", "mapping_name", "tags" )
+        fields = ( "name", "zabbix_config", "site", "role", "platform", "agent_mapping_name", "snmpv3_mapping_name", "tags" )
         default_columns = fields
     
     def render_actions(self, record):
         return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
     
-    def render_mapping_name(self, record):
-        mapping = models.DeviceMapping.get_matching_filter( record )
+    
+    def render_agent_mapping_name(self, record):
+        mapping = models.DeviceMapping.get_matching_filter( record, models.InterfaceTypeChoices.Agent)
         if not mapping:
             return "—"  # or mark_safe("<em>No mapping</em>") or similar
-    
+        
         url = mapping.get_absolute_url()  # or construct manually using reverse()
         return mark_safe(f'<a href="{url}">{mapping.name}</a>')
+        
+
+    def render_snmpv3_mapping_name(self, record):
+        mapping = models.DeviceMapping.get_matching_filter( record, models.InterfaceTypeChoices.SNMP)
+        if not mapping:
+            return "—"  # or mark_safe("<em>No mapping</em>") or similar
+        
+        url = mapping.get_absolute_url()  # or construct manually using reverse()
+        return mark_safe(f'<a href="{url}">{mapping.name}</a>')
+        
 
     def render_zabbix_config(self, record):
         return mark_safe("✔") if  models.DeviceZabbixConfig.objects.filter( device=record ).exists() else mark_safe("✘")
