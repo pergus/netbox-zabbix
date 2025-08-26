@@ -495,31 +495,131 @@ def device_quick_add_snmpv3(request):
 
 
 class NetBoxOnlyDevicesView(generic.ObjectListView):
+    """
+    View that lists NetBox devices which are not yet represented in Zabbix.
+    For each device, we also precompute and cache which DeviceMapping
+    applies (per interface type: Agent or SNMP). This avoids N+1 queries
+    when rendering the table.
+    """
+
     table = tables.NetBoxOnlyDevicesTable
     filterset = filtersets.NetBoxOnlyDevicesFilterSet
-#    filterset_form = forms.NetBoxOnlyDevicesFilterForm
     template_name = "netbox_zabbix/netbox_only_devices.html"
-        
+
     def get_queryset(self, request):
+        """
+        Build the base queryset for devices, and precompute a mapping cache
+        so table rendering can look up the correct DeviceMapping for each
+        device without hitting the database repeatedly.
+        """
+
+        # Get all devices that do NOT already exist in Zabbix
         zabbix_hostnames = z.get_cached_zabbix_hostnames()
-        return (
+        queryset = (
             Device.objects
             .exclude( name__in=zabbix_hostnames )
             .select_related( "site", "role", "platform" )
-            .prefetch_related( "tags" )
+            .prefetch_related( "tags", "zbx_device_config" )
         )
+
+        # Load all mappings + M2M fields at once
+        all_mappings = (
+            models.DeviceMapping.objects .prefetch_related( "sites", "roles", "platforms" )
+        )
+
+        # Turn mappings into dictionaries so that all filtering can be done
+        # in Python instead of repetaded database queries.
+        # Each dict contains: the mapping object itself and its filter sets.
+        mappings = []
+        for m in all_mappings:
+            mappings.append({
+                "obj": m,
+                "default": m.default,
+                "interface_type": m.interface_type,
+                "sites": set( m.sites.values_list( "id", flat=True ) ),
+                "roles": set( m.roles.values_list( "id", flat=True ) ),
+                "platforms": set( m.platforms.values_list( "id", flat=True ) ),
+            })
+
+        # Build a lookup cache of (device.id, interface_type) -> mapping
+        #
+        # Otherwise, when rendering the table, a to call
+        # `DeviceMapping.get_matching_filter()` is required per device * per interface type,
+        # which means hundreds/thousands of DB queries.
+        #
+        # Instead, we compute everything once here, in-memory, in O(#devices × #mappings),
+        # and table rendering just does a dictionary lookup.
+        #
+        self.device_mapping_cache = {}
+        for device in queryset:
+            device_site = device.site_id
+            device_role = device.role_id
+            device_platform = device.platform_id
+
+            for intf_type in [ models.InterfaceTypeChoices.Agent, models.InterfaceTypeChoices.SNMP ]:
+                mapping = self._find_best_mapping( device_site, device_role, device_platform, intf_type, mappings )
+                self.device_mapping_cache[ ( device.pk, intf_type ) ] = mapping
+
+        return queryset
+
+    def _find_best_mapping(self, site_id, role_id, platform_id, intf_type, mappings):
+        """
+        Given a device (represented by its site/role/platform IDs) and an interface type,
+        find the most appropriate DeviceMapping from the preloaded list.
+        """
+
+        # Filter candidates - none default mappings that either explicitly match
+        # the interface type or are 'Any'.
+        candidates = [
+            m for m in mappings
+            if not m["default"] and (
+                m["interface_type"] == intf_type or m["interface_type"] == models.InterfaceTypeChoices.Any
+            )
+        ]
+
+        # Keep only those that match this device
+        def matches(m):
+            site_ok = not m["sites"] or site_id in m["sites"]
+            role_ok = not m["roles"] or role_id in m["roles"]
+            platform_ok = not m["platforms"] or platform_id in m["platforms"]
+            return site_ok and role_ok and platform_ok
+
+        matches_filtered = [ m for m in candidates if matches( m ) ]
+
+        # Pick the *most specific* match.
+        # Specificity = a mapping that sets more filters (sites, roles, platforms).
+        if matches_filtered:
+            matches_filtered.sort(
+                key=lambda m: ( bool( m["sites"] ), bool( m["roles"] ), bool( m["platforms"] ) ),
+                reverse=True
+            )
+            return matches_filtered[0]["obj"]
+
+        # If no matches, fall back to the default mapping.
+        for m in mappings:
+            if m["default"]:
+                return m["obj"]
+
+        return None
+    
+    def get_extra_context(self, request, instance=None):
+        """
+        Pass the view instance itself to the template context, so the table
+        can access `view.device_mapping_cache` when rendering columns.
+        """
+        return {"view": self}
     
     def post(self, request, *args, **kwargs):
-    
+
         if '_quick_add_agent' in request.POST:
-    
+
             # Add a check to make sure there are any selected hosts, print a warning if not.
             selected_ids = request.POST.getlist( 'pk' )
             queryset = Device.objects.filter( pk__in=selected_ids )
-            
+
             success_counter = 0
             max_success_messages = config.get_max_success_notifications()
-            
+
             for device in queryset:
                 try:
                     logger.info ( f"quick add agent to {device.name}" )
@@ -528,16 +628,14 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
                     if success_counter < max_success_messages:
                         messages.success( request, message )
                         success_counter += 1
-    
+
                 except Exception as e:
                     msg = f"Failed to create job for {request.user} to quick add agent to '{device}' {str( e )}"
                     messages.error( request, msg )
                     logger.error( msg )
-
             if len( queryset ) > max_success_messages:
                 suppressed = len(queryset) - max_success_messages
                 messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
-
             return redirect( request.POST.get( 'return_url' ) or request.path )
 
         if '_quick_add_snmpv3' in request.POST:
@@ -545,10 +643,10 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
             # Add a check to make sure there are any selected hosts, print a warning if not.
             selected_ids = request.POST.getlist( 'pk' )
             queryset = Device.objects.filter( pk__in=selected_ids )
-            
+
             success_counter = 0
             max_success_messages = config.get_max_success_notifications()
-            
+
             for device in queryset:
                 try:
                     logger.info ( f"quick add snmpv3t to {device.name}" )
@@ -557,21 +655,17 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
                     if success_counter < max_success_messages:
                         messages.success( request, message )
                         success_counter += 1
-        
+
                 except Exception as e:
                     msg = f"Failed to create job for {request.user} to quick add snmpv3 to '{device}' {str( e )}"
                     messages.error( request, msg )
                     logger.error( msg )
-        
+
             if len( queryset ) > max_success_messages:
                 suppressed = len(queryset) - max_success_messages
                 messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
-        
+
             return redirect( request.POST.get( 'return_url' ) or request.path )
-        
-
-        return super().get( request, *args, **kwargs )
-
 
 # ------------------------------------------------------------------------------
 # NetBox Ony VMs
