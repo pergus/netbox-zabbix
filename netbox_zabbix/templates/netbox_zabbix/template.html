@@ -19,12 +19,42 @@
                         <td>{{ object.templateid }}</td>
                     </tr>
                     <tr>
+                        <th scope="row">Interface Type</th>
+                        <td>{{ object.get_interface_type_display }}</td>
+                    </tr>
+                    <tr>
                         <th scope="row">Last Synced</th>
                         <td>{{ object.last_synced }}</td>
                     </tr>
                     <tr>
                         <th scope="row">Marked for Deletion</th>
                         <td>{{ object.marked_for_deletion }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Parents</th>
+                        {% if object.parents.all %}
+                        <td>
+                        {% for parent in object.parents.all %}
+                            <a href="{{ parent.get_absolute_url }}" class="badge text-bg-primary">{{ parent.name }}</a>
+                        {% endfor %}
+                        </td>
+                        {% else %}
+                        <td>—</td>
+                        {% endif %}
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Dependencies</th>
+                        {% if object.dependencies.all %}
+                        <td>
+                            {% for dependency in object.dependencies.all %}
+                            <a href="{{ dependency.get_absolute_url }}" class="badge text-bg-primary">{{ dependency.name }}</a>
+                            {% endfor %}
+                        </td>
+                        {% else %}
+                        <td>—</td>
+                        {% endif %}
                     </tr>
 
                 </table>

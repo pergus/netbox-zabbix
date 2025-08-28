@@ -9,28 +9,39 @@ NetBox plugin for Zabbix.
 
 
 ### Todo
+netbox_zabbix.jobs.ExceptionWithData: ('Error -32602: Invalid params., Cannot link template "AXIS Debian" to host "dk-ece007w", because its parent template "ICMP Ping" would be linked twice.', -32602)
 
 
+* Should I add additional iformation about templates to Zabbix to make
+the checks easier.
 
-* There might a logical error in how Device/VM mapping is working.
 
-* Test delete of interface(s) etc.
+[DONE] There might a logical error in how Device/VM mapping design.
+  
+* The interface hostid shoud be set to the Zabbix Hostid.
 
-* If a global default setting changes, then all ZC in NB and Z should be updated.
+* Rename 'host' in Interfaces to zconf?
+
+* Add delete button to Agent Interfaces and SNMP Interfaces under the 
+  Device Components.
+
+
+* Update/Delete interfaces should record the changes in the ZC change log
+  and update Zabbix.
+
+* If a global default setting changes, should all ZC and Hosts in Z also update?
+  Don't think so.
 
 
 * When the implementation works for Devices, implement the corresponding code
   for Virual Machines.
 
 * Not all interface default settings are used, e.g. snmpv3_contextname.
-  
   So go over the import code in jobs.py and make use of the default settings.
 
 
-* The helper function 'quick_add_interface' should take a Zabbix Config
-  
+[DONE] The helper function 'quick_add_interface' should take a Zabbix Config
   instance as argument and only add an interface. Now it also creates
-  
   the Zabbix Config which isn't correct if we want separations of concerns.
 
 
@@ -43,23 +54,18 @@ NetBox plugin for Zabbix.
   (2025-08-21 17:43:35.860721) while time zone support is active.
 
 * Since the background job doesn't use the system job decorator it isn't
-  
   started automatically by NB when the rqworker is started.
-  
   Look into how this can be fixed.
 
 * Go over all models and make sure that the fields doesn't have unnecessary
-
   null=True and blank=True settings. Many of them were added to prevent having
-  
   to dump the database when running makemigrations.
 
 * Should the system issue a warning when a template is removed while it is still used by a default mapping?
-
   Should it also block the removal?
-
   Blocking the removal doesn’t make sense, since if the template has already been removed from Zabbix, it no longer exists anyway.
  
+* Implement maintenance mode.
 
 * Add support for IPv6primary interfaces. (Maybe)
 

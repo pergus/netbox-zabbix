@@ -1,7 +1,5 @@
 from django.utils.text import slugify
 
-from graphene import Interface
-from graphql import InterfaceTypeExtensionNode
 from ipam.models import IPAddress
 from dcim.models import Device, Interface as DeviceInterface
 from virtualization.models import VirtualMachine, VMInterface
@@ -621,8 +619,9 @@ def build_payload(zcfg) -> dict:
             entry["interfaceid"] = str( iface.interfaceid )
         interfaces.append( entry )
 
-    if not interfaces:
-        raise Exception(f"No interfaces defined for host '{payload['host']}'")
+
+    #if not interfaces:
+    #    raise Exception(f"No interfaces defined for host '{payload['host']}'")
 
     payload["interfaces"] = interfaces
 
@@ -643,8 +642,8 @@ def build_payload(zcfg) -> dict:
 
     # Templates
     cfg_templates = zcfg.templates.all()
-    if not cfg_templates:
-        raise Exception( f"No templates assigned to host '{payload['host']}'" )
+    #if not cfg_templates:
+    #    raise Exception( f"No templates assigned to host '{payload['host']}'" )
 
     payload["templates"] = [ { "templateid": t.templateid } for t in cfg_templates ]
 
@@ -872,10 +871,10 @@ def create_zabbix_host( zcfg, iface, obj, user, requestid ):
         # which does not have a live request object, so the signals will not fire.
         # To ensure the creation is logged, we manually create an ObjectChange.
             
-        obj_change = zcfg.to_objectchange( action=ObjectChangeActionChoices.ACTION_CREATE )
-        obj_change.user = user
-        obj_change.request_id = requestid
-        obj_change.save()
+        # obj_change = zcfg.to_objectchange( action=ObjectChangeActionChoices.ACTION_CREATE )
+        # obj_change.user = user
+        # obj_change.request_id = requestid
+        # obj_change.save()
 
         zcfg.full_clean()
         zcfg.save()
@@ -888,7 +887,7 @@ def create_zabbix_host( zcfg, iface, obj, user, requestid ):
     return { "message": f"Created {obj.name}", "data": payload }
 
 
-def log_config_change( zcfg, user, requestid ):
+def log_config_create( zcfg, user, requestid ):
     """
     Manually create an ObjectChange log entry for the ZabbixConfig.
     """
@@ -932,34 +931,6 @@ def link_interface_in_zabbix( hostid, iface, obj ):
 #  Create Zabbix Configuration in NetBox and a Host in Zabbix
 # ------------------------------------------------------------------------------
 
-#def provision_zabbix_host( obj, host_field_name, zabbix_config_model, 
-#                          interface_model, interface_name_suffix, 
-#                          interface_kwargs_fn, user, requestid ):
-#    """
-#    Add Zabbix Configuration to NetBox and create a Host in Zabbix
-#
-#    - Resolve mapping
-#    - Create ZabbixConfig
-#    - Apply mapping
-#    - Add interface
-#    - Create host in Zabbix
-#    """
-#    monitored_by = get_monitored_by()
-#
-#    if isinstance( obj, Device ):
-#        mapping = resolve_device_mapping( obj, interface_model )
-#    else:
-#        mapping = resolve_vm_mapping( obj, interface_model )
-#
-#    zcfg = create_zabbix_config( obj, host_field_name, zabbix_config_model )
-#    apply_mapping_to_config( zcfg, mapping, monitored_by )
-#
-#    iface = add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, interface_kwargs_fn )
-#    return_message = create_zabbix_host( zcfg, iface, obj, user, requestid )
-#
-#    return_message["message"] = return_message["message"] + f" with {mapping.name} mapping"
-#    return return_message
-
 def provision_zabbix_host( obj, host_field_name, zabbix_config_model, 
                           interface_model, interface_name_suffix, 
                           interface_kwargs_fn, user, requestid ):
@@ -976,7 +947,7 @@ def provision_zabbix_host( obj, host_field_name, zabbix_config_model,
         zcfg.hostid = hostid
         link_interface_in_zabbix( hostid, iface, obj )
         save_zabbix_config( zcfg )
-        log_config_change( zcfg, user, requestid )
+        log_config_create( zcfg, user, requestid )
 
     except Exception as e:
         if 'hostid' in locals():
@@ -1034,14 +1005,61 @@ def device_quick_add_snmpv3(device, user, requestid):
 # Update Zabbix Host
 # ------------------------------------------------------------------------------
 
+import json
 
 def device_update_zabbix_host( zabbix_config ):
 
     if zabbix_config:
+        # Fetch current state of the host in Zabbix
         pre_data = get_host_by_id( zabbix_config.hostid )
+        
+#        # Step 1: Current template IDs in Zabbix
+#        current_template_ids = set()
+#        for template in pre_data.get( "parentTemplates", [] ):
+#            template_name = template.get( "name", "" )
+#            if template_name:
+#                try:
+#                    template_obj = Template.objects.get( name=template_name )
+#                    current_template_ids.add( template_obj.templateid )
+#                except Template.DoesNotExist:
+#                    # Template no longer exists in NetBox
+#                    continue
+#        
+#        # Step 2: Templates currently assigned in NetBox
+#        new_template_ids = set( zabbix_config.templates.values_list( "id", flat=True ) )
+#        
+#        # Step 3: Determine removed templates (to clear in Zabbix)
+#        removed_template_ids = current_template_ids - new_template_ids 
+#
+#
+#        # Transform into Zabbix payload format
+#        templates_clear = [ {"templateid": str( tid ) } for tid in removed_template_ids ]
+#
+#        logger.info( "*******************************************************" )
+#        logger.info( f"templates_clear: {templates_clear}")
+#        logger.info( "*******************************************************" )
+
+
+
+        # Current template IDs in Zabbix (directly assigned to host)
+        current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
+        
+        # Templates currently assigned in NetBox
+        new_template_ids = set( str(tid) for tid in zabbix_config.templates.values_list( "templateid", flat=True ) )
+        
+        # Only remove templates that are no longer assigned
+        removed_template_ids = current_template_ids - new_template_ids
+        
+        templates_clear = [ {"templateid": tid} for tid in removed_template_ids ]
 
         payload = build_payload( zabbix_config )
-        
+        if len (templates_clear ) > 0:
+            payload["templates_clear"] = templates_clear
+
+        logger.info( "*******************************************************" )
+        logger.info( f"{json.dumps(payload, indent=2)}" )
+        logger.info( "*******************************************************" )
+
         try:
             update_host( **payload )
         except Exception as e:
@@ -1078,18 +1096,18 @@ def delete_zabbix_host( hostid ):
 
 def import_zabbix_settings():
     try:
-        added_templates, deleted_templates = import_templates()
-        added_proxies, deleted_proxies = import_proxies()
+        added_templates, deleted_templates       = import_templates()
+        added_proxies, deleted_proxies           = import_proxies()
         added_proxy_groups, deleted_proxy_groups = import_proxy_groups()
-        added_host_groups, deleted_host_groups = import_host_groups()
+        added_host_groups, deleted_host_groups   = import_host_groups()
 
         return { 
             "message": "imported zabbix configuration", 
             "data": { 
-                "templates": { "added": added_templates, "deleted": deleted_templates },
-                "proxies": { "added":  added_proxies, "deleted": deleted_proxies },
-                "proxy_groups": { "added":  added_proxy_groups, "deleted": deleted_proxy_groups },
-                "host_groups": { "added":  added_host_groups, "deleted": deleted_host_groups }
+                "templates":    { "added": added_templates,    "deleted": deleted_templates    },
+                "proxies":      { "added": added_proxies,      "deleted": deleted_proxies      },
+                "proxy_groups": { "added": added_proxy_groups, "deleted": deleted_proxy_groups },
+                "host_groups":  { "added": added_host_groups,  "deleted": deleted_host_groups  }
             }
         }
     except Exception as e:

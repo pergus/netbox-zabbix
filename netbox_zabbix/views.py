@@ -702,7 +702,7 @@ class ZabbixOnlyHostsView(GenericTemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data( **kwargs )
 
-        error_occurred = False        
+        error_occurred = False
         try:            
             data = z.get_zabbix_only_hostnames()
             web_address = config.get_zabbix_web_address()
@@ -1046,9 +1046,31 @@ class DeviceAgentInterfaceEditView(generic.ObjectEditView):
     form = forms.DeviceAgentInterfaceForm
     template_name = 'netbox_zabbix/device_agent_interface_edit.html'
 
+from django.core.exceptions import ValidationError
 
 class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()
+
+    def post(self, request, *args, **kwargs):
+        # Get the interface instance to delete
+        interface = self.get_object()
+    
+        hostid = interface.host.hostid          # Zabbix host ID
+        interfaceid = interface.interfaceid     # Zabbix interface ID
+        name = interface.name
+    
+        logger.info( "**********************************" )
+        logger.info( "* DeviceAgentInterfaceDeleteView *" )
+        logger.info( "**********************************" )
+        logger.info( f"hostid: {hostid}" )
+        logger.info( f"interfaceid: {interfaceid}" )
+
+        if not z.can_remove_interface( hostid, interfaceid ):
+            messages.error( request, f"Interface {name} is linked to one or more items. Unable to delete interface." )
+            return redirect(request.POST.get( 'return_url' ) or self.get_absolute_url() )
+    
+        return super().post(request, *args, **kwargs)
+
 
 #
 # Device SNMPv3

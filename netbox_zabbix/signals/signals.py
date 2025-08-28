@@ -2,8 +2,12 @@
 #
 # Description: Handle signals
 #
+# init, save, delete, m2m_change, mirgate
+#
 
-from django.db.models.signals import post_delete, pre_delete, pre_save, post_save
+
+
+from django.db.models.signals import pre_delete, post_delete, pre_save, post_save
 from django.dispatch import receiver
 
 from netbox_zabbix.models import  (
@@ -28,10 +32,23 @@ import logging
 
 logger = logging.getLogger('netbox.plugins.netbox_zabbix')
 
+# ------------------------------------------------------------------------------
+# Update Object Change
+# ------------------------------------------------------------------------------
+
+
+def update_obj_change(obj, user, request_id):
+    obj_change = obj.to_objectchange( action=ObjectChangeActionChoices.ACTION_UPDATE )
+    obj_change.user = user
+    obj_change.request_id = request_id
+    obj_change.save()
+
+
 
 # ------------------------------------------------------------------------------
 # System Jobs
 # ------------------------------------------------------------------------------
+
 
 @receiver(pre_save, sender=Config)
 def update_system_job_schedule(sender, instance, **kwargs):
@@ -72,6 +89,7 @@ def dev_promote_agent_interface_to_main(sender, instance, **kwargs):
             - That interface is promoted to `MainChoices.YES`.
             - A log entry is created documenting the promotion.
     """
+
     if instance.main == MainChoices.YES:
         remaining = instance.host.agent_interfaces.exclude( pk=instance.pk )
         fallback = remaining.first()
@@ -79,6 +97,8 @@ def dev_promote_agent_interface_to_main(sender, instance, **kwargs):
             fallback.main = MainChoices.YES
             fallback.save()
             logger.info( f"Promoted interface {fallback.name} to main interface for {fallback.host.get_name()}" )
+
+
 
 #
 # Promote Device SNMPv3 Interface
@@ -101,7 +121,6 @@ def dev_promote_snmpv3_interface_to_main(sender, instance, **kwargs):
             - A log entry is created documenting the promotion.
     
     """
-    
     if instance.main == MainChoices.YES:
         remaining = instance.host.snmpv3_interfaces.exclude( pk=instance.pk )
         fallback = remaining.first()
@@ -124,9 +143,15 @@ def dev_save_zabbix_config(sender, instance, created, **kwargs):
     if created:
         return
     
+    logger.info( "**************************" )
+    logger.info( "* dev_save_zabbix_config *" )
+    logger.info( "**************************" )
+    
+    
     change = ObjectChange.objects.filter( changed_object_id=instance.pk ).order_by( '-time' ).first()
     if change and change.user:
         DeviceUpdateZabbixHost.run_job( device_name=instance.device.name, device_zabbix_config=instance, user=change.user )
+
 
 #
 # Delete Zabbix configuration
@@ -150,8 +175,12 @@ def dev_delete_zabbix_config(sender, instance, **kwargs):
     Note: The run_job is responsible for logging the current Zabbix host 
           configuration before deleteing the host in Zabbix.
     """
+
+    logger.info( "****************************" )
+    logger.info( "* dev_delete_zabbix_config *" )
+    logger.info( "****************************" )
+    
     try:
-        logger.info( f"delete zabbix host {instance.device.name}" )
         DeleteZabbixHost.run_job( hostid=instance.hostid )
     except Exception as e:
         raise e
@@ -159,6 +188,8 @@ def dev_delete_zabbix_config(sender, instance, **kwargs):
 #
 # Interface
 #
+
+# Update
 @receiver(post_save, sender=DeviceAgentInterface)
 @receiver(post_save, sender=DeviceSNMPv3Interface)
 def dev_save_zabbix_interface(sender, instance, created, **kwargs):
@@ -168,11 +199,41 @@ def dev_save_zabbix_interface(sender, instance, created, **kwargs):
     if created:
         return
 
-    logger.info( f"Update Interface for {instance.host.device.name}" )    
     change = ObjectChange.objects.filter( changed_object_id=instance.pk ).order_by( '-time' ).first()
     if change and change.user:
         DeviceUpdateZabbixHost.run_job( device_name=instance.host.device.name, device_zabbix_config=instance.host, user=change.user )
 
+
+# Delete
+#from core.choices import ObjectChangeActionChoices
+# from netbox.context import current_request
+#@receiver(pre_delete, sender=DeviceAgentInterface)
+#@receiver(pre_delete, sender=DeviceSNMPv3Interface)
+#def dev_delete_zabbix_interface(sender, instance, **kwargs):
+#    """
+#        An interface in Zabbix cannot be removed if the host has items
+#        that are configure to use the interface.
+#        So we attempt to delete the interface in Zabbix and if that fails then
+#        the delete in NetBox should fail.
+#    """
+#    request = current_request.get()
+#    user = getattr(request, "user", None) if request else None
+#    zconf = instance.host
+#    interface = instance
+#
+#    logger.info( "*******************************" )
+#    logger.info( "* dev_delete_zabbix_interface *" )
+#    logger.info( "*******************************" )
+#
+#    if not can_remove_interface( zconf.hostid, interface.interfaceid ):
+#        logger.error(f"Zabbix refused interface deletion for {interface}")
+#        raise ValidationError( f"Cannot delete interface {interface.name} from host {zconf.device.name}: Zabbix refused." )
+#        
+#    DeviceUpdateZabbixHost.run_job( device_name=zconf.device.name, device_zabbix_config=zconf, user=user )
+#
+#    # Optionally log the object change in NetBox
+#    if request and user:
+#        update_obj_change(zconf, user, request.id)
 
 
 # ------------------------------------------------------------------------------

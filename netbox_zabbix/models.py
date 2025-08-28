@@ -173,6 +173,7 @@ class SyncJobIntervalChoices(ChoiceSet):
         (INTERVAL_30_DAYS, '30 days'),
     )
 
+
 # ------------------------------------------------------------------------------
 # Configuration
 # ------------------------------------------------------------------------------
@@ -328,9 +329,26 @@ class Template(NetBoxModel):
     templateid          = models.CharField( max_length=255 )
     last_synced         = models.DateTimeField( blank=True, null=True )
     marked_for_deletion = models.BooleanField( default=False )
-     
+
+    # Self-referential many-to-many for template dependencies
+    parents = models.ManyToManyField( "self", 
+                                     symmetrical=False, 
+                                     related_name="children", 
+                                     blank=True )
+
+    # Self-referential many-to-many for trigger dependencies
+    dependencies = models.ManyToManyField( "self", 
+                                          symmetrical=False, 
+                                          related_name="dependents", 
+                                          blank=True )
+
+    # Required interface type for this template - 
+    interface_type = models.IntegerField( choices=InterfaceTypeChoices.choices, default=InterfaceTypeChoices.Any )
+
+
     def __str__(self):
         return self.name
+
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:template", args=[self.pk] )
@@ -339,6 +357,7 @@ class Template(NetBoxModel):
 # ------------------------------------------------------------------------------
 # Proxy
 # ------------------------------------------------------------------------------
+
 
 class Proxy(NetBoxModel):
     class Meta:
@@ -362,6 +381,7 @@ class Proxy(NetBoxModel):
 # Proxy Groups
 # ------------------------------------------------------------------------------
 
+
 class ProxyGroup(NetBoxModel):
     class Meta:
         verbose_name = "Zabbix Proxy Group"
@@ -382,6 +402,7 @@ class ProxyGroup(NetBoxModel):
 # ------------------------------------------------------------------------------
 # Host Group
 # ------------------------------------------------------------------------------
+
 
 class HostGroup(NetBoxModel):
     class Meta:
@@ -457,6 +478,7 @@ class VMZabbixConfig(ZabbixConfig):
 # ------------------------------------------------------------------------------
 # Interfaces
 # ------------------------------------------------------------------------------
+
 
 class HostInterface(NetBoxModel):
     class Meta:
@@ -709,6 +731,7 @@ class AvailableDeviceInterface(Interface):
     class Meta:
         proxy = True
 
+
 class AvailableVMInterface(VMInterface):
     class Meta:
         proxy = True
@@ -717,6 +740,7 @@ class AvailableVMInterface(VMInterface):
 # ------------------------------------------------------------------------------
 # Tag Mapping
 # ------------------------------------------------------------------------------
+
 
 class TagMapping(NetBoxModel):
     OBJECT_TYPE_CHOICES = [
@@ -738,6 +762,7 @@ class TagMapping(NetBoxModel):
 # Inventory Mapping
 # ------------------------------------------------------------------------------
 
+
 class InventoryMapping(NetBoxModel):
     OBJECT_TYPE_CHOICES = [
         ('device', 'Device'),
@@ -757,6 +782,7 @@ class InventoryMapping(NetBoxModel):
 # ------------------------------------------------------------------------------
 # Mapping Base Object
 # ------------------------------------------------------------------------------
+
 
 class Mapping(NetBoxModel):
     name = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the mapping." )
@@ -791,9 +817,11 @@ class Mapping(NetBoxModel):
         # Return None or a placeholder URL; you could log this if needed
         return None
 
+
 # ------------------------------------------------------------------------------
 # Device Mapping
 # ------------------------------------------------------------------------------
+
 
 class DeviceMapping(Mapping):
 
@@ -874,6 +902,7 @@ class DeviceMapping(Mapping):
 # VM Mapping
 # ------------------------------------------------------------------------------
 
+
 class VMMapping(Mapping):
 
     def get_absolute_url(self):
@@ -883,6 +912,7 @@ class VMMapping(Mapping):
 # ------------------------------------------------------------------------------
 # Event Log
 # ------------------------------------------------------------------------------
+
 
 class EventLog(NetBoxModel):
     name      = models.CharField( verbose_name="Name", max_length=256, help_text="Event name." )
@@ -903,6 +933,11 @@ class EventLog(NetBoxModel):
 
     def get_absolute_url(self):
        return reverse( 'plugins:netbox_zabbix:eventlog', args=[self.pk] )
+
+    def get_job_status_color(self):
+        if self.job:
+            return self.job.get_status_color()
+        return 'red'
 
 
 # end

@@ -74,10 +74,32 @@ class TemplateTable(NetBoxTable):
          url_params={'templates': 'pk'},
          verbose_name="Hosts" )
     
+    dependencies = columns.ManyToManyColumn( linkify_item=True, accessor="dependencies", verbose_name="Dependencies")
+
+    parents = columns.ManyToManyColumn( linkify_item=True, accessor="parents", verbose_name="Parents")
+    
     class Meta(NetBoxTable.Meta):
         model = models.Template
-        fields = ("name", "templateid", "host_count", "last_synced", "marked_for_deletion" )
-        default_columns = ("name", "templateid", "host_count", "last_synced", "marked_for_deletion" )
+        fields = (
+            "name",
+            "templateid",
+            "host_count",
+            "interface_type",
+            "parents",
+            "dependencies",
+            "last_synced",
+            "marked_for_deletion"
+        )
+
+        default_columns = (
+            "name",
+            "templateid",
+            "host_count",
+            "interface_type",
+            "dependencies",
+            "last_synced",
+            "marked_for_deletion"
+        )
 
 
 # ------------------------------------------------------------------------------
@@ -604,19 +626,20 @@ class VMMappingTable(NetBoxTable):
 
 
 class EventLogTable(NetBoxTable):
-    name      = tables.Column( linkify=True )
-    job       = tables.Column( linkify=True )
-    message   = tables.Column()
-    exception = tables.Column()
-    data      = tables.Column()
-    pre_data  = tables.Column()
-    post_data = tables.Column()
-    created   = tables.DateTimeColumn(  format="Y-m-d H:i:s" )
+    name       = tables.Column( linkify=True )
+    job        = tables.Column( linkify=True )
+    job_status = columns.ChoiceFieldColumn( accessor="job.status", verbose_name="Job Status" )
+    message    = tables.Column()
+    exception  = tables.Column()
+    data       = tables.Column()
+    pre_data   = tables.Column()
+    post_data  = tables.Column()
+    created    = tables.DateTimeColumn( format="Y-m-d H:i:s" )
 
     class Meta:
         model = models.EventLog
-        fields = ( 'name', 'job', 'created', 'message', 'exception', 'data', 'pre_data', 'post_data')
-        default_columns = ( 'name', 'job', 'created', 'message' )
+        fields = ( 'name', 'job', 'job_status', 'created', 'message', 'exception', 'data', 'pre_data', 'post_data')
+        default_columns = ( 'name', 'job', 'job_status', 'created', 'message' )
         attrs = {'class': 'table table-hover table-headings'}
 
 # end

@@ -6,6 +6,7 @@
 from django.utils import timezone
 from django.core.cache import cache
 from dcim.models import Device
+from strawberry import interface
 from virtualization.models import VirtualMachine
 from pyzabbix import ZabbixAPI
 from netbox_zabbix import models
@@ -15,6 +16,10 @@ from netbox_zabbix.config import (
     get_zabbix_api_endpoint,
     get_zabbix_token,
 )
+
+from netbox_zabbix import utils as utils
+
+
 from netbox_zabbix.logger import logger
 
 
@@ -134,10 +139,57 @@ def get_templates():
     """
     try:
         z = get_zabbix_client()
-        return z.template.get( output=["name"], sortfield = "name" )
+        return z.template.get( output=["name"], sortfield = "name", selectParentTemplates=["templateid", "name"] )
     
     except Exception as e:
         raise e
+
+def get_template_with_parents(templateid):
+    try:
+        z = get_zabbix_client()
+        return z.template.get( templateids=[templateid], output=["templateid", "name"], selectParentTemplates=["templateid", "name"] )
+
+    except Exception as e:
+        raise e
+
+
+def get_item_types(template_ids:list):
+    try:
+        z = get_zabbix_client()
+        return z.item.get( templateids=template_ids, output=["itemid", "type", "hostid"] )
+    except Exception as e:
+        raise e
+
+
+def get_triggers( template_ids:list):
+    try:
+        z = get_zabbix_client()
+        return z.trigger.get( templateids=template_ids, 
+                              output=["triggerid", "description"], 
+                              selectDependencies=["triggerid"], 
+                              selectHosts=["hostid", "name"] 
+                            )
+    except Exception as e:
+        raise e
+
+
+def get_trigger( triggerid ):
+    try:
+        z = get_zabbix_client()
+        return z.trigger.get( triggerids=[triggerid],
+                       output=["triggerid"],
+                       selectHosts=["hostid", "name"]
+                      )
+    except Exception as e:
+        raise e
+    
+
+#def get_triggers(templateids):
+#    try:
+#        z = get_zabbix_client()
+#        return z.trigger.get( templateids=templateids, selectDependencies=["triggerid", "description", "templateid"])
+#    except Exception as e:
+#        raise e
 
 
 def get_proxies():
@@ -383,7 +435,7 @@ def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item
     except ZabbixConfigNotFound as e:
         raise
     except Exception as e:
-        logger.error(f"Failed to fetch Zabbix {name}s")
+        logger.error(f"Failed to fetch Zabbix {name}")
         raise
 
     remote_ids = {item[id_field] for item in items}
@@ -398,10 +450,19 @@ def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item
         for field in extra_fields:
             defaults[field] = item[field]
 
-        _, created = model.objects.update_or_create( **{id_field: item[id_field]}, defaults=defaults )
+        obj, created = model.objects.update_or_create( **{id_field: item[id_field]}, defaults=defaults )
         if created:
             logger.info( f"Added {name} {item['name']} ({item[id_field]})" )
             added.append(item)
+
+        if "parentTemplates" in item:
+            parent_ids = [ p["templateid"] for p in item["parentTemplates"] ]
+            parents = []
+            for pid in parent_ids:
+                parent, _ = model.objects.get_or_create( templateid=pid, defaults={"name": f"Placeholder-{pid}"} )
+                parents.append( parent )
+            obj.parents.set( parents )
+
 
     to_delete_ids = current_ids - remote_ids
     deleted = []
@@ -436,11 +497,22 @@ def import_templates(max_deletions=None):
     Returns:
         tuple: A tuple of (added_templates, deleted_templates).
     """
-    return import_items( fetch_remote=get_templates, 
-                         model=models.Template, 
-                         id_field="templateid", 
-                         name="template", 
-                         max_deletions=max_deletions )
+    added_templates, deleted_templates =  import_items( fetch_remote=get_templates, 
+                                                        model=models.Template, 
+                                                        id_field="templateid", 
+                                                        name="template", 
+                                                        max_deletions=max_deletions )
+
+    # Calculate and store the interface type for each template
+    try:
+        utils.populate_templates_with_interface_type()
+    except Exception as e:
+        raise e
+    
+    # Populate the template with template dependencies.
+    utils.populate_templates_with_dependencies()
+
+    return added_templates, deleted_templates
 
 
 def import_proxies(max_deletions=None):
@@ -515,12 +587,14 @@ def create_host(**host):
     except Exception as e:
         raise e
 
+
 def update_host(**host):
     try:
         z = get_zabbix_client()
         return z.host.update( **host )
     except Exception as e:
         raise e
+
 
 def delete_host(hostid):
     hostids = [ hostid ]
@@ -529,12 +603,54 @@ def delete_host(hostid):
         return z.host.delete( *hostids ) 
     except Exception as e:
         raise e
-    
+
+
 def get_host_interfaces(hostid):
     try:
         z = get_zabbix_client()
         return z.hostinterface.get( output=["interfaceid", "type"], hostids=hostid )
     except Exception as e:
         raise e
+
+
+def can_remove_interface(hostid, interfaceid):
+    try:
+        z = get_zabbix_client()
+        items = z.item.get( hostids=[hostid], filter={'interfaceid': interfaceid} )
+        return True if len(items) == 0 else False
+    except Exception as e:
+        raise e
+
+
+def get_template(template_id):
+    try:
+        z = get_zabbix_client()
+        return  z.template.get( templateids=[template_id], selectParentTemplates=['templateid'] )
+    except Exception as e:
+        raise e
+
+
+def get_template_items(template_id):
+    """
+    Fetch all items for a given Zabbix template.
+
+    Returns a list of item dictionaries with fields like:
+    {
+        'itemid': '12345',
+        'key_': 'system.cpu.load',
+        'type': '0',
+        'interfaceid': '10',
+        ...
+    }
+    """
+    try:
+        z = get_zabbix_client()
+        items = z.item.get( templateids=[template_id], output="extend", selectInterfaces=["interfaceid", "type"] )
+        return items
+    
+    except Exception as e:
+        logger.error(f"Failed to fetch items for template {template_id}: {e}")
+        return []
+
 
 # end
