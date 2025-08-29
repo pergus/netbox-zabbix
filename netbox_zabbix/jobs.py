@@ -432,7 +432,7 @@ def import_zabbix_config(zabbix_host: dict, instance, config_model, agent_interf
             except Exception as e:
                 raise Exception( f"Failed to create agent interface for '{instance.name}', reason: {str( e )}" )
 
-        elif iface["type"] == 2 and iface["snmp_version"] == 3:
+        elif iface["type"] == 2 and iface["version"] == 3:
             try:
                 snmpv3_iface = snmpv3_interface_model.objects.create(
                     name        = f"{instance.name}-snmpv3",

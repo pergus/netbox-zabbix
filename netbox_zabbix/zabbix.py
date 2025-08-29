@@ -145,6 +145,19 @@ def get_templates():
         raise e
 
 def get_template_with_parents(templateid):
+    """
+    Retrieve a template and its parent templates from Zabbix.
+    
+    Connects to the Zabbix API using the configured client and fetches details 
+    about a single template, including its parent templates.
+    
+    Args:
+        templateid (int or str): The ID of the template to retrieve.
+    
+    Returns:
+        list: A list containing the requested template with its ID, name, 
+              and parent templates.
+    """
     try:
         z = get_zabbix_client()
         return z.template.get( templateids=[templateid], output=["templateid", "name"], selectParentTemplates=["templateid", "name"] )
@@ -154,6 +167,18 @@ def get_template_with_parents(templateid):
 
 
 def get_item_types(template_ids:list):
+    """
+    Retrieve item types for the given Zabbix templates.
+    
+    Connects to the Zabbix API and fetches items associated with the 
+    specified templates.
+    
+    Args:
+        template_ids (list): A list of template IDs.
+    
+    Returns:
+        list: A list of items containing item ID, type, and host ID.
+    """
     try:
         z = get_zabbix_client()
         return z.item.get( templateids=template_ids, output=["itemid", "type", "hostid"] )
@@ -162,6 +187,19 @@ def get_item_types(template_ids:list):
 
 
 def get_triggers( template_ids:list):
+    """
+    Retrieve triggers for the given Zabbix templates.
+    
+    Connects to the Zabbix API and fetches triggers associated with the 
+    specified templates, including their dependencies and host information.
+    
+    Args:
+        template_ids (list): A list of template IDs.
+    
+    Returns:
+        list: A list of triggers with trigger ID, description, dependencies, 
+              and associated hosts.
+    """
     try:
         z = get_zabbix_client()
         return z.trigger.get( templateids=template_ids, 
@@ -174,6 +212,19 @@ def get_triggers( template_ids:list):
 
 
 def get_trigger( triggerid ):
+    """
+    Retrieve a single trigger by its ID.
+    
+    Connects to the Zabbix API and fetches details about a specific trigger, 
+    including its associated hosts.
+    
+    Args:
+        triggerid (int or str): The ID of the trigger to retrieve.
+    
+    Returns:
+        list: A list containing the requested trigger with its ID and 
+              associated host information.
+    """
     try:
         z = get_zabbix_client()
         return z.trigger.get( triggerids=[triggerid],
@@ -182,14 +233,6 @@ def get_trigger( triggerid ):
                       )
     except Exception as e:
         raise e
-    
-
-#def get_triggers(templateids):
-#    try:
-#        z = get_zabbix_client()
-#        return z.trigger.get( templateids=templateids, selectDependencies=["triggerid", "description", "templateid"])
-#    except Exception as e:
-#        raise e
 
 
 def get_proxies():
@@ -581,6 +624,18 @@ def import_host_groups(max_deletions=None):
 
 
 def create_host(**host):
+    """
+    Create a new Zabbix host.
+    
+    Connects to the Zabbix API and creates a host with the provided parameters.
+    
+    Args:
+        **host: Arbitrary keyword arguments representing the host configuration 
+                (e.g., host name, interfaces, groups, templates).
+    
+    Returns:
+        dict: The response from the Zabbix API containing details of the created host.
+    """
     try:
         z = get_zabbix_client()
         return z.host.create( **host )
@@ -589,6 +644,18 @@ def create_host(**host):
 
 
 def update_host(**host):
+    """
+     Update an existing Zabbix host.
+    
+     Connects to the Zabbix API and updates the host with the given parameters.
+    
+     Args:
+         **host: Arbitrary keyword arguments representing the updated host configuration 
+                 (must include the `hostid` field).
+    
+     Returns:
+         dict: The response from the Zabbix API containing details of the updated host.
+    """
     try:
         z = get_zabbix_client()
         return z.host.update( **host )
@@ -597,6 +664,17 @@ def update_host(**host):
 
 
 def delete_host(hostid):
+    """
+    Delete a Zabbix host.
+    
+    Connects to the Zabbix API and deletes the specified host.
+    
+    Args:
+        hostid (int or str): The ID of the host to delete.
+    
+    Returns:
+        dict: The response from the Zabbix API confirming deletion.
+    """
     hostids = [ hostid ]
     try:
         z = get_zabbix_client()
@@ -606,6 +684,18 @@ def delete_host(hostid):
 
 
 def get_host_interfaces(hostid):
+    """
+    Retrieve interfaces for a specific Zabbix host.
+    
+    Connects to the Zabbix API and fetches all interfaces associated 
+    with the given host.
+    
+    Args:
+        hostid (int or str): The ID of the host whose interfaces should be retrieved.
+    
+    Returns:
+        list: A list of host interfaces with their interface IDs and types.
+    """
     try:
         z = get_zabbix_client()
         return z.hostinterface.get( output=["interfaceid", "type"], hostids=hostid )
@@ -614,6 +704,21 @@ def get_host_interfaces(hostid):
 
 
 def can_remove_interface(hostid, interfaceid):
+    """
+    Check if an interface can be safely removed from a host.
+    
+    Connects to the Zabbix API and verifies whether the given interface 
+    is used by any items. An interface can be removed only if no items 
+    are linked to it.
+    
+    Args:
+        hostid (int or str): The ID of the host.
+        interfaceid (int or str): The ID of the interface to check.
+    
+    Returns:
+        bool: True if the interface can be removed (no items depend on it), 
+              False otherwise.
+    """
     try:
         z = get_zabbix_client()
         items = z.item.get( hostids=[hostid], filter={'interfaceid': interfaceid} )
@@ -621,36 +726,34 @@ def can_remove_interface(hostid, interfaceid):
     except Exception as e:
         raise e
 
+# ------------------------------------------------------------------------------
+# Misc.
+# ------------------------------------------------------------------------------
 
-def get_template(template_id):
+
+def get_problems(hostname):
     try:
         z = get_zabbix_client()
-        return  z.template.get( templateids=[template_id], selectParentTemplates=['templateid'] )
+        hosts = z.host.get( filter={"host": hostname} )
+        if len(hosts) == 1:
+            host = hosts[0]
+        else:
+            return []
+        
+        hostid = host["hostid"]
+
+        problems = z.problem.get(
+                   output=["eventid", "severity", "acknowledged", "name", "clock"],
+                   hostids=[hostid],
+                   sortfield="eventid",
+                   sortorder="DESC"
+               )
+
+        return problems
+
     except Exception as e:
         raise e
-
-
-def get_template_items(template_id):
-    """
-    Fetch all items for a given Zabbix template.
-
-    Returns a list of item dictionaries with fields like:
-    {
-        'itemid': '12345',
-        'key_': 'system.cpu.load',
-        'type': '0',
-        'interfaceid': '10',
-        ...
-    }
-    """
-    try:
-        z = get_zabbix_client()
-        items = z.item.get( templateids=[template_id], output="extend", selectInterfaces=["interfaceid", "type"] )
-        return items
     
-    except Exception as e:
-        logger.error(f"Failed to fetch items for template {template_id}: {e}")
-        return []
 
 
 # end

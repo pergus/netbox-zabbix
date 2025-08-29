@@ -1,10 +1,9 @@
 # views.py
-from utilities import query
 import netbox_zabbix.config as config
-from urllib.parse import urlencode
+from django.shortcuts import get_object_or_404
 
 from django.contrib import messages
-from django.db.models import Count, Exists, F, OuterRef
+from django.db.models import Count, F
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.template.defaultfilters import capfirst, pluralize
@@ -1372,32 +1371,36 @@ class EventLogBulkDeleteView(generic.BulkDeleteView):
 # ------------------------------------------------------------------------------
 # Device Tab for Zabbix Details
 # ------------------------------------------------------------------------------
-from django.shortcuts import get_object_or_404
 
 @register_model_view(Device, name="Zabbix", path="zabbix")
 class ZabbixDeviceTabView(generic.ObjectView):
     queryset = models.DeviceZabbixConfig.objects.all()
-
-    # Hide the tab if the device doesn't have a Zabbix Configuration.
-    # The tab is automatically hidden if the hide_if_empty is true
-    # and the badge is zero.
-    tab = ViewTab( label="Zabbix", 
-                    #hide_if_empty=True,
-                    #badge=lambda obj: 1 if models.DeviceZabbixConfig.objects.filter( device=obj ).first() else 0
-                  )
+    tab = ViewTab(
+        label="Zabbix",
+        hide_if_empty=True,
+        badge=lambda device: str( len( z.get_problems( device.name ) ) )  if models.DeviceZabbixConfig.objects.filter( device=device ).exists() else 0
+    )
 
     def get(self, request, pk):
         device = get_object_or_404( Device, pk=pk )
         config = models.DeviceZabbixConfig.objects.filter( device=device ).first()
 
-        return render(request, 
-                      "netbox_zabbix/additional_device_tab.html", 
-                      context={ 
-                          "tab": self.tab, 
-                          "object": device,
-                          "config": config
-                        }
-                      )
+        problems = []
+        table = None
+        if config:
+            problems = z.get_problems( device.name )
+            table = tables.ZabbixProblemTable( problems )
+
+        return render(
+            request,
+            "netbox_zabbix/additional_device_tab.html",
+            context={
+                "tab": self.tab,
+                "object": device,
+                "config": config,
+                "table": table,
+            },
+        )
 
 
 # end

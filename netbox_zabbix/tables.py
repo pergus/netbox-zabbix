@@ -1,7 +1,8 @@
 # tables.py
-from django.db.models import Case, When, Value, IntegerField
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+from django.utils.html import format_html
+from django.utils.timezone import datetime
 
 import django_tables2 as tables
 
@@ -16,6 +17,7 @@ from virtualization.models import VirtualMachine
 from virtualization.tables import VirtualMachineTable
 
 from netbox_zabbix import config, jobs, models
+
 from netbox_zabbix.logger import logger
 
 
@@ -641,5 +643,45 @@ class EventLogTable(NetBoxTable):
         fields = ( 'name', 'job', 'job_status', 'created', 'message', 'exception', 'data', 'pre_data', 'post_data')
         default_columns = ( 'name', 'job', 'job_status', 'created', 'message' )
         attrs = {'class': 'table table-hover table-headings'}
+
+
+# ------------------------------------------------------------------------------
+# Zabbix Problems
+# ------------------------------------------------------------------------------
+
+ZABBIX_SEVERITY = {
+    "0": ("Not classified", "default"),
+    "1": ("Information",    "info"),
+    "2": ("Warning",        "warning"),
+    "3": ("Average",        "orange"),
+    "4": ("High",           "danger"),
+    "5": ("Disaster",       "dark"),
+}
+
+class ZabbixProblemTable(tables.Table):
+    eventid = tables.Column(verbose_name="Event ID")
+    severity = tables.Column(verbose_name="Severity")
+    name = tables.Column(verbose_name="Problem")
+    acknowledged = tables.Column(verbose_name="Acknowledged")
+    clock = tables.Column(verbose_name="Time")
+
+    def render_severity(self, value):
+        label, css = ZABBIX_SEVERITY.get(str(value), ("Unknown", "secondary"))
+        return format_html( '<span class="badge bg-{} text-light">{}</span>', css, label )
+
+    def render_acknowledged(self, value):
+        return "Yes" if str(value) == "1" else "No"
+
+    def render_clock(self, value):
+        try:
+            ts = datetime.fromtimestamp(int(value))
+            return ts.strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return value
+
+    class Meta:
+        attrs = {"class": "table table-hover object-list"}
+        sequence = ("eventid", "severity", "name", "acknowledged", "clock")
+
 
 # end

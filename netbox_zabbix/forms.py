@@ -5,7 +5,6 @@
 
 import re
 
-from dcim.choices import InterfaceTypeChoices
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
@@ -274,6 +273,7 @@ class HostGroupForm(NetBoxModelForm):
 # NetBox Only Devices
 # ------------------------------------------------------------------------------
 
+
 class NetBoxOnlyDevicesFilterForm(DeviceFilterForm):
 #    host_groups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
 #    templates    = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
@@ -337,49 +337,94 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
             self.fields['device'].disabled = True 
 
 
-    def clean_templates(self):
-        """
-        Validate the selected templates before saving the form.
-        Uses `validate_template_combination` to check for conflicts and
-        the device's interfaces to ensure template compatibility.
-        """
-        templates = self.cleaned_data.get( "templates", [] )
-        if not templates:
-            raise ValidationError( "At least one template must be selected." )
-    
-        template_ids = [ t.templateid for t in templates ]
-    
-        # Default to Any unless restricted by device
-        interface_type = models.InterfaceTypeChoices.Any
-    
-        # Safely get the device (works on create & update)
-        device = getattr( self.instance, "device", None ) or self.initial.get( "device" )
-    
-        if device and getattr(device, "zbx_device_config", None):
-            has_agent = (
-                getattr( device.zbx_device_config, "agent_interfaces", None )
-                and device.zbx_device_config.agent_interfaces.exists()
-            )
-            has_snmp = (
-                getattr( device.zbx_device_config, "snmp_interfaces", None )
-                and device.zbx_device_config.snmp_interfaces.exists()
-            )
-    
-            if has_agent and has_snmp:
-                interface_type = models.InterfaceTypeChoices.Any
-            elif has_agent:
-                interface_type = models.InterfaceTypeChoices.Agent
-            elif has_snmp:
-                interface_type = models.InterfaceTypeChoices.SNMP
-    
-        # Validate with conflicts/dependencies/interface type rules
-        try:
-            validate_template_combination( template_ids, interface_type )
-        except Exception as e:
-            raise ValidationError( str( e ) )
-    
-        return templates
+#    def clean(self):
+#        """
+#        Validate the selected templates before saving the form.
+#        Uses `validate_template_combination` to check for conflicts and
+#        the device's interfaces to ensure template compatibility.
+#        """
+#
+#        cleaned_data = super().clean()
+#
+#        templates = self.cleaned_data.get( "templates", [] )
+#        if not templates:
+#            raise ValidationError( "At least one template must be selected." )
+#    
+#        template_ids = [ t.templateid for t in templates ]
+#    
+#        # Default to Any unless restricted by device
+#        interface_type = models.InterfaceTypeChoices.Any
+#    
+#        # Safely get the device (works on create & update)
+#        device = getattr( self.instance, "device", None ) or self.initial.get( "device" )
+#    
+#        if device and getattr(device, "zbx_device_config", None):
+#            has_agent = (
+#                getattr( device.zbx_device_config, "agent_interfaces", None )
+#                and device.zbx_device_config.agent_interfaces.exists()
+#            )
+#            has_snmp = (
+#                getattr( device.zbx_device_config, "snmp_interfaces", None )
+#                and device.zbx_device_config.snmp_interfaces.exists()
+#            )
+#    
+#            if has_agent and has_snmp:
+#                interface_type = models.InterfaceTypeChoices.Any
+#            elif has_agent:
+#                interface_type = models.InterfaceTypeChoices.Agent
+#            elif has_snmp:
+#                interface_type = models.InterfaceTypeChoices.SNMP
+#    
+#        # Validate with conflicts/dependencies/interface type rules
+#        try:
+#            
+#            logger.info( "***************************************************" )
+#            logger.info( f"interface_type is {interface_type}" )
+#            logger.info( "***************************************************" )
+#            
+#            validate_template_combination( template_ids, interface_type )
+#        except Exception as e:
+#            raise ValidationError( str( e ) )
+#    
+#        return cleaned_data
 
+
+    def clean(self):
+        super().clean() 
+    
+        templates = self.cleaned_data.get("templates")
+        if not templates:
+            raise ValidationError("At least one template must be selected.")
+    
+        template_ids = [t.templateid for t in templates]
+    
+        device_config = self.instance
+        
+        has_agent = getattr(device_config, "agent_interfaces", None) and device_config.agent_interfaces.exists()
+        has_snmp = getattr(device_config,  "snmpv3_interfaces", None) and device_config.snmpv3_interfaces.exists()
+        
+        if has_agent and has_snmp:
+            interface_type = models.InterfaceTypeChoices.Any
+        elif has_agent:
+            interface_type = models.InterfaceTypeChoices.Agent
+        elif has_snmp:
+            interface_type = models.InterfaceTypeChoices.SNMP
+        else:
+            interface_type = models.InterfaceTypeChoices.Any
+
+    
+        # Validate templates for selected interface
+        try:
+            logger.info("***************************************************")
+            logger.info(f"interface_type is {interface_type}")
+            logger.info("***************************************************")
+    
+            validate_template_combination(template_ids, interface_type)
+        except Exception as e:
+            raise ValidationError(str(e))
+    
+        return self.cleaned_data
+    
 
 class DeviceZabbixConfigFilterForm(NetBoxModelFilterSetForm):
     model = models.DeviceZabbixConfig
@@ -593,6 +638,7 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
             self.fields['host'].disabled = True
             # Set the initial value of the calculated DNS name
             self.fields['dns_name'].initial = self.instance.resolved_dns_name
+
 
 class VMAgentInterfaceForm(NetBoxModelForm):
     class Meta:
@@ -954,10 +1000,7 @@ class DeviceMappingForm(NetBoxModelForm):
             if not (sites.exists() or roles.exists() or platforms.exists()):
                 raise forms.ValidationError( "At least one of sites, roles, or platforms must be set for non-default mappings." )
 
-
-
         # Validate templates
-
         templates = self.cleaned_data.get( "templates", [] )
         if not templates:
             raise ValidationError( "At least one template must be selected." )
@@ -969,9 +1012,6 @@ class DeviceMappingForm(NetBoxModelForm):
         except Exception as e:
             raise ValidationError( str( e ) )
         
-
-
-
         # Ensure there is exactly one default in the database (excluding current instance if updating)
         if default:
             qs = models.DeviceMapping.objects.filter( default=True )

@@ -94,10 +94,29 @@
     </div>
 </div>
 
+
+{% if table.rows %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header">
+                Problems
+            </h2>
+            {% render_table table %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    {% trans "No Zabbix Problems." %}
+</div>
+{% endif %}
+
+
 {% else %}
 
 <div class="alert alert-info">
-    {% trans "No Zabbix configuration has been assigned." %}
+    {% trans "No Zabbix configuration." %}
 </div>
 
 {% endif %}
