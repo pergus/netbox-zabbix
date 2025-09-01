@@ -1389,6 +1389,7 @@ class DeviceUpdateZabbixHost( AtomicJobRunner ):
         
         job_args = {
                     "name":                 name,
+                    "instance":             device_zabbix_config,
                     "schedule_at":          schedule_at,
                     "interval":             interval,
                     "immediate":            immediate,

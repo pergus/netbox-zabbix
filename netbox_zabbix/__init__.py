@@ -57,12 +57,8 @@ class ZConfiguration(PluginConfig):
     }
 
     def ready(self):
-            super().ready()
-            # Import and register signals
-            from .signals import signals
-            
-            # Register api
-            #from netbox_zabbix.api import urls as api_urls        
-            #api_urls = api_urls
+        super().ready()
+        # Import and register signals
+        from .signals import signals
 
 config = ZConfiguration

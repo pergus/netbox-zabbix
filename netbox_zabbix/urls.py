@@ -4,6 +4,9 @@ from netbox.views.generic import ObjectChangeLogView
 
 from netbox_zabbix import models, views
 
+
+from core.views import JobView
+
 app_name = 'netbox_zabbix' 
 
 
@@ -104,6 +107,9 @@ urlpatterns = (
     path( 'devices/zabbix-config/<int:pk>/delete/',    views.DeviceZabbixConfigDeleteView.as_view(),     name='devicezabbixconfig_delete' ),
     path( 'devices/zabbix-config/delete/',             views.DeviceZabbixConfigBulkDeleteView.as_view(), name='devicezabbixconfig_bulk_delete' ),
     path( 'devices/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                    name='devicezabbixconfig_changelog', kwargs={'model': models.DeviceZabbixConfig} ),
+
+
+    path( 'devices/zabbix-config/<int:pk>/jobs',       views.DeviceZabbixConfigJobsTabView.as_view(),   name='devicezabbixconfig_jobs' ),
 
     # VM Zabbix Configuration
     path( 'virtual-machines/zabbix-config/',                    views.VMZabbixConfigListView.as_view(),   name='vmzabbixconfig_list' ),

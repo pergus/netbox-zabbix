@@ -1,4 +1,5 @@
 # views.py
+from core.tables.jobs import JobTable
 import netbox_zabbix.config as config
 from django.shortcuts import get_object_or_404
 
@@ -1045,7 +1046,6 @@ class DeviceAgentInterfaceEditView(generic.ObjectEditView):
     form = forms.DeviceAgentInterfaceForm
     template_name = 'netbox_zabbix/device_agent_interface_edit.html'
 
-from django.core.exceptions import ValidationError
 
 class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()
@@ -1057,13 +1057,7 @@ class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
         hostid = interface.host.hostid          # Zabbix host ID
         interfaceid = interface.interfaceid     # Zabbix interface ID
         name = interface.name
-    
-        logger.info( "**********************************" )
-        logger.info( "* DeviceAgentInterfaceDeleteView *" )
-        logger.info( "**********************************" )
-        logger.info( f"hostid: {hostid}" )
-        logger.info( f"interfaceid: {interfaceid}" )
-
+        
         if not z.can_remove_interface( hostid, interfaceid ):
             messages.error( request, f"Interface {name} is linked to one or more items. Unable to delete interface." )
             return redirect(request.POST.get( 'return_url' ) or self.get_absolute_url() )
@@ -1401,6 +1395,24 @@ class ZabbixDeviceTabView(generic.ObjectView):
                 "table": table,
             },
         )
+
+
+# ------------------------------------------------------------------------------
+# Tasks Tab 
+# ------------------------------------------------------------------------------
+
+
+@register_model_view(models.DeviceZabbixConfig, name='jobs')
+class DeviceZabbixConfigJobsTabView(generic.ObjectView):
+
+    queryset = models.DeviceZabbixConfig.objects.all()
+    tab = ViewTab( label="Tasks", badge=lambda instance: instance.jobs.count() )
+    template_name = 'netbox_zabbix/device_jobs.html'
+
+    def get_extra_context(self, request, instance):
+        queryset = instance.jobs.all()
+        table = JobTable( queryset )
+        return { "table": table }
 
 
 # end

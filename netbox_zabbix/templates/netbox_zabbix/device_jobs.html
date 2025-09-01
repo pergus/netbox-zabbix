@@ -1,0 +1,40 @@
+{% extends 'generic/object.html' %}
+{% load buttons %}
+{% load custom_links %}
+{% load helpers %}
+{% load perms %}
+{% load plugins %}
+{% load tabs %}
+{% load i18n %}
+{% load tab_utils %}
+{% load render_table from django_tables2 %}
+
+{% block tabs %}
+<ul class="nav nav-tabs" role="presentation">
+    {# Primary overview tab #}
+    <li class="nav-item">
+        <a class="nav-link{% if not tab %} active{% endif %}" href="{{ object.get_absolute_url }}">
+            {{ object|meta:"verbose_name"|bettertitle }}
+        </a>
+    </li>
+    {# Include tabs for registered model views except for jobs #}
+    {% model_view_tabs_exlude_jobs object %}
+</ul>
+{% endblock tabs %}
+
+
+
+{% block content %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header">Jobs for {{ object.get_name }}</h2>
+            <div class="card-body">
+                {% render_table table %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

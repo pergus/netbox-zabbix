@@ -638,7 +638,7 @@ class EventLogTable(NetBoxTable):
     post_data  = tables.Column()
     created    = tables.DateTimeColumn( format="Y-m-d H:i:s" )
 
-    class Meta:
+    class Meta(NetBoxTable.Meta):
         model = models.EventLog
         fields = ( 'name', 'job', 'job_status', 'created', 'message', 'exception', 'data', 'pre_data', 'post_data')
         default_columns = ( 'name', 'job', 'job_status', 'created', 'message' )
@@ -658,12 +658,22 @@ ZABBIX_SEVERITY = {
     "5": ("Disaster",       "dark"),
 }
 
+# TODO: NetBoxTable
 class ZabbixProblemTable(tables.Table):
+#class ZabbixProblemTable(NetBoxTable):
+
+    class Meta:
+        model = None
+        object_type_column = False
+        attrs = {"class": "table table-hover object-list"}
+        sequence = ("eventid", "severity", "name", "acknowledged", "clock")
+    
     eventid = tables.Column(verbose_name="Event ID")
     severity = tables.Column(verbose_name="Severity")
     name = tables.Column(verbose_name="Problem")
     acknowledged = tables.Column(verbose_name="Acknowledged")
     clock = tables.Column(verbose_name="Time")
+
 
     def render_severity(self, value):
         label, css = ZABBIX_SEVERITY.get(str(value), ("Unknown", "secondary"))
@@ -679,9 +689,39 @@ class ZabbixProblemTable(tables.Table):
         except Exception:
             return value
 
-    class Meta:
-        attrs = {"class": "table table-hover object-list"}
-        sequence = ("eventid", "severity", "name", "acknowledged", "clock")
+
+
+# ------------------------------------------------------------------------------
+# Zabbix Problems
+# ------------------------------------------------------------------------------
+
+
+from core.models import Job
+from core.tables import JobTable
+from django_tables2.utils import A
+from django_tables2 import LinkColumn
+
+class DeviceZabbixTasksTable(JobTable):
+
+#    id = LinkColumn(
+#        viewname='core:job',  # built-in Job detail view
+#        args=[A('pk')],
+#        verbose_name='ID'
+#    )
+#    name = LinkColumn(
+#        viewname='core:job',
+#        args=[A('pk')],
+#        verbose_name='Name'
+#    )
+
+    actions = []
+
+    class Meta(NetBoxTable.Meta):
+        model = Job
+        fields = ("id", "name", "status", "user", "started", "completed")
+
+    def get_actions(self, record):
+            return []
 
 
 # end

@@ -426,8 +426,9 @@ class HostGroup(NetBoxModel):
 # Zabbix Configs
 # ------------------------------------------------------------------------------
 
+from netbox.models import JobsMixin
 
-class ZabbixConfig(NetBoxModel):
+class ZabbixConfig(NetBoxModel, JobsMixin):
     class Meta:
         abstract = True
 
