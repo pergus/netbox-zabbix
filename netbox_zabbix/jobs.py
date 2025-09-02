@@ -906,7 +906,16 @@ def register_host_in_zabbix( zcfg, obj ):
     Create the host in Zabbix via API.
     """
     payload = build_payload( zcfg )
-    result = create_host( **payload )
+    
+    logger.info( "*******************************************************" )
+    logger.info( f"{json.dumps(payload, indent=2)}" )
+    logger.info( "*******************************************************" )
+    
+    try:
+        result = create_host( **payload )
+    except Exception as e:
+        raise ExceptionWithData( f"Failed to create host in Zabbix {str( e) }", payload )
+    
     hostid = result.get( "hostids", [None] )[0]
     if not hostid:
         raise ExceptionWithData( f"Zabbix failed to return hostid for {obj.name}", payload )
@@ -1013,34 +1022,6 @@ def device_update_zabbix_host( zabbix_config ):
         # Fetch current state of the host in Zabbix
         pre_data = get_host_by_id( zabbix_config.hostid )
         
-#        # Step 1: Current template IDs in Zabbix
-#        current_template_ids = set()
-#        for template in pre_data.get( "parentTemplates", [] ):
-#            template_name = template.get( "name", "" )
-#            if template_name:
-#                try:
-#                    template_obj = Template.objects.get( name=template_name )
-#                    current_template_ids.add( template_obj.templateid )
-#                except Template.DoesNotExist:
-#                    # Template no longer exists in NetBox
-#                    continue
-#        
-#        # Step 2: Templates currently assigned in NetBox
-#        new_template_ids = set( zabbix_config.templates.values_list( "id", flat=True ) )
-#        
-#        # Step 3: Determine removed templates (to clear in Zabbix)
-#        removed_template_ids = current_template_ids - new_template_ids 
-#
-#
-#        # Transform into Zabbix payload format
-#        templates_clear = [ {"templateid": str( tid ) } for tid in removed_template_ids ]
-#
-#        logger.info( "*******************************************************" )
-#        logger.info( f"templates_clear: {templates_clear}")
-#        logger.info( "*******************************************************" )
-
-
-
         # Current template IDs in Zabbix (directly assigned to host)
         current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
         
@@ -1055,10 +1036,6 @@ def device_update_zabbix_host( zabbix_config ):
         payload = build_payload( zabbix_config )
         if len (templates_clear ) > 0:
             payload["templates_clear"] = templates_clear
-
-        logger.info( "*******************************************************" )
-        logger.info( f"{json.dumps(payload, indent=2)}" )
-        logger.info( "*******************************************************" )
 
         try:
             update_host( **payload )
@@ -1240,9 +1217,7 @@ class DeviceQuickAddAgent( AtomicJobRunner ):
         try:
             return device_quick_add_agent( device, user, requestid )
         except Exception as e:
-            #msg = f"Failed to create Zabbix configuration for device '{device.name}': { str( e ) }"
-            #logger.error( msg )
-            raise Exception( e )
+            raise e
 
     @classmethod
     def run_job(cls, device, user, requestid, schedule_at=None, interval=None, immediate=False):
@@ -1291,13 +1266,8 @@ class DeviceQuickAddSNMPv3( AtomicJobRunner ):
         try:
             return device_quick_add_snmpv3( device, user, requestid )
         except Exception as e:
-            msg = f"Failed to quick add SNMPv3 interface for device '{device.name}': { str( e ) }"
-            logger.error( msg )
-            if hasattr( e, "data" ):
-                data = getattr( e, "data", "")
-                raise ExceptionWithData( e, data )
-            else:
-                raise Exception( e )
+            raise e
+            
 
     @classmethod
     def run_job(cls, device, user, requestid, schedule_at=None, interval=None, immediate=False):
@@ -1409,7 +1379,6 @@ class DeviceUpdateZabbixHost( AtomicJobRunner ):
 
 
 class DeleteZabbixHost( AtomicJobRunner ):
-    # TODO: What about the user name of the person who deleted the host?
     @classmethod
     def run(cls, *args, **kwargs):
         hostid = kwargs.get( "hostid", None )

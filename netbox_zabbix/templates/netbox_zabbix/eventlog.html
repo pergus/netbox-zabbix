@@ -86,11 +86,13 @@
                             <td>{% badge object.job.get_status_display object.job.get_status_color %}</td>
                         </tr>
                         {% endif %}
-
+                        
+                        {% if object.message  != "" %}
                         <tr>
                             <th>Message</th>
                             <td>{{ object.message|linebreaksbr }}</td>
                         </tr>
+                        {% endif %}
 
                         {% if object.exception != "" %}
                         <tr>

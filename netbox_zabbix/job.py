@@ -57,11 +57,12 @@ class AtomicJobRunner(JobRunner):
             cls._log_event( name=job.name, job=job, result=result )
 
         except Exception as e:
-
             error_msg = str( e )
             data = getattr( e, "data", None )
             pre_data = getattr( e, "pre_data", None )
             post_data = getattr( e, "pos_data", None )
+
+            logger.info( f"DEBUG {data}" )
 
             job.data = {
                 "status": "failed",
