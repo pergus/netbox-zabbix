@@ -1,4 +1,4 @@
-from django.utils.text import slugify
+#from django.utils.text import slugify
 
 from ipam.models import IPAddress
 from dcim.models import Device, Interface as DeviceInterface
@@ -1118,7 +1118,8 @@ class ValidateDeviceOrVM( AtomicJobRunner ):
 
     @classmethod
     def run_job(cls, device_or_vm, user, schedule_at=None, interval=None, immediate=False):
-        name = slugify( f"ZBX Validate {device_or_vm.name}" )
+        #name = slugify( f"Validate {device_or_vm.name}" )
+        name = f"Validate {device_or_vm.name}"
         job_args = {
             "name": name,
             "schedule_at": schedule_at,
@@ -1177,7 +1178,8 @@ class ImportFromZabbix( AtomicJobRunner ):
 
     @classmethod
     def run_job(cls, device_or_vm, user, schedule_at=None, interval=None, immediate=False):
-        name = slugify( f"ZBX Import {device_or_vm.name}" )
+        #name = slugify( f"Import {device_or_vm.name}" )
+        name = f"Import {device_or_vm.name}"
         job_args = {
             "name": name,
             "schedule_at": schedule_at,
@@ -1222,8 +1224,9 @@ class DeviceQuickAddAgent( AtomicJobRunner ):
     @classmethod
     def run_job(cls, device, user, requestid, schedule_at=None, interval=None, immediate=False):
 
-        name = slugify( f"ZBX Device Quick Add Agent {device.name}" )
-        
+        #name = slugify( f"Add Agent {device.name}" )
+        name = f"Add Agent {device.name}"
+
         job_args = {
                     "name":         name,
                     "schedule_at":  schedule_at,
@@ -1262,7 +1265,6 @@ class DeviceQuickAddSNMPv3( AtomicJobRunner ):
         if not requestid:
             raise ValueError( "Missing required argument 'requestid'." )
         
-
         try:
             return device_quick_add_snmpv3( device, user, requestid )
         except Exception as e:
@@ -1272,8 +1274,8 @@ class DeviceQuickAddSNMPv3( AtomicJobRunner ):
     @classmethod
     def run_job(cls, device, user, requestid, schedule_at=None, interval=None, immediate=False):
 
-        name = slugify( f"ZBX Device Quick Add SNMPv3 {device.name}" )
-        
+        #name = slugify( f"Add SNMPv3 {device.name}" )
+        name = f"Add SNMPv3 {device.name}"
         job_args = {
                     "name":         name,
                     "schedule_at":  schedule_at,
@@ -1309,7 +1311,8 @@ class ImportZabbixSetting( AtomicJobRunner ):
     @classmethod
     def run_job(cls, user=None, schedule_at=None, interval=None, immediate=False, name=None):
         if name is None:
-            name = slugify( f"Zabbix Sync" )
+            #name = slugify( f"Zabbix Sync" )
+            name = f"Zabbix Sync"
         job_args = {
             "name": name,
             "schedule_at": schedule_at,
@@ -1355,8 +1358,9 @@ class DeviceUpdateZabbixHost( AtomicJobRunner ):
     @classmethod
     def run_job(cls, device_name, device_zabbix_config, user, schedule_at=None, interval=None, immediate=False):
         # TODO: Add parameter checks here
-        name = slugify( f"ZBX Update Zabbix Host for device {device_name}" )
-        
+        #name = slugify( f"Update host in Zabbix for device {device_name}" )
+        name = f"Update device {device_name}"
+
         job_args = {
                     "name":                 name,
                     "instance":             device_zabbix_config,
@@ -1396,7 +1400,8 @@ class DeleteZabbixHost( AtomicJobRunner ):
     @classmethod
     def run_job(cls, hostid, user=None, schedule_at=None, interval=None, immediate=False, name=None):
         if name is None:
-            name = slugify( f"ZBX Delete Zabbix Host {hostid}" )
+            #name = slugify( f"Delete host {hostid} in Zabbix" )
+            name = f"Delete Zabbix host '{hostid}'" 
         
         job_args = {
                     "name": name,
