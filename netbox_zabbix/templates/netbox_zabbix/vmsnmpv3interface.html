@@ -12,6 +12,11 @@
                         <th scope="row">Name</th>
                         <td>{{ object.name }}</td>
                     </tr>
+                    
+                    <tr>
+                        <th scope="row">VM Configuration</th>
+                        <td><a href="{{ object.host.get_absolute_url }}">{{ object.host.get_name }} </a> </td>
+                    </tr>
 
                     <tr>
                         <th scope="row">Interface ID</th>
@@ -19,35 +24,47 @@
                     </tr>
 
                     <tr>
+                        <th scope="row">Zabbix Host ID</th>
+                        <td>{{ object.hostid }}</td>
+                    </tr>
+
+                    <tr>
                         <th scope="row">VM</th>
                         <td><a href="{{ object.host.virtual_machine.get_absolute_url }}">{{
                                 object.host.virtual_machine.name }}</a></td>
                     </tr>
+                    
                     <tr>
                         <th scope="row">VM Interface</th>
                         <td><a href="{{ object.interface.get_absolute_url }}">{{ object.interface.name }}</a></td>
                     </tr>
+                    
                     <tr>
                         <th scope="row">IP Address</th>
                         <td><a href="{{ object.resolved_ip_address.get_absolute_url }}">{{ object.resolved_ip_address
                                 }}</a></td>
                     </tr>
+                    
                     <tr>
                         <th scope="row">DNS Name</th>
                         <td>{{ object.resolved_dns_name }}</td>
                     </tr>
+                    
                     <tr>
                         <th scope="row">Use IP</th>
                         <td>{{ object.get_useip_display }}</td>
                     </tr>
+                    
                     <tr>
                         <th scope="row">Main</th>
                         <td>{{ object.get_main_display }}</td>
                     </tr>
+                    
                     <tr>
                         <th scope="row">Port</th>
                         <td>{{ object.port }}</td>
                     </tr>
+                    
                     <tr>
                         <th scope="row">Available</th>
                         <td>{{ object.get_available_display }}</td>

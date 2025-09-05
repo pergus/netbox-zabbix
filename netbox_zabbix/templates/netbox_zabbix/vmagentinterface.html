@@ -12,10 +12,20 @@
                         <th scope="row">Name</th>
                         <td>{{ object.name }}</td>
                     </tr>
-                    
+
+                    <tr>
+                        <th scope="row">VM Configuration</th>
+                        <td><a href="{{ object.host.get_absolute_url }}">{{ object.host.get_name }} </a> </td>
+                    </tr>
+
                     <tr>
                         <th scope="row">Interface ID</th>
                         <td>{{ object.interfaceid }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Zabbix Host ID</th>
+                        <td>{{ object.hostid }}</td>
                     </tr>
 
                     <tr>

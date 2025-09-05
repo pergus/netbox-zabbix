@@ -87,6 +87,16 @@
                     </tr>
 
                     <tr>
+                        <th>Host Groups</th>
+                        <td>
+                            {% for host_group in object.host_groups.all %}
+                            <a href="{{ host_group.get_absolute_url }}" class="badge text-bg-primary">{{ host_group.name }}</a>
+                            {% endfor %}
+                        </td>
+                    </tr>
+
+
+                    <tr>
                         <th>Templates</th>
                         <td>
                             {% for template in object.templates.all %}
@@ -94,6 +104,8 @@
                             {% endfor %}
                         </td>
                     </tr>
+
+
                 </table>
             </div>
         </div>

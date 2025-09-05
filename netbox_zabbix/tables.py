@@ -384,15 +384,17 @@ class ImportableDeviceTable(NetBoxTable):
         fields = ("name", "site", "status", "role", "valid", "reason" )
         default_columns = ("name", "site", "status", "valid", "reaon" )
 
-    def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+    def __init__(self, *args, request=None, **kwargs):
+            super().__init__( *args, **kwargs )
             self.reasons = {}
     
     def render_valid(self, record):
         if config.get_auto_validate_importables():
             try:
-                jobs.ValidateDeviceOrVM.run( device_or_vm = record, user=None )
-                return mark_safe("✔")     
+                # Since we don't to log the result of each device we
+                # call the 'run' method without the request argument.
+                jobs.ValidateDeviceOrVM.run( model_instance = record )
+                return mark_safe("✔")
             except Exception as e:
                 self.reasons[record] = e
                 return mark_safe("✘")
@@ -427,8 +429,10 @@ class ImportableVMTable(NetBoxTable):
     def render_valid(self, record):
         if config.get_auto_validate_importables():
             try:
-                jobs.ValidateDeviceOrVM.run( device_or_vm = record, user=None )
-                return mark_safe("✔")        
+                # Since we don't to log the result of each device we
+                # call the 'run' method without the request argument.
+                jobs.ValidateDeviceOrVM.run( model_instance = record )
+                return mark_safe("✔")
             except Exception as e:
                 self.reasons[record] = e
                 return mark_safe("✘")

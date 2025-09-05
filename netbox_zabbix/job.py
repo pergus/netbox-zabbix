@@ -51,7 +51,7 @@ class AtomicJobRunner(JobRunner):
             job.start()
             with transaction.atomic():
                 result = cls(job).run( *args, **kwargs ) or {}
-                job.data = { "status": "success", "result": result }
+                job.data = { "status": "success", "result": result, "request_id": str(kwargs.get("request_id")) }
                 job.terminate( status=JobStatusChoices.STATUS_COMPLETED )
 
             cls._log_event( name=job.name, job=job, result=result )
@@ -61,8 +61,6 @@ class AtomicJobRunner(JobRunner):
             data = getattr( e, "data", None )
             pre_data = getattr( e, "pre_data", None )
             post_data = getattr( e, "pos_data", None )
-
-            logger.info( f"DEBUG {data}" )
 
             job.data = {
                 "status": "failed",

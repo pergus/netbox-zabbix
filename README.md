@@ -9,10 +9,26 @@ NetBox plugin for Zabbix.
 
 
 ### Todo
-netbox_zabbix.jobs.ExceptionWithData: ('Error -32602: Invalid params., Cannot link template "AXIS Debian" to host "dk-ece007w", because its parent template "ICMP Ping" would be linked twice.', -32602)
+
+* Failsafe delete
+1. Disable in Zabbix.
+2. Is it possible to add the host in a special host group.
 
 
-* Should I add additional iformation about templates to Zabbix to make
+
+
+
+[DONE] DNS name changes
+
+* What if an interface change the ip address?
+
+* What if a device/vm changes or deletes an interface?
+
+
+[DONE] netbox_zabbix.jobs.ExceptionWithData: ('Error -32602: Invalid params., Cannot link template "AXIS Debian" to host "dk-ece007w", because its parent template "ICMP Ping" would be linked twice.', -32602)
+
+
+[DONE] Should I add additional information about templates to Zabbix to make
 the checks easier.
 
 

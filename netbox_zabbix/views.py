@@ -462,7 +462,7 @@ def device_quick_add_agent(request):
             messages.error( request, f"No Device with id {device_id} found" )
         else:
             try:
-                job = jobs.DeviceQuickAddAgent.run_job( device=device, user=request.user, requestid=request.id )
+                job = jobs.ProvisionDeviceAgent.run_job( device=device, request=request)
                 message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
                 messages.success( request, message )
             except Exception as e:
@@ -481,7 +481,7 @@ def device_quick_add_snmpv3(request):
             messages.error( request, f"No Device with id {device_id} found" )
         else:
             try:
-                job = jobs.DeviceQuickAddSNMPv3.run_job( device=device, user=request.user, requestid=request.id )
+                job = jobs.ProvisionDeviceSNMPv3.run_job( device=device, reques=request )
                 message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {device.name}' )
                 messages.success( request, message )
             except Exception as e:
@@ -623,7 +623,7 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
             for device in queryset:
                 try:
                     logger.info ( f"quick add agent to {device.name}" )
-                    job = jobs.DeviceQuickAddAgent.run_job( device=device, user=request.user, requestid=request.id )
+                    job = jobs.ProvisionDeviceAgent.run_job( device=device, request=request )
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
                     if success_counter < max_success_messages:
                         messages.success( request, message )
@@ -650,7 +650,7 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
             for device in queryset:
                 try:
                     logger.info ( f"quick add snmpv3t to {device.name}" )
-                    job = jobs.DeviceQuickAddSNMPv3.run_job( device=device, user=request.user, requestid=request.id )
+                    job = jobs.ProvisionDeviceSNMPv3.run_job( device=device, request=request )
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {device.name}' )
                     if success_counter < max_success_messages:
                         messages.success( request, message )
@@ -894,8 +894,8 @@ class ImportableDeviceListView(generic.ObjectListView):
                 device = Device.objects.filter( pk=selected_ids[0] ).first()
                 if device:
                     try:
-                        logger.info( f"Validating device: {device.name}" )
-                        result = jobs.ValidateDeviceOrVM.run_now( device_or_vm=device, user=request.user, name=f"validate {device.name}" )
+                        logger.info( f"Validating device '{device.name}'" )
+                        result = jobs.ValidateDeviceOrVM.run_now( model_instance=device, request=request, name=f"Validate {device.name}" )
                         messages.success( request, result )
                     except Exception as e:
                         messages.error( request, str( e ) )
@@ -914,8 +914,8 @@ class ImportableDeviceListView(generic.ObjectListView):
             
             for device in queryset:
                 try:
-                    logger.info ( f"importing device {device.name}" )
-                    job = jobs.ImportFromZabbix.run_job( device_or_vm=device, user=request.user )
+                    logger.info ( f"Importing device {device.name}" )
+                    job = jobs.ImportFromZabbix.run_job( model_instance=device, request=request )
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {device.name} from Zabbix' )
                     if success_counter < max_success_messages:
                         messages.success( request, message )
@@ -980,8 +980,8 @@ class ImportableVMListView(generic.ObjectListView):
                 vm = VirtualMachine.objects.filter( pk=selected_ids[0] ).first()
                 if vm:
                     try:
-                        logger.info( f"Validating VM: {vm.name}" )
-                        result = jobs.ValidateDeviceOrVM.run_now( device_or_vm=vm, user=request.user, name=f"validate {vm.name}" )
+                        logger.info( f"Validating VM '{vm.name}'" )
+                        result = jobs.ValidateDeviceOrVM.run_now( model_instance=vm, request=request, name=f"Validate {vm.name}" )
                         messages.success( request, result )
                     except Exception as e:
                         messages.error( request, str( e ) )
@@ -995,15 +995,12 @@ class ImportableVMListView(generic.ObjectListView):
             # Add a check to make sure there are any selected hosts, print a warning if not.
             selected_ids = request.POST.getlist( 'pk' )
             queryset = VirtualMachine.objects.filter( pk__in=selected_ids )
-
-
             success_counter = 0
             max_success_messages = config.get_max_success_notifications()
-
             for vm in queryset:
                 try:
                     logger.info ( f"importing vm {vm.name}" )
-                    job = jobs.ImportFromZabbix.run_job( device_or_vm=vm, user=request.user )    
+                    job = jobs.ImportFromZabbix.run_job( device_or_vm=vm, user=request.user, request_id=request.id )
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {vm.name} from Zabbix' )
                     if success_counter < max_success_messages:
                         messages.success(request, message)
