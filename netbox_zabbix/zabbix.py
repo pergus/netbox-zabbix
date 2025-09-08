@@ -698,7 +698,7 @@ def get_host_interfaces(hostid):
     """
     try:
         z = get_zabbix_client()
-        return z.hostinterface.get( output=["interfaceid", "type"], hostids=hostid )
+        return z.hostinterface.get( output=["interfaceid", "type", "ip", "dns" ], hostids=hostid )
     except Exception as e:
         raise e
 
@@ -753,7 +753,6 @@ def get_problems(hostname):
 
     except Exception as e:
         raise e
-    
 
 
 # end

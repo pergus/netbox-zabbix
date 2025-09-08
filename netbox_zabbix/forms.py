@@ -314,22 +314,25 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
     def __init__(self, *args, **kwargs):
         instance = kwargs.get( 'instance', None )
     
-        super().__init__(*args, **kwargs)
+        super().__init__( *args, **kwargs )
 
         # Add specific device 
-        if self.initial.get('device_id'):
+        if self.initial.get( 'device_id' ):
             specific_device_id = self.initial.get( 'device_id' )
             self.fields['device'].queryset = Device.objects.filter( pk=specific_device_id )
             self.initial['device'] = specific_device_id
             return
 
         # Exclude already used devices from the queryset
-        if not instance:  
+        if not instance or not instance.pk:  
             # Creating a new DeviceZabbixConfig
+            logger.info( "Adding a new DeviceZabbixConfig" )
             used_device_ids = models.DeviceZabbixConfig.objects.values_list( 'device_id', flat=True )
             self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
         else:  
             # Editing an existing DeviceZabbixConfig
+            logger.info( "Editing an existing DeviceZabbixConfig" )
+            
             used_device_ids = models.DeviceZabbixConfig.objects.exclude( id=instance.id ).values_list( 'device_id', flat=True )
             self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
             # Don't allow to change the associated device. 
@@ -347,28 +350,27 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
         template_ids = [t.templateid for t in templates]
     
         device_config = self.instance
+        if device_config and device_config.pk:
+            has_agent = getattr( device_config, "agent_interfaces", None ) and device_config.agent_interfaces.exists()
+            has_snmp = getattr( device_config,  "snmpv3_interfaces", None ) and device_config.snmpv3_interfaces.exists()
         
-        has_agent = getattr( device_config, "agent_interfaces", None ) and device_config.agent_interfaces.exists()
-        has_snmp = getattr( device_config,  "snmpv3_interfaces", None ) and device_config.snmpv3_interfaces.exists()
-        
-        if has_agent and has_snmp:
-            interface_type = models.InterfaceTypeChoices.Any
-        elif has_agent:
-            interface_type = models.InterfaceTypeChoices.Agent
-        elif has_snmp:
-            interface_type = models.InterfaceTypeChoices.SNMP
-        else:
-            interface_type = models.InterfaceTypeChoices.Any
+            if has_agent and has_snmp:
+                interface_type = models.InterfaceTypeChoices.Any
+            elif has_agent:
+                interface_type = models.InterfaceTypeChoices.Agent
+            elif has_snmp:
+                interface_type = models.InterfaceTypeChoices.SNMP
+            else:
+                interface_type = models.InterfaceTypeChoices.Any
 
-    
-        # Validate templates for selected interface
-        try:
-            validate_template_combination( template_ids, interface_type )
-        except Exception as e:
-            raise ValidationError( str( e ) )
+            # Validate templates for selected interface
+            try:
+                validate_template_combination( template_ids, interface_type )
+            except Exception as e:
+                raise ValidationError( str( e ) )
     
         return self.cleaned_data
-    
+
 
 class DeviceZabbixConfigFilterForm(NetBoxModelFilterSetForm):
     model = models.DeviceZabbixConfig
@@ -411,7 +413,7 @@ class VMZabbixConfigForm(NetBoxModelForm):
             return
         
         # Exclude already used virtual machine from the queryset
-        if not instance:  
+        if not instance or not instance.pk:  
             # Creating a new VMZabbixConfig
             used_vms_ids = models.VMZabbixConfig.objects.values_list( 'virtual_machine_id', flat=True )
             self.fields['virtual_machine'].queryset = VirtualMachine.objects.exclude( id__in=used_vms_ids )
@@ -422,7 +424,7 @@ class VMZabbixConfigForm(NetBoxModelForm):
             # Don't allow to change the associated virtual machine. 
             # If a user need to change it they have to delete the zabbix configuration
             self.fields['virtual_machine'].disabled = True 
-            
+
 
 class VMZabbixConfigFilterForm(NetBoxModelFilterSetForm):
     model = models.ZabbixConfig

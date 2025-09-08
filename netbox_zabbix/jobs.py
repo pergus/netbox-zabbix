@@ -16,6 +16,9 @@ from virtualization.models import VirtualMachine, VMInterface
 from core.models import Job
 from datetime import timedelta, datetime
 
+from django.db.models.signals import post_save
+
+
 import netaddr
 
 # NetBox Zabbix Imports
@@ -26,7 +29,7 @@ from netbox_zabbix.models import (
     DeviceAgentInterface,
     DeviceSNMPv3Interface,
     InterfaceTypeChoices,
-    TypeChoices,
+    MainChoices,
 #    VMAgentInterface,
 #    VMSNMPv3Interface,
     DeviceMapping,
@@ -407,127 +410,252 @@ def get_tags(obj, existing_tags=None):
 # ------------------------------------------------------------------------------
 
 
-def build_payload(zcfg) -> dict:
+#def build_payload(zcfg) -> dict:
+#    """
+#    Build a Zabbix API-compatible payload from either DeviceZabbixConfig or VMZabbixConfig.
+#
+#    Args:
+#        zcfg: A Zabbix config model instance (device or VM).
+#
+#    Returns:
+#        dict: Zabbix `host.create` or `host.update` payload.
+#
+#    Raises:
+#        Exception: On missing associations or invalid data.
+#    """
+#    # Get the linked NetBox object (device or VM)
+#    linked_obj = getattr( zcfg, 'device', None ) or getattr( zcfg, 'virtual_machine', None )
+#    if not linked_obj:
+#        raise Exception( "Zabbix config is not linked to a device or virtual machine." )
+#
+#    payload = {}
+#    payload["host"] = linked_obj.name
+#
+#    # Host ID (for updates)
+#    if zcfg.hostid:
+#        payload["hostid"] = str( zcfg.hostid )
+#
+#    # Status
+#    payload["status"] = str( zcfg.status )
+#
+#    # Monitoring proxy/proxy group
+#    monitored_by = zcfg.monitored_by
+#    payload["monitored_by"] = str( monitored_by )
+#
+#    if monitored_by == MonitoredByChoices.Proxy:
+#        if not zcfg.proxy:
+#            raise Exception( f"Host '{payload['host']}' is set to use a proxy, but none is configured." )
+#        payload["proxyid"] = zcfg.proxy.proxyid
+#
+#    if monitored_by == MonitoredByChoices.ProxyGroup:
+#        if not zcfg.proxy_group:
+#            raise Exception( f"Host '{payload['host']}' is set to use a proxy group, but none is configured." )
+#        payload["proxy_groupid"] = zcfg.proxy_group.proxy_groupid
+#
+#    # Interfaces
+#    interfaces = []
+#    for iface in zcfg.agent_interfaces.all():
+#        entry = {
+#            "type":        str( 1 ),  # Zabbix Agent
+#            "main":        str( iface.main ),
+#            "useip":       str( iface.useip ),
+#            "ip":          str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
+#            "dns":         iface.resolved_dns_name or "",
+#            "port":        str( iface.port ),
+#        }
+#        if iface.interfaceid:
+#            entry["interfaceid"] = str( iface.interfaceid )
+#        interfaces.append( entry )
+#
+#    for iface in zcfg.snmpv3_interfaces.all():
+#        entry = {
+#            "type":        str( 2 ),  # SNMP
+#            "main":        str( iface.main ),
+#            "useip":       str( iface.useip ),
+#            "ip":          str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
+#            "dns":         iface.resolved_dns_name or "",
+#            "port":        str( iface.port ),
+#            "details": {
+#                "version":         str( iface.version ) ,
+#                "bulk":            str( iface.bulk ),
+#                "max_repetitions": str( iface.max_repetitions ),
+#                "contextname":     str( iface.contextname ),
+#                "securityname":    str( iface.securityname ),
+#                "securitylevel":   str( iface.securitylevel ),
+#                "authprotocol":    str( iface.authprotocol ),
+#                "authpassphrase":  str( iface.authpassphrase ),
+#                "privprotocol":    str( iface.privprotocol ),
+#                "privpassphrase":  str( iface.privpassphrase ),
+#            }
+#        }
+#        if iface.interfaceid:
+#            entry["interfaceid"] = str( iface.interfaceid )
+#        interfaces.append( entry )
+#
+#
+#    #if not interfaces:
+#    #    raise Exception(f"No interfaces defined for host '{payload['host']}'")
+#
+#    payload["interfaces"] = interfaces
+#
+#    # Host groups
+#    host_groups = zcfg.host_groups.all()
+#    if not host_groups:
+#        raise Exception(f"No host groups assigned to host '{payload['host']}'")
+#
+#    payload["groups"] = [ { "groupid": g.groupid } for g in host_groups ]
+#
+#
+#    # Description
+#    payload["description"] = zcfg.description
+#    
+#
+#    # Tags
+#    payload["tags"] = get_tags( linked_obj )
+#
+#    # Templates
+#    cfg_templates = zcfg.templates.all()
+#    #if not cfg_templates:
+#    #    raise Exception( f"No templates assigned to host '{payload['host']}'" )
+#
+#    payload["templates"] = [ { "templateid": t.templateid } for t in cfg_templates ]
+#
+#    # Inventory mode
+#    payload["inventory_mode"] = str( get_inventory_mode() )
+#
+#    # Inventory
+#    if payload["inventory_mode"] == str( InventoryModeChoices.MANUAL ):
+#        payload["inventory"] = get_zabbix_inventory_for_object( linked_obj )
+#
+#    # TLS settings
+#    if get_tls_connect() == TLSConnectChoices.PSK or get_tls_accept() == TLSConnectChoices.PSK:
+#        payload["tls_psk_identity"] = get_tls_psk_identity()
+#        payload["tls_psk"] = get_tls_psk()
+#
+#    return payload
+
+
+
+def build_payload(zcfg, for_update=False, pre_data=None) -> dict:
     """
     Build a Zabbix API-compatible payload from either DeviceZabbixConfig or VMZabbixConfig.
 
     Args:
         zcfg: A Zabbix config model instance (device or VM).
+        for_update (bool): Whether this payload is for `host.update` (vs. `host.create`).
+        pre_data (dict, optional): Existing Zabbix host data (from get_host_by_id) to
+                                   recover interface IDs when NetBox doesn't know them.
 
     Returns:
         dict: Zabbix `host.create` or `host.update` payload.
-
-    Raises:
-        Exception: On missing associations or invalid data.
     """
-    # Get the linked NetBox object (device or VM)
-    linked_obj = getattr( zcfg, 'device', None ) or getattr( zcfg, 'virtual_machine', None )
-    if not linked_obj:
-        raise Exception( "Zabbix config is not linked to a device or virtual machine." )
 
-    payload = {}
-    payload["host"] = linked_obj.name
-
-    # Host ID (for updates)
-    if zcfg.hostid:
-        payload["hostid"] = str( zcfg.hostid )
-
-    # Status
-    payload["status"] = str( zcfg.status )
-
-    # Monitoring proxy/proxy group
-    monitored_by = zcfg.monitored_by
-    payload["monitored_by"] = str( monitored_by )
-
-    if monitored_by == MonitoredByChoices.Proxy:
-        if not zcfg.proxy:
-            raise Exception( f"Host '{payload['host']}' is set to use a proxy, but none is configured." )
-        payload["proxyid"] = zcfg.proxy.proxyid
-
-    if monitored_by == MonitoredByChoices.ProxyGroup:
-        if not zcfg.proxy_group:
-            raise Exception( f"Host '{payload['host']}' is set to use a proxy group, but none is configured." )
-        payload["proxy_groupid"] = zcfg.proxy_group.proxy_groupid
-
-    # Interfaces
-    interfaces = []
-    for iface in zcfg.agent_interfaces.all():
-        entry = {
-            "type":        str( 1 ),  # Zabbix Agent
-            "main":        str( iface.main ),
-            "useip":       str( iface.useip ),
-            "ip":          str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
-            "dns":         iface.resolved_dns_name or "",
-            "port":        str( iface.port ),
-        }
-        if iface.interfaceid:
-            entry["interfaceid"] = str( iface.interfaceid )
-        interfaces.append( entry )
-
-    for iface in zcfg.snmpv3_interfaces.all():
-        entry = {
-            "type":        str( 2 ),  # SNMP
-            "main":        str( iface.main ),
-            "useip":       str( iface.useip ),
-            "ip":          str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
-            "dns":         iface.resolved_dns_name or "",
-            "port":        str( iface.port ),
-            "details": {
-                "version":         str( iface.version ) ,
-                "bulk":            str( iface.bulk ),
-                "max_repetitions": str( iface.max_repetitions ),
-                "contextname":     str( iface.contextname ),
-                "securityname":    str( iface.securityname ),
-                "securitylevel":   str( iface.securitylevel ),
-                "authprotocol":    str( iface.authprotocol ),
-                "authpassphrase":  str( iface.authpassphrase ),
-                "privprotocol":    str( iface.privprotocol ),
-                "privpassphrase":  str( iface.privpassphrase ),
-            }
-        }
-        if iface.interfaceid:
-            entry["interfaceid"] = str( iface.interfaceid )
-        interfaces.append( entry )
-
-
-    #if not interfaces:
-    #    raise Exception(f"No interfaces defined for host '{payload['host']}'")
-
-    payload["interfaces"] = interfaces
-
-    # Host groups
-    host_groups = zcfg.host_groups.all()
-    if not host_groups:
-        raise Exception(f"No host groups assigned to host '{payload['host']}'")
-
-    payload["groups"] = [ { "groupid": g.groupid } for g in host_groups ]
-
-
-    # Description
-    payload["description"] = zcfg.description
+    logger.info( "***********************************************************" )
+    logger.info( f"build_payload - for_update {for_update}" )
+    logger.info( "***********************************************************" )
     
 
-    # Tags
-    payload["tags"] = get_tags( linked_obj )
+    linked_obj = getattr(zcfg, "device", None) or getattr(zcfg, "virtual_machine", None)
+    if not linked_obj:
+        raise Exception("Zabbix config is not linked to a device or virtual machine.")
 
-    # Templates
-    cfg_templates = zcfg.templates.all()
-    #if not cfg_templates:
-    #    raise Exception( f"No templates assigned to host '{payload['host']}'" )
+    payload = {
+        "host":           linked_obj.name,
+        "status":         str(zcfg.status),
+        "monitored_by":   str(zcfg.monitored_by),
+        "description":    zcfg.description,
+        "tags":           get_tags(linked_obj),
+        "groups":         [{"groupid": g.groupid} for g in zcfg.host_groups.all()],
+        "templates":      [{"templateid": t.templateid} for t in zcfg.templates.all()],
+        "inventory_mode": str(get_inventory_mode()),
+    }
 
-    payload["templates"] = [ { "templateid": t.templateid } for t in cfg_templates ]
+    if zcfg.hostid:
+        payload["hostid"] = str(zcfg.hostid)
 
-    # Inventory mode
-    payload["inventory_mode"] = str( get_inventory_mode() )
+    # Monitoring proxy/proxy group
+    if zcfg.monitored_by == MonitoredByChoices.Proxy:
+        if not zcfg.proxy:
+            raise Exception(f"Host '{payload['host']}' is set to use a proxy, but none is configured.")
+        payload["proxyid"] = zcfg.proxy.proxyid
+
+    if zcfg.monitored_by == MonitoredByChoices.ProxyGroup:
+        if not zcfg.proxy_group:
+            raise Exception(f"Host '{payload['host']}' is set to use a proxy group, but none is configured.")
+        payload["proxy_groupid"] = zcfg.proxy_group.proxy_groupid
 
     # Inventory
-    if payload["inventory_mode"] == str( InventoryModeChoices.MANUAL ):
-        payload["inventory"] = get_zabbix_inventory_for_object( linked_obj )
+    if payload["inventory_mode"] == str(InventoryModeChoices.MANUAL):
+        payload["inventory"] = get_zabbix_inventory_for_object(linked_obj)
 
-    # TLS settings
+    # TLS
     if get_tls_connect() == TLSConnectChoices.PSK or get_tls_accept() == TLSConnectChoices.PSK:
         payload["tls_psk_identity"] = get_tls_psk_identity()
         payload["tls_psk"] = get_tls_psk()
+
+    # Build a map of existing Zabbix interfaces (only for updates)
+    existing_ifaces = {}
+    if for_update and pre_data and "interfaces" in pre_data:
+        for iface in pre_data["interfaces"]:
+            key = (iface.get("ip"), iface.get("dns"), iface.get("type"), iface.get("port"))
+            existing_ifaces[key] = iface.get("interfaceid")
+
+    # Interfaces handling
+    interfaces = []
+    for iface in zcfg.agent_interfaces.all():
+        logger.info( f"iface.id {iface.id} iface.main: {str(iface.main) }" )
+        entry = {
+            "type":  "1",
+            "main":  "1" if iface.main == MainChoices.YES else "0",
+            "useip": str(iface.useip),
+            "ip":    str(iface.resolved_ip_address.address.ip) if iface.resolved_ip_address else "",
+            "dns":   iface.resolved_dns_name or "",
+            "port":  str(iface.port),
+        }
+
+        if for_update:
+            if iface.interfaceid:
+                entry["interfaceid"] = str(iface.interfaceid)
+            else:
+                key = (entry["ip"], entry["dns"], entry["type"], entry["port"])
+                if key in existing_ifaces:
+                    entry["interfaceid"] = existing_ifaces[key]
+
+        interfaces.append(entry)
+
+    for iface in zcfg.snmpv3_interfaces.all():
+        entry = {
+            "type":  "2",
+            "main":  "1" if iface.main == MainChoices.YES else "0",
+            "useip": str(iface.useip),
+            "ip":    str(iface.resolved_ip_address.address.ip) if iface.resolved_ip_address else "",
+            "dns":   iface.resolved_dns_name or "",
+            "port":  str(iface.port),
+            "details": {
+                "version":         str(iface.version),
+                "bulk":            str(iface.bulk),
+                "max_repetitions": str(iface.max_repetitions),
+                "contextname":     str(iface.contextname),
+                "securityname":    str(iface.securityname),
+                "securitylevel":   str(iface.securitylevel),
+                "authprotocol":    str(iface.authprotocol),
+                "authpassphrase":  str(iface.authpassphrase),
+                "privprotocol":    str(iface.privprotocol),
+                "privpassphrase":  str(iface.privpassphrase),
+            },
+        }
+
+        if for_update:
+            if iface.interfaceid:
+                entry["interfaceid"] = str(iface.interfaceid)
+            else:
+                key = (entry["ip"], entry["dns"], entry["type"], entry["port"])
+                if key in existing_ifaces:
+                    entry["interfaceid"] = existing_ifaces[key]
+
+        interfaces.append(entry)
+
+    payload["interfaces"] = interfaces
 
     return payload
 
@@ -537,7 +665,7 @@ def build_payload(zcfg) -> dict:
 # ------------------------------------------------------------------------------
 
 
-def _resolve_mapping(obj, interface_model, mapping_model, mapping_name: str):
+def resolve_mapping(obj, interface_model, mapping_model, mapping_name: str):
     """
     Shared logic to resolve a mapping for Device or VM.
     """
@@ -578,14 +706,14 @@ def resolve_device_mapping(obj, interface_model):
     """
     Resolve mapping for a Device.
     """
-    return _resolve_mapping( obj, interface_model, DeviceMapping, "Device" )
+    return resolve_mapping( obj, interface_model, DeviceMapping, "Device" )
 
 
 def resolve_vm_mapping(obj, interface_model):
     """
     Resolve mapping for a Virtual Machine.
     """
-    return _resolve_mapping( obj, interface_model, VMMapping, "VM" )
+    return resolve_mapping( obj, interface_model, VMMapping, "VM" )
 
 
 # ------------------------------------------------------------------------------
@@ -661,11 +789,19 @@ def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
     """
     Create a ZabbixConfig object for the given device or VM.
     """
+    
+    from netbox_zabbix.signals.signals import dev_save_zabbix_config
+    
     try:
         zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
         zcfg = zabbix_config_model( **zcfg_kwargs )
         zcfg.full_clean()
+
+        # Disable signals before saving the zabbix configuration
+        post_save.disconnect( dev_save_zabbix_config, sender=type( zcfg ) )
         zcfg.save()
+        post_save.connect( dev_save_zabbix_config, sender=type( zcfg ) )
+
         return zcfg
     
     except Exception as e:
@@ -719,7 +855,7 @@ def apply_mapping_to_config( zcfg, mapping, monitored_by ):
             raise Exception( msg )
 
 
-def add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, interface_kwargs_fn, user, request_id ):
+def create_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, interface_kwargs_fn, user, request_id ):
     """
     Create and persist a Zabbix interface in NetBox for the given object.
     """
@@ -728,6 +864,8 @@ def add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, int
         raise Exception( f"{obj.name} does not have a primary IPv4 address" )
 
     useip = UseIPChoices.DNS if getattr( ip, "dns_name", None ) else UseIPChoices.IP
+
+    from netbox_zabbix.signals.signals import dev_save_zabbix_interface
 
     try:
         interface_fields = dict(
@@ -740,7 +878,12 @@ def add_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, int
         interface_fields.update( interface_kwargs_fn() )
         iface = interface_model( **interface_fields )
         iface.full_clean()
+
+        # Disable signals before saving the interface
+        post_save.disconnect( dev_save_zabbix_interface, sender=interface_model )
         iface.save()
+        post_save.connect( dev_save_zabbix_interface, sender=interface_model )
+        
         changelog_create( iface, user, request_id )
 
         return iface
@@ -754,60 +897,64 @@ def save_zabbix_config( zcfg ):
     """
     Save the ZabbixConfig to NetBox after it has been updated.
     """
+    from netbox_zabbix.signals.signals import dev_save_zabbix_config
+
     zcfg.full_clean()
+    post_save.disconnect( dev_save_zabbix_config, sender=type( zcfg ) )
     zcfg.save()
+    post_save.connect( dev_save_zabbix_config, sender=type( zcfg ) )
 
 
-def create_zabbix_host( zcfg, iface, obj, user, request_id ):
-    """
-    Register a host in Zabbix and link the interface with its Zabbix ID.
-    """
-    try:
-        payload = build_payload( zcfg )
-    except Exception as e:
-        msg = f"Failed to build payload for {obj.name}: {e}"
-        logger.error( msg )
-        raise Exception( msg )
-
-    try:
-        result = create_host( **payload )
-        hostid = result.get( "hostids", [None] )[0]
-        if not hostid:
-            msg = f"Zabbix failed to return hostid for {obj.name}"
-            logger.error( msg )
-            raise ExceptionWithData( msg, payload )
-        zcfg.hostid = int( hostid )
-    except Exception as e:
-        msg = f"Failed to create host configuration in Zabbix for {obj.name}: {e}"
-        logger.error( msg )
-        raise ExceptionWithData( msg, payload )
-
-    try:
-        result = get_host_interfaces( hostid )
-        if len( result ) == 1:
-            iface.interfaceid = result[0].get( "interfaceid", None )
-            iface.full_clean()
-            iface.save()
-        else:
-            msg = f"Unexpected number of interfaces returned for {obj.name}"
-            logger.error( msg )
-            raise ExceptionWithData( msg, payload )
-    except Exception as e:
-        delete_host( hostid )
-        msg = f"Failed to link interface to host {obj.name}: {e}"
-        logger.error( msg )
-        raise ExceptionWithData( msg, payload )
-
-    try:
-        zcfg.full_clean()
-        zcfg.save()
-    except Exception as e:
-        delete_host( hostid )
-        msg = f"Failed to save Zabbix configuration for {obj.name}: {e}"
-        logger.error( msg )
-        raise ExceptionWithData( msg, payload )
-
-    return { "message": f"Created {obj.name}", "data": payload }
+#def create_zabbix_host( zcfg, iface, obj, user, request_id ):
+#    """
+#    Register a host in Zabbix and link the interface with its Zabbix ID.
+#    """
+#    try:
+#        payload = build_payload( zcfg, for_update=False )
+#    except Exception as e:
+#        msg = f"Failed to build payload for {obj.name}: {e}"
+#        logger.error( msg )
+#        raise Exception( msg )
+#
+#    try:
+#        result = create_host( **payload )
+#        hostid = result.get( "hostids", [None] )[0]
+#        if not hostid:
+#            msg = f"Zabbix failed to return hostid for {obj.name}"
+#            logger.error( msg )
+#            raise ExceptionWithData( msg, payload )
+#        zcfg.hostid = int( hostid )
+#    except Exception as e:
+#        msg = f"Failed to create host configuration in Zabbix for {obj.name}: {e}"
+#        logger.error( msg )
+#        raise ExceptionWithData( msg, payload )
+#
+#    try:
+#        result = get_host_interfaces( hostid )
+#        if len( result ) == 1:
+#            iface.interfaceid = result[0].get( "interfaceid", None )
+#            iface.full_clean()
+#            iface.save()
+#        else:
+#            msg = f"Unexpected number of interfaces returned for {obj.name}"
+#            logger.error( msg )
+#            raise ExceptionWithData( msg, payload )
+#    except Exception as e:
+#        delete_host( hostid )
+#        msg = f"Failed to link interface to host {obj.name}: {e}"
+#        logger.error( msg )
+#        raise ExceptionWithData( msg, payload )
+#
+#    try:
+#        zcfg.full_clean()
+#        zcfg.save()
+#    except Exception as e:
+#        delete_host( hostid )
+#        msg = f"Failed to save Zabbix configuration for {obj.name}: {e}"
+#        logger.error( msg )
+#        raise ExceptionWithData( msg, payload )
+#
+#    return { "message": f"Created {obj.name}", "data": payload }
 
 
 # ------------------------------------------------------------------------------
@@ -815,11 +962,11 @@ def create_zabbix_host( zcfg, iface, obj, user, request_id ):
 # ------------------------------------------------------------------------------
 
 
-def register_host_in_zabbix( zcfg, obj ):
+def create_host_in_zabbix( zcfg, name ):
     """
     Create the host in Zabbix via API.
     """
-    payload = build_payload( zcfg )
+    payload = build_payload( zcfg, for_update=False )
         
     try:
         result = create_host( **payload )
@@ -828,21 +975,119 @@ def register_host_in_zabbix( zcfg, obj ):
     
     hostid = result.get( "hostids", [None] )[0]
     if not hostid:
-        raise ExceptionWithData( f"Zabbix failed to return hostid for {obj.name}", payload )
+        raise ExceptionWithData( f"Zabbix failed to return hostid for {name}", payload )
     return int( hostid ), payload
 
 
-def link_interface_in_zabbix( hostid, iface, obj ):
+def link_interface_in_zabbix( hostid, iface, name ):
     """
     Fetch Zabbix interface IDs and link to local iface.
     """
     result = get_host_interfaces( hostid )
     if len( result ) != 1:
-        raise ExceptionWithData( f"Unexpected number of interfaces returned for {obj.name}", result )
+        raise ExceptionWithData( f"Unexpected number of interfaces returned for {name}", result )
 
     iface.interfaceid = result[0].get( "interfaceid", None )
+    iface.hostid = hostid
     iface.full_clean()
+
+    from netbox_zabbix.signals.signals import dev_save_zabbix_interface
+    post_save.disconnect( dev_save_zabbix_interface, sender=type( iface ) )
     iface.save()
+    post_save.connect( dev_save_zabbix_interface, sender=type( iface ) )
+
+def normalize_ip(ip):
+    if not ip:
+        return ""
+    # If it's a string with a slash, only take the part before the slash
+    return str(ip).split("/")[0]
+
+
+def link_missing_interface(zcfg, hostid):
+    """
+    Ensure the Zabbix interface is linked for the interface that is missing its interfaceid.
+    
+    Args:
+        zcfg: DeviceZabbixConfig or VMZabbixConfig instance.
+        hostid: The id of the Host in Zabbix.
+    """
+    logger.info(f"Linking missing interface for host {zcfg.get_name()} (hostid={hostid})")
+
+    # Fetch all Zabbix interfaces for this host
+    zbx_interfaces = get_host_interfaces(hostid)
+    logger.info(f"Zabbix interfaces retrieved: {zbx_interfaces}")
+
+    # Find the unlinked interface (agent or SNMPv3)
+    unlinked_iface = None
+    for iface in list(zcfg.agent_interfaces.all()) + list(zcfg.snmpv3_interfaces.all()):
+        if iface.interfaceid is None:
+            unlinked_iface = iface
+            break
+
+    if not unlinked_iface:
+        logger.info("All interfaces already linked to Zabbix; nothing to do.")
+        return
+
+    logger.info(
+        f"Unlinked interface: {unlinked_iface}, "
+        f"type={unlinked_iface.type}, "
+        f"ip={unlinked_iface.resolved_ip_address}, "
+        f"dns={unlinked_iface.resolved_dns_name}"
+    )
+
+    if not zbx_interfaces:
+        raise ExceptionWithData(
+            f"No interfaces found in Zabbix for host {zcfg.get_name()}",
+            {"hostid": zcfg.hostid}
+        )
+
+    # Normalize unlinked IP (remove /prefix) for comparison
+    unlinked_ip_obj = unlinked_iface.resolved_ip_address
+    unlinked_ip = str( unlinked_ip_obj.address ) if unlinked_ip_obj else ""
+    unlinked_dns = str(unlinked_iface.resolved_dns_name) if unlinked_iface.resolved_dns_name else ""
+    iface_type = unlinked_iface.type
+
+    # Find the matching Zabbix interface
+    target_iface = None
+    for z in zbx_interfaces:
+        z_ip = z.get("ip", "")
+        z_dns = z.get("dns", "")
+        z_type = int(z.get("type", 0))
+
+        logger.info(
+            f"Checking Zabbix interface: {z}, "
+            f"ip={z_ip}, dns={z_dns}, type={z_type}"
+        )
+
+        if z_type != iface_type:
+            continue
+
+        if z_ip == unlinked_ip or z_dns == unlinked_dns:
+            target_iface = z
+            logger.info(f"Matched Zabbix interface: {target_iface}")
+            break
+
+    if not target_iface:
+        raise ExceptionWithData(
+            f"Could not find a matching Zabbix interface for {unlinked_iface}",
+            {"zbx_interfaces": zbx_interfaces, "unlinked_iface": unlinked_iface}
+        )
+
+    # Update the interface
+    unlinked_iface.interfaceid = target_iface["interfaceid"]
+    unlinked_iface.hostid = hostid
+    unlinked_iface.full_clean()
+
+    # Temporarily disable signal to avoid recursion and save the interface
+    from netbox_zabbix.signals.signals import dev_save_zabbix_interface
+    post_save.disconnect(dev_save_zabbix_interface, sender=type(unlinked_iface))
+    unlinked_iface.save(update_fields=["interfaceid", "hostid"])
+    post_save.connect(dev_save_zabbix_interface, sender=type(unlinked_iface))
+
+    logger.info(
+        f"Linked interface {unlinked_iface} to Zabbix interfaceid={target_iface['interfaceid']}"
+    )
+
 
 
 # ------------------------------------------------------------------------------
@@ -1067,26 +1312,28 @@ class ProvisionContext:
 
 
 def provision_zabbix_host(ctx: ProvisionContext):
-    monitored_by = get_monitored_by()
-
-    mapping = (resolve_device_mapping if isinstance( ctx.obj, Device ) else resolve_vm_mapping)( ctx.obj, ctx.interface_model )
-
-    zabbix_config = create_zabbix_config( ctx.obj, ctx.host_field_name, ctx.zabbix_config_model )
-    apply_mapping_to_config( zabbix_config, mapping, monitored_by )
-    iface = add_zabbix_interface( 
-        ctx.obj, 
-        zabbix_config, 
-        ctx.interface_model, 
-        ctx.interface_name_suffix, 
-        ctx.interface_kwargs_fn, 
-        ctx.user, 
-        ctx.request_id 
-    )
 
     try:
-        hostid, payload = register_host_in_zabbix( zabbix_config, ctx.obj )
+    
+        monitored_by = get_monitored_by()
+
+        mapping = (resolve_device_mapping if isinstance( ctx.obj, Device ) else resolve_vm_mapping)( ctx.obj, ctx.interface_model )
+
+        zabbix_config = create_zabbix_config( ctx.obj, ctx.host_field_name, ctx.zabbix_config_model )
+        apply_mapping_to_config( zabbix_config, mapping, monitored_by )
+        iface = create_zabbix_interface( 
+            ctx.obj, 
+            zabbix_config, 
+            ctx.interface_model, 
+            ctx.interface_name_suffix, 
+            ctx.interface_kwargs_fn, 
+            ctx.user, 
+            ctx.request_id 
+        )
+
+        hostid, payload = create_host_in_zabbix( zabbix_config, ctx.obj.name )
         zabbix_config.hostid = hostid
-        link_interface_in_zabbix( hostid, iface, ctx.obj )
+        link_interface_in_zabbix( hostid, iface, ctx.obj.name )
         save_zabbix_config( zabbix_config )
         changelog_create( zabbix_config, ctx.user, ctx.request_id )
         associate_instance_with_job(ctx.job, zabbix_config )
@@ -1094,12 +1341,11 @@ def provision_zabbix_host(ctx: ProvisionContext):
     except Exception as e:
         if 'hostid' in locals():
             delete_host( hostid )
+        associate_instance_with_job( ctx.job, zabbix_config )
         raise
-    
-    # Associate the DeviceZabbixConfig instance with the job
-    associate_instance_with_job( ctx.job, zabbix_config )
 
     return { "message": f"Created {ctx.obj.name} with {mapping.name} mapping", "data": payload }
+
 
 
 
@@ -1108,40 +1354,139 @@ def provision_zabbix_host(ctx: ProvisionContext):
 # ------------------------------------------------------------------------------
 
 
-def device_update_zabbix_host( zabbix_config, user, request_id ):
+#def device_update_zabbix_host( zabbix_config, user, request_id ):
+#
+#    if zabbix_config:
+#        # Fetch current state of the host in Zabbix
+#        pre_data = get_host_by_id( zabbix_config.hostid )
+#        
+#        # Current template IDs in Zabbix (directly assigned to host)
+#        current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
+#        
+#        # Templates currently assigned in NetBox
+#        new_template_ids = set( str(tid) for tid in zabbix_config.templates.values_list( "templateid", flat=True ) )
+#        
+#        # Only remove templates that are no longer assigned
+#        removed_template_ids = current_template_ids - new_template_ids
+#        
+#        templates_clear = [ {"templateid": tid} for tid in removed_template_ids ]
+#
+#        payload = build_payload( zabbix_config )
+#        if len (templates_clear ) > 0:
+#            payload["templates_clear"] = templates_clear
+#
+#        try:
+#            update_host( **payload )
+#        except Exception as e:
+#            logger.info( "***************************************************" )
+#            logger.info( f"update_host failed" )
+#            logger.info( f"pre_data: {pre_data}" )
+#            logger.info( f"post_data: {payload}" )
+#            logger.info( "***************************************************" )
+#
+#            raise ExceptionWithData( e, pre_data=pre_data, post_data=payload )
+#
+#        # Add  a change log entry for the update
+#        changelog_update( zabbix_config, user, request_id )
+#        
+#        return { 
+#            "message":   f"Updated Zabbix host {zabbix_config.hostid}", 
+#            "pre_data":  pre_data, 
+#            "post_data": payload 
+#        }
 
-    if zabbix_config:
-        # Fetch current state of the host in Zabbix
-        pre_data = get_host_by_id( zabbix_config.hostid )
-        
-        # Current template IDs in Zabbix (directly assigned to host)
-        current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
-        
-        # Templates currently assigned in NetBox
-        new_template_ids = set( str(tid) for tid in zabbix_config.templates.values_list( "templateid", flat=True ) )
-        
-        # Only remove templates that are no longer assigned
-        removed_template_ids = current_template_ids - new_template_ids
-        
-        templates_clear = [ {"templateid": tid} for tid in removed_template_ids ]
+def update_host_in_zabbix(zabbix_config, host_name, user, request_id):
 
-        payload = build_payload( zabbix_config )
-        if len (templates_clear ) > 0:
-            payload["templates_clear"] = templates_clear
+    if not zabbix_config:
+        raise ExceptionWithData( "No ZabbixConfig provided" )
 
-        try:
-            update_host( **payload )
-        except Exception as e:
-            raise ExceptionWithData( e, pre_data=pre_data, post_data=payload )
+    # Fetch current state of the host in Zabbix
+    pre_data = get_host_by_id( zabbix_config.hostid )
 
-        # Add  a change log entry for the update
-        changelog_update( zabbix_config, user, request_id )
-        
-        return { 
-            "message":   f"Updated Zabbix host {zabbix_config.hostid}", 
-            "pre_data":  pre_data, 
-            "post_data": payload 
-        }
+    # Current template IDs in Zabbix (directly assigned to host)
+    current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
+
+    # Templates currently assigned in NetBox
+    new_template_ids = set( str( tid ) for tid in zabbix_config.templates.values_list( "templateid", flat=True ) )
+
+    # Only remove templates that are no longer assigned
+    removed_template_ids = current_template_ids - new_template_ids
+    templates_clear = [ {"templateid": tid} for tid in removed_template_ids ]
+
+    # Build payload for update
+    payload = build_payload( zabbix_config, for_update=True )
+    if templates_clear:
+        payload[ "templates_clear" ] = templates_clear
+
+    try:
+        update_host( **payload )
+
+    except Exception as e:
+        # Don’t wrap twice – keep context if already ExceptionWithData
+        if isinstance( e, ExceptionWithData ):
+            raise
+        raise ExceptionWithData(
+            f"Failed to update Zabbix host {host_name}: {e}",
+            pre_data=pre_data,
+            post_data=payload,
+        )
+
+    # Add a change log entry for the update
+    changelog_update( zabbix_config, user, request_id )
+
+    return {
+        "message":  f"Updated Zabbix host {zabbix_config.hostid}",
+        "pre_data": pre_data,
+        "post_data": payload,
+    }
+
+
+
+def device_update_zabbix_host(zabbix_config, user, request_id):
+
+    if not zabbix_config:
+        raise ExceptionWithData( "No ZabbixConfig provided" )
+
+    # Fetch current state of the host in Zabbix
+    pre_data = get_host_by_id( zabbix_config.hostid )
+
+    # Current template IDs in Zabbix (directly assigned to host)
+    current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
+
+    # Templates currently assigned in NetBox
+    new_template_ids = set( str( tid ) for tid in zabbix_config.templates.values_list( "templateid", flat=True ) )
+
+    # Only remove templates that are no longer assigned
+    removed_template_ids = current_template_ids - new_template_ids
+    templates_clear = [ {"templateid": tid} for tid in removed_template_ids ]
+
+    # Build payload for update
+    payload = build_payload( zabbix_config, for_update=True )
+    if templates_clear:
+        payload[ "templates_clear" ] = templates_clear
+
+    try:
+        update_host( **payload )
+
+    except Exception as e:
+        # Don’t wrap twice – keep context if already ExceptionWithData
+        if isinstance( e, ExceptionWithData ):
+            raise
+        raise ExceptionWithData(
+            f"Failed to update Zabbix host {zabbix_config.device}: {e}",
+            pre_data=pre_data,
+            post_data=payload,
+        )
+
+    # Add a change log entry for the update
+    changelog_update( zabbix_config, user, request_id )
+
+    return {
+        "message":  f"Updated Zabbix host {zabbix_config.hostid}",
+        "pre_data": pre_data,
+        "post_data": payload,
+    }
+
 
 
 #-------------------------------------------------------------------------------
@@ -1189,6 +1534,9 @@ def import_zabbix_settings():
 #-------------------------------------------------------------------------------
 # Jobs
 # ------------------------------------------------------------------------------
+
+# Notes:
+# api_endpoint and token are not used except for logging...remove them?
 
 
 def require_kwargs(kwargs, *required):
@@ -1368,8 +1716,7 @@ class ProvisionDeviceAgent( AtomicJobRunner ):
             "job":                   cls.job,
             "user":                  cls.job.user,
             "request_id":            kwargs.get("request_id"),
-            "interface_kwargs_fn":   lambda: {},
-            
+            "interface_kwargs_fn":   lambda: {},            
         }
 
         try:
@@ -1511,57 +1858,245 @@ class ImportZabbixSetting( AtomicJobRunner ):
         return netbox_job
 
 
+
 class DeviceUpdateZabbixHost( AtomicJobRunner ):
 
     @classmethod
     def run(cls, *args, **kwargs):
+        device_name =   require_kwargs( kwargs, "device_name" )
+        zabbix_config = require_kwargs(kwargs, "zabbix_config")
+        user =          kwargs.get("user")
+        request_id =    kwargs.get("request_id")
 
-        device_name, device_zabbix_config = require_kwargs( kwargs, "device_name", "device_zabbix_config" )
-
-        # Optional arguments
-        user = kwargs.get( "_user", None )
-        request_id = kwargs.get( "request_id", None )
+        # Only proceed if there is at least one interface
+        if not (zabbix_config.agent_interfaces.exists() or zabbix_config.snmpv3_interfaces.exists()):
+            return {"message": f"Host {device_name} has no interfaces, skipping Zabbix update."}
         
+        # Create the Zabbix host if it doesn't exist
+        if not zabbix_config.hostid:
+            try:
+                logger.info( "REGISTER HOST IN ZABBIX" )
+                hostid, payload = create_host_in_zabbix( zabbix_config, zabbix_config.device )
+                zabbix_config.hostid = hostid
+                zabbix_config._skip_zabbix_signal = True
+                zabbix_config.save()
+                return {"message": f"Host {device_name} added in Zabbix."}
+            
+            except Exception as e:
+                if 'hostid' in locals():
+                    delete_host( hostid )
+                if isinstance(e, ExceptionWithData):
+                    raise  # don’t wrap twice
+                raise ExceptionWithData(e, data=locals().get("payload"))
 
-        try:
-            return device_update_zabbix_host( device_zabbix_config, user, request_id )
-        except Exception as e:
-            msg = f"Failed update Zabbix host for device '{device_name}': { str( e ) }"
-            logger.error( msg )
-            if hasattr( e, "data" ):
-                data = getattr( e, "data", "")
-                raise ExceptionWithData( e, data )
-            else:
-                raise Exception( e )
+        else:
+            # Update host in Zabbix
+            try:
+                logger.info( "UPDATE HOST IN ZABBIX" )
+                return device_update_zabbix_host( zabbix_config, user, request_id )
+            
+            except Exception as e:
+                msg = f"Failed update Zabbix host for device '{device_name}': { str( e ) }"
+                logger.error( msg )
+
+                if isinstance(e, ExceptionWithData):
+                    raise  # already has pre_data/post_data
+                raise ExceptionWithData(e, data=getattr(e, "data", None))
+
 
     @classmethod
-    def run_job(cls, device_name, device_zabbix_config, user, request_id, schedule_at=None, interval=None, immediate=False, name=None):
+    def run_job(cls, device_name, zabbix_config, request, schedule_at=None, interval=None, immediate=False, name=None):
         # TODO: Add parameter checks here
         
         if name is None:
             name = f"Update device {device_name}"
 
         job_args = {
-            "name":                 name,
-            "instance":             device_zabbix_config,
-            "schedule_at":          schedule_at,
-            "interval":             interval,
-            "immediate":            immediate,
-            "user":                 user,
-            "_user":                user, # This user instance is required to add the zabbix configuration to the change log
-            "request_id":           request_id,
-            "api_endpoint":         get_zabbix_api_endpoint(),
-            "token":                SecretStr(get_zabbix_token()),
-            "device_name":          device_name,
-            "device_zabbix_config": device_zabbix_config,
+            "name":          name,
+            "instance":      zabbix_config,
+            "schedule_at":   schedule_at,
+            "interval":      interval,
+            "immediate":     immediate,
+            "device_name":   device_name,
+            "zabbix_config": zabbix_config,
         }
         
+        if request:
+            job_args["user"]       = request.user
+            job_args["request_id"] = request.id
+        
+
         if interval is None:
             netbox_job = cls.enqueue( **job_args )
         else:
             netbox_job = cls.enqueue_once( **job_args )
         
         return netbox_job
+
+
+
+
+class CreateZabbixHost( AtomicJobRunner ):
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+        host_name     = require_kwargs( kwargs, "host_name" )
+        zabbix_config = require_kwargs(kwargs, "zabbix_config")
+        user =          kwargs.get("user")
+        request_id =    kwargs.get("request_id")
+
+        try:
+
+            hostid, payload = create_host_in_zabbix( zabbix_config, host_name )
+            zabbix_config.hostid = hostid
+            save_zabbix_config( zabbix_config )
+            changelog_create( zabbix_config, user, request_id )
+            associate_instance_with_job(cls.job, zabbix_config )
+            return {"message": f"Host {host_name} added in Zabbix.", "data": payload}
+
+        except Exception as e:
+            if 'hostid' in locals():
+                delete_host( hostid )
+            if isinstance(e, ExceptionWithData):
+                raise  # don’t wrap twice
+            raise ExceptionWithData(e, data=locals().get("payload"))
+
+    @classmethod
+    def run_job(cls, host_name, zabbix_config, request, schedule_at=None, interval=None, immediate=False, name=None):
+        # TODO: Add parameter checks here
+        
+        if name is None:
+            name = f"Create Host in Zabbix for {host_name}"
+
+        job_args = {
+            "name":          name,
+            "instance":      zabbix_config,
+            "schedule_at":   schedule_at,
+            "interval":      interval,
+            "immediate":     immediate,
+            "host_name":     host_name,
+            "zabbix_config": zabbix_config,
+        }
+        
+        if request:
+            job_args["user"]       = request.user
+            job_args["request_id"] = request.id
+        
+
+        if interval is None:
+            netbox_job = cls.enqueue( **job_args )
+        else:
+            netbox_job = cls.enqueue_once( **job_args )
+        
+        return netbox_job
+
+
+class UpdateZabbixHost( AtomicJobRunner ):
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+        host_name     = require_kwargs( kwargs, "host_name" )
+        zabbix_config = require_kwargs(kwargs, "zabbix_config")
+        user =          kwargs.get("user")
+        request_id =    kwargs.get("request_id")
+
+        try:
+        
+            return update_host_in_zabbix(zabbix_config, host_name, user, request_id)
+        
+        except Exception:
+            raise
+
+    @classmethod
+    def run_job(cls, host_name, zabbix_config, request, schedule_at=None, interval=None, immediate=False, name=None):
+        # TODO: Add parameter checks here
+        
+        if name is None:
+            name = f"Update Host in Zabbix for {host_name}"
+
+        job_args = {
+            "name":          name,
+            "instance":      zabbix_config,
+            "schedule_at":   schedule_at,
+            "interval":      interval,
+            "immediate":     immediate,
+            "host_name":   host_name,
+            "zabbix_config": zabbix_config,
+        }
+        
+        if request:
+            job_args["user"]       = request.user
+            job_args["request_id"] = request.id
+        
+
+        if interval is None:
+            netbox_job = cls.enqueue( **job_args )
+        else:
+            netbox_job = cls.enqueue_once( **job_args )
+        
+        return netbox_job
+
+
+
+
+class CreateOrUpdateZabbixInterface( AtomicJobRunner ):
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+        host_name     = require_kwargs( kwargs, "host_name" )
+        zabbix_config = require_kwargs(kwargs, "zabbix_config")
+        user =          kwargs.get("user")
+        request_id =    kwargs.get("request_id")
+
+        try:
+            link_missing_interface( zabbix_config, zabbix_config.hostid )
+            return update_host_in_zabbix(zabbix_config, host_name, user, request_id)
+        except Exception:
+            raise
+
+#            hostid, payload = create_host_in_zabbix( zabbix_config, host_name )
+#            zabbix_config.hostid = hostid
+#            save_zabbix_config( zabbix_config )
+#            changelog_create( zabbix_config, user, request_id )
+#            associate_instance_with_job(cls.job, zabbix_config )
+#            return {"message": f"Host {host_name} added in Zabbix.", "data": payload}
+
+#        except Exception as e:
+#            if 'hostid' in locals():
+#                delete_host( hostid )
+#            if isinstance(e, ExceptionWithData):
+#                raise  # don’t wrap twice
+#            raise ExceptionWithData(e, data=locals().get("payload"))
+
+    @classmethod
+    def run_job(cls, host_name, zabbix_config, request, schedule_at=None, interval=None, immediate=False, name=None):
+        # TODO: Add parameter checks here
+        
+        if name is None:
+            name = f"Create Host in Zabbix for {host_name}"
+
+        job_args = {
+            "name":          name,
+            "instance":      zabbix_config,
+            "schedule_at":   schedule_at,
+            "interval":      interval,
+            "immediate":     immediate,
+            "host_name":     host_name,
+            "zabbix_config": zabbix_config,
+        }
+        
+        if request:
+            job_args["user"]       = request.user
+            job_args["request_id"] = request.id
+        
+
+        if interval is None:
+            netbox_job = cls.enqueue( **job_args )
+        else:
+            netbox_job = cls.enqueue_once( **job_args )
+        
+        return netbox_job
+
 
 
 class DeleteZabbixHost( AtomicJobRunner ):

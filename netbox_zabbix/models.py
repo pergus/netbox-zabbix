@@ -571,7 +571,7 @@ class BaseAgentInterface(HostInterface):
 
         # Ensure only one agent interface is the the main interface.
         if self.main == MainChoices.YES:
-            existing_mains = self.host.agent_interfaces.filter( main=MainChoices.YES )
+            existing_mains = self.host.agent_interfaces.filter( main=MainChoices.YES ).exclude( pk=self.pk )
             if existing_mains.exists():
                 existing_mains.update( main=MainChoices.NO )
         
@@ -659,6 +659,19 @@ class BaseSNMPv3Interface(HostInterface):
         else:
             return self.ip_address
 
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+    
+        # Ensure only one agent interface is the the main interface.
+        if self.main == MainChoices.YES:
+            existing_mains = self.host.snmpv3_interfaces.filter( main=MainChoices.YES ).exclude( pk=self.pk )
+            if existing_mains.exists():
+                existing_mains.update( main=MainChoices.NO )
+        
+        
+        return super().save(*args, **kwargs)
+    
 
 class DeviceAgentInterface(BaseAgentInterface):
     class Meta:
