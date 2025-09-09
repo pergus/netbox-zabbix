@@ -20,7 +20,6 @@ from netbox.context import current_request
 
 from netbox_zabbix.jobs import (
     DeleteZabbixHost,
-    DeviceUpdateZabbixHost,
     CreateZabbixHost,
     UpdateZabbixHost,
     CreateOrUpdateZabbixInterface,
@@ -193,10 +192,6 @@ def dev_delete_zabbix_config(sender, instance: DeviceZabbixConfig, **kwargs):
 # Zabbix Interface (Agent/SNMPv3) Signals
 # ------------------------------------------------------------------------------
 
-def can_add_to_zabbix(zcfg: DeviceZabbixConfig) -> bool:
-    return zcfg.agent_interfaces.exists() or zcfg.snmpv3_interfaces.exists()
-
-
 @receiver(post_save, sender=DeviceAgentInterface)
 @receiver(post_save, sender=DeviceSNMPv3Interface)
 def dev_save_zabbix_interface(sender, instance, created: bool, **kwargs):
@@ -230,35 +225,6 @@ def dev_save_zabbix_interface(sender, instance, created: bool, **kwargs):
             request=get_request(),
             name=f"Update interface for {instance.host.device.name}"
         )
-    
-
-#def dev_save_zabbix_interface(sender, instance, created: bool, **kwargs):
-#    """
-#    When a Zabbix interface tied to a device is updated, schedule a host update in Zabbix.
-#    """
-#    # Don't act on initial creation
-##    if created:
-##        logger.info("New interface created, will enqueue job later when DeviceZabbixConfig has interfaces")
-##        return
-#    
-##    if not can_add_to_zabbix( instance.host ):
-##        return
-#
-#    logger.info( "***********************************************************" )
-#    logger.info( f"Device Zabbix interface updated; scheduling host update (device={instance.host.device.name})." )
-#    logger.info( "***********************************************************" )
-#    
-#    user = latest_change_user_forget_request_id( instance.pk )
-#    if not user:
-#        return
-#
-#    DeviceUpdateZabbixHost.run_job(
-#        device_name=instance.host.device.name,
-#        zabbix_config=instance.host,
-#        request=get_request(),
-#        name="Interface Update"
-#    )
-
 
 # ------------------------------------------------------------------------------
 # IP Address Signals
@@ -299,11 +265,12 @@ def dev_update_ipaddress(sender, instance: IPAddress, created: bool, **kwargs):
         # Unexpected duplicates; skip to avoid ambiguity
         return
 
-    DeviceUpdateZabbixHost.run_job(
-        device_name=device.name,
-        zabbix_config=device_zcfg,
-        request=get_request()
-    )
+    UpdateZabbixHost.run_job(
+         host_name=instance.device.name,
+         zabbix_config=instance,
+         request=get_request(),
+         name=f"Update IP address in Zabbix for {instance.device.name}"
+     )
 
 # ------------------------------------------------------------------------------
 # Virtual Machine Signals

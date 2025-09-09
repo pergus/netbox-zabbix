@@ -462,8 +462,9 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
     main = forms.ChoiceField( choices=models.MainChoices )
     port = forms.IntegerField( required=True )
 
+    # TODO: Rename this field to something more descriptive
     host = DynamicModelChoiceField( 
-        label="Device Zabbix Config",      
+        label="Device Zabbix Config",
         queryset=models.DeviceZabbixConfig.objects.all(),
         required=True,
     )
@@ -491,9 +492,9 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
     )
     
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__( *args, **kwargs )
 
-        if self.initial.get('device_zabbix_config_id'):
+        if self.initial.get( 'device_zabbix_config_id' ):
             specific_device_zabbix_config_id = self.initial.get( 'device_zabbix_config_id' )
             queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_zabbix_config_id )
             self.fields['host'].queryset = queryset
@@ -501,11 +502,24 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
             self.initial['name'] = f"{queryset[0].get_name()}-agent"
             
             # Initialize the default Agent interface settings from the Config
-            self.initial['port']            = config.get_agent_port()
+            self.initial['port'] = config.get_agent_port()
             
         # Set the initial value of the calculated DNS name if editing an existing instance
         if self.instance.pk:
             self.fields['dns_name'].initial = self.instance.resolved_dns_name
+
+    def clean(self):
+        super().clean()
+        host = self.cleaned_data.get( "host" )
+        if not host:
+            raise ValidationError( "No Device Zabbix Config selected." )
+    
+        if not getattr( host, "hostid", None ):
+            raise ValidationError(
+                f"Cannot create or update an agent interface for '{host.get_name()}': "
+                "the host must be associated with a Zabbix host ID."
+            )
+    
 
 
 class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
@@ -556,8 +570,7 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
     )
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+        super().__init__( *args, **kwargs )
 
         if self.initial.get( 'device_zabbix_config_id' ):
             specific_device_zabbix_confighost_id = self.initial.get( 'device_zabbix_config_id' )
@@ -584,7 +597,19 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
             self.fields['host'].disabled = True
             # Set the initial value of the calculated DNS name
             self.fields['dns_name'].initial = self.instance.resolved_dns_name
-
+    
+    def clean(self):
+        super().clean()
+        host = self.cleaned_data.get( "host" )
+        if not host:
+            raise ValidationError( "No Device Zabbix Config selected." )
+    
+        if not getattr( host, "hostid", None ):
+            raise ValidationError(
+                f"Cannot create or update an snmpv3 interface for '{host.get_name()}': "
+                "the host must be associated with a Zabbix host ID."
+            )
+    
 
 class VMAgentInterfaceForm(NetBoxModelForm):
     class Meta:

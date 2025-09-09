@@ -434,8 +434,8 @@ class ZabbixConfig(NetBoxModel, JobsMixin):
 
     hostid       = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
     status       = models.IntegerField( choices=StatusChoices.choices, default=StatusChoices.ENABLED, help_text="Host monitoring status." )
-    host_groups  = models.ManyToManyField( HostGroup,  blank=True , help_text="Assigned Host Groups." )
-    templates    = models.ManyToManyField( Template,   blank=True , help_text="Assgiend Tempalates." )
+    host_groups  = models.ManyToManyField( HostGroup, help_text="Assigned Host Groups." )
+    templates    = models.ManyToManyField( Template,  help_text="Assgiend Tempalates." )
     monitored_by = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host." )
     proxy        = models.ForeignKey( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy." )
     proxy_group  = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group." )
