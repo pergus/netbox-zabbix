@@ -958,6 +958,27 @@ def import_zabbix_config(ctx: ImportContext):
     config.hostid      = int( ctx.zabbix_host["hostid"] )
     config.status      = StatusChoices.DISABLED if int( ctx.zabbix_host.get( "status", 0 ) ) else StatusChoices.ENABLED
     config.description = ctx.zabbix_host.get( "description", "" )
+
+
+    # Add Proxy - needs to be added before calling config.save()
+    proxyid = int( ctx.zabbix_host.get( "proxyid" ) )
+    if proxyid:
+            try:
+                config.proxy = Proxy.objects.get( proxyid=proxyid )
+                logger.info( f"adding proxy {config.proxy}" )
+            except Proxy.DoesNotExist:
+                raise Exception(f"Proxy '{proxyid}' not found in NetBox")
+    
+    # Add Proxy Group - needs to be added before calling config.save()
+    proxy_groupid = int( ctx.zabbix_host.get( "proxy_groupid" ) )
+    if proxy_groupid > 0:
+        try:
+            config.proxy_group = ProxyGroup.objects.get( proxy_groupid=proxy_groupid )
+            logger.info( f"adding proxy group {config.proxy_group}" )
+        except ProxyGroup.DoesNotExist:
+            raise Exception(f"Proxy group with hostid '{proxy_groupid}' not found in NetBox")
+    
+
     config.full_clean()
     config.save()
     changelog_create( config, ctx.user, ctx.request_id )
@@ -971,13 +992,12 @@ def import_zabbix_config(ctx: ImportContext):
             config.host_groups.add( group_obj )
 
 
-    # Add templates
+    # Add Templates
     for template in ctx.zabbix_host.get( "parentTemplates", [] ):
         template_name = template.get( "name", "" )
         if template_name:
             template_obj = Template.objects.get( name=template_name )
             config.templates.add( template_obj )
-
 
     # Add interfaces
     for iface in map( normalize_interface, ctx.zabbix_host.get( "interfaces", [] ) ):

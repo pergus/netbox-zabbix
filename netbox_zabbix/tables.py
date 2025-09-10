@@ -286,7 +286,7 @@ class NetBoxOnlyVMsTable(VirtualMachineTable):
 
 
 class DeviceZabbixConfigTable(NetBoxTable):
-    name         = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
+    name         = tables.Column( accessor='get_name', order_by='device', verbose_name='Name', linkify=True )
     device       = tables.Column( accessor='device', verbose_name='Device', linkify=True )
     status       = tables.Column()
     hostid       = tables.Column( verbose_name='Zabbix Host ID' )
@@ -375,8 +375,8 @@ class ZabbixConfigTable(NetBoxTable):
 
 
 class ImportableDeviceTable(NetBoxTable):
-    name = tables.Column( linkify=True )
-    valid = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
+    name   = tables.Column( linkify=True )
+    valid  = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
     reason = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
     
     class Meta(NetBoxTable.Meta):

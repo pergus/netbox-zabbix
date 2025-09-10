@@ -8,9 +8,17 @@ NetBox plugin for Zabbix.
 
 
 
+### Bugs
+
+Import doesn't include proxy/proxy group.
+
+Not having a name for ZabbixConfig's makes it problematic to script.
+
+
+
 ### Todo
 
-* Failsafe delete
+[DONE] Failsafe delete
 1. Disable in Zabbix.
 2. Is it possible to add the host in a special host group.
 
