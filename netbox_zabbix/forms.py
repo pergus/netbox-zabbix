@@ -989,7 +989,7 @@ class DeviceMappingForm(NetBoxModelForm):
         template_ids = [ t.templateid for t in templates ]
         
         try:
-            validate_template_combination( template_ids, interface_type )
+            validate_templates_and_interface( template_ids, interface_type )
         except Exception as e:
             raise ValidationError( str( e ) )
         
