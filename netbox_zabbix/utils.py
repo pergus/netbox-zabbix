@@ -249,17 +249,69 @@ def populate_templates_with_dependencies():
             logger.error(f"Failed to populate dependencies for template {template.name} ({template.templateid}): {e}")
 
 
-# This function can be called from clean_template to validate template combinations
-def validate_template_combination(templateids: list, interface_type=models.InterfaceTypeChoices.Any):
+def validate_templates(templateids: list):
     """
-    Validate if a selection of templates can be combined without conflict,
-    and if they are valid for the given interface type.
+    Validate if templates can be combined without conflicts or missing dependencies.
 
     - Conflicts: two selected templates (or their parents) include the same template.
     - Missing dependencies: any dependency (direct or recursive) not in the selection.
-    - Interface type mismatch: all included templates must be compatible with `interface_type`.
     """
     seen = {}
+    template_objects = models.Template.objects.filter(templateid__in=templateids)
+
+    def get_all_parents(template, visited=None):
+        """Recursively collect all parents of a template."""
+        if visited is None:
+            visited = set()
+        if template.id in visited:
+            return set()
+        visited.add(template.id)
+
+        parents = set(template.parents.all())
+        for parent in template.parents.all():
+            parents |= get_all_parents(parent, visited)
+        return parents
+
+    def get_all_dependencies(template, visited=None):
+        """Recursively collect all dependencies of a template."""
+        if visited is None:
+            visited = set()
+        if template.id in visited:
+            return set()
+        visited.add(template.id)
+
+        deps = set(template.dependencies.all())
+        for dep in template.dependencies.all():
+            deps |= get_all_dependencies(dep, visited)
+        return deps
+
+    for template in template_objects:
+        # Check for conflicts through parent inheritance
+        inherited_templates = {template} | get_all_parents(template)
+        for inherited_template in inherited_templates:
+            if inherited_template.id in seen:
+                raise Exception(
+                    f"Conflict: '{template.name}' and "
+                    f"'{seen[inherited_template.id].name}' both include "
+                    f"'{inherited_template.name}'"
+                )
+            seen[inherited_template.id] = template
+
+        # Check for missing dependencies (recursive)
+        for dependent_template in get_all_dependencies(template):
+            if dependent_template.templateid not in templateids:
+                raise Exception(
+                    f"Missing dependency: '{template.name}' depends on "
+                    f"'{dependent_template.name}', which is not included."
+                )
+
+    return True
+
+
+def validate_template_interface(templateids: list, interface_type):
+    """
+    Validate if all templates are compatible with the given interface type.
+    """
     template_objects = models.Template.objects.filter(templateid__in=templateids)
 
     def get_all_parents(template, visited=None):
@@ -297,27 +349,7 @@ def validate_template_combination(templateids: list, interface_type=models.Inter
         return template_iftype == target_iftype
 
     for template in template_objects:
-        # Check for conflicts through parent inheritance
-        inherited_templates = {template} | get_all_parents(template)
-        for inherited_template in inherited_templates:
-            if inherited_template.id in seen:
-                raise Exception(
-                    f"Conflict: '{template.name}' and "
-                    f"'{seen[inherited_template.id].name}' both include "
-                    f"'{inherited_template.name}'"
-                )
-            seen[inherited_template.id] = template
-
-        # Check for missing dependencies (recursive)
-        for dependent_template in get_all_dependencies(template):
-            if dependent_template.templateid not in templateids:
-                raise Exception(
-                    f"Missing dependency: '{template.name}' depends on "
-                    f"'{dependent_template.name}', which is not included."
-                )
-
-        # Check interface type compatibility for this template and its hierarchy
-        all_related = inherited_templates | get_all_dependencies(template)
+        all_related = {template} | get_all_parents(template) | get_all_dependencies(template)
         for related_template in all_related:
             if not is_interface_compatible(related_template.interface_type, interface_type):
                 raise Exception(
@@ -328,6 +360,15 @@ def validate_template_combination(templateids: list, interface_type=models.Inter
 
     return True
 
+
+def validate_templates_and_interface(templateids: list, interface_type=models.InterfaceTypeChoices.Any):
+    """
+    Validate if a selection of templates can be combined without conflict,
+    and if they are valid for the given interface type.
+    """
+    validate_templates(templateids)
+    validate_template_interface(templateids, interface_type)
+    return True
 
 
 # end

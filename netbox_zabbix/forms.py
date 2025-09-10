@@ -30,7 +30,8 @@ from netbox_zabbix.inventory_properties import inventory_properties
 
 
 from netbox_zabbix.utils import (
-    validate_template_combination
+    validate_templates,
+    validate_templates_and_interface
 )
 
 
@@ -329,6 +330,7 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
             logger.info( "Adding a new DeviceZabbixConfig" )
             used_device_ids = models.DeviceZabbixConfig.objects.values_list( 'device_id', flat=True )
             self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
+
         else:  
             # Editing an existing DeviceZabbixConfig
             logger.info( "Editing an existing DeviceZabbixConfig" )
@@ -347,7 +349,7 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
         if not templates:
             raise ValidationError( "At least one template must be selected." )
     
-        template_ids = [t.templateid for t in templates]
+        template_ids = [ t.templateid for t in templates ]
     
         device_config = self.instance
         if device_config and device_config.pk:
@@ -365,10 +367,19 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
 
             # Validate templates for selected interface
             try:
-                validate_template_combination( template_ids, interface_type )
+                validate_templates_and_interface( template_ids, interface_type )
             except Exception as e:
                 raise ValidationError( str( e ) )
-    
+        else:
+            # Only validate templates if the Zabbix configuration doesn't have
+            # any interfaces. This happens if a user creates a Zabbix configuration
+            # by hand, since the interfaces are added later.
+            try:
+                validate_templates( template_ids )
+            except Exception as e:
+                raise ValidationError( str( e ) )
+            
+            
         return self.cleaned_data
 
 
@@ -519,7 +530,6 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
                 f"Cannot create or update an agent interface for '{host.get_name()}': "
                 "the host must be associated with a Zabbix host ID."
             )
-    
 
 
 class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
@@ -609,7 +619,7 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
                 f"Cannot create or update an snmpv3 interface for '{host.get_name()}': "
                 "the host must be associated with a Zabbix host ID."
             )
-    
+
 
 class VMAgentInterfaceForm(NetBoxModelForm):
     class Meta:
