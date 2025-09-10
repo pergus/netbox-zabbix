@@ -286,23 +286,23 @@ class NetBoxOnlyVMsTable(VirtualMachineTable):
 
 
 class DeviceZabbixConfigTable(NetBoxTable):
-    name         = tables.Column( accessor='get_name', order_by='device', verbose_name='Name', linkify=True )
-    device       = tables.Column( accessor='device', verbose_name='Device', linkify=True )
-    status       = tables.Column()
-    hostid       = tables.Column( verbose_name='Zabbix Host ID' )
-    templates    = tables.ManyToManyColumn( linkify_item=True )
-    proxies      = tables.ManyToManyColumn( linkify_item=True )
-    proxy_groups = tables.ManyToManyColumn( linkify_item=True )
-    host_groups  = tables.ManyToManyColumn( linkify_item=True )
-    description  = tables.Column()
+    name        = tables.Column( accessor='get_name', order_by='device', verbose_name='Name', linkify=True )
+    device      = tables.Column( accessor='device', verbose_name='Device', linkify=True )
+    status      = tables.Column()
+    hostid      = tables.Column( verbose_name='Zabbix Host ID' )
+    templates   = tables.ManyToManyColumn( linkify_item=True )
+    proxy       = tables.Column( linkify=True )
+    proxy_group = tables.Column( linkify=True )
+    host_groups = tables.ManyToManyColumn( linkify_item=True )
+    description = tables.Column()
     
     class Meta(NetBoxTable.Meta):
         model = models.DeviceZabbixConfig
         fields = ('name', 'device', 'status', 'monitored_by', 'hostid', 
-                  'templates', 'proxies', 'proxy_groups', 'host_groups', 
+                  'templates', 'proxy', 'proxy_group', 'host_groups', 
                   'description' )
         default_columns = ('name', 'device', 'status', 'monitored_by', 
-                           'templates', 'proxies', 'proxy_groups', 'host_groups')
+                           'templates', 'proxy', 'proxy_group', 'host_groups')
 
 
 class VMZabbixConfigTable(NetBoxTable):
