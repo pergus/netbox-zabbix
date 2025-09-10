@@ -63,6 +63,11 @@ class TagNameFormattingChoices(models.TextChoices):
     LOWER = "lower", "Convert to Lowercase"
 
 
+class DeleteSettingChoices(models.TextChoices):
+    SOFT  = "soft", "Soft Delete"
+    HARD  = "hard", "Hard Delete"
+
+
 class InterfaceTypeChoices(models.IntegerChoices):
     Any   = (0, 'Any')
     Agent = (1, 'Agent')
@@ -225,6 +230,29 @@ class Config(NetBoxModel):
     connection               = models.BooleanField( verbose_name="Connection", default=False )
     last_checked_at          = models.DateTimeField( verbose_name="Last Checked At", null=True, blank=True )
 
+
+    # Delete Setting
+    delete_setting =  models.CharField( verbose_name="Delete Settings", choices=DeleteSettingChoices, default=DeleteSettingChoices.SOFT, help_text="Delete Settings.")
+
+    graveyard = models.CharField(
+        verbose_name="Host Group",
+        max_length=255,
+        null=True,
+        blank=True,
+        default="graveyard",
+        help_text="Host Group 'graveyard' for soft deletes."
+    )
+    
+    graveyard_suffix = models.CharField(
+        verbose_name="Deleted host suffix",
+        max_length=255,
+        null=True,
+        blank=True,
+        default="_archived",
+        help_text="Suffix for deleted hosts in the 'graveyard'."
+    )
+    
+
     # Common Defaults
     inventory_mode = models.IntegerField(
         verbose_name="Inventory Mode",
@@ -311,7 +339,7 @@ class Config(NetBoxModel):
     def get_absolute_url(self):
         return reverse("plugins:netbox_zabbix:config", args=[self.pk])
 
-
+    
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 

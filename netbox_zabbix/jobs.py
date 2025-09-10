@@ -35,13 +35,11 @@ import netaddr
 
 # NetBox Zabbix Imports
 from netbox_zabbix.job import AtomicJobRunner
-from netbox_zabbix.zabbix import get_host
 from netbox_zabbix.models import (
     DeviceZabbixConfig,
     DeviceAgentInterface,
     DeviceSNMPv3Interface,
     InterfaceTypeChoices,
-    MainChoices,
 #    VMAgentInterface,
 #    VMSNMPv3Interface,
     DeviceMapping,
@@ -59,13 +57,15 @@ from netbox_zabbix.models import (
     InventoryModeChoices,
     TLSConnectChoices,
     TagNameFormattingChoices,
+    DeleteSettingChoices
 )
 
 from netbox_zabbix.config import (
     get_inventory_mode,
-    get_zabbix_api_endpoint, 
-    get_zabbix_token, 
     get_default_cidr,
+    get_delete_setting,
+    get_graveyard,
+    get_graveyard_suffix,
     get_monitored_by, 
     get_tls_accept, 
     get_tls_connect, 
@@ -89,11 +89,14 @@ from netbox_zabbix.zabbix import (
     import_proxies,
     import_proxy_groups,
     import_host_groups,
+    get_host,
     get_host_by_id,
     create_host,
     update_host,
     delete_host,
     get_host_interfaces,
+    get_host_group,
+    create_host_group
 )
 
 from core.choices import ObjectChangeActionChoices
@@ -1243,7 +1246,7 @@ def device_update_zabbix_host(zabbix_config, user, request_id):
 # ------------------------------------------------------------------------------
 
 
-def delete_zabbix_host( hostid ):
+def hard_delete_zabbix_host(hostid):
 
     if hostid:
         try:
@@ -1252,6 +1255,58 @@ def delete_zabbix_host( hostid ):
             return { "message": f"Deleted zabbix host {hostid}", "data": data }
         except Exception as e:
             msg = f"Failed to delete zabbix host {hostid}: {str( e )}"
+            raise Exception( msg )
+
+
+def soft_delete_zabbix_host(hostid):
+
+    if hostid:
+        try:
+            data = get_host_by_id( hostid )
+            hostname = data["host"]
+
+            suffix = get_graveyard_suffix()
+            base_archived_name = f"{hostname}{suffix}"
+            archived_host_name = base_archived_name
+            
+            # Ensure uniqueness by checking existence
+            counter = 1
+            while True:
+                try:
+                    get_host( archived_host_name )
+
+                    # Try next if the host already exists
+                    archived_host_name = f"{base_archived_name}-{counter}"
+                    counter += 1
+
+                except Exception as e:
+                    break
+            
+
+            # Ensure graveyard group exists
+            graveyard_group_name = get_graveyard()
+            
+            try:
+                # Try to fetch the graveyard group
+                graveyard_group = get_host_group(name=graveyard_group_name)
+                graveyard_group_id = graveyard_group["groupid"]
+            except Exception:
+                # Group does not exist → create it
+                result = create_host_group(name=graveyard_group_name)
+                graveyard_group_id = result["groupids"][0]
+                import_host_groups()
+                
+
+            # Rename, disable and move the host in Zabbix.
+            update_host( hostid=hostid, host=archived_host_name, groups=[{"groupid": graveyard_group_id}], status=1 )
+
+            return {
+                "message": f"Soft-deleted Zabbix host {hostid}, renamed to '{archived_host_name}' moved to group '{graveyard_group_name}'",
+                "data": data,
+            }
+
+        except Exception as e:
+            msg = f"Failed to soft delete zabbix host {hostid}: {str( e )}"
             raise Exception( msg )
 
 
@@ -1807,7 +1862,12 @@ class DeleteZabbixHost( AtomicJobRunner ):
         hostid = require_kwargs( kwargs, "hostid" )
 
         try:
-            return delete_zabbix_host( hostid )
+
+            if get_delete_setting() == DeleteSettingChoices.HARD:
+                return hard_delete_zabbix_host( hostid )
+            else:
+                return soft_delete_zabbix_host( hostid )
+
         except Exception as e:
             msg = f"{ str( e ) }"
             logger.error( msg )
@@ -1819,13 +1879,13 @@ class DeleteZabbixHost( AtomicJobRunner ):
             name = f"Delete Zabbix host '{hostid}'" 
         
         job_args = {
-                    "name":        name,
-                    "schedule_at": schedule_at,
-                    "interval":    interval,
-                    "immediate":   immediate,
-                    "user":        user,
-                    "hostid":      hostid,
-                }
+            "name":        name,
+            "schedule_at": schedule_at,
+            "interval":    interval,
+            "immediate":   immediate,
+            "user":        user,
+            "hostid":      hostid,
+        }
         
         if interval is None:
             netbox_job = cls.enqueue( **job_args )

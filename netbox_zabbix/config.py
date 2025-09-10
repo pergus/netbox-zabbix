@@ -161,8 +161,44 @@ def set_last_checked( timestamp ):
 
 
 # ------------------------------------------------------------------------------
+# Delete Settings
+# ------------------------------------------------------------------------------
+
+def get_delete_setting():
+    """
+    Retrieves the delete setting value from the configuration.
+    
+    Returns:
+        The delete setting value as specified in the configuration.
+    """
+    return get_config().delete_setting
+
+
+def get_graveyard():
+    """
+    Retrieves the graveyard (host group) value from the configuration.
+    
+    Returns:
+        The graveyard value as specified in the configuration.
+    """
+    return get_config().graveyard
+
+
+def get_graveyard_suffix():
+    """
+    Retrieves the graveyard suffix value from the configuration.
+    
+    Returns:
+        The graveyard suffix value as specified in the configuration.
+    """
+    return get_config().graveyard_suffix
+
+
+
+# ------------------------------------------------------------------------------
 # Common Defaults
 # ------------------------------------------------------------------------------
+
 
 def get_monitored_by():
     """

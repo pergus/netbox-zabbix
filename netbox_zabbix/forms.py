@@ -73,6 +73,10 @@ class ConfigForm(NetBoxModelForm):
                   'token',
                   'default_cidr',
                   name="Zabbix Server" ),
+        FieldSet( 'delete_setting',
+                  'graveyard',
+                  'graveyard_suffix',
+                  name="Delete Setting" ),
         FieldSet( 'inventory_mode',
                   'monitored_by',
                   'tls_connect', 
@@ -141,29 +145,29 @@ class ConfigForm(NetBoxModelForm):
         
         # Prevent second config instance from being created
         if not self.instance.pk and models.Config.objects.exists():
-            raise ValidationError("Only one Zabbix configuration is allowed.")
+            raise ValidationError( "Only one Zabbix configuration is allowed." )
 
         # Check max deletions
-        max_deletions = self.cleaned_data.get("max_deletions")
-        if max_deletions is not None and (max_deletions <= 0 or max_deletions > 100):
-            self.add_error("max_deletions", "Max deletions must be in the range 1 - 100.")
+        max_deletions = self.cleaned_data.get( "max_deletions" )
+        if max_deletions is not None and ( max_deletions <= 0 or max_deletions > 100 ):
+            self.add_error( "max_deletions", "Max deletions must be in the range 1 - 100." )
     
         # Check max_success_notifications
-        max_success_notifications = self.cleaned_data.get("max_success_notifications")
-        if max_success_notifications is not None and (max_success_notifications <= 0 or max_success_notifications > 5):
-            self.add_error("max_success_notifications", "Max deletions must be in the range 1 - 5.")
+        max_success_notifications = self.cleaned_data.get( "max_success_notifications" )
+        if max_success_notifications is not None and ( max_success_notifications <= 0 or max_success_notifications > 5 ):
+            self.add_error( "max_success_notifications", "Max deletions must be in the range 1 - 5." )
             
         # Check tls settings
-        tls_connect = self.cleaned_data.get('tls_connect')
-        tls_psk = self.cleaned_data.get('tls_psk')
-        tls_psk_identity = self.cleaned_data.get('tls_psk_identity')
+        tls_connect = self.cleaned_data.get( 'tls_connect' )
+        tls_psk = self.cleaned_data.get( 'tls_psk' )
+        tls_psk_identity = self.cleaned_data.get( 'tls_psk_identity' )
     
         # Validate PSK requirements
         if tls_connect == models.TLSConnectChoices.PSK:
             if not tls_psk_identity:
-                self.add_error('tls_psk_identity', "TLS PSK Identity is required when TLS Connect is set to PSK.")
-            if not tls_psk or not re.fullmatch(r'[0-9a-fA-F]{32,}', tls_psk):
-                self.add_error('tls_psk', "TLS PSK must be at least 32 hexadecimal digits.")
+                self.add_error( 'tls_psk_identity', "TLS PSK Identity is required when TLS Connect is set to PSK." )
+            if not tls_psk or not re.fullmatch( r'[0-9a-fA-F]{32,}', tls_psk ):
+                self.add_error( 'tls_psk', "TLS PSK must be at least 32 hexadecimal digits." )
     
         # Check connection/token
         try:
@@ -174,6 +178,16 @@ class ConfigForm(NetBoxModelForm):
         except Exception:
             self.add_error('api_endpoint', mark_safe( "Failed to verify connection to Zabbix.<br>Please check the API address and token." ))
 
+        # If soft delete then gravyard has to have a value
+        delete_setting = self.cleaned_data.get( "delete_setting" )
+        if delete_setting == models.DeleteSettingChoices.SOFT:
+            graveyard = self.cleaned_data.get( "graveyard" )
+            if not graveyard:
+                raise ValidationError( f"Soft delete require a host group" )
+            graveyard_suffix = self.cleaned_data.get( "graveyard_suffix" )
+            if not graveyard_suffix:
+                raise ValidationError( f"Soft delete require a gravyard suffix" )
+            
 
 # ------------------------------------------------------------------------------
 # Templates

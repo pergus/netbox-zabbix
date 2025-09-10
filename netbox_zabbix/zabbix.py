@@ -144,6 +144,7 @@ def get_templates():
     except Exception as e:
         raise e
 
+
 def get_template_with_parents(templateid):
     """
     Retrieve a template and its parent templates from Zabbix.
@@ -399,7 +400,47 @@ def get_host_groups():
         z = get_zabbix_client()
         return z.hostgroup.get(output=["name", "groupid" ], limit=10000)
     except Exception as e:
-        raise e        
+        raise e
+
+
+def get_host_group(name=None, groupid=None):
+    """
+    Fetch a single host group from Zabbix, by name or groupid.
+
+    Args:
+        name (str, optional): The name of the host group.
+        groupid (str, optional): The ID of the host group.
+
+    Returns:
+        dict: Host group dict containing name and groupid.
+
+    Raises:
+        ValueError: If neither name nor groupid is provided.
+        Exception: If no group is found, multiple groups are found, or API fails.
+    """
+    if not name and not groupid:
+        raise ValueError("Either 'name' or 'groupid' must be provided")
+
+    try:
+        z = get_zabbix_client()
+
+        filter_args = {}
+        if name:
+            filter_args["name"] = name
+        if groupid:
+            filter_args["groupid"] = groupid
+
+        groups = z.hostgroup.get( output=["name", "groupid"], filter=filter_args )
+
+        if not groups:
+            raise Exception(f"No host group found for filter {filter_args}")
+        if len(groups) > 1:
+            raise Exception(f"Multiple host groups found for filter {filter_args}")
+
+        return groups[0]
+
+    except Exception as e:
+        raise e
 
 
 def get_host_by_id(hostid):
@@ -618,8 +659,36 @@ def import_host_groups(max_deletions=None):
                         max_deletions=max_deletions )
 
 
+
 # ------------------------------------------------------------------------------
-# Host Actions
+# Host Groups
+# ------------------------------------------------------------------------------
+
+def create_host_group(**hostgroup):
+    """
+    Create a new Zabbix host group.
+
+    Connects to the Zabbix API and creates a host group with the provided parameters.
+
+    Args:
+        **hostgroup: Arbitrary keyword arguments representing the host group configuration
+                     (e.g., name).
+
+    Returns:
+        dict: The response from the Zabbix API containing details of the created host group.
+
+    Raises:
+        Exception: If creation fails or API returns an error.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.hostgroup.create( **hostgroup )
+    except Exception as e:
+        raise e
+
+
+# ------------------------------------------------------------------------------
+# Hosts
 # ------------------------------------------------------------------------------
 
 
@@ -725,6 +794,7 @@ def can_remove_interface(hostid, interfaceid):
         return True if len(items) == 0 else False
     except Exception as e:
         raise e
+
 
 # ------------------------------------------------------------------------------
 # Misc.
