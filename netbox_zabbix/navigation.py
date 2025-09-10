@@ -22,7 +22,7 @@ menu = PluginMenu(
                 ), 
              )
         ),        
-        ( "Zabbix Settings",
+        ( "Settings",
             (
                 PluginMenuItem( 
                     link_text="Templates", 
@@ -58,19 +58,19 @@ menu = PluginMenu(
                 ),
             ),
         ),
-        ( "Import",
-         (
-             PluginMenuItem( 
-                 link_text="Importable Devices", 
-                 link="plugins:netbox_zabbix:importabledevice_list",
-             ),
-             #PluginMenuItem(
-             #    link="plugins:netbox_zabbix:importablevm_list",
-             #    link_text="Importable Virtual Machines",
-             #),
-             
-         )
-        ),
+        #( "Import",
+        # (
+        #     PluginMenuItem( 
+        #         link_text="Importable Devices", 
+        #         link="plugins:netbox_zabbix:importabledevice_list",
+        #     ),
+        #     #PluginMenuItem(
+        #     #    link="plugins:netbox_zabbix:importablevm_list",
+        #     #    link_text="Importable Virtual Machines",
+        #     #),
+        #     
+        # )
+        #),
         ( "Devices",
             (
                 PluginMenuItem( 
@@ -80,10 +80,7 @@ menu = PluginMenu(
                         PluginMenuButton( "plugins:netbox_zabbix:devicezabbixconfig_add", "Add", "mdi mdi-plus-thick" ),
                     ),
                 ),
-            )        
-        ),
-        ( "Device Components",
-            (
+
                 PluginMenuItem(
                     link="plugins:netbox_zabbix:deviceagentinterface_list",
                     link_text="Agent Interfaces",
@@ -103,8 +100,41 @@ menu = PluginMenu(
                         PluginMenuButton( "plugins:netbox_zabbix:devicesnmpv3interface_add", "Add", "mdi mdi-plus-thick" ), 
                     ),
                 ),
+                
+                PluginMenuItem( 
+                    link_text="Importable Devices", 
+                    link="plugins:netbox_zabbix:importabledevice_list",
+                ),
+
+                PluginMenuItem( 
+                    link_text="NetBox Only Devices",
+                    link="plugins:netbox_zabbix:netboxonlydevices", 
+                ),
             )
         ),
+        #( "Device Components",
+        #    (
+        #        PluginMenuItem(
+        #            link="plugins:netbox_zabbix:deviceagentinterface_list",
+        #            link_text="Agent Interfaces",
+        #            buttons=(
+        #                PluginMenuButton(
+        #                    "plugins:netbox_zabbix:deviceagentinterface_add",
+        #                    "Add",
+        #                    "mdi mdi-plus-thick",
+        #                ),
+        #            ),
+        #        ),
+        #        
+        #        PluginMenuItem( 
+        #            link_text="SNMPv3 Interfaces", 
+        #            link="plugins:netbox_zabbix:devicesnmpv3interface_list", 
+        #            buttons=( 
+        #                PluginMenuButton( "plugins:netbox_zabbix:devicesnmpv3interface_add", "Add", "mdi mdi-plus-thick" ), 
+        #            ),
+        #        ),
+        #    )
+        #),
         #( "Virtual Machines",
         #    (
         #        PluginMenuItem(
@@ -145,27 +175,27 @@ menu = PluginMenu(
         #        
         #    )
         #),
-        ( "Zabbix Configurations",
+        ( "Configurations",
             (
                 PluginMenuItem(
-                    link_text="All Zabbix Configurations",
+                    link_text="All Configurations",
                     link="plugins:netbox_zabbix:zabbixconfig_list",
                 ),
             ),
         ),
-        ( "NetBox",
-            (
-                PluginMenuItem( 
-                    link_text="NetBox Only Devices",
-                    link="plugins:netbox_zabbix:netboxonlydevices", 
-                ),                
-                #PluginMenuItem( 
-                #    link_text="NetBox Only Virtual Machines", 
-                #    link="plugins:netbox_zabbix:netboxonlyvms", 
-                #),                
-                
-            )
-        ),
+        #( "NetBox",
+        #    (
+        #        PluginMenuItem( 
+        #            link_text="NetBox Only Devices",
+        #            link="plugins:netbox_zabbix:netboxonlydevices", 
+        #        ),                
+        #        #PluginMenuItem( 
+        #        #    link_text="NetBox Only Virtual Machines", 
+        #        #    link="plugins:netbox_zabbix:netboxonlyvms", 
+        #        #),                
+        #        
+        #    )
+        #),
         ( "Zabbix",
             (
                 PluginMenuItem(
