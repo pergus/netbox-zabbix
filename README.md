@@ -10,7 +10,7 @@ NetBox plugin for Zabbix.
 
 ### Bugs
 
-Import doesn't include proxy/proxy group.
+[FIXED] Import doesn't include proxy/proxy group.
 
 Not having a name for ZabbixConfig's makes it problematic to script.
 
@@ -18,13 +18,7 @@ Not having a name for ZabbixConfig's makes it problematic to script.
 
 ### Todo
 
-[DONE] Failsafe delete
-1. Disable in Zabbix.
-2. Is it possible to add the host in a special host group.
-
-
-
-
+[DONE] Failsafe delete - implemented Hard/Soft delete.
 
 [DONE] DNS name changes
 
@@ -42,12 +36,14 @@ the checks easier.
 
 [DONE] There might a logical error in how Device/VM mapping design.
   
-* The interface hostid shoud be set to the Zabbix Hostid.
+
+[DONE] The interface hostid shoud be set to the Zabbix Hostid.
 
 * Rename 'host' in Interfaces to zconf?
 
-* Add delete button to Agent Interfaces and SNMP Interfaces under the 
-  Device Components.
+[DONE] Add delete button to Agent Interfaces and SNMP Interfaces.
+This took longer than expected beacuse I couldn't get it to work.
+The solution was to implement bulk delete.
 
 
 * Update/Delete interfaces should record the changes in the ZC change log

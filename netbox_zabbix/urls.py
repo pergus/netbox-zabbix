@@ -163,20 +163,22 @@ urlpatterns = (
     # --------------------------------------------------------------------------
 
     # Device Agent Interfaces
-    path( 'interfaces/device-agents/',                    views.DeviceAgentInterfaceListView.as_view(),   name='deviceagentinterface_list' ),
-    path( 'interfaces/device-agents/add/',                views.DeviceAgentInterfaceEditView.as_view(),   name='deviceagentinterface_add' ),
-    path( 'interfaces/device-agents/<int:pk>/',           views.DeviceAgentInterfaceView.as_view(),       name='deviceagentinterface' ),
-    path( 'interfaces/device-agents/<int:pk>/edit/',      views.DeviceAgentInterfaceEditView.as_view(),   name='deviceagentinterface_edit' ),
-    path( 'interfaces/device-agents/<int:pk>/delete/',    views.DeviceAgentInterfaceDeleteView.as_view(), name='deviceagentinterface_delete' ),
-    path( 'interfaces/device-agents/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                  name='deviceagentinterface_changelog', kwargs={'model': models.DeviceAgentInterface} ),
+    path( 'interfaces/device-agents/',                    views.DeviceAgentInterfaceListView.as_view(),       name='deviceagentinterface_list' ),
+    path( 'interfaces/device-agents/add/',                views.DeviceAgentInterfaceEditView.as_view(),       name='deviceagentinterface_add' ),
+    path( 'interfaces/device-agents/<int:pk>/',           views.DeviceAgentInterfaceView.as_view(),           name='deviceagentinterface' ),
+    path( 'interfaces/device-agents/<int:pk>/edit/',      views.DeviceAgentInterfaceEditView.as_view(),       name='deviceagentinterface_edit' ),
+    path( 'interfaces/device-agents/<int:pk>/delete/',    views.DeviceAgentInterfaceDeleteView.as_view(),     name='deviceagentinterface_delete' ),
+    path( 'interfaces/device-agents/delete/',             views.DeviceAgentInterfaceBulkDeleteView.as_view(), name='deviceagentinterface_bulk_delete' ),
+    path( 'interfaces/device-agents/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                      name='deviceagentinterface_changelog', kwargs={'model': models.DeviceAgentInterface} ),
 
     # Device SNMPv3 Interfaces
-    path( 'interfaces/device-snmpv3/',                    views.DeviceSNMPv3InterfaceListView.as_view(),   name='devicesnmpv3interface_list' ),
-    path( 'interfaces/device-snmpv3/add/',                views.DeviceSNMPv3InterfaceEditView.as_view(),   name='devicesnmpv3interface_add' ),
-    path( 'interfaces/device-snmpv3/<int:pk>/',           views.DeviceSNMPv3InterfaceView.as_view(),       name='devicesnmpv3interface' ),
-    path( 'interfaces/device-snmpv3/<int:pk>/edit/',      views.DeviceSNMPv3InterfaceEditView.as_view(),   name='devicesnmpv3interface_edit' ),
-    path( 'interfaces/device-snmpv3/<int:pk>/delete/',    views.DeviceSNMPv3InterfaceDeleteView.as_view(), name='devicesnmpv3interface_delete' ),
-    path( 'interfaces/device-snmpv3/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                   name='devicesnmpv3interface_changelog', kwargs={'model': models.DeviceSNMPv3Interface} ),
+    path( 'interfaces/device-snmpv3/',                    views.DeviceSNMPv3InterfaceListView.as_view(),       name='devicesnmpv3interface_list' ),
+    path( 'interfaces/device-snmpv3/add/',                views.DeviceSNMPv3InterfaceEditView.as_view(),       name='devicesnmpv3interface_add' ),
+    path( 'interfaces/device-snmpv3/<int:pk>/',           views.DeviceSNMPv3InterfaceView.as_view(),           name='devicesnmpv3interface' ),
+    path( 'interfaces/device-snmpv3/<int:pk>/edit/',      views.DeviceSNMPv3InterfaceEditView.as_view(),       name='devicesnmpv3interface_edit' ),
+    path( 'interfaces/device-snmpv3/<int:pk>/delete/',    views.DeviceSNMPv3InterfaceDeleteView.as_view(),     name='devicesnmpv3interface_delete' ),
+    path( 'interfaces/device-snmpv3/delete/',             views.DeviceSNMPv3InterfaceBulkDeleteView.as_view(), name='devicesnmpv3interface_bulk_delete' ),
+    path( 'interfaces/device-snmpv3/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                       name='devicesnmpv3interface_changelog', kwargs={'model': models.DeviceSNMPv3Interface} ),
 
     # VM Agent Interfaces
     path( 'interfaces/vm-agents/',                    views.VMAgentInterfaceListView.as_view(),   name='vmagentinterface_list' ),

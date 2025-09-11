@@ -1033,9 +1033,8 @@ class DeviceAgentInterfaceView(generic.ObjectView):
 
 class DeviceAgentInterfaceListView(generic.ObjectListView):
     queryset = models.DeviceAgentInterface.objects.all()
-    filterset = filtersets.DeviceAgentInterfaceFilterSet
-#    filterset_form = forms.DeviceAgentInterfaceFilterForm
     table = tables.DeviceAgentInterfaceTable
+    filterset = filtersets.DeviceAgentInterfaceFilterSet
 
 
 class DeviceAgentInterfaceEditView(generic.ObjectEditView):
@@ -1062,6 +1061,14 @@ class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
         return super().post(request, *args, **kwargs)
 
 
+class DeviceAgentInterfaceBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.DeviceAgentInterface.objects.all()
+    table = tables.DeviceAgentInterfaceTable
+
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:deviceagentinterface_list')
+
+
 #
 # Device SNMPv3
 #
@@ -1085,6 +1092,15 @@ class DeviceSNMPv3InterfaceEditView(generic.ObjectEditView):
 
 class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
+
+
+class DeviceSNMPv3InterfaceBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.DeviceSNMPv3Interface.objects.all()
+    table = tables.DeviceSNMPv3InterfaceTable
+
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:devicesnmpv3interface_list')
+
 
 #
 # VM Agent

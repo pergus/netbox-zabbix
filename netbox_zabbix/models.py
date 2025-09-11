@@ -710,11 +710,14 @@ class DeviceAgentInterface(BaseAgentInterface):
     host = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
 
     # The physical interface associated with this Agent configuration.
-    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, blank=True, null=True, related_name="agent_interface" )
+    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, null=True, related_name="agent_interface" )
 
     # IP address used by tahe interface. Can be empty if connection is made via DNS.
-    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="device_agent_interface" )
+    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, null=True, related_name="device_agent_interface" )
 
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_zabbix:deviceagentinterface", kwargs={"pk": self.pk})
+    
 
 class DeviceSNMPv3Interface(BaseSNMPv3Interface):
     class Meta:

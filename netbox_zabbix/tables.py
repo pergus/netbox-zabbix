@@ -473,11 +473,15 @@ class DeviceAgentInterfaceTable(NetBoxTable):
     interface = tables.Column( linkify=True )
     resolved_ip_address = tables.Column( verbose_name="IP Address", linkify=True )
     resolved_dns_name = tables.Column( verbose_name="DNS Name", linkify=True )
-        
+    
     class Meta(NetBoxTable.Meta):
         model = models.DeviceAgentInterface
-        fields = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "hostid", "interfaceid", "available", "useip", "main",  "port" )
-        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main")
+        actions = ("bulk_edit", "bulk_delete", "edit", "delete" )
+        fields = ("name", "host", "interface", "resolved_ip_address", 
+                  "resolved_dns_name", "hostid", "interfaceid", "available", 
+                  "useip", "main",  "port" )
+        default_columns = ("name", "host", "interface", "resolved_ip_address", 
+                           "resolved_dns_name", "port", "useip", "main")
 
 
 class DeviceSNMPv3InterfaceTable(NetBoxTable):
