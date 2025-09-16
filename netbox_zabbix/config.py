@@ -40,6 +40,16 @@ def get_auto_validate_importables():
     return get_config().auto_validate_importables
 
 
+def get_auto_validate_quick_add():
+    """
+    Retrieve the current setting for automatic validation of quick add devices and VMs.
+    
+    Returns:
+        bool: True if automatic validation is enabled; False otherwise.
+    """
+    return get_config().auto_validate_quick_add
+
+
 def get_event_log_enabled():
     """
     Retrieves the event log enabled  from the configuration.

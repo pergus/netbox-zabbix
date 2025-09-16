@@ -43,7 +43,7 @@ urlpatterns = (
 
 
     # --------------------------------------------------------------------------
-    # Zabbix Imports
+    # Zabbix Import Settings (Tempate, Proxies, etc.)
     # --------------------------------------------------------------------------
 
     path( 'zabbix/import-settings',     views.zabbix_import_settings, name='import_zabbix_settings' ),
@@ -107,9 +107,7 @@ urlpatterns = (
     path( 'devices/zabbix-config/<int:pk>/delete/',    views.DeviceZabbixConfigDeleteView.as_view(),     name='devicezabbixconfig_delete' ),
     path( 'devices/zabbix-config/delete/',             views.DeviceZabbixConfigBulkDeleteView.as_view(), name='devicezabbixconfig_bulk_delete' ),
     path( 'devices/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                    name='devicezabbixconfig_changelog', kwargs={'model': models.DeviceZabbixConfig} ),
-
-
-    path( 'devices/zabbix-config/<int:pk>/jobs',       views.DeviceZabbixConfigJobsTabView.as_view(),   name='devicezabbixconfig_jobs' ),
+    path( 'devices/zabbix-config/<int:pk>/jobs',       views.DeviceZabbixConfigJobsTabView.as_view(),    name='devicezabbixconfig_jobs' ),
 
     # VM Zabbix Configuration
     path( 'virtual-machines/zabbix-config/',                    views.VMZabbixConfigListView.as_view(),   name='vmzabbixconfig_list' ),
@@ -124,6 +122,12 @@ urlpatterns = (
     path( 'zabbix/configs/edit/<int:pk>/',       views.ZabbixConfigEditView.as_view(),   name='zabbixconfig_edit' ),
     path( 'zabbix/configs/delete/<int:pk>/',     views.ZabbixConfigDeleteView.as_view(), name='zabbixconfig_delete' ),
     path( 'zabbix/configs/<int:pk>/changelog/',  ObjectChangeLogView.as_view(),          name='zabbixconfig_changelog', kwargs={'model': models.ZabbixConfig} ),
+
+
+    # --------------------------------------------------------------------------
+    # Sync With Zabbix
+    # --------------------------------------------------------------------------
+    path( 'zabbix/sync', views.sync_device_with_zabbix, name='sync_device_with_zabbix' ),
 
 
     # --------------------------------------------------------------------------
@@ -154,8 +158,9 @@ urlpatterns = (
     # --------------------------------------------------------------------------
 
     # Quick add Agent and SNMPv3 Device Configuration
-    path( 'devices/zabbix-config/quick-add-agent/',  views.device_quick_add_agent,  name='device_quick_add_agent' ),
-    path( 'devices/zabbix-config/quick-add-snmpv3/', views.device_quick_add_snmpv3, name='device_quick_add_snmpv3' ),
+    path( 'devices/zabbix-config/validate-quick-add/',  views.device_validate_quick_add, name='device_validate_quick_add' ),
+    path( 'devices/zabbix-config/quick-add-agent/',     views.device_quick_add_agent,    name='device_quick_add_agent' ),
+    path( 'devices/zabbix-config/quick-add-snmpv3/',    views.device_quick_add_snmpv3,   name='device_quick_add_snmpv3' ),
 
 
     # --------------------------------------------------------------------------

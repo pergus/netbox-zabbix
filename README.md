@@ -16,15 +16,63 @@ Not having a name for ZabbixConfig's makes it problematic to script.
 
 
 
+
+## Here be Dragons!
+
+### Problem With IPs and Interfaces
+
+Delete the IP on an interface in Zabbix doesn't work unless useip is set to 0
+before removing the address. The same goes for DNS.
+
+Delete the last interface of its type in Zabbix doesn't work unless all no
+items are left that use the interface. This means that templates has to be
+deleted befor removing the interface.
+
+### Solution
+
+| NetBox Action     | Behaviour | State     |
+| ----------------- | ----------|---------- |
+| Delete an IPv4 address that is associated with a ZC interface. | The IP address is removed from the ZC interface. No Zabbix sync. | Inconsistent |
+| Add a new primary IPv4 address to an devm interface. |  If the devm has an interface that is associated with a ZC interface,  then add the IP address to the ZC interface. Sync with Zabbix. | Consistent |
+| Delete a devm inteface that is assoicated with a ZC interface. | The ZC interface is removed. No Zabbix sync, unless last interface then disable the host in Zabbix. | Inconstitent |
+| Add a new devm interface with primary IPv4. | Nothing | Inconsitent |
+
+To fix the inconsistency with removing interfaces the user has to add an interface by hand.
+
+Add a view that lists all inconsistent devm/hosts.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### Todo
+
+* Should deleting a host in zabbix that doesn't exist cause an exception?
+Exception: Failed to soft delete zabbix host 11537: No host with host id '11537' found in Zabbix
+
 
 [DONE] Failsafe delete - implemented Hard/Soft delete.
 
 [DONE] DNS name changes
 
 * What if an interface change the ip address?
+  Here be dragons!
 
 * What if a device/vm changes or deletes an interface?
+  Here be dragons!
+  Delete of an interface doesn't delete it in Zabbix.
+
 
 
 [DONE] netbox_zabbix.jobs.ExceptionWithData: ('Error -32602: Invalid params., Cannot link template "AXIS Debian" to host "dk-ece007w", because its parent template "ICMP Ping" would be linked twice.', -32602)
@@ -46,10 +94,10 @@ This took longer than expected beacuse I couldn't get it to work.
 The solution was to implement bulk delete.
 
 
-* Update/Delete interfaces should record the changes in the ZC change log
-  and update Zabbix.
+[DONE] Update/Delete interfaces should record the changes in the ZC change log
+       and update Zabbix.
 
-* If a global default setting changes, should all ZC and Hosts in Z also update?
+[WAIT] If a global default setting changes, should all ZC and Hosts in Z also update?
   Don't think so.
 
 

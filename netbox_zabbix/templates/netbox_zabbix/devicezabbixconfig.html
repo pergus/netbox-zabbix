@@ -21,8 +21,17 @@
                 SNMPv3 Interface
             </a>
         </li>
+
     </ul>
 </div>
+
+<div>
+<a href="{% url 'plugins:netbox_zabbix:sync_device_with_zabbix' %}?device_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}" class="btn btn-primary">
+    <i class="mdi mdi-sync"></i> Sync With Zabbix
+</a>
+</div>
+
+
 {% endblock %}
 
 
@@ -59,6 +68,12 @@
                             <a href="{{ object.device.get_absolute_url }}">{{ object.device.name }}</a>
                         </td>
                     </tr>
+
+                    <tr>
+                        <th scope="row">In Sync with Zabbix</th>
+                        <td> {{ object.get_sync_icon|safe }} </td>
+                    </tr>
+
 
                     <tr>
                         <th scope="row">Zabbix Host ID</th>
@@ -112,20 +127,20 @@
     </div>
 </div>
 
+{% if object.description %}
 <div class="row">
     <div class="col col-md-12">
         <div class="card">
             <h2 class="card-header">{% trans "Description" %}</h2>
             <div class="card-body">
-                {% if object.description %}
                 {{ object.description|markdown }}
-                {% else %}
                 <span class="text-muted">{% trans "None" %}</span>
-                {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endif %}
+
 
 <div class="row">
     <div class="col col-md-12">

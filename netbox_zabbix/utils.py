@@ -1,12 +1,16 @@
 # utils.py
-from netbox_zabbix import models
+
+from netbox_zabbix import models, config
 from netbox_zabbix.config import get_default_tag, get_tag_prefix
 from netbox_zabbix.inventory_properties import inventory_properties
-
 from netbox_zabbix import zabbix as z
-
 from netbox_zabbix.logger import logger
 
+
+
+# ------------------------------------------------------------------------------
+# Build payload helpers
+#
 
 
 def resolve_field_path(obj, path):
@@ -26,7 +30,7 @@ def resolve_field_path(obj, path):
         return None
 
 
-def get_zabbix_inventory_for_object (obj):
+def get_zabbix_inventory_for_object(obj):
     if obj._meta.model_name == 'device':
         object_type = 'device'
     elif obj._meta.model_name == 'virtualmachine':
@@ -123,8 +127,8 @@ def get_zabbix_tags_for_object(obj):
 
 
 
-#-------------------------------------------------------------------------------
-# Tempalte helper functions
+# ------------------------------------------------------------------------------
+# Template helper functions
 #
 
 
@@ -199,7 +203,6 @@ def get_template_dependencies(templateid):
                     deps.append( int( dep_templateid ) )
 
     return deps
-
 
 
 # This function is called by import template to add the interface type for
@@ -369,6 +372,158 @@ def validate_templates_and_interface(templateids: list, interface_type=models.In
     validate_templates(templateids)
     validate_template_interface(templateids, interface_type)
     return True
+
+
+
+# ------------------------------------------------------------------------------
+# Quick Add helper functions
+#
+
+def validate_quick_add( devm ):
+    if not devm.primary_ip4_id:
+        raise Exception( f"{devm.name} is missing the required primary IPv4 address." )
+    if not devm.primary_ip.dns_name:
+        raise Exception( f"{devm.name} is missing the required DNS name." )
+
+
+# ------------------------------------------------------------------------------
+# Validate Zabbix Configuration against Zabbix Host
+#
+
+def normalize_host( host_data ):
+    """
+    Normalize host data from either Zabbix API or NetBox payload for comparison.
+    """
+
+    # Groups
+    resolved_groups = []
+    for group_entry in host_data.get( "groups", [] ):
+        # Zabbix data (dict with groupid)
+        if isinstance( group_entry, dict ) and "groupid" in group_entry:
+            try:
+                host_group_object = models.HostGroup.objects.get( groupid=int( group_entry["groupid"] ) )
+                resolved_groups.append( host_group_object.name )
+            except models.HostGroup.DoesNotExist:
+                resolved_groups.append( f"<unknown:{group_entry['groupid']}>" )
+        # NetBox payload (string)
+        elif isinstance( group_entry, str ):
+            resolved_groups.append( group_entry )
+    resolved_groups = sorted( resolved_groups )
+
+    # Templates
+    resolved_templates = []
+    for template_entry in host_data.get( "templates", [] ) + host_data.get( "parentTemplates", [] ):
+        if isinstance( template_entry, dict ) and "templateid" in template_entry:
+            try:
+                template_object = models.Template.objects.get( templateid=int( template_entry["templateid"] ) )
+                resolved_templates.append( template_object.name )
+            except models.Template.DoesNotExist:
+                resolved_templates.append( f"<unknown:{template_entry['templateid']}>" )
+        elif isinstance( template_entry, str ):
+            resolved_templates.append( template_entry )
+    resolved_templates = sorted( resolved_templates )
+
+    # Interfaces
+    resolved_interfaces = sorted(
+        [
+            {
+                "ip":    interface_entry.get( "ip", "" ),
+                "dns":   interface_entry.get( "dns", "" ),
+                "type":  int( interface_entry.get( "type", 0 ) ),
+                "useip": int( interface_entry.get( "useip", 0 ) ),
+                "main":  int( interface_entry.get( "main", 0 ) ),
+                "port":  int( interface_entry.get( "port", 0 ) ),
+            }
+            for interface_entry in host_data.get( "interfaces", [] )
+        ],
+        key=lambda interface: ( interface["ip"], interface["dns"] )
+    )
+
+    # Tags
+    possible_tags = []
+    prefix = config.get_tag_prefix()
+    for field in models.TagMapping.objects.all()[0].selection:
+        possible_tags.append( f"{prefix}{field.get( 'name' )}" )
+    
+    resolved_tags = {}
+    for tag_entry in host_data.get( "tags", [] ):
+        if tag_entry.get( "tag" ) in possible_tags:
+            resolved_tags[ tag_entry.get( "tag", "" ) ] = tag_entry.get( "value", "" )
+
+    # Inventory
+    possible_inventory_items = [ field.get( "invkey" ) for field in models.InventoryMapping.objects.all()[0].selection ]
+    resolved_inventory = {
+        inventory_key: inventory_value
+        for inventory_key, inventory_value in host_data.get( "inventory", {} ).items()
+        if inventory_key in possible_inventory_items
+    }
+
+    # Other fields
+    host_name = host_data.get( "host" ) or resolved_inventory.get( "name" ) or ""
+    host_status = int( host_data.get( "status", 0 ) )
+    host_proxy_id = host_data.get( "proxyid" ) or None
+
+    return {
+        "host":       host_name,
+        "status":     host_status,
+        "proxyid":    host_proxy_id,
+        "groups":     resolved_groups,
+        "templates":  resolved_templates,
+        "interfaces": resolved_interfaces,
+        "tags":       resolved_tags,
+        "inventory":  resolved_inventory,
+    }
+
+
+def verify_config(zcfg):
+    """
+    Verify that a DeviceZabbixConfig or VMZabbixConfig in NetBox
+    matches the current configuration in Zabbix.
+
+    Args:
+        zcfg: DeviceZabbixConfig or VMZabbixConfig instance.
+
+    Returns:
+        dict containing:
+            - in_sync (bool): True if everything matches
+            - differences (dict): key/value pairs of mismatched fields
+            - zabbix_data (dict): raw Zabbix host data (for debugging)
+    """
+    if not zcfg.hostid:
+        return {
+            "in_sync": False,
+            "differences": { "netbox": {"hostid": None}, "zabbix": None },
+        }
+
+    # Fetch host info from Zabbix
+    try:
+        zbx_host = z.get_host_by_id( zcfg.hostid )
+    except Exception:
+        return {
+            "in_sync": False,
+            "differences": { "netbox": {"hostid": zcfg.hostid}, "zabbix": None },
+        }
+
+    # Build payload from NetBox for fields we care about - prevent circular include
+    from netbox_zabbix.jobs import build_payload
+    
+    nb_payload = build_payload( zcfg )
+
+    simplified_zbx = normalize_host( zbx_host )
+    simplified_nb  = normalize_host( nb_payload )
+
+    # Compare
+    differences = {}
+    for key in simplified_nb.keys():
+        if simplified_nb[key] != simplified_zbx.get( key ):
+            differences[key] = { "netbox": simplified_nb[key], "zabbix": simplified_zbx.get( key ) }
+
+    in_sync = not bool(differences)
+
+    return {
+        "in_sync": in_sync,
+        "differences": differences,
+    }
 
 
 # end

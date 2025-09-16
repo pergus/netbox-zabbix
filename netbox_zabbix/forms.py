@@ -63,6 +63,7 @@ class ConfigForm(NetBoxModelForm):
                   'ip_assignment_method',
                   'event_log_enabled',
                   'auto_validate_importables',
+                  'auto_validate_quick_add',
                   name="General" ),
         FieldSet( 'max_deletions',
                   'max_success_notifications',
@@ -538,7 +539,13 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
         host = self.cleaned_data.get( "host" )
         if not host:
             raise ValidationError( "No Device Zabbix Config selected." )
-    
+
+        # Validate DNS name
+        ip_address = self.cleaned_data.get( "ip_address" )
+        logger.info( f"ip_address: {ip_address}" )
+        if not ip_address.dns_name:
+            raise ValidationError( "The IP address require a DNS name" )
+
         if not getattr( host, "hostid", None ):
             raise ValidationError(
                 f"Cannot create or update an agent interface for '{host.get_name()}': "

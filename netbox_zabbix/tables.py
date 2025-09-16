@@ -17,6 +17,7 @@ from virtualization.models import VirtualMachine
 from virtualization.tables import VirtualMachineTable
 
 from netbox_zabbix import config, jobs, models
+from netbox_zabbix.utils import validate_quick_add, verify_config
 
 from netbox_zabbix.logger import logger
 
@@ -54,7 +55,7 @@ class ConfigTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.Config
         fields = ( 
-            'name', 'ip_assignment_method', 'auto_validate_importables', 'max_deletions', 'max_success_notifications', 'event_log_enabled', 
+            'name', 'ip_assignment_method', 'auto_validate_importables', 'auto_validate_quick_add', 'max_deletions', 'max_success_notifications', 'event_log_enabled', 
             'version', 'api_endpoint', 'web_address', 'token', 'default_cidr', 'connection', 'last_checked_at', 'inventory_mode', 
             'monitored_by', 'tls_connect', 'tls_accept', 'tls_psk_identity', 'tls_psk', 
             'default_tag', 'tag_prefix', 'tag_name_formatting' )
@@ -163,6 +164,13 @@ EXTRA_DEVICE_ADD_ACTIONS = """
 
     <ul class="dropdown-menu">
         <li>
+            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_validate_quick_add' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
+            <i class="mdi mdi-flash-auto""></i>
+            Validate
+            </a>
+        </li>
+    
+        <li>
             <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_agent' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
             <i class="mdi mdi-flash-auto""></i>
             Quick Add Agent
@@ -173,31 +181,54 @@ EXTRA_DEVICE_ADD_ACTIONS = """
             <i class="mdi mdi-flash""></i>
             Qucik Add SNMPv3
             </a>
-        </li>        
+        </li>
     </ul>
 </span>
 
 """
-
 
 class NetBoxOnlyDevicesTable(DeviceTable):
     name     = tables.Column( linkify=True )
     site     = tables.Column( linkify=True )
     role     = tables.Column( linkify=True )
     platform = tables.Column( linkify=True )
-
+    
     zabbix_config        = tables.Column( verbose_name='Zabbix Configuration', empty_values=(), orderable=False )
     agent_mapping_name   = tables.Column( verbose_name='Agent Mapping',        empty_values=(), orderable=False )
     snmpv3_mapping_name  = tables.Column( verbose_name='SNMPv3 Mapping',       empty_values=(), orderable=False )
 
+    valid   = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
+    reason  = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
     tags    = TagColumn( url_name='dcim:device_list' )
     actions = ActionsColumn( extra_buttons=[] )
 
     class Meta(DeviceTable.Meta):
         model = Device
-        fields = ("name", "zabbix_config", "site", "role", "platform", "agent_mapping_name", "snmpv3_mapping_name", "tags")
+        fields = ("name", "zabbix_config", "site", "role", "platform", 
+                  "agent_mapping_name", "snmpv3_mapping_name", "valid", 
+                  "reason", "tags")
         default_columns = fields
 
+
+    def __init__(self, *args, request=None, **kwargs):
+            super().__init__( *args, **kwargs )
+            self.reasons = {}
+
+    def render_valid(self, record):
+        if config.get_auto_validate_quick_add():
+            try:
+                validate_quick_add( record )
+                return mark_safe("✔")
+            except Exception as e:
+                self.reasons[record] = e
+                return mark_safe("✘")
+        else:
+            return mark_safe("-")
+    
+    def render_reason(self, record):
+        if config.get_auto_validate_quick_add():
+            return self.reasons[record] if record in self.reasons else ""
+        return ""
 
     def render_actions(self, record):
         return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
@@ -288,6 +319,7 @@ class NetBoxOnlyVMsTable(VirtualMachineTable):
 class DeviceZabbixConfigTable(NetBoxTable):
     name        = tables.Column( accessor='get_name', order_by='device', verbose_name='Name', linkify=True )
     device      = tables.Column( accessor='device', verbose_name='Device', linkify=True )
+    sync        = tables.BooleanColumn( accessor='sync', verbose_name="In Sync", orderable=False )
     status      = tables.Column()
     hostid      = tables.Column( verbose_name='Zabbix Host ID' )
     templates   = tables.ManyToManyColumn( linkify_item=True )
@@ -298,11 +330,15 @@ class DeviceZabbixConfigTable(NetBoxTable):
     
     class Meta(NetBoxTable.Meta):
         model = models.DeviceZabbixConfig
-        fields = ('name', 'device', 'status', 'monitored_by', 'hostid', 
+        fields = ('name', 'device', 'sync', 'status', 'monitored_by', 'hostid', 
                   'templates', 'proxy', 'proxy_group', 'host_groups', 
                   'description' )
-        default_columns = ('name', 'device', 'status', 'monitored_by', 
+        default_columns = ('name', 'device', 'sync', 'status', 'monitored_by', 
                            'templates', 'proxy', 'proxy_group', 'host_groups')
+
+    def render_sync(self, record):
+        result = verify_config( record )
+        return mark_safe("✔") if result["in_sync"] else mark_safe("✘")
 
 
 class VMZabbixConfigTable(NetBoxTable):

@@ -1,5 +1,7 @@
 # models.py
 from django.core.exceptions import ValidationError
+from django.utils.safestring import mark_safe
+
 from django.db import models
 from django.urls import reverse
 
@@ -9,6 +11,7 @@ from dcim.models import Device, DeviceRole, Interface, Platform, Site
 from core.models import Job
 from netbox.models import NetBoxModel
 from virtualization.models import VMInterface
+from netbox.models import JobsMixin
 
 from netbox_zabbix.logger import logger
 
@@ -199,7 +202,11 @@ class Config(NetBoxModel):
         help_text="Method used to assign IPs to host interfaces."
     )
     event_log_enabled         = models.BooleanField( verbose_name="Event Log Enabled", default=False )
-    auto_validate_importables = models.BooleanField( verbose_name="Validate Importables", default=False, help_text="Automatically validate importable hosts before displaying them. Otherwise, validation is manual." )
+    auto_validate_importables = models.BooleanField( verbose_name="Validate Importables", default=False, 
+                                                    help_text="When enabled, importable hosts are validated automatically." )
+    auto_validate_quick_add   = models.BooleanField( verbose_name="Validate Quick Add", default=False, 
+                                                    help_text="When enabled, hosts eligible for Quick Add are validated automatically." )
+    
 
     # Background Job(s)
     max_deletions             = models.IntegerField(
@@ -454,7 +461,6 @@ class HostGroup(NetBoxModel):
 # Zabbix Configs
 # ------------------------------------------------------------------------------
 
-from netbox.models import JobsMixin
 
 class ZabbixConfig(NetBoxModel, JobsMixin):
     class Meta:
@@ -486,6 +492,23 @@ class DeviceZabbixConfig(ZabbixConfig):
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:devicezabbixconfig", args=[self.pk] )
 
+    def devm_name(self):
+        return self.device.name if self.device else None
+
+    def get_sync_status(self):
+        """
+        Returns a boolean indicating whether this host is in sync with Zabbix.
+        """
+        from netbox_zabbix.utils import verify_config
+        
+        result = verify_config(self)
+        return result.get("in_sync", False)
+    
+    def get_sync_icon(self):
+        """
+        Returns a checkmark or cross for template display.
+        """
+        return mark_safe("✔") if self.get_sync_status() else mark_safe("✘")
 
 class VMZabbixConfig(ZabbixConfig):
     class Meta:
@@ -502,6 +525,9 @@ class VMZabbixConfig(ZabbixConfig):
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:vmzabbixconfig", args=[self.pk] )
+
+    def devm_name(self):
+        return self.device.name if self.device else None
 
 
 # ------------------------------------------------------------------------------
@@ -555,9 +581,9 @@ class BaseAgentInterface(HostInterface):
         Return the primary IP from the host's device or VM, or None.
         """
         host = self.host
-        if hasattr(host, "device") and host.device:
+        if hasattr( host, "device" ) and host.device:
             return host.device.primary_ip4 or host.device.primary_ip6
-        elif hasattr(host, "virtual_machine") and host.virtual_machine:
+        elif hasattr( host, "virtual_machine" ) and host.virtual_machine:
             return host.virtual_machine.primary_ip4 or host.virtual_machine.primary_ip6
         return None
     
@@ -699,7 +725,7 @@ class BaseSNMPv3Interface(HostInterface):
         
         
         return super().save(*args, **kwargs)
-    
+
 
 class DeviceAgentInterface(BaseAgentInterface):
     class Meta:
@@ -717,7 +743,7 @@ class DeviceAgentInterface(BaseAgentInterface):
 
     def get_absolute_url(self):
         return reverse("plugins:netbox_zabbix:deviceagentinterface", kwargs={"pk": self.pk})
-    
+
 
 class DeviceSNMPv3Interface(BaseSNMPv3Interface):
     class Meta:

@@ -23,6 +23,8 @@ from utilities.views import ViewTab, register_model_view
 from virtualization.models import VirtualMachine
 
 from netbox_zabbix import filtersets, forms, jobs, models, tables, zabbix as z
+from netbox_zabbix.utils import validate_quick_add
+
 from netbox_zabbix.logger import logger
 
 
@@ -452,6 +454,22 @@ def import_host_groups(request):
 # ------------------------------------------------------------------------------
 
 
+def device_validate_quick_add(request):
+    redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
+    if request.method == 'GET':
+        device_id = request.GET.get( "device_id" )
+        device = Device.objects.filter( pk=device_id ).first()
+        if not device:
+            messages.error( request, f"No Device with id {device_id} found" )
+        else:
+            try:
+                validate_quick_add( device )
+                messages.success( request, f"{device.name} is valid" )
+            except Exception as e:
+                messages.error( request, str( e ) )
+    return redirect( redirect_url )
+
+
 def device_quick_add_agent(request):
     redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
 
@@ -462,6 +480,7 @@ def device_quick_add_agent(request):
             messages.error( request, f"No Device with id {device_id} found" )
         else:
             try:
+                validate_quick_add( device )
                 job = jobs.ProvisionDeviceAgent.run_job( device=device, request=request)
                 message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
                 messages.success( request, message )
@@ -481,6 +500,7 @@ def device_quick_add_snmpv3(request):
             messages.error( request, f"No Device with id {device_id} found" )
         else:
             try:
+                validate_quick_add( device )
                 job = jobs.ProvisionDeviceSNMPv3.run_job( device=device, reques=request )
                 message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {device.name}' )
                 messages.success( request, message )
@@ -611,6 +631,20 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
     
     def post(self, request, *args, **kwargs):
 
+        if '_validate_quick_add' in request.POST:
+            
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = Device.objects.filter( pk__in=selected_ids )
+            
+            for device in queryset:
+                try:
+                    validate_quick_add( device )
+                    messages.success( request, f"{device.name} is valid" )
+                except Exception as e:
+                    messages.error( request, f"{str( e )}" )
+
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+        
         if '_quick_add_agent' in request.POST:
 
             # Add a check to make sure there are any selected hosts, print a warning if not.
@@ -622,7 +656,7 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
 
             for device in queryset:
                 try:
-                    logger.info ( f"quick add agent to {device.name}" )
+                    validate_quick_add( device )
                     job = jobs.ProvisionDeviceAgent.run_job( device=device, request=request )
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
                     if success_counter < max_success_messages:
@@ -649,7 +683,7 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
 
             for device in queryset:
                 try:
-                    logger.info ( f"quick add snmpv3t to {device.name}" )
+                    validate_quick_add( device )
                     job = jobs.ProvisionDeviceSNMPv3.run_job( device=device, request=request )
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {device.name}' )
                     if success_counter < max_success_messages:
@@ -666,6 +700,7 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
                 messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
 
             return redirect( request.POST.get( 'return_url' ) or request.path )
+
 
 # ------------------------------------------------------------------------------
 # NetBox Ony VMs
@@ -795,7 +830,7 @@ class VMZabbixConfigDeleteView(generic.ObjectDeleteView):
 
 
 # ------------------------------------------------------------------------------
-#  Device & VM Zabbix Configurations (Combined)
+# Device & VM Zabbix Configurations (Combined)
 # ------------------------------------------------------------------------------
 
 
@@ -853,7 +888,34 @@ class ZabbixConfigDeleteView(View):
 
 
 # ------------------------------------------------------------------------------
-#  Importable Devices
+# Sync With Zabbix
+# ------------------------------------------------------------------------------
+
+def run_sync_device_with_zabbix(request):
+    try:
+        zabbix_config_id = request.GET.get( "device_zabbix_config_id" )
+        config = models.DeviceZabbixConfig.objects.get( id = zabbix_config_id )
+
+        jobs.UpdateZabbixHost.run_job_now( zabbix_config=config, request=request )
+
+        messages.success( request, f"Sync {config.get_name()} with Zabbix succeeded." )
+    except Exception as e:
+        messages.error( request, f"Failed to sync {config.get_name()} with Zabbix. Reason: {str( e ) }" )
+
+
+def sync_device_with_zabbix(request):
+    """
+    View-based wrapper around sync with Zabbix
+    """
+    redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
+    
+    run_sync_device_with_zabbix( request )
+
+    return redirect( redirect_url )
+
+
+# ------------------------------------------------------------------------------
+# Importable Devices
 # ------------------------------------------------------------------------------
 
 
@@ -936,7 +998,7 @@ class ImportableDeviceListView(generic.ObjectListView):
 
 
 # ------------------------------------------------------------------------------
-#  Importable VMs
+# Importable VMs
 # ------------------------------------------------------------------------------
 
 
@@ -1048,15 +1110,16 @@ class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
 
     def post(self, request, *args, **kwargs):
         # Get the interface instance to delete
-        interface = self.get_object()
-    
-        hostid = interface.host.hostid          # Zabbix host ID
-        interfaceid = interface.interfaceid     # Zabbix interface ID
-        name = interface.name
-        
-        if not z.can_remove_interface( hostid, interfaceid ):
-            messages.error( request, f"Interface {name} is linked to one or more items. Unable to delete interface." )
-            return redirect(request.POST.get( 'return_url' ) or self.get_absolute_url() )
+        interface = self.queryset.filter( pk=kwargs.get("pk") )
+
+        if hasattr( interface, "host" ):
+            hostid = interface.host.hostid          # Zabbix host ID
+            interfaceid = interface.interfaceid     # Zabbix interface ID
+            name = interface.name
+            
+            if not z.can_remove_interface( hostid, interfaceid ):
+                messages.error( request, f"Interface {name} is linked to one or more items in Zabbix. Unable to delete interface." )
+                return redirect(request.POST.get( 'return_url' ) or self.get_absolute_url() )
     
         return super().post(request, *args, **kwargs)
 
@@ -1340,6 +1403,7 @@ class EventLogView(generic.ObjectView):
     queryset = models.EventLog.objects.all()
 
     def get_extra_context(self, request, instance):
+        from utilities.data import shallow_compare_dict
 
         # Find previous and next events (ordered by created)
         prev_event = models.EventLog.objects.filter( created__lt=instance.created ).order_by( '-created' ).first()
@@ -1351,7 +1415,10 @@ class EventLogView(generic.ObjectView):
         else:
             format = 'json'
 
-        return { 'format': format, 'prev_event': prev_event, 'next_event': next_event, }
+        diff_added = shallow_compare_dict( instance.pre_data, instance.post_data )
+        diff_removed = { x: instance.pre_data.get(x) for x in diff_added } if instance.pre_data else {}
+
+        return { 'format': format, 'prev_event': prev_event, 'next_event': next_event, "diff_added": diff_added, "diff_removed": diff_removed }
 
 
 class EventLogListView(generic.ObjectListView):
