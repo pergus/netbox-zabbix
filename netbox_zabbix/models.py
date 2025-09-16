@@ -501,14 +501,19 @@ class DeviceZabbixConfig(ZabbixConfig):
         """
         from netbox_zabbix.utils import verify_config
         
-        result = verify_config(self)
-        return result.get("in_sync", False)
+        result = verify_config( self )
+        return result.get( "in_sync", False )
     
+    def get_sync_diff(self):
+        from netbox_zabbix.utils import verify_config
+        return verify_config( self )
+        
+
     def get_sync_icon(self):
         """
         Returns a checkmark or cross for template display.
         """
-        return mark_safe("✔") if self.get_sync_status() else mark_safe("✘")
+        return mark_safe( "✔" ) if self.get_sync_status() else mark_safe( "✘" )
 
 class VMZabbixConfig(ZabbixConfig):
     class Meta:

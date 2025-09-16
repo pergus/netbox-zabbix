@@ -1,0 +1,60 @@
+{% extends 'generic/object.html' %}
+{% load tab_utils %}
+
+{% block tabs %}
+<ul class="nav nav-tabs" role="presentation">
+    {# Primary overview tab #}
+    <li class="nav-item">
+        <a class="nav-link{% if not tab %} active{% endif %}" href="{{ object.get_absolute_url }}">
+            {{ object|meta:"verbose_name"|bettertitle }}
+        </a>
+    </li>
+    {# Include tabs for registered model views except for jobs #}
+    {% model_view_tabs_exlude_jobs object %}
+</ul>
+{% endblock tabs %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">Configuration Differences</h5>
+            <div class="card-body">
+                {% if diff_rows %}
+                <div class="table-responsive">
+                    <table class="table table-hover attr-table table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">Field</th>
+                                <th scope="col">Zabbix</th>
+                                <th scope="col">NetBox</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in diff_rows %}
+                            <tr>
+                                <th scope="row">{{ row.field }}</th>
+                                <td class="{% if row.netbox != row.zabbix %}text-danger{% endif %}">
+                                    {{ row.zabbix }}
+                                </td>
+                                <td class="{% if row.netbox != row.zabbix %}text-danger{% endif %}">
+                                    {{ row.netbox }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-3">
+                    No differences found — configuration is in sync.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

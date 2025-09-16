@@ -390,7 +390,7 @@ def validate_quick_add( devm ):
 # Validate Zabbix Configuration against Zabbix Host
 #
 
-def normalize_host( host_data ):
+def normalize_host( host_data, is_device=True ):
     """
     Normalize host data from either Zabbix API or NetBox payload for comparison.
     """
@@ -440,11 +440,27 @@ def normalize_host( host_data ):
     )
 
     # Tags
-    possible_tags = []
+    possible_tags = [ ]
     prefix = config.get_tag_prefix()
-    for field in models.TagMapping.objects.all()[0].selection:
-        possible_tags.append( f"{prefix}{field.get( 'name' )}" )
+    default_tag = config.get_default_tag()
+
+    if default_tag:
+        possible_tags.append( f"{prefix}{default_tag}" )
     
+    # There is a tag mapping for device and another for VMs.
+    tag_mappings = models.TagMapping.objects.filter(object_type='device' if is_device else 'virtual_machine')
+
+    for mapping in tag_mappings:
+        # Add tags
+        for tag in mapping.tags.all():
+            possible_tags.append(prefix + str(tag))
+        
+        # Add selections
+        for field in mapping.selection:
+            name = field.get('name')
+            if name:
+                possible_tags.append(prefix + name)
+
     resolved_tags = {}
     for tag_entry in host_data.get( "tags", [] ):
         if tag_entry.get( "tag" ) in possible_tags:
@@ -458,24 +474,33 @@ def normalize_host( host_data ):
         if inventory_key in possible_inventory_items
     }
 
+    # Monitored by (agent)
+    monitored_by = host_data.get( "monitored_by", "0" )
+    
+    # Proxy group
+    proxy_groupid = host_data.get( "proxy_groupid", "0" )
+    
+
     # Other fields
     host_name = host_data.get( "host" ) or resolved_inventory.get( "name" ) or ""
     host_status = int( host_data.get( "status", 0 ) )
     host_proxy_id = host_data.get( "proxyid" ) or None
 
     return {
-        "host":       host_name,
-        "status":     host_status,
-        "proxyid":    host_proxy_id,
-        "groups":     resolved_groups,
-        "templates":  resolved_templates,
-        "interfaces": resolved_interfaces,
-        "tags":       resolved_tags,
-        "inventory":  resolved_inventory,
+        "host":          host_name,
+        "status":        host_status,
+        "proxyid":       host_proxy_id,
+        "groups":        resolved_groups,
+        "templates":     resolved_templates,
+        "interfaces":    resolved_interfaces,
+        "tags":          resolved_tags,
+        "inventory":     resolved_inventory,
+        "monitored_by":  monitored_by,
+        "proxy_groupid": proxy_groupid
     }
 
 
-def verify_config(zcfg):
+def verify_config(zcfg, debug=False):
     """
     Verify that a DeviceZabbixConfig or VMZabbixConfig in NetBox
     matches the current configuration in Zabbix.
@@ -509,8 +534,10 @@ def verify_config(zcfg):
     
     nb_payload = build_payload( zcfg )
 
-    simplified_zbx = normalize_host( zbx_host )
-    simplified_nb  = normalize_host( nb_payload )
+    is_device = hasattr(zcfg, "device")
+
+    simplified_zbx = normalize_host( zbx_host, is_device )
+    simplified_nb  = normalize_host( nb_payload, is_device )
 
     # Compare
     differences = {}
@@ -520,10 +547,48 @@ def verify_config(zcfg):
 
     in_sync = not bool(differences)
 
+    if debug:
+        import json
+        logger.info( f"Zabbix Host {json.dumps( zbx_host, indent=2 ) }" )
+        logger.info( f"NetBox Host {json.dumps( nb_payload, indent=2) }" )
+        logger.info( f"Zabbix Simple {json.dumps( simplified_zbx, indent=2 )}" )
+        logger.info( f"NetBox Simple {json.dumps( simplified_nb, indent=2 )}" )
+
     return {
         "in_sync": in_sync,
         "differences": differences,
     }
+
+
+
+def flatten_diff(diff):
+    """
+    Flatten a differences dict into a list of rows for template display.
+    Handles scalars and nested dicts.
+
+    Example row:
+        {"field": "tags.@Platform", "netbox": "Linux", "zabbix": "Linuxddddd"}
+    """
+    rows = []
+
+    for field, val in diff.get("differences", {}).items():
+        nb_val = val.get("netbox")
+        zbx_val = val.get("zabbix")
+
+        if isinstance(nb_val, dict) and isinstance(zbx_val, dict):
+            for subkey, subval in nb_val.items():
+                rows.append({
+                    "field": f"{field}.{subkey}",
+                    "netbox": subval,
+                    "zabbix": zbx_val.get(subkey)
+                })
+        else:
+            rows.append({
+                "field": field,
+                "netbox": nb_val,
+                "zabbix": zbx_val
+            })
+    return rows
 
 
 # end

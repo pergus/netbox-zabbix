@@ -109,6 +109,8 @@ urlpatterns = (
     path( 'devices/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                    name='devicezabbixconfig_changelog', kwargs={'model': models.DeviceZabbixConfig} ),
     path( 'devices/zabbix-config/<int:pk>/jobs',       views.DeviceZabbixConfigJobsTabView.as_view(),    name='devicezabbixconfig_jobs' ),
 
+    path( 'devices/zabbix-config/<int:pk>/difference', views.DeviceZabbixConfigDiffTabView.as_view(),    name='devicezabbixconfig_difference'),
+
     # VM Zabbix Configuration
     path( 'virtual-machines/zabbix-config/',                    views.VMZabbixConfigListView.as_view(),   name='vmzabbixconfig_list' ),
     path( 'virtual-machines/zabbix-config/add/',                views.VMZabbixConfigEditView.as_view(),   name='vmzabbixconfig_add' ),
