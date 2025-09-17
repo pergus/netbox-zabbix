@@ -210,9 +210,11 @@ class NetBoxOnlyDevicesTable(DeviceTable):
         default_columns = fields
 
 
-    def __init__(self, *args, request=None, **kwargs):
+    def __init__(self, *args, request=None, device_mapping_cache=None, **kwargs):
             super().__init__( *args, **kwargs )
             self.reasons = {}
+            self.device_mapping_cache = device_mapping_cache or {}
+
 
     def render_valid(self, record):
         if config.get_auto_validate_quick_add():
@@ -224,28 +226,66 @@ class NetBoxOnlyDevicesTable(DeviceTable):
                 return mark_safe("✘")
         else:
             return mark_safe("-")
-    
+
+
     def render_reason(self, record):
         if config.get_auto_validate_quick_add():
             return self.reasons[record] if record in self.reasons else ""
         return ""
 
+
     def render_actions(self, record):
         return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
-    
+
+
+#    def render_agent_mapping_name(self, record):
+#        view = self.context.get( "view" )
+#        mapping = getattr( view, 'device_mapping_cache', {} ).get( (record.pk, models.InterfaceTypeChoices.Agent) )
+#        if not mapping:
+#            return "—"
+#        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
+#
+#
+#    def render_snmpv3_mapping_name(self, record):
+#        view = self.context.get( "view" )
+#        mapping = getattr( view, 'device_mapping_cache', {} ).get( (record.pk, models.InterfaceTypeChoices.SNMP) )
+#        if not mapping:
+#            return "—"
+#        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
+
     def render_agent_mapping_name(self, record):
-        view = self.context.get( "view" )
-        mapping = getattr( view, 'device_mapping_cache', {} ).get( (record.pk, models.InterfaceTypeChoices.Agent) )
+
+        logger.info("render_agent_mapping_name called for %s — table has cache? %s", record.pk, bool(getattr(self, 'device_mapping_cache', None)))
+        
+        mapping = self.device_mapping_cache.get(
+            (record.pk, models.InterfaceTypeChoices.Agent)
+        )
+
+        
+        # fallback to view.context if you want backward compatibility
+        if not mapping:
+            view = self.context.get("view")
+            mapping = getattr(view, "device_mapping_cache", {}).get(
+                (record.pk, models.InterfaceTypeChoices.Agent)
+            )
         if not mapping:
             return "—"
-        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
+        
+        return mark_safe(f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>')
     
     def render_snmpv3_mapping_name(self, record):
-        view = self.context.get( "view" )
-        mapping = getattr( view, 'device_mapping_cache', {} ).get( (record.pk, models.InterfaceTypeChoices.SNMP) )
+        mapping = self.device_mapping_cache.get(
+            (record.pk, models.InterfaceTypeChoices.SNMP)
+        )
+        if not mapping:
+            view = self.context.get("view")
+            mapping = getattr(view, "device_mapping_cache", {}).get(
+                (record.pk, models.InterfaceTypeChoices.SNMP)
+            )
         if not mapping:
             return "—"
-        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
+        return mark_safe(f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>')
+    
 
     def render_zabbix_config(self, record):
         # Prefetching zabbix configs will reduce DB hits

@@ -526,40 +526,28 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
     filterset = filtersets.NetBoxOnlyDevicesFilterSet
     template_name = "netbox_zabbix/netbox_only_devices.html"
 
-    def get_queryset(self, request):
-        """
-        Build the base queryset for devices, and precompute a mapping cache
-        so table rendering can look up the correct DeviceMapping for each
-        device without hitting the database repeatedly.
-        """
 
-        # Get all devices that do NOT already exist in Zabbix
-        zabbix_hostnames = z.get_cached_zabbix_hostnames()
-        queryset = (
-            Device.objects
-            .exclude( name__in=zabbix_hostnames )
-            .select_related( "site", "role", "platform" )
-            .prefetch_related( "tags", "zbx_device_config" )
-        )
+    def build_device_mapping_cache(self, queryset):
 
         # Load all mappings + M2M fields at once
         all_mappings = (
-            models.DeviceMapping.objects .prefetch_related( "sites", "roles", "platforms" )
+            models.DeviceMapping.objects.prefetch_related("sites", "roles", "platforms")
         )
 
         # Turn mappings into dictionaries so that all filtering can be done
         # in Python instead of repetaded database queries.
-        # Each dict contains: the mapping object itself and its filter sets.
+        # Each dict contains the mapping object itself and its filter sets.
         mappings = []
         for m in all_mappings:
             mappings.append({
                 "obj": m,
                 "default": m.default,
                 "interface_type": m.interface_type,
-                "sites": set( m.sites.values_list( "id", flat=True ) ),
-                "roles": set( m.roles.values_list( "id", flat=True ) ),
-                "platforms": set( m.platforms.values_list( "id", flat=True ) ),
+                "sites": set(m.sites.values_list("id", flat=True)),
+                "roles": set(m.roles.values_list("id", flat=True)),
+                "platforms": set(m.platforms.values_list("id", flat=True)),
             })
+    
 
         # Build a lookup cache of (device.id, interface_type) -> mapping
         #
@@ -570,17 +558,48 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
         # Instead, we compute everything once here, in-memory, in O(#devices × #mappings),
         # and table rendering just does a dictionary lookup.
         #
-        self.device_mapping_cache = {}
+        cache = {}
         for device in queryset:
             device_site = device.site_id
             device_role = device.role_id
             device_platform = device.platform_id
+    
+            for interface_type in [ models.InterfaceTypeChoices.Agent, models.InterfaceTypeChoices.SNMP, ]:
+                mapping = self._find_best_mapping( device_site, device_role, device_platform, interface_type, mappings )
+                cache[(device.pk, interface_type)] = mapping
+    
+        return cache
 
-            for intf_type in [ models.InterfaceTypeChoices.Agent, models.InterfaceTypeChoices.SNMP ]:
-                mapping = self._find_best_mapping( device_site, device_role, device_platform, intf_type, mappings )
-                self.device_mapping_cache[ ( device.pk, intf_type ) ] = mapping
+    def get_queryset(self, request):
+
+        """
+        Build the base queryset for devices, and precompute a mapping cache
+        so table rendering can look up the correct DeviceMapping for each
+        device without hitting the database repeatedly.
+        """
+        
+        # Get all devices that do NOT already exist in Zabbix
+        zabbix_hostnames = z.get_cached_zabbix_hostnames()
+        queryset = (
+            Device.objects
+            .exclude( name__in=zabbix_hostnames )
+            .select_related( "site", "role", "platform" )
+            .prefetch_related( "tags", "zbx_device_config" )
+        )
+
+        # Build the mapping cache
+        self.device_mapping_cache = self.build_device_mapping_cache(queryset)
 
         return queryset
+
+    def get_table(self, queryset, request, has_bulk_actions):
+        # Let NetBox build the table first
+        table = super().get_table(queryset, request, has_bulk_actions)
+    
+        # Now attach the cache
+        table.device_mapping_cache = getattr(self, "device_mapping_cache", {})
+    
+        return table
 
     def _find_best_mapping(self, site_id, role_id, platform_id, intf_type, mappings):
         """
@@ -890,6 +909,7 @@ class ZabbixConfigDeleteView(View):
 # ------------------------------------------------------------------------------
 # Sync With Zabbix
 # ------------------------------------------------------------------------------
+
 
 def run_sync_device_with_zabbix(request):
     try:

@@ -15,8 +15,8 @@ NetBox plugin for Zabbix.
 Not having a name for ZabbixConfig's makes it problematic to script.
 
 
-Mapping ins't updated when the user chaneg page for Devices Exclusive To NetBox.
-To update the mapping the user has to reload the page....
+[FIXED] Mapping ins't updated when the user change page for Devices Exclusive To NetBox.
+        To update the mapping the user has to reload the page....
 
 
 
