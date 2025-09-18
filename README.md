@@ -10,9 +10,10 @@ NetBox plugin for Zabbix.
 
 ### Bugs
 
-[FIXED] Import doesn't include proxy/proxy group.
+Not having a proper name for ZabbixConfig's makes it problematic for scripting and searching.
 
-Not having a name for ZabbixConfig's makes it problematic to script.
+
+[FIXED] Import doesn't include proxy/proxy group.
 
 
 [FIXED] Mapping ins't updated when the user change page for Devices Exclusive To NetBox.
@@ -45,29 +46,17 @@ To fix the inconsistency with removing interfaces the user has to add an interfa
 Add a view that lists all inconsistent devm/hosts.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### Todo
 
 * Should deleting a host in zabbix that doesn't exist cause an exception?
-Exception: Failed to soft delete zabbix host 11537: No host with host id '11537' found in Zabbix
+  Exception: Failed to soft delete zabbix host 11537: No host with host id '11537' found in Zabbix
+  No the jobs should not cause an exception. But a warning as result.
+
+* Rename 'host' in Interfaces to zconf?
+
+* CF that excludes a machine from appearing in NetBox only.
 
 
-[DONE] Failsafe delete - implemented Hard/Soft delete.
-
-[DONE] DNS name changes
 
 * What if an interface change the ip address?
   Here be dragons!
@@ -76,45 +65,11 @@ Exception: Failed to soft delete zabbix host 11537: No host with host id '11537'
   Here be dragons!
   Delete of an interface doesn't delete it in Zabbix.
 
-
-
-[DONE] netbox_zabbix.jobs.ExceptionWithData: ('Error -32602: Invalid params., Cannot link template "AXIS Debian" to host "dk-ece007w", because its parent template "ICMP Ping" would be linked twice.', -32602)
-
-
-[DONE] Should I add additional information about templates to Zabbix to make
-the checks easier.
-
-
-[DONE] There might a logical error in how Device/VM mapping design.
-  
-
-[DONE] The interface hostid shoud be set to the Zabbix Hostid.
-
-* Rename 'host' in Interfaces to zconf?
-
-[DONE] Add delete button to Agent Interfaces and SNMP Interfaces.
-This took longer than expected beacuse I couldn't get it to work.
-The solution was to implement bulk delete.
-
-
-[DONE] Update/Delete interfaces should record the changes in the ZC change log
-       and update Zabbix.
-
-[WAIT] If a global default setting changes, should all ZC and Hosts in Z also update?
-  Don't think so.
-
-
 * When the implementation works for Devices, implement the corresponding code
   for Virual Machines.
 
 * Not all interface default settings are used, e.g. snmpv3_contextname.
   So go over the import code in jobs.py and make use of the default settings.
-
-
-[DONE] The helper function 'quick_add_interface' should take a Zabbix Config
-  instance as argument and only add an interface. Now it also creates
-  the Zabbix Config which isn't correct if we want separations of concerns.
-
 
 * The date when scheduling the background job should use
   
@@ -139,6 +94,47 @@ The solution was to implement bulk delete.
 * Implement maintenance mode.
 
 * Add support for IPv6primary interfaces. (Maybe)
+
+
+[DONE] Failsafe delete - implemented Hard/Soft delete.
+
+[DONE] DNS name changes
+
+
+[DONE] netbox_zabbix.jobs.ExceptionWithData: ('Error -32602: Invalid params., 
+       Cannot link template "AXIS Debian" to host "dk-ece007w", because its 
+       parent template "ICMP Ping" would be linked twice.', -32602)
+
+
+[DONE] Should I add additional information about templates to Zabbix to make
+       the checks easier.
+
+
+[DONE] There might a logical error in how Device/VM mapping design.
+  
+
+[DONE] The interface hostid shoud be set to the Zabbix Hostid.
+
+
+[DONE] Add delete button to Agent Interfaces and SNMP Interfaces.
+This took longer than expected beacuse I couldn't get it to work.
+The solution was to implement bulk delete.
+
+
+[DONE] Update/Delete interfaces should record the changes in the ZC change log
+       and update Zabbix.
+
+[WAIT] If a global default setting changes, should all ZC and Hosts in Z also update?
+  Don't think so.
+
+
+
+
+[DONE] The helper function 'quick_add_interface' should take a Zabbix Config
+  instance as argument and only add an interface. Now it also creates
+  the Zabbix Config which isn't correct if we want separations of concerns.
+
+
 
 
 #### General
@@ -172,7 +168,7 @@ The solution was to implement bulk delete.
 | Add Proxy Group mappings                                     | Done          |
 | Add support for TLS certificates                             | Todo          |
 | Add Maintenance                                              | Todo          |
-| Add a tab to vm and device that show the Zabbix Configuration. | Todo         |
+| Add a tab to vm and device that show the Zabbix Configuration. | Done         |
 
 
 #### Config
@@ -192,7 +188,7 @@ The solution was to implement bulk delete.
 #### NetBox Only Devices
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
-| Add action button to create new Zabbix config                | Todo          |
+| Add action button to create new Zabbix config                | Done          |
 | Add action button to quick add Agent                         | Done          |
 | Add action button to quick Add SNMPv3                        | Done          |
 
@@ -218,7 +214,7 @@ The solution was to implement bulk delete.
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
 | List events                                                  | Done          |
-| Add support for pre/post data                                | Todo          |
+| Add support for pre/post data                                | Done          |
 
 
 ## Features

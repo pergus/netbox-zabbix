@@ -438,7 +438,7 @@ def build_payload(zcfg, for_update=False, pre_data=None) -> dict:
         "host":           linked_obj.name,
         "status":         str( zcfg.status ),
         "monitored_by":   str( zcfg.monitored_by ),
-        "description":    zcfg.description,
+        "description":    str( zcfg.description ) if zcfg.description else "",
         "tags":           get_tags(linked_obj),
         "groups":         [ {"groupid": g.groupid} for g in zcfg.host_groups.all() ],
         "templates":      [ {"templateid": t.templateid} for t in zcfg.templates.all() ],
@@ -481,7 +481,7 @@ def build_payload(zcfg, for_update=False, pre_data=None) -> dict:
         entry = {
             "type":  "1",
             "main":  str( iface.main ),
-            "useip": str(iface.useip),
+            "useip": str( iface.useip ),
             "ip":    str( iface.resolved_ip_address.address.ip ) if iface.resolved_ip_address else "",
             "dns":   iface.resolved_dns_name or "",
             "port":  str( iface.port ),
@@ -490,10 +490,10 @@ def build_payload(zcfg, for_update=False, pre_data=None) -> dict:
         if for_update:
             if iface.interfaceid:
                 entry["interfaceid"] = str( iface.interfaceid )
-            else:
-                key = ( entry["ip"], entry["dns"], entry["type"], entry["port"] )
-                if key in existing_ifaces:
-                    entry["interfaceid"] = existing_ifaces[key]
+            #else:
+            #    key = ( entry["ip"], entry["dns"], entry["type"], entry["port"] )
+            #    if key in existing_ifaces:
+            #        entry["interfaceid"] = existing_ifaces[key]
 
         interfaces.append( entry )
 
@@ -837,7 +837,7 @@ def link_missing_interface(zcfg, hostid):
     # Fetch all Zabbix interfaces for this host
     zbx_interfaces = get_host_interfaces( hostid )
 
-    # Find the unlinked interface (agent or SNMPv3)
+    # Find the unlinked interface (Agent or SNMPv3)
     unlinked_iface = None
     for iface in list( zcfg.agent_interfaces.all() ) + list( zcfg.snmpv3_interfaces.all() ):
         if iface.interfaceid is None:
@@ -1858,41 +1858,30 @@ class UpdateZabbixHost( AtomicJobRunner ):
             name=name
         )
 
-class CreateOrUpdateZabbixInterface( AtomicJobRunner ):
+
+class BaseZabbixInterfaceJob(AtomicJobRunner):
     """
-    Job to create or update a Zabbix host/interface for a device or VM.
-    Handles both DeviceZabbixConfig and VMZabbixConfig by passing only the
-    model ID and class name, avoiding pickling issues with Django models.
+    Common base for Zabbix interface jobs.
+    Provides utilities to load the config object and run Zabbix operations.
     """
-    
+
     @classmethod
-    def run(cls, *args, **kwargs):
-        config_id    = require_kwargs( kwargs, "config_id" )
-        config_model = require_kwargs( kwargs, "config_model" )
-        user         = kwargs.get( "user" )
-        request_id   = kwargs.get( "request_id" )
-        
-        model_cls = MODEL_MAP.get( config_model )
+    def get_config(cls, **kwargs):
+        config_id    = require_kwargs(kwargs, "config_id")
+        config_model = require_kwargs(kwargs, "config_model")
+
+        model_cls = MODEL_MAP.get(config_model)
         if not model_cls:
-            raise Exception( f"Unknown Zabbix config model: {config_model}" )
-        
-        config = model_cls.objects.get( id=config_id )
+            raise Exception(f"Unknown Zabbix config model: {config_model}")
 
-        try:
-            if not config.hostid:
-                raise Exception( f"Unable to add or update an interface for '{config.devm_name()}': "
-                                 f"Zabbix config '{config.get_name()}' has no associated Zabbix host id." )
-            link_missing_interface( config, config.hostid )
-            return update_host_in_zabbix( config, user, request_id )
-        except Exception:
-            raise
+        return model_cls.objects.get(id=config_id)
 
     @classmethod
-    def run_job(cls, zabbix_config, request, schedule_at=None, interval=None, immediate=False, name=None):
-        # TODO: Add parameter checks here
-        
+    def run_job(cls, zabbix_config, request=None, schedule_at=None,
+                    interval=None, immediate=False, name=None):
+
         if name is None:
-            name = f"Create Host in Zabbix for {zabbix_config.devm_name()}"
+            name = f"{cls.__name__} for {zabbix_config.devm_name()}"
 
         job_args = {
             "name":         name,
@@ -1901,21 +1890,55 @@ class CreateOrUpdateZabbixInterface( AtomicJobRunner ):
             "interval":     interval,
             "immediate":    immediate,
             "config_id":    zabbix_config.id,
-            "config_model": zabbix_config.__class__.__name__
+            "config_model": zabbix_config.__class__.__name__,
         }
-        
+
         if request:
             job_args["user"]       = request.user
-            job_args["request_id"] = request.id
-        
+            job_args["request_id"] = getattr(request, "id", None)
 
         if interval is None:
-            netbox_job = cls.enqueue( **job_args )
+            return cls.enqueue( **job_args )
         else:
-            netbox_job = cls.enqueue_once( **job_args )
-        
-        return netbox_job
+            return cls.enqueue_once( **job_args )
 
+
+class CreateZabbixInterface(BaseZabbixInterfaceJob):
+    """
+    Job to create a Zabbix host/interface for a device or VM.
+    """
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+        config = cls.get_config(**kwargs)
+
+        if not config.hostid:
+            raise Exception(
+                f"Cannot create interface for '{config.devm_name()}': "
+                f"Zabbix config '{config.get_name()}' has no associated Zabbix host id."
+            )
+
+        return update_host_in_zabbix(config, kwargs.get("user"), kwargs.get("request_id"))
+
+
+class UpdateZabbixInterface(BaseZabbixInterfaceJob):
+    """
+    Job to update an existing Zabbix host/interface for a device or VM.
+    """
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+        config = cls.get_config(**kwargs)
+
+        if not config.hostid:
+            raise Exception(
+                f"Cannot update interface for '{config.devm_name()}': "
+                f"Zabbix config '{config.get_name()}' has no associated Zabbix host id."
+            )
+
+        # Assoicate the interface with the interfaceid
+        link_missing_interface(config, config.hostid)
+        return update_host_in_zabbix(config, kwargs.get("user"), kwargs.get("request_id"))
 
 class DeleteZabbixHost( AtomicJobRunner ):
     """

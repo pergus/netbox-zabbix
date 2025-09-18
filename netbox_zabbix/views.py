@@ -1519,21 +1519,15 @@ class DeviceZabbixConfigJobsTabView(generic.ObjectView):
 # Zabbix Diff Tab
 # ------------------------------------------------------------------------------
 
+
 @register_model_view(models.DeviceZabbixConfig, name='difference')
 class DeviceZabbixConfigDiffTabView(generic.ObjectView):
 
     queryset = models.DeviceZabbixConfig.objects.all()
-    tab = ViewTab( label="Difference", badge=lambda instance: int( not instance.get_sync_status() ), hide_if_empty=True )
+    tab = ViewTab( label="Difference", badge=lambda instance: int( instance.get_sync_status() ), hide_if_empty=True )
     template_name = 'netbox_zabbix/device_difference.html'
 
-    #def get_extra_context(self, request, instance):
-    #    difference = instance.get_sync_diff()
-    #    return { "difference": difference }
-
     def get_extra_context(self, request, instance):
-        diff = instance.get_sync_diff()  # returns raw diff
-        from netbox_zabbix.utils import flatten_diff
-        diff_rows = flatten_diff(diff)
-        return {"diff_rows": diff_rows}
-
+        return { "diff": instance.get_sync_diff() }
+    
 # end

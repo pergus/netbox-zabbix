@@ -24,7 +24,8 @@ from netbox_zabbix.jobs import (
     DeleteZabbixHost,
     CreateZabbixHost,
     UpdateZabbixHost,
-    CreateOrUpdateZabbixInterface,
+    CreateZabbixInterface,
+    UpdateZabbixInterface,
     ImportZabbixSystemJob,
 )
 
@@ -265,18 +266,18 @@ def dev_save_zabbix_interface(sender, instance, created: bool, **kwargs):
         logger.info( f"Created Interface for {instance.host.device.name}" )
         logger.info( "***********************************************************" )
 
-        CreateOrUpdateZabbixInterface.run_job(
+        CreateZabbixInterface.run_job(
             zabbix_config=instance.host,
             request=get_request(),
-            name=f"Add interface for {instance.host.device.name}"
+            name=f"Create new interface for {instance.host.device.name}"
         )
-        
+
     else:
         logger.info( "***********************************************************" )
         logger.info( f"Updated Interface for {instance.host.device.name}" )
         logger.info( "***********************************************************" )
 
-        CreateOrUpdateZabbixInterface.run_job(
+        UpdateZabbixInterface.run_job(
             zabbix_config=instance.host,
             request=get_request(),
             name=f"Update interface for {instance.host.device.name}"

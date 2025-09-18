@@ -17,7 +17,7 @@ from virtualization.models import VirtualMachine
 from virtualization.tables import VirtualMachineTable
 
 from netbox_zabbix import config, jobs, models
-from netbox_zabbix.utils import validate_quick_add, verify_config
+from netbox_zabbix.utils import validate_quick_add, verify_config_internal
 
 from netbox_zabbix.logger import logger
 
@@ -238,28 +238,9 @@ class NetBoxOnlyDevicesTable(DeviceTable):
         return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
 
 
-#    def render_agent_mapping_name(self, record):
-#        view = self.context.get( "view" )
-#        mapping = getattr( view, 'device_mapping_cache', {} ).get( (record.pk, models.InterfaceTypeChoices.Agent) )
-#        if not mapping:
-#            return "—"
-#        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
-#
-#
-#    def render_snmpv3_mapping_name(self, record):
-#        view = self.context.get( "view" )
-#        mapping = getattr( view, 'device_mapping_cache', {} ).get( (record.pk, models.InterfaceTypeChoices.SNMP) )
-#        if not mapping:
-#            return "—"
-#        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
-
     def render_agent_mapping_name(self, record):
 
-        logger.info("render_agent_mapping_name called for %s — table has cache? %s", record.pk, bool(getattr(self, 'device_mapping_cache', None)))
-        
-        mapping = self.device_mapping_cache.get(
-            (record.pk, models.InterfaceTypeChoices.Agent)
-        )
+        mapping = self.device_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.Agent) )
 
         
         # fallback to view.context if you want backward compatibility
@@ -274,9 +255,7 @@ class NetBoxOnlyDevicesTable(DeviceTable):
         return mark_safe(f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>')
     
     def render_snmpv3_mapping_name(self, record):
-        mapping = self.device_mapping_cache.get(
-            (record.pk, models.InterfaceTypeChoices.SNMP)
-        )
+        mapping = self.device_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.SNMP) )
         if not mapping:
             view = self.context.get("view")
             mapping = getattr(view, "device_mapping_cache", {}).get(
@@ -377,8 +356,8 @@ class DeviceZabbixConfigTable(NetBoxTable):
                            'templates', 'proxy', 'proxy_group', 'host_groups')
 
     def render_sync(self, record):
-        result = verify_config( record )
-        return mark_safe("✔") if result["in_sync"] else mark_safe("✘")
+        result = verify_config_internal( record )
+        return mark_safe( "✘" ) if result["differ"] else mark_safe( "✔" )
 
 
 class VMZabbixConfigTable(NetBoxTable):

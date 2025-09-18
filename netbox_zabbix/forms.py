@@ -514,7 +514,7 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
            max_length=255,
            required=False,
            disabled=True,
-           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
+           widget=forms.TextInput( attrs={'data-field': 'dns_name'} )
     )
     
     def __init__(self, *args, **kwargs):

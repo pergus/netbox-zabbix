@@ -1,5 +1,6 @@
 {% extends 'generic/object.html' %}
 {% load tab_utils %}
+{% load array_to_items %}
 
 {% block tabs %}
 <ul class="nav nav-tabs" role="presentation">
@@ -14,6 +15,8 @@
 </ul>
 {% endblock tabs %}
 
+
+
 {% block content %}
 
 <div class="row">
@@ -21,27 +24,24 @@
         <div class="card">
             <h5 class="card-header">Configuration Differences</h5>
             <div class="card-body">
-                {% if diff_rows %}
+
+                {% if diff.changed %}
                 <div class="table-responsive">
-                    <table class="table table-hover attr-table table-sm">
+                    <table class="table table-sm table-hover">
                         <thead class="table-light">
                             <tr>
-                                <th scope="col">Field</th>
-                                <th scope="col">Zabbix</th>
-                                <th scope="col">NetBox</th>
+                                <th>Field</th>
+                                <th>NetBox</th>
+                                <th>Zabbix</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for row in diff_rows %}
-                            <tr>
-                                <th scope="row">{{ row.field }}</th>
-                                <td class="{% if row.netbox != row.zabbix %}text-danger{% endif %}">
-                                    {{ row.zabbix }}
-                                </td>
-                                <td class="{% if row.netbox != row.zabbix %}text-danger{% endif %}">
-                                    {{ row.netbox }}
-                                </td>
-                            </tr>
+                            {% for field, change in diff.changed.items %}
+                                <tr>
+                                    <td>{{ field }}</td>
+                                    <td>{{ change.from|array_to_items }}</td>
+                                    <td>{{ change.to|array_to_items }}</td>
+                                </tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -51,10 +51,10 @@
                     No differences found — configuration is in sync.
                 </div>
                 {% endif %}
+
             </div>
         </div>
     </div>
 </div>
-
 
 {% endblock %}

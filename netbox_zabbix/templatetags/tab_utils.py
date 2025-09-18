@@ -11,7 +11,7 @@ from netbox_zabbix.logger import logger
 
 register = template.Library()
 
-# TODO: Rename this function to something better
+# This code is copied from NetBox
 @register.inclusion_tag('tabs/model_view_tabs.html', takes_context=True)
 def model_view_tabs_exlude_jobs(context, instance):
     app_label = instance._meta.app_label
@@ -28,24 +28,19 @@ def model_view_tabs_exlude_jobs(context, instance):
     
     # Compile a list of tabs to be displayed in the UI
     for config in views:
-        view = import_string(config['view']) if type(config['view']) is str else config['view']
-        if tab := getattr(view, 'tab', None):
-            if tab.permission and not user.has_perm(tab.permission):
+        view = import_string( config['view'] ) if type( config['view'] ) is str else config['view']
+        if tab := getattr( view, 'tab', None ):
+            if tab.permission and not user.has_perm( tab.permission ):
                 continue
-            
-
-            logger.info( f"tab {tab.label}" )
-            
 
             if tab.label == "Jobs":
                 continue
-            
-            
-            if attrs := tab.render(instance):
-                viewname = get_viewname(instance, action=config['name'])
-                active_tab = context.get('tab')
+
+            if attrs := tab.render( instance ):
+                viewname = get_viewname( instance, action=config['name'] )
+                active_tab = context.get( 'tab' )
                 try:
-                    url = reverse(viewname, args=[instance.pk])
+                    url = reverse( viewname, args=[instance.pk] )
                 except NoReverseMatch:
                     # No URL has been registered for this view; skip
                     continue
@@ -59,7 +54,7 @@ def model_view_tabs_exlude_jobs(context, instance):
                 })
 
     # Order tabs by weight
-    tabs = sorted(tabs, key=lambda x: x['weight'])
+    tabs = sorted( tabs, key=lambda x: x['weight'] )
 
     return {
         'tabs': tabs,
