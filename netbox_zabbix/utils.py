@@ -390,211 +390,33 @@ def validate_quick_add( devm ):
 # Validate Zabbix Configuration against Zabbix Host
 #
 
-#def normalize_host( host_data, is_device=True ):
-#    """
-#    Normalize host data from either Zabbix API or NetBox payload for comparison.
-#    """
-#
-#    # Groups
-#    resolved_groups = []
-#    for group_entry in host_data.get( "groups", [] ):
-#        # Zabbix data (dict with groupid)
-#        if isinstance( group_entry, dict ) and "groupid" in group_entry:
-#            try:
-#                host_group_object = models.HostGroup.objects.get( groupid=int( group_entry["groupid"] ) )
-#                resolved_groups.append( host_group_object.name )
-#            except models.HostGroup.DoesNotExist:
-#                resolved_groups.append( f"<unknown:{group_entry['groupid']}>" )
-#        # NetBox payload (string)
-#        elif isinstance( group_entry, str ):
-#            resolved_groups.append( group_entry )
-#    resolved_groups = sorted( resolved_groups )
-#
-#    # Templates
-#    resolved_templates = []
-#    for template_entry in host_data.get( "templates", [] ) + host_data.get( "parentTemplates", [] ):
-#        if isinstance( template_entry, dict ) and "templateid" in template_entry:
-#            try:
-#                template_object = models.Template.objects.get( templateid=int( template_entry["templateid"] ) )
-#                resolved_templates.append( template_object.name )
-#            except models.Template.DoesNotExist:
-#                resolved_templates.append( f"<unknown:{template_entry['templateid']}>" )
-#        elif isinstance( template_entry, str ):
-#            resolved_templates.append( template_entry )
-#    resolved_templates = sorted( resolved_templates )
-#
-#    # Interfaces
-#    resolved_interfaces = sorted(
-#        [
-#            {
-#                "ip":    interface_entry.get( "ip", "" ),
-#                "dns":   interface_entry.get( "dns", "" ),
-#                "type":  int( interface_entry.get( "type", 0 ) ),
-#                "useip": int( interface_entry.get( "useip", 0 ) ),
-#                "main":  int( interface_entry.get( "main", 0 ) ),
-#                "port":  int( interface_entry.get( "port", 0 ) ),
-#            }
-#            for interface_entry in host_data.get( "interfaces", [] )
-#        ],
-#        key=lambda interface: ( interface["ip"], interface["dns"] )
-#    )
-#
-#    # Tags
-#    possible_tags = [ ]
-#    prefix = config.get_tag_prefix()
-#    default_tag = config.get_default_tag()
-#
-#    if default_tag:
-#        possible_tags.append( f"{prefix}{default_tag}" )
-#    
-#    # There is a tag mapping for device and another for VMs.
-#    tag_mappings = models.TagMapping.objects.filter(object_type='device' if is_device else 'virtual_machine')
-#
-#    for mapping in tag_mappings:
-#        # Add tags
-#        for tag in mapping.tags.all():
-#            possible_tags.append(prefix + str(tag))
-#        
-#        # Add selections
-#        for field in mapping.selection:
-#            name = field.get('name')
-#            if name:
-#                possible_tags.append(prefix + name)
-#
-#    resolved_tags = {}
-#    for tag_entry in host_data.get( "tags", [] ):
-#        if tag_entry.get( "tag" ) in possible_tags:
-#            resolved_tags[ tag_entry.get( "tag", "" ) ] = tag_entry.get( "value", "" )
-#
-#    # Inventory
-#    possible_inventory_items = [ field.get( "invkey" ) for field in models.InventoryMapping.objects.all()[0].selection ]
-#    resolved_inventory = {
-#        inventory_key: inventory_value
-#        for inventory_key, inventory_value in host_data.get( "inventory", {} ).items()
-#        if inventory_key in possible_inventory_items
-#    }
-#
-#    # Monitored by (agent)
-#    monitored_by = host_data.get( "monitored_by", "0" )
-#    
-#    # Proxy group
-#    proxy_groupid = host_data.get( "proxy_groupid", "0" )
-#    
-#
-#    # Other fields
-#    host_name = host_data.get( "host" ) or resolved_inventory.get( "name" ) or ""
-#    host_status = int( host_data.get( "status", 0 ) )
-#    host_proxy_id = host_data.get( "proxyid" ) or None
-#
-#    return {
-#        "host":          host_name,
-#        "status":        host_status,
-#        "proxyid":       host_proxy_id,
-#        "groups":        resolved_groups,
-#        "templates":     resolved_templates,
-#        "interfaces":    resolved_interfaces,
-#        "tags":          resolved_tags,
-#        "inventory":     resolved_inventory,
-#        "monitored_by":  monitored_by,
-#        "proxy_groupid": proxy_groupid
-#    }
-#
-#def verify_config(zcfg, debug=False):
-#    """
-#    Verify that a DeviceZabbixConfig or VMZabbixConfig in NetBox
-#    matches the current configuration in Zabbix.
-#
-#    Args:
-#        zcfg: DeviceZabbixConfig or VMZabbixConfig instance.
-#
-#    Returns:
-#        dict containing:
-#            - in_sync (bool): True if everything matches
-#            - differences (dict): key/value pairs of mismatched fields
-#            - zabbix_data (dict): raw Zabbix host data (for debugging)
-#    """
-#    if not zcfg.hostid:
-#        return {
-#            "in_sync": False,
-#            "differences": { "netbox": {"hostid": None}, "zabbix": None },
-#        }
-#
-#    # Fetch host info from Zabbix
-#    try:
-#        zbx_host = z.get_host_by_id( zcfg.hostid )
-#    except Exception:
-#        return {
-#            "in_sync": False,
-#            "differences": { "netbox": {"hostid": zcfg.hostid}, "zabbix": None },
-#        }
-#
-#    # Build payload from NetBox for fields we care about - prevent circular include
-#    from netbox_zabbix.jobs import build_payload
-#    
-#    nb_payload = build_payload( zcfg )
-#
-#    is_device = hasattr(zcfg, "device")
-#
-#    simplified_zbx = normalize_host( zbx_host, is_device )
-#    simplified_nb  = normalize_host( nb_payload, is_device )
-#
-#    # Compare
-#    differences = {}
-#    for key in simplified_nb.keys():
-#        if simplified_nb[key] != simplified_zbx.get( key ):
-#            differences[key] = { "netbox": simplified_nb[key], "zabbix": simplified_zbx.get( key ) }
-#
-#    in_sync = not bool(differences)
-#
-#    if debug:
-#        import json
-#        logger.info( f"Zabbix Host {json.dumps( zbx_host, indent=2 ) }" )
-#        logger.info( f"NetBox Host {json.dumps( nb_payload, indent=2) }" )
-#        logger.info( f"Zabbix Simple {json.dumps( simplified_zbx, indent=2 )}" )
-#        logger.info( f"NetBox Simple {json.dumps( simplified_nb, indent=2 )}" )
-#
-#    return {
-#        "in_sync": in_sync,
-#        "differences": differences,
-#    }
-#
-#def flatten_diff(diff):
-#    """
-#    Flatten a differences dict into a list of rows for template display.
-#    Handles scalars and nested dicts.
-#
-#    Example row:
-#        {"field": "tags.@Platform", "netbox": "Linux", "zabbix": "Linuxddddd"}
-#    """
-#    rows = []
-#
-#    for field, val in diff.get("differences", {}).items():
-#        nb_val = val.get("netbox")
-#        zbx_val = val.get("zabbix")
-#
-#        if isinstance(nb_val, dict) and isinstance(zbx_val, dict):
-#            for subkey, subval in nb_val.items():
-#                rows.append({
-#                    "field": f"{field}.{subkey}",
-#                    "netbox": subval,
-#                    "zabbix": zbx_val.get(subkey)
-#                })
-#        else:
-#            rows.append({
-#                "field": field,
-#                "netbox": nb_val,
-#                "zabbix": zbx_val
-#            })
-#    return rows
+def diff_lists(source_list, target_list, current_path=""):
+    diff_result = {"added": {}, "removed": {}, "changed": {}}
+
+    max_len = max(len(source_list), len(target_list))
+    for idx in range(max_len):
+        source_item = source_list[idx] if idx < len(source_list) else None
+        target_item = target_list[idx] if idx < len(target_list) else None
+
+        if source_item != target_item:
+            # Recursively diff dictionaries/lists, else mark changed
+            if isinstance(source_item, dict) and isinstance(target_item, dict):
+                child_diff = json_diff(source_item, target_item)
+                if child_diff["changed"] or child_diff["added"] or child_diff["removed"]:
+                    diff_result["changed"][f"{current_path}[{idx}]"] = {
+                        "from": source_item,
+                        "to": target_item
+                    }
+            else:
+                diff_result["changed"][f"{current_path}[{idx}]"] = {
+                    "from": source_item,
+                    "to": target_item
+                }
+
+    return diff_result
 
 
-
-# ------------------------------------------------------------------------------
-# New Validate Implementation
-#
-
-
-def json_diff(source_data, target_data, special_keys_set = None, list_identity_key_map = None, current_path = "" ):
+def json_diff_v1(source_data, target_data, special_keys_set = None, list_identity_key_map = None, current_path = "" ):
     """
     Compare source_data (A) to target_data (B) and return dict with 'added', 'removed', 'changed'.
 
@@ -663,6 +485,164 @@ def json_diff(source_data, target_data, special_keys_set = None, list_identity_k
 
     return diff_result
 
+
+def json_diff_v2(source_data, target_data, special_keys_set=None, list_identity_key_map=None, current_path=""):
+    """
+    Compare source_data (A) to target_data (B) and return dict with 'added', 'removed', 'changed'.
+
+    Rules:
+    - Keys only in B are ignored unless they exist in A.
+    - Keys only in A are reported as removed.
+    - Keys in both but with different values are reported as changed.
+    - Lists are compared item-by-item recursively.
+    """
+
+    def join_path(current_path, key_name):
+        return f"{current_path}.{key_name}" if current_path else key_name
+
+    if special_keys_set is None:
+        special_keys_set = set()
+    if list_identity_key_map is None:
+        list_identity_key_map = {}
+
+    diff_result = {"added": {}, "removed": {}, "changed": {}}
+
+    # --- Compare dictionaries ---
+    if isinstance(source_data, dict) and isinstance(target_data, dict):
+        source_keys = set(source_data.keys())
+        target_keys = set(target_data.keys())
+
+        # Keys only in source (removed)
+        for key in source_keys - target_keys:
+            diff_result["removed"][join_path(current_path, key)] = source_data[key]
+
+        # Keys only in target (added)
+        for key in target_keys - source_keys:
+            diff_result["added"][join_path(current_path, key)] = target_data[key]
+
+        # Keys in both
+        for key in source_keys & target_keys:
+            current_key_path = join_path(current_path, key)
+
+            # Existing special keys logic (optional)
+            if key in special_keys_set and isinstance(source_data[key], list) and isinstance(target_data[key], list):
+                identity_key = list_identity_key_map.get(key)
+                if identity_key:
+                    changed_from_list, changed_to_list = diff_special_list_items(source_data[key], target_data[key], identity_key)
+                    if changed_from_list or changed_to_list:
+                        diff_result["changed"][current_key_path] = {"from": changed_from_list, "to": changed_to_list}
+                    continue
+
+            # Recurse
+            child_diff = json_diff(source_data[key], target_data[key], special_keys_set, list_identity_key_map, current_key_path)
+            for diff_type in ("added", "removed", "changed"):
+                diff_result[diff_type].update(child_diff.get(diff_type, {}))
+
+    # --- Compare lists recursively ---
+    elif isinstance(source_data, list) and isinstance(target_data, list):
+        max_len = max(len(source_data), len(target_data))
+        for idx in range(max_len):
+            src_item = source_data[idx] if idx < len(source_data) else None
+            tgt_item = target_data[idx] if idx < len(target_data) else None
+
+            if src_item != tgt_item:
+                # Recursive diff for dicts/lists
+                if isinstance(src_item, dict) and isinstance(tgt_item, dict):
+                    child_diff = json_diff(src_item, tgt_item, special_keys_set, list_identity_key_map, f"{current_path}[{idx}]")
+                    for diff_type in ("added", "removed", "changed"):
+                        diff_result[diff_type].update(child_diff.get(diff_type, {}))
+                elif isinstance(src_item, list) and isinstance(tgt_item, list):
+                    child_diff = json_diff(src_item, tgt_item, special_keys_set, list_identity_key_map, f"{current_path}[{idx}]")
+                    for diff_type in ("added", "removed", "changed"):
+                        diff_result[diff_type].update(child_diff.get(diff_type, {}))
+                else:
+                    diff_result["changed"][f"{current_path}[{idx}]"] = {"from": src_item, "to": tgt_item}
+
+    # --- Compare primitive values ---
+    else:
+        if source_data != target_data:
+            diff_result["changed"][current_path] = {"from": source_data, "to": target_data}
+
+    diff_result["differ"] = bool(diff_result["added"] or diff_result["removed"] or diff_result["changed"])
+    return diff_result
+
+
+def json_diff(source_data, target_data, special_keys_set=None, list_identity_key_map=None, current_path=""):
+    """
+    Compare source_data (A) to target_data (B) and return dict with 'added', 'removed', 'changed'.
+
+    Rules:
+    - Keys only in B are ignored unless they exist in A.
+    - Keys only in A are reported as removed.
+    - Keys in both but with different values are reported as changed.
+    - Lists are compared element-wise; only changed items are included in the output list.
+    """
+
+    def join_path(current_path, key_name):
+        return f"{current_path}.{key_name}" if current_path else key_name
+
+    if special_keys_set is None:
+        special_keys_set = set()
+    if list_identity_key_map is None:
+        list_identity_key_map = {}
+
+    diff_result = {"added": {}, "removed": {}, "changed": {}}
+
+    # --- Compare dictionaries ---
+    if isinstance(source_data, dict) and isinstance(target_data, dict):
+        source_keys = set(source_data.keys())
+        target_keys = set(target_data.keys())
+
+        for key in source_keys - target_keys:
+            diff_result["removed"][join_path(current_path, key)] = source_data[key]
+
+        for key in target_keys - source_keys:
+            diff_result["added"][join_path(current_path, key)] = target_data[key]
+
+        for key in source_keys & target_keys:
+            current_key_path = join_path(current_path, key)
+
+            src_val = source_data[key]
+            tgt_val = target_data[key]
+
+            # Special keys logic (optional)
+            if key in special_keys_set and isinstance(src_val, list) and isinstance(tgt_val, list):
+                identity_key = list_identity_key_map.get(key)
+                if identity_key:
+                    changed_from, changed_to = diff_special_list_items(src_val, tgt_val, identity_key)
+                    if changed_from or changed_to:
+                        diff_result["changed"][current_key_path] = {"from": changed_from, "to": changed_to}
+                    continue
+
+            # Normal recursive diff
+            child_diff = json_diff(src_val, tgt_val, special_keys_set, list_identity_key_map, current_key_path)
+            for diff_type in ("added", "removed", "changed"):
+                diff_result[diff_type].update(child_diff.get(diff_type, {}))
+
+    # --- Compare lists and preserve list structure ---
+    elif isinstance(source_data, list) and isinstance(target_data, list):
+        # Only include items that differ
+        changed_from = []
+        changed_to = []
+        max_len = max(len(source_data), len(target_data))
+        for idx in range(max_len):
+            src_item = source_data[idx] if idx < len(source_data) else None
+            tgt_item = target_data[idx] if idx < len(target_data) else None
+            if src_item != tgt_item:
+                changed_from.append(src_item)
+                changed_to.append(tgt_item)
+        if changed_from or changed_to:
+            diff_result["changed"][current_path] = {"from": changed_from, "to": changed_to}
+
+    # --- Compare primitive values ---
+    else:
+        if source_data != target_data:
+            diff_result["changed"][current_path] = {"from": source_data, "to": target_data}
+
+    diff_result["differ"] = bool(diff_result["added"] or diff_result["removed"] or diff_result["changed"])
+    return diff_result
+
+
 def diff_special_list_items( source_list, target_list, identity_key ):
     """
     Compare two lists-of-dict for a special key.
@@ -685,17 +665,19 @@ def diff_special_list_items( source_list, target_list, identity_key ):
 
     return changed_from_list, changed_to_list
 
-def normalize_inventory(payload_inventory: dict, zabbix_inventory: dict) -> dict:
+
+def normalize_inventory(payload_inventory, zabbix_inventory):
     """
     Keep only the inventory fields present in the payload,
     ignoring any extra fields in Zabbix inventory.
     """
     normalized_inventory = {}
     for key in payload_inventory.keys():
-        normalized_inventory[key] = zabbix_inventory.get(key, "")
+        normalized_inventory[key] = zabbix_inventory.get( key, "" )
     return normalized_inventory
 
-def normalize_zabbix_host_dynamic(zabbix_host: dict, payload_template: dict) -> dict:
+
+def normalize_zabbix_host_dynamic(zabbix_host, payload_template):
     """
     Normalize Zabbix host to match the structure of payload_template.
 
@@ -704,30 +686,32 @@ def normalize_zabbix_host_dynamic(zabbix_host: dict, payload_template: dict) -> 
         payload_template: Dict with the same structure as build_payload output.
     """
     normalized_host = {
-        "host":          zabbix_host.get("host", ""),
-        "status":        zabbix_host.get("status", "0"),
-        "monitored_by":  zabbix_host.get("monitored_by", "0"),
-        "description":   zabbix_host.get("description", ""),
+        "host":          zabbix_host.get( "host", "" ),
+        "status":        zabbix_host.get( "status", "0" ),
+        "monitored_by":  zabbix_host.get( "monitored_by", "0" ),
+        "description":   zabbix_host.get( "description", "" ),
         "tags":          [ {"tag": t["tag"], "value": t["value"]} for t in zabbix_host.get("tags", []) ],
         "groups":        [ {"groupid": g["groupid"]} for g in zabbix_host.get("groups", []) ],
         "templates":     [ {"templateid": t["templateid"]} for t in zabbix_host.get("parentTemplates", []) ],
-        "inventory_mode": zabbix_host.get("inventory_mode", "0"),
-        "hostid":        zabbix_host.get("hostid"),
-        "proxyid":       zabbix_host.get("proxyid"),
-        "inventory":     normalize_inventory(payload_template.get("inventory", {}), zabbix_host.get("inventory", {})),
+        "inventory_mode": zabbix_host.get( "inventory_mode", "0" ),
+        "hostid":        zabbix_host.get( "hostid" ),
+        "proxyid":       zabbix_host.get( "proxyid" ),
+        "inventory":     normalize_inventory( payload_template.get( "inventory", {}), zabbix_host.get("inventory", {} ) ),
         "interfaces": [
             {
-                "type":  i.get("type", "1"),
-                "main":  i.get("main", "1"),
-                "useip": i.get("useip", "0"),
-                "ip":    i.get("ip", ""),
-                "dns":   i.get("dns", ""),
-                "port":  i.get("port", ""),
+                "type":        i.get( "type", "1" ),
+                "main":        i.get( "main", "1" ),
+                "useip":       i.get( "useip", "0" ),
+                "ip":          i.get( "ip", "" ),
+                "dns":         i.get( "dns", "" ),
+                "port":        i.get( "port", "" ),
+                "interfaceid": i.get( "interfaceid", "" )
             }
             for i in zabbix_host.get("interfaces", [])
         ],
     }
     return normalized_host
+
 
 def verify_config_internal(zabbix_config):
 
@@ -741,10 +725,12 @@ def verify_config_internal(zabbix_config):
     
     # Get the host from Zabbix
     zabbix_host_raw = z.get_host_by_id( zabbix_config.hostid )
+    
+    logger.info( f"zabbix_host_raw => {zabbix_host_raw}" )
 
     # Build payload from the Zabbix configuration
     from netbox_zabbix.jobs import build_payload
-    payload = build_payload( zabbix_config )
+    payload = build_payload( zabbix_config, True )
     
     zabbix_host = normalize_zabbix_host_dynamic( zabbix_host_raw, payload )
 
@@ -756,41 +742,6 @@ def verify_config_internal(zabbix_config):
     return diff_result
 
 
-def transform(data):
-    result = { "changed": {} }
-    changed = data.get("changed", {})
-
-    for key, value in changed.items():
-        from_val = value.get("from")
-        to_val = value.get("to")
-
-        # Handle arrays of objects with "tag" and "value" keys
-        if isinstance(from_val, list) and isinstance(to_val, list):
-            from_map = {item["tag"]: item["value"] for item in from_val if isinstance(item, dict) and "tag" in item and "value" in item}
-            to_map   = {item["tag"]: item["value"] for item in to_val   if isinstance(item, dict) and "tag" in item and "value" in item}
-
-            all_tags = set(from_map.keys()) | set(to_map.keys())
-
-            for tag in sorted(all_tags):
-                old_val = from_map.get(tag)
-                new_val = to_map.get(tag)
-
-                if old_val != new_val:
-                    # Generic key: parent key singularized + tag
-                    base_key = key.rstrip('s') if key.endswith('s') else key
-                    new_key = f"{base_key}_{tag}"
-                    result["changed"][new_key] = {
-                        "from": old_val,
-                        "to":   new_val
-                    }
-        else:
-            # Normal primitive or dict diff
-            result["changed"][key] = {
-                "from": from_val,
-                "to":   to_val
-            }
-
-    return result
 
 # Test function not used
 def verify_config_v2(name):
@@ -800,7 +751,6 @@ def verify_config_v2(name):
         zabbix_config = models.DeviceZabbixConfig.objects.get( device=device )
         result = verify_config_internal( zabbix_config )
         print( f"{json.dumps( result, indent=2 )}" )
-        print( f"{ json.dumps( transform( result ), indent=2 ) }" )
     except:
         print( f"Could't verify {name}." )
 

@@ -1918,7 +1918,9 @@ class CreateZabbixInterface(BaseZabbixInterfaceJob):
                 f"Zabbix config '{config.get_name()}' has no associated Zabbix host id."
             )
 
-        return update_host_in_zabbix(config, kwargs.get("user"), kwargs.get("request_id"))
+        retval = update_host_in_zabbix(config, kwargs.get("user"), kwargs.get("request_id"))
+        link_missing_interface(config, config.hostid)
+        return retval
 
 
 class UpdateZabbixInterface(BaseZabbixInterfaceJob):
