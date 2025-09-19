@@ -269,68 +269,6 @@ def reschedule_zabbix_sync_job(sender, instance: Config, **kwargs):
 
 
 # ------------------------------------------------------------------------------
-# Device Promote Zabbix Interface to main
-# ------------------------------------------------------------------------------
-
-
-#@receiver(post_delete, sender=DeviceAgentInterface)
-#def dev_promote_agent_interface_to_main(sender, instance: DeviceAgentInterface, **kwargs):
-#    """
-#    Ensure a device always has a designated main Agent interface.
-#
-#    If the deleted interface was the main one, promote the first remaining
-#    agent interface on the same host.
-#    """
-#
-#    logger.debug( "Post-delete signal received for DeviceAgentInterface(pk=%s, device=%s)", instance.pk, instance.host.get_name() if instance.host else "UNKNOWN" )
-#
-#    if instance.main != MainChoices.YES:
-#        logger.debug( "Deleted interface was not main; no promotion needed." )
-#        return
-#    
-#    remaining = instance.host.agent_interfaces.exclude( pk=instance.pk )
-#    fallback = remaining.first()
-#    
-#    if not fallback:
-#        logger.warning( "No fallback Agent interface available to promote for device '%s'", instance.host.get_name() )
-#        return
-#    
-#    fallback.main = MainChoices.YES
-#    fallback.save()
-#    
-#    logger.info( "Promoted fallback Agent interface %s (pk=%s) to main for device '%s'", fallback.name, fallback.pk, fallback.host.get_name() )
-#
-#
-#
-#@receiver(post_delete, sender=DeviceSNMPv3Interface)
-#def dev_promote_snmpv3_interface_to_main(sender, instance: DeviceSNMPv3Interface, **kwargs):
-#    """
-#    Ensure a device always has a designated main SNMPv3 interface.
-#
-#    If the deleted interface was the main one, promote the first remaining
-#    SNMPv3 interface on the same host.
-#    """
-#
-#    logger.debug( "Post-delete signal received for DeviceSNMPv3Interface(pk=%s, device=%s)", instance.pk, instance.host.get_name() if instance.host else "UNKNOWN" )
-#    
-#    if instance.main != MainChoices.YES:
-#        logger.debug( "Deleted interface was not main; no promotion needed." )
-#        return
-#    
-#    remaining = instance.host.snmpv3_interfaces.exclude( pk=instance.pk )
-#    fallback = remaining.first()
-#    
-#    if not fallback:
-#        logger.warning( "No fallback SNMPv3 interface available to promote for device %s", instance.host.get_name() )
-#        return
-#    
-#    fallback.main = MainChoices.YES
-#    fallback.save()
-#    
-#    logger.info( "Promoted fallback SNMPv3 interface %s (pk=%s) to main for device %s", fallback.name, fallback.pk, fallback.host.get_name() )
-
-
-# ------------------------------------------------------------------------------
 # Device Create/Update ZabbixConfig
 # ------------------------------------------------------------------------------
 
@@ -422,66 +360,6 @@ def dev_create_or_update_zabbix_interface(sender, instance, created: bool, **kwa
 # ------------------------------------------------------------------------------
 
 
-#@receiver(post_delete, sender=DeviceAgentInterface)
-#@receiver(post_delete, sender=DeviceSNMPv3Interface)
-#def dev_delete_interface(sender, instance, **kwargs):
-#    """
-#    Delete a Zabbix interface (Agent or SNMPv3).
-#    """
-#
-#    logger.debug( "Device Zabbix interface post-delete signal received: pk=%s,  device=%s", instance.pk, getattr( instance.host.device, "name", "unknown" ) )
-#    
-#    user = get_latest_change_user( instance.pk )
-#    if not user:
-#        logger.error( "Cannot delete Zabbix interface for instance pk=%s: missing latest change user", instance.pk )
-#        return
-#    
-#    logger.info( "Queuing delete Zabbix interface for device '%s' (interface pk=%s) job ", instance.host.device.name, instance.pk )
-#    UpdateZabbixHost.run_job( zabbix_config=instance.host, request=get_current_request(), name=f"Update Host in Zabbix for {instance.host.device.name}" )
-#    logger.info( "Successfully scheduled deletion of Zabbix interface for device '%s' (interface pk=%s) job ", instance.host.device.name, instance.pk )
-
-#@receiver(pre_delete, sender=DeviceAgentInterface)
-#@receiver(pre_delete, sender=DeviceSNMPv3Interface)
-#def prevent_deleting_last_required_interface(sender, instance, **kwargs):
-#    """
-#    Prevent deletion of the last interface of a type (Agent/SNMPv3)
-#    if templates exist that require this interface type.
-#    """
-#
-#    interface_type = ( InterfaceTypeChoices.Agent if isinstance( instance, DeviceAgentInterface ) else InterfaceTypeChoices.SNMP )
-#
-#    logger.debug( "Pre-delete signal received for interface pk=%s, type=%s, device=%s", instance.pk, interface_type.label, instance.host.get_name() if instance.host else "UNKNOWN" )
-#
-#    # Count remaining interfaces of this type for the device
-#    if interface_type == InterfaceTypeChoices.Agent:
-#        remaining_count = instance.host.agent_interfaces.exclude( pk=instance.pk ).count()
-#    else:
-#        remaining_count = instance.host.snmpv3_interfaces.exclude( pk=instance.pk ).count()
-#
-#    logger.debug( "Remaining interfaces of type %s for device '%s': %d", interface_type.label, instance.host.get_name() if instance.host else "UNKNOWN", remaining_count )
-#
-#    if remaining_count == 0:
-#        logger.info( "Interface pk=%s is the last %s interface for device '%s'", instance.pk, interface_type.label, instance.host.get_name() if instance.host else "UNKNOWN" )
-#
-#        # Check if any assigned templates require this interface type
-#        zbx_config = getattr( instance, "host", None )
-#        if zbx_config:
-#            templates_requiring_type = zbx_config.templates.filter( interface_type=interface_type, marked_for_deletion=False ).exists()
-#
-#            if templates_requiring_type:
-#                logger.warning( "Cannot delete last %s interface for device '%s': templates still require it", interface_type.label, instance.host.get_name() if instance.host else "UNKNOWN" )
-#                messages.error( get_current_request(), f"Cannot delete the last {interface_type.label} interface for device '{instance.host.device.name}' because templates are still assigned that require it." )
-#            else:
-#                logger.info( "No templates require this interface type; deletion allowed for interface pk=%s", instance.pk )
-#        else:
-#            logger.info( "No Zabbix configuration found for device '%s'; deletion allowed", instance.host.get_name() if instance.host else "UNKNOWN" )
-#    else:
-#        logger.debug( "More than one interface of type %s exists; deletion allowed for pk=%s", interface_type.label, instance.pk )
-#
-#    # Otherwise deletion is allowed
-
-
-
 @receiver(post_delete, sender=DeviceAgentInterface)
 @receiver(post_delete, sender=DeviceSNMPv3Interface)
 def handle_interface_post_delete(sender, instance, **kwargs):
@@ -532,8 +410,6 @@ def handle_interface_post_delete(sender, instance, **kwargs):
     logger.info( "Queuing update Zabbix host for device '%s' due to %s interface deletion (interface pk=%s)", device_name, interface_type, instance.pk )
     UpdateZabbixHost.run_job( zabbix_config=device_zcfg, request=get_current_request(), name=f"Update Host in Zabbix for {device_name}" )
     logger.info( "Successfully scheduled update of Zabbix host for device '%s' due to %s interface deletion (interface pk=%s)", device_name, interface_type, instance.pk )
-
-
 
 
 # ------------------------------------------------------------------------------

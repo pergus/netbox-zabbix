@@ -38,6 +38,17 @@ Not having a proper name for ZabbixConfig's makes it problematic for scripting a
         To update the mapping the user has to reload the page....
 
 
+### Interfaces
+
+If a host in Zabbix has more than one interface of the same type e.g. Agent.
+Then the main interface can be deleted without a problem. However, if there are 
+only one interface then the templates for that interface has to be deleted
+before the interface can be deleted.
+This is the reason why the plugin cannot require that a host has a Template.
+This is also the reason why Zabbix doesn't require Templates for a host.
+
+
+
 
 ## Here be Dragons!
 
@@ -49,6 +60,10 @@ before removing the address. The same goes for DNS.
 Delete the last interface of its type in Zabbix doesn't work unless all no
 items are left that use the interface. This means that templates has to be
 deleted befor removing the interface.
+
+
+
+
 
 ### Solution
 
