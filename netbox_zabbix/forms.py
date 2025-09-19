@@ -361,8 +361,8 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
         super().clean() 
     
         templates = self.cleaned_data.get( "templates" )
-        if not templates:
-            raise ValidationError( "At least one template must be selected." )
+        #if not templates:
+        #    raise ValidationError( "At least one template must be selected." )
     
         template_ids = [ t.templateid for t in templates ]
     

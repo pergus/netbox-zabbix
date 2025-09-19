@@ -1125,24 +1125,51 @@ class DeviceAgentInterfaceEditView(generic.ObjectEditView):
     template_name = 'netbox_zabbix/device_agent_interface_edit.html'
 
 
+#class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
+#    queryset = models.DeviceAgentInterface.objects.all()
+#
+#    def post(self, request, *args, **kwargs):
+#        # Get the interface instance to delete
+#        interface = self.queryset.filter( pk=kwargs.get("pk") )
+#
+#        if hasattr( interface, "host" ):
+#            hostid = interface.host.hostid          # Zabbix host ID
+#            interfaceid = interface.interfaceid     # Zabbix interface ID
+#            name = interface.name
+#            
+#            if not z.can_remove_interface( hostid, interfaceid ):
+#                messages.error( request, f"Interface {name} is linked to one or more items in Zabbix. Unable to delete interface." )
+#                return redirect(request.POST.get( 'return_url' ) or self.get_absolute_url() )
+#    
+#        return super().post(request, *args, **kwargs)
+
+
 class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()
 
     def post(self, request, *args, **kwargs):
         # Get the interface instance to delete
-        interface = self.queryset.filter( pk=kwargs.get("pk") )
 
-        if hasattr( interface, "host" ):
-            hostid = interface.host.hostid          # Zabbix host ID
-            interfaceid = interface.interfaceid     # Zabbix interface ID
+        try:
+            interface = self.get_object( pk=kwargs.get("pk") )
+            hostid = interface.host.hostid
+            interfaceid = interface.interfaceid
             name = interface.name
+
+            # If the inteface is the main interface and if there are other agent interfaces
+            # then Zabbix allows it to be deleted.
+            if interface.main == models.MainChoices.YES and interface.host.agent_interfaces.all().count() < 1:
+                return super().post(request, *args, **kwargs)
             
+            # Otherwise a check to verify if there are templates that needs to be deleted before we can delete the interface.
             if not z.can_remove_interface( hostid, interfaceid ):
                 messages.error( request, f"Interface {name} is linked to one or more items in Zabbix. Unable to delete interface." )
-                return redirect(request.POST.get( 'return_url' ) or self.get_absolute_url() )
-    
-        return super().post(request, *args, **kwargs)
+                return redirect( request.POST.get('return_url') or interface.host.get_absolute_url() )
+        except:
+            pass
 
+        # If safe, proceed with normal deletion
+        return super().post(request, *args, **kwargs)
 
 class DeviceAgentInterfaceBulkDeleteView(generic.BulkDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()

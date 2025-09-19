@@ -469,7 +469,7 @@ class ZabbixConfig(NetBoxModel, JobsMixin):
     hostid       = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
     status       = models.IntegerField( choices=StatusChoices.choices, default=StatusChoices.ENABLED, help_text="Host monitoring status." )
     host_groups  = models.ManyToManyField( HostGroup, help_text="Assigned Host Groups." )
-    templates    = models.ManyToManyField( Template,  help_text="Assgiend Tempalates." )
+    templates    = models.ManyToManyField( Template,  help_text="Assgiend Tempalates.", blank=True )
     monitored_by = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host." )
     proxy        = models.ForeignKey( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy." )
     proxy_group  = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group." )
@@ -569,7 +569,7 @@ class BaseAgentInterface(HostInterface):
         abstract = True
     
     # Interface type
-    type = models.IntegerField(choices=TypeChoices, default=TypeChoices.AGENT )
+    type = models.IntegerField( choices=TypeChoices, default=TypeChoices.AGENT )
 
     # Port number used by the interface.
     port = models.IntegerField( default=10050 )
@@ -642,9 +642,9 @@ class BaseSNMPv3Interface(HostInterface):
     class Meta:
         abstract = True
     
-    # 
+    # Reference to the Zabbix configuration object for the device this interface belongs to.
     host = models.ForeignKey( to='DeviceZabbixConfig', on_delete=models.CASCADE, related_name='snmpv3_interfaces' )
-    
+
     # Interface type - The user doens't have to set this.
     type = models.IntegerField(choices=TypeChoices, default=TypeChoices.SNMP )
     
@@ -693,9 +693,9 @@ class BaseSNMPv3Interface(HostInterface):
         Return the primary IP from the host's device or VM, or None.
         """
         host = self.host
-        if hasattr(host, "device") and host.device:
+        if hasattr( host, "device" ) and host.device:
             return host.device.primary_ip4 or host.device.primary_ip6
-        elif hasattr(host, "virtual_machine") and host.virtual_machine:
+        elif hasattr( host, "virtual_machine" ) and host.virtual_machine:
             return host.virtual_machine.primary_ip4 or host.virtual_machine.primary_ip6
         return None
     
@@ -752,8 +752,8 @@ class DeviceAgentInterface(BaseAgentInterface):
 
 class DeviceSNMPv3Interface(BaseSNMPv3Interface):
     class Meta:
-            verbose_name = "Device SNMPv3 Interface"
-            verbose_name_plural = "Device SNMPv3 Interfaces"
+        verbose_name = "Device SNMPv3 Interface"
+        verbose_name_plural = "Device SNMPv3 Interfaces"
     
     # Reference to the Zabbix configuration object for the device this interface belongs to.
     host = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="snmpv3_interfaces" )

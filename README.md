@@ -75,13 +75,12 @@ Add a view that lists all inconsistent devm/hosts.
 * CF that excludes a machine from appearing in NetBox only.
 
 
+[DONE] What if an interface delete and reassign an ip address?
+[DONE] What if an interface is deleted.
 
-* What if an interface change the ip address?
-  Here be dragons!
+What if the deleted interface is the last interface? This fails.
 
-* What if a device/vm changes or deletes an interface?
-  Here be dragons!
-  Delete of an interface doesn't delete it in Zabbix.
+
 
 * When the implementation works for Devices, implement the corresponding code
   for Virual Machines.
