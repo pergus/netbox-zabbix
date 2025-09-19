@@ -17,7 +17,7 @@ from virtualization.models import VirtualMachine
 from virtualization.tables import VirtualMachineTable
 
 from netbox_zabbix import config, jobs, models
-from netbox_zabbix.utils import validate_quick_add, verify_config_internal
+from netbox_zabbix.utils import validate_quick_add, compare_zabbix_config_with_host
 
 from netbox_zabbix.logger import logger
 
@@ -356,7 +356,7 @@ class DeviceZabbixConfigTable(NetBoxTable):
                            'templates', 'proxy', 'proxy_group', 'host_groups')
 
     def render_sync(self, record):
-        result = verify_config_internal( record )
+        result = compare_zabbix_config_with_host( record )
         return mark_safe( "✘" ) if result["differ"] else mark_safe( "✔" )
 
 

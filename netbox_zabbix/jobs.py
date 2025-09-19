@@ -1942,6 +1942,7 @@ class UpdateZabbixInterface(BaseZabbixInterfaceJob):
         link_missing_interface(config, config.hostid)
         return update_host_in_zabbix(config, kwargs.get("user"), kwargs.get("request_id"))
 
+
 class DeleteZabbixHost( AtomicJobRunner ):
     """
     Job to delete a Zabbix host by its host ID.

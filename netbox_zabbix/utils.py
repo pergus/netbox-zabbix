@@ -1,6 +1,6 @@
 # utils.py
 
-from netbox_zabbix import models, config
+from netbox_zabbix import models
 from netbox_zabbix.config import get_default_tag, get_tag_prefix
 from netbox_zabbix.inventory_properties import inventory_properties
 from netbox_zabbix import zabbix as z
@@ -37,18 +37,18 @@ def get_zabbix_inventory_for_object(obj):
         object_type = 'virtualmachine'
     else:
         raise ValueError( f"Unsupported object type: {obj._meta.model_name}" )
-    
+
     inventory = {}
 
     try:
         mapping = models.InventoryMapping.objects.get( object_type=object_type )
     except models.InventoryMapping.DoesNotExist:
         return inventory
-    
+
     for field in mapping.selection:
         if not field.get( "enabled" ):
             continue
-        
+
         invkey = str( field.get( "invkey" ) )
         if invkey not in inventory_properties:
             logger.info( f"{invkey} is not a legal inventory property" )
@@ -79,7 +79,7 @@ def get_zabbix_tags_for_object(obj):
         raise ValueError(f"Unsupported object type: {obj._meta.model_name}")
 
     tags = []
-    
+
     # Get the tag prefix
     tag_prefix = get_tag_prefix()
 
@@ -87,12 +87,12 @@ def get_zabbix_tags_for_object(obj):
     default_tag_name = get_default_tag()
     if default_tag_name:
         tags.append( { "tag": f"{tag_prefix}{default_tag_name}", "value": str( obj.pk ) } )
-    
+
     try:
         mapping = models.TagMapping.objects.get( object_type=object_type )
     except models.TagMapping.DoesNotExist:
         return tags
-    
+
     # Add the tags that are the intersection between the mapping tags and the obj tags.
     for tag in set( mapping.tags.all() & obj.tags.all() ):
         tags.append({ "tag": f"{tag_prefix}{tag.name}", "value": tag.name })
@@ -187,7 +187,7 @@ def get_template_dependencies(templateid):
     Return a set of template IDs that the given template depends on via triggers.
     Excludes the template itself.
     """
-    
+
     # Fetch triggers for the template, including their dependencies
     triggers = z.get_triggers( [ templateid ] )
 
@@ -212,7 +212,7 @@ def populate_templates_with_interface_type():
     # Fetch ALL items for ALL templates in one call
     all_template_ids = list( models.Template.objects.values_list( "templateid", flat=True ) )
     all_items = z.get_item_types( all_template_ids )
-        
+
     # Group items by templateid
     items_by_template = {}
     for item in all_items:
@@ -241,13 +241,13 @@ def populate_templates_with_dependencies():
         try:
             # Get dependent template IDs from triggers
             dependent_template_ids = get_template_dependencies(template.templateid)
-    
+
             # Resolve Template objects (exclude missing templates)
             dependent_templates = models.Template.objects.filter(templateid__in=dependent_template_ids)
-            
+
             # Set the dependencies for this template
             template.dependencies.set(dependent_templates)
-    
+
         except Exception as e:
             logger.error(f"Failed to populate dependencies for template {template.name} ({template.templateid}): {e}")
 
@@ -390,6 +390,7 @@ def validate_quick_add( devm ):
 # Validate Zabbix Configuration against Zabbix Host
 #
 
+
 def diff_lists(source_list, target_list, current_path=""):
     diff_result = {"added": {}, "removed": {}, "changed": {}}
 
@@ -413,157 +414,6 @@ def diff_lists(source_list, target_list, current_path=""):
                     "to": target_item
                 }
 
-    return diff_result
-
-
-def json_diff_v1(source_data, target_data, special_keys_set = None, list_identity_key_map = None, current_path = "" ):
-    """
-    Compare source_data (A) to target_data (B) and return dict with 'added', 'removed', 'changed'.
-
-    Rules:
-    - Keys only in B are ignored unless they exist in A.
-    - Keys only in A are reported as removed.
-    - Keys in both but with different values are reported as changed.
-    - special_keys_set: keys where extra items in B are ignored (like tags, groups, templates).
-    - list_identity_key_map: for special keys, identity key to match list-of-dict items.
-    """
-
-    def join_path(current_path, key_name):
-        return f"{current_path}.{key_name}" if current_path else key_name
-    
-
-    if special_keys_set is None:
-        special_keys_set = set()
-    if list_identity_key_map is None:
-        list_identity_key_map = {}
-
-    diff_result = { "added": {}, "removed": {}, "changed": {} }
-
-    # Compare dictionaries
-    if isinstance( source_data, dict ) and isinstance( target_data, dict ):
-        source_keys_set = set( source_data.keys() )
-        target_keys_set = set( target_data.keys() )
-
-        # Keys only in A (removed)
-        for key_name in sorted( source_keys_set - target_keys_set ):
-            diff_result["removed"][ join_path( current_path, key_name ) ] = source_data[key_name]
-
-        # Keys only in B (added)
-        for key_name in sorted( target_keys_set - source_keys_set ):
-            diff_result["added"][ join_path( current_path, key_name ) ] = target_data[key_name]
-
-        # Keys present in both (recursive comparison)
-        for key_name in sorted( source_keys_set & target_keys_set ):
-            current_key_path = join_path( current_path, key_name )
-
-            if key_name in special_keys_set and isinstance( source_data[key_name], list ) and isinstance( target_data[key_name], list ):
-                identity_key = list_identity_key_map.get( key_name )
-                if identity_key:
-                    changed_from_list, changed_to_list = diff_special_list_items( source_data[key_name], target_data[key_name], identity_key )
-                    if changed_from_list or changed_to_list:
-                        diff_result["changed"][ current_key_path ] = { "from": changed_from_list, "to": changed_to_list }
-                else:
-                    if source_data[key_name] != target_data[key_name]:
-                        diff_result["changed"][ current_key_path ] = { "from": source_data[key_name], "to": target_data[key_name] }
-            else:
-                child_diff = json_diff( source_data[key_name], target_data[key_name], special_keys_set, list_identity_key_map, current_key_path )
-                for diff_type in ("added", "removed", "changed"):
-                    diff_result[diff_type].update( child_diff.get( diff_type, {} ) )
-
-    # Compare non-special lists
-    elif isinstance( source_data, list ) and isinstance( target_data, list ):
-        if source_data != target_data:
-            diff_result["changed"][ current_path ] = { "from": source_data, "to": target_data }
-
-    # Compare primitive values
-    else:
-        if source_data != target_data:
-            diff_result["changed"][ current_path ] = { "from": source_data, "to": target_data }
-
-
-    diff_result["differ"] = bool( diff_result["added"] or diff_result["removed"] or diff_result["changed"] )
-
-    return diff_result
-
-
-def json_diff_v2(source_data, target_data, special_keys_set=None, list_identity_key_map=None, current_path=""):
-    """
-    Compare source_data (A) to target_data (B) and return dict with 'added', 'removed', 'changed'.
-
-    Rules:
-    - Keys only in B are ignored unless they exist in A.
-    - Keys only in A are reported as removed.
-    - Keys in both but with different values are reported as changed.
-    - Lists are compared item-by-item recursively.
-    """
-
-    def join_path(current_path, key_name):
-        return f"{current_path}.{key_name}" if current_path else key_name
-
-    if special_keys_set is None:
-        special_keys_set = set()
-    if list_identity_key_map is None:
-        list_identity_key_map = {}
-
-    diff_result = {"added": {}, "removed": {}, "changed": {}}
-
-    # --- Compare dictionaries ---
-    if isinstance(source_data, dict) and isinstance(target_data, dict):
-        source_keys = set(source_data.keys())
-        target_keys = set(target_data.keys())
-
-        # Keys only in source (removed)
-        for key in source_keys - target_keys:
-            diff_result["removed"][join_path(current_path, key)] = source_data[key]
-
-        # Keys only in target (added)
-        for key in target_keys - source_keys:
-            diff_result["added"][join_path(current_path, key)] = target_data[key]
-
-        # Keys in both
-        for key in source_keys & target_keys:
-            current_key_path = join_path(current_path, key)
-
-            # Existing special keys logic (optional)
-            if key in special_keys_set and isinstance(source_data[key], list) and isinstance(target_data[key], list):
-                identity_key = list_identity_key_map.get(key)
-                if identity_key:
-                    changed_from_list, changed_to_list = diff_special_list_items(source_data[key], target_data[key], identity_key)
-                    if changed_from_list or changed_to_list:
-                        diff_result["changed"][current_key_path] = {"from": changed_from_list, "to": changed_to_list}
-                    continue
-
-            # Recurse
-            child_diff = json_diff(source_data[key], target_data[key], special_keys_set, list_identity_key_map, current_key_path)
-            for diff_type in ("added", "removed", "changed"):
-                diff_result[diff_type].update(child_diff.get(diff_type, {}))
-
-    # --- Compare lists recursively ---
-    elif isinstance(source_data, list) and isinstance(target_data, list):
-        max_len = max(len(source_data), len(target_data))
-        for idx in range(max_len):
-            src_item = source_data[idx] if idx < len(source_data) else None
-            tgt_item = target_data[idx] if idx < len(target_data) else None
-
-            if src_item != tgt_item:
-                # Recursive diff for dicts/lists
-                if isinstance(src_item, dict) and isinstance(tgt_item, dict):
-                    child_diff = json_diff(src_item, tgt_item, special_keys_set, list_identity_key_map, f"{current_path}[{idx}]")
-                    for diff_type in ("added", "removed", "changed"):
-                        diff_result[diff_type].update(child_diff.get(diff_type, {}))
-                elif isinstance(src_item, list) and isinstance(tgt_item, list):
-                    child_diff = json_diff(src_item, tgt_item, special_keys_set, list_identity_key_map, f"{current_path}[{idx}]")
-                    for diff_type in ("added", "removed", "changed"):
-                        diff_result[diff_type].update(child_diff.get(diff_type, {}))
-                else:
-                    diff_result["changed"][f"{current_path}[{idx}]"] = {"from": src_item, "to": tgt_item}
-
-    # --- Compare primitive values ---
-    else:
-        if source_data != target_data:
-            diff_result["changed"][current_path] = {"from": source_data, "to": target_data}
-
-    diff_result["differ"] = bool(diff_result["added"] or diff_result["removed"] or diff_result["changed"])
     return diff_result
 
 
@@ -713,46 +563,48 @@ def normalize_zabbix_host_dynamic(zabbix_host, payload_template):
     return normalized_host
 
 
-def verify_config_internal(zabbix_config):
+def compare_zabbix_config_with_host(zabbix_config):
+    """
+    Compare a NetBox Zabbix configuration object with the corresponding
+    host definition retrieved from Zabbix and return a structured diff.
+    """
 
     if not zabbix_config.hostid:
-        return { 
+        return {
             "differ": True,
             "added":   {},
             "removed": {},
             "changed": {}
         }
-    
+
     # Get the host from Zabbix
     zabbix_host_raw = z.get_host_by_id( zabbix_config.hostid )
-    
-    logger.info( f"zabbix_host_raw => {zabbix_host_raw}" )
 
     # Build payload from the Zabbix configuration
     from netbox_zabbix.jobs import build_payload
     payload = build_payload( zabbix_config, True )
-    
+
     zabbix_host = normalize_zabbix_host_dynamic( zabbix_host_raw, payload )
 
     # Diff
     special_keys_set = { "templates", "groups", "tags" }
     list_identity_key_map = {"tags": "tag", "groups": "groupid", "templates": "templateid"}
-    
+
     diff_result = json_diff( payload, zabbix_host, special_keys_set, list_identity_key_map )
     return diff_result
 
 
 
-# Test function not used
-def verify_config_v2(name):
-    import json
-    try:
-        device = models.Device.objects.get( name=name) 
-        zabbix_config = models.DeviceZabbixConfig.objects.get( device=device )
-        result = verify_config_internal( zabbix_config )
-        print( f"{json.dumps( result, indent=2 )}" )
-    except:
-        print( f"Could't verify {name}." )
+# Function used to test the 'verify_config' function
+#def verify_config_v2(name):
+#    import json
+#    try:
+#        device = models.Device.objects.get( name=name)
+#        zabbix_config = models.DeviceZabbixConfig.objects.get( device=device )
+#        result = verify_config( zabbix_config )
+#        print( f"{json.dumps( result, indent=2 )}" )
+#    except:
+#        print( f"Could't verify {name}." )
 
 
 

@@ -1,25 +1,19 @@
 # signals.py
 #
 # Description: Django signal handlers for NetBox Zabbix integration.
+# These helpers and signal receivers keep Zabbix host/interface
+# configuration synchronized with NetBox objects.
 #
-#
-
-from __future__ import annotations
-
 
 from django.db import transaction
 from django.db.models.signals import pre_delete, post_delete, pre_save, post_save
 from django.dispatch import receiver
 from django.contrib import messages
-
-
 from core.models import ObjectChange
 from dcim.models import Device, Interface
 from virtualization.models  import VirtualMachine, VMInterface
-
 from ipam.models import IPAddress
 from netbox.context import current_request
-
 from netbox_zabbix.jobs import (
     DeleteZabbixHost,
     CreateZabbixHost,
@@ -28,7 +22,6 @@ from netbox_zabbix.jobs import (
     UpdateZabbixInterface,
     ImportZabbixSystemJob,
 )
-
 from netbox_zabbix.models import (
     Config,
     DeviceAgentInterface,
@@ -36,22 +29,24 @@ from netbox_zabbix.models import (
     DeviceZabbixConfig,
     MainChoices,
 )
-
 import logging
 
 logger = logging.getLogger("netbox.plugins.netbox_zabbix")
 
 
 # ------------------------------------------------------------------------------
-# Helpers
+# Helpers Functions
 # ------------------------------------------------------------------------------
 
 
-def get_request():
+def get_current_request():
+    """
+    Return the current NetBox HTTP request stored in thread-local context.
+    """
     return current_request.get()
 
 
-def get_request_id():
+def get_current_request_id():
     """
     Return the current request's id if available, otherwise None.
     """
@@ -59,7 +54,7 @@ def get_request_id():
     return getattr( req, "id", None ) if req else None
 
 
-def latest_change_user_forget_request_id(pk: int):
+def get_latest_change_user(pk: int):
     """
     Return the User associated with the most recent ObjectChange for the given pk.
     """
@@ -67,81 +62,211 @@ def latest_change_user_forget_request_id(pk: int):
     return change.user if change and change.user else None
 
 
-#def is_primary_ip(ip):
-#
-#    if not ip.assigned_object:
-#        return False
-#    
-#    devm = getattr( ip.assigned_object, "device", getattr( ip.assigned_object, "virtual_machine", None ) )
-#    if devm is None:
-#        return False
-#
-#    return devm.primary_ip4_id == ip.id
+def schedule_zabbix_host_update(instance, message):
+    """
+    Trigger a Zabbix host update job for the Device related to the given instance.
+    Supports Device, Interface, VMInterface, and IPAddress instances.
+    """
+    logger.debug( "Scheduling Zabbix host update for instance %r with message %r", instance.name, message )
+
+    # Determine which PK to use for latest-change user lookup
+    pk_for_user = getattr( instance, "pk", None )
+    if not pk_for_user:
+        logger.error( "Cannot schedule Zabbix update: instance %r has no primary key.", instance )
+        return
+
+    user = get_latest_change_user( pk_for_user )
+    if not user:
+        logger.warning( "Skipping Zabbix update: no user found for latest change on pk=%s.", pk_for_user )
+        return
+
+    # Try to resolve a Device regardless of model type
+    if isinstance( instance, Device ):
+        device = instance
+    else:
+        device = getattr( instance, "device", None )
+
+    if not isinstance( device, Device ):
+        logger.error( "Cannot schedule Zabbix update: instance %r is not or does not resolve to a Device.", instance )
+        return
+
+    try:
+        device_zcfg = DeviceZabbixConfig.objects.get( device=device )
+    except DeviceZabbixConfig.DoesNotExist:
+        logger.warning( "Skipping Zabbix update: no DeviceZabbixConfig found for device '%s'.", device.name )
+        return
+    except DeviceZabbixConfig.MultipleObjectsReturned:
+          logger.error( "Multiple DeviceZabbixConfig objects found for device '%s'. Manual cleanup required.", device.name )
+          return
+    
+    logger.info( "Queuing Zabbix host update job for device '%s'.", device.name )
+    UpdateZabbixHost.run_job( zabbix_config=device_zcfg, request=get_current_request(), name= f"{message}" if message else f"Update {device_zcfg.device.name} in Zabbix: {message}" )
+    logger.info( "Successfully scheduled  Zabbix host update job for device '%s'", device.name )
 
 
-#def associate_primary_ip(ip: IPAddress):
-#    """
-#    Associate the given primary IP with its Zabbix interface.
-#    """
-#    devm = ip.assigned_object
-#    if isinstance(devm, Interface):
-#        interface = Interface.objects.filter(id=devm.id).first()
-#    elif isinstance(devm, VMInterface):
-#        interface = VMInterface.objects.filter(id=devm.id).first()
-#    else:
-#        return
-#
-#    if not interface:
-#        return
-#
-#    if hasattr( interface, "agent_interface" ):
-#        zabbix_iface = interface.agent_interface
-#    elif hasattr( interface, "snmpv3_interface" ):
-#        zabbix_iface = interface.snmpv3_interface
-#    else:
-#        return
-#
-#    zabbix_iface.ip_address = ip
-#    zabbix_iface.save()
+def needs_zabbix_ip_reassignment(interface: Interface | VMInterface):
+    """
+    Determine if a Zabbix interface should be reassigned to the device/VM's primary IP.
+    
+    Reassignment is needed when:
+        * No IP is assigned, OR
+        * The current IP differs from the device/VM's primary IPv4, OR
+        * The primary IP lacks a DNS name.
+    
+    Returns True if reassignment is required, False otherwise.
+    """
+
+    # Determine parent device/VM
+    devm = getattr(interface, "device", None) or getattr(interface, "virtual_machine", None)
+    if not devm:
+        logger.warning( "Skipping Zabbix IP reassignment: no parent Device/VM found for interface id=%s", interface.id )
+        return False
+
+    # Ensure the interface has a Zabbix config interface
+    zabbix_iface = getattr(interface, "agent_interface", None) or \
+                   getattr(interface, "snmpv3_interface", None)
+    if not zabbix_iface:
+        logger.warning( "Skipping Zabbix IP reassignment: interface id=%s has no Zabbix config interface", interface.id )
+        return False
+
+    # Check candidate primary IP
+    primary_ip = devm.primary_ip4
+    if not primary_ip:
+        logger.info( "Device/VM '%s' has no primary IPv4; cannot reassign Zabbix IP for interface id=%s", devm.name, interface.id )
+        return False
+
+    # Already correctly assigned?
+    if zabbix_iface.ip_address_id == primary_ip.id and primary_ip.dns_name:
+        logger.debug( "Zabbix interface id=%s already assigned to correct primary IP %s", zabbix_iface.id, primary_ip.address )
+        return False
+
+    # Otherwise, reassignment is needed
+    logger.info( "Zabbix interface id=%s requires reassignment to primary IP %s (dns_name=%s)", zabbix_iface.id, primary_ip.address, primary_ip.dns_name )
+    return True
 
 
-#def primary_ip_changed(model, instance) -> bool: 
-#    """ Check the database to see if primary_ip4 changed since last save. """ 
-#    if not instance.pk: return False 
-#    
-#    old_primary_ip4_id = ( model.objects.filter( pk=instance.pk ).values_list("primary_ip4_id", flat=True).first() )
-#
-#    logger.info( f"old_primary {old_primary_ip4_id} instance.primary_ip4_id {instance.primary_ip4_id}" ) 
-#    
-#    return old_primary_ip4_id != instance.primary_ip4_id
+def assign_primary_ip_to_zabbix_interface(interface: Interface | VMInterface) -> bool:
+    """
+    Attempt to reassign the Zabbix interface IP to the parent device/VM's primary IPv4.
+
+    The reassignment is performed only if:
+      * The primary IPv4 exists,
+      * It belongs to the same interface,
+      * It has a DNS name.
+    
+    Returns True if an IP was successfully re-associated, False otherwise.
+    """
+    logger.debug( "Starting primary IP reassignment check for interface id=%s", interface.id )
+
+    # Determine parent device/VM
+    devm = getattr( interface, "device", None ) or getattr( interface, "virtual_machine", None )
+    if not devm:
+        logger.warning( "Cannot reassign Zabbix IP: no parent Device/VM for interface id=%s", interface.id )
+        return False
+
+    # Ensure the interface has a Zabbix config interface
+    zabbix_iface = getattr( interface, "agent_interface", None ) or \
+                   getattr( interface, "snmpv3_interface", None )
+    if not zabbix_iface:
+        logger.warning( "Cannot reassign Zabbix IP: interface id=%s has no Zabbix config interface", interface.id )
+        return False
+
+    # Candidate IP must be:
+    # 1) primary IPv4 of the device/VM
+    # 2) bound to THIS interface
+    # 3) have a DNS name
+    primary_ip = devm.primary_ip4
+    if not primary_ip:
+        logger.info( "Device/VM %s has no primary IPv4; skipping Zabbix IP reassignment for interface id=%s", devm, interface.id )
+        return False
+
+    if primary_ip.assigned_object_id != interface.id:
+        logger.info( "Primary IP %s is not assigned to interface id=%s (belongs to object id=%s)", primary_ip.address, interface.id, primary_ip.assigned_object_id )
+        return False
+
+    if not primary_ip.dns_name:
+        logger.info( "Primary IP %s has no DNS name; skipping Zabbix IP reassignment for interface id=%s", primary_ip.address, interface.id )
+        return False
+
+    # Associate with Zabbix interface
+    zabbix_iface.ip_address = primary_ip
+    zabbix_iface.save()
+
+    logger.info( "Re-associated Zabbix interface id=%s with primary IP %s (dns_name=%s)", zabbix_iface.id, primary_ip.address, primary_ip.dns_name )
+    return True
 
 
+def has_primary_ipv4_changed(device):
+    """
+    Check whether a Device's primary IPv4 address has changed in the database.
+    """
 
+    if not device.pk:
+        logger.debug( "Skipping primary IPv4 change check: device '%s' has no primary key.", getattr(device, "name", "<unnamed>") )
+        return False
+    
+    old_primary = ( Device.objects.filter( pk=device.pk ).values_list( "primary_ip4_id", flat=True ).first() )
+
+    changed = old_primary != device.primary_ip4_id
+
+    logger.debug( "Primary IPv4 change check for device '%s': old=%s, new=%s, changed=%s", device.name, old_primary, device.primary_ip4_id, changed )
+    return changed
+
+
+def has_device_name_changed(device):
+    """
+    Check whether a Device's name has changed in the database.
+    """
+
+    if not device.pk:
+        logger.debug( "Skipping device name change check: device has no primary key." )
+        return False
+    
+    old_name = ( Device.objects.filter( pk=device.pk ).values_list( "name", flat=True ).first() )
+
+    changed = old_name != device.name
+
+    logger.debug( "Device name change check for device '%s': old='%s', new='%s', changed=%s", device.pk, old_name, device.name, changed )
+    
+    return changed
 
 # ------------------------------------------------------------------------------
-# System Signals
+# System Job
 # ------------------------------------------------------------------------------
 
 
 @receiver(pre_save, sender=Config)
-def update_system_job_schedule(sender, instance: Config, **kwargs):
+def reschedule_zabbix_sync_job(sender, instance: Config, **kwargs):
     """
-    Reschedule the background sync job when the configured Zabbix sync interval changes.
+    Reschedule the Zabbix import system job when the sync interval changes.
+    
+    Triggered before saving a Config object to detect interval modifications.
     """
+
+    logger.debug( "Re-Scheduling Zabbix sync job" )
+
     # Only act on updates (not initial creation)
     if not instance.pk:
+        logger.debug( "Config is new; no sync job interval comparison performed." )
         return
 
-    prev = sender.objects.get(pk=instance.pk)
+    try:
+        prev = sender.objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        logger.warning( "Previous Config(pk=%s) not found; cannot compare sync interval.", instance.pk )
+        return
+    
+    logger.debug( "Previous interval=%s, New interval=%s", prev.zabbix_sync_interval, instance.zabbix_sync_interval )
+
     if prev.zabbix_sync_interval != instance.zabbix_sync_interval:
-        logger.info( "Rescheduling Zabbix import system job (interval changed)." )
+        logger.info( "Zabbix sync interval changed from %s to %s. Rescheduling system job.", prev.zabbix_sync_interval, instance.zabbix_sync_interval )
         transaction.on_commit(
             lambda: ImportZabbixSystemJob.schedule(instance.zabbix_sync_interval)
         )
 
 
 # ------------------------------------------------------------------------------
-# Device Interface Signals
+# Device Promote Zabbix Interface to main
 # ------------------------------------------------------------------------------
 
 
@@ -153,18 +278,25 @@ def dev_promote_agent_interface_to_main(sender, instance: DeviceAgentInterface, 
     If the deleted interface was the main one, promote the first remaining
     agent interface on the same host.
     """
-    if instance.main == MainChoices.YES:
-        logger.info( f"Promoting fallback Agent interface to main (device={instance.host.get_name()})." )
-        remaining = instance.host.agent_interfaces.exclude( pk=instance.pk )
-        fallback = remaining.first()
-        if fallback:
-            fallback.main = MainChoices.YES
-            fallback.save()
-            logger.info(
-                "Promoted interface %s to main for %s",
-                fallback.name,
-                fallback.host.get_name(),
-            )
+
+    logger.debug( "Post-delete signal received for DeviceAgentInterface(pk=%s, device=%s)", instance.pk, instance.host.get_name() if instance.host else "UNKNOWN" )
+
+    if instance.main != MainChoices.YES:
+        logger.debug( "Deleted interface was not main; no promotion needed." )
+        return
+    
+    remaining = instance.host.agent_interfaces.exclude( pk=instance.pk )
+    fallback = remaining.first()
+    
+    if not fallback:
+        logger.warning( "No fallback Agent interface available to promote for device %s", instance.host.get_name() )
+        return
+    
+    fallback.main = MainChoices.YES
+    fallback.save()
+    
+    logger.info( "Promoted fallback Agent interface %s (pk=%s) to main for device %s", fallback.name, fallback.pk, fallback.host.get_name() )
+
 
 
 @receiver(post_delete, sender=DeviceSNMPv3Interface)
@@ -175,527 +307,253 @@ def dev_promote_snmpv3_interface_to_main(sender, instance: DeviceSNMPv3Interface
     If the deleted interface was the main one, promote the first remaining
     SNMPv3 interface on the same host.
     """
-    if instance.main == MainChoices.YES:
-        logger.info( f"Promoting fallback SNMPv3 interface to main (device={instance.host.get_name()})." )
-        remaining = instance.host.snmpv3_interfaces.exclude( pk=instance.pk )
-        fallback = remaining.first()
-        if fallback:
-            fallback.main = MainChoices.YES
-            fallback.save()
-            logger.info(
-                "Promoted interface %s to main for %s",
-                fallback.name,
-                fallback.host.get_name(),
-            )
+
+    logger.debug( "Post-delete signal received for DeviceSNMPv3Interface(pk=%s, device=%s)", instance.pk, instance.host.get_name() if instance.host else "UNKNOWN" )
+    
+    if instance.main != MainChoices.YES:
+        logger.debug( "Deleted interface was not main; no promotion needed." )
+        return
+    
+    remaining = instance.host.snmpv3_interfaces.exclude( pk=instance.pk )
+    fallback = remaining.first()
+    
+    if not fallback:
+        logger.warning( "No fallback SNMPv3 interface available to promote for device %s", instance.host.get_name() )
+        return
+    
+    fallback.main = MainChoices.YES
+    fallback.save()
+    
+    logger.info( "Promoted fallback SNMPv3 interface %s (pk=%s) to main for device %s", fallback.name, fallback.pk, fallback.host.get_name() )
 
 
 # ------------------------------------------------------------------------------
-# Device ZabbixConfig Signals
+# Device Create/Update ZabbixConfig
 # ------------------------------------------------------------------------------
 
 
 @receiver(post_save, sender=DeviceZabbixConfig)
-def dev_save_zabbix_config(sender, instance: DeviceZabbixConfig, created: bool, **kwargs):
+def dev_create_or_update_zabbix_config(sender, instance: DeviceZabbixConfig, created: bool, **kwargs):
+    """
+    Create or update a Zabbix host when a DeviceZabbixConfig is saved.
+    """
 
-    user = latest_change_user_forget_request_id( instance.pk )
+    logger.debug( "DeviceZabbixConfig signal: pk=%s created=%s", instance.pk, created )
+
+    user = get_latest_change_user( instance.pk )
     if not user:
-        logger.info( f"Required user missing, unable to create/update Zabbix Connfiguration" )
+        logger.error( "No user found for DeviceZabbixConfig %s. Cannot create/update Zabbix host.", instance.pk )
         return
     
     if created:
-        logger.info( "***********************************************************" )
-        logger.info( f"Created Host in Zabbix for {instance.device.name}" )
-        logger.info( "***********************************************************" )
-
-        CreateZabbixHost.run_job(
-            zabbix_config=instance,
-            request=get_request(),
-            name=f"Create Host in Zabbix for {instance.device.name}"
-        )
-        
+        logger.info( "Queuing create Zabbix host for device '%s' job", instance.device.name )
+        CreateZabbixHost.run_job( zabbix_config=instance, request=get_current_request(), name=f"Create Host in Zabbix for {instance.device.name}" )
+        logger.info( "Successfully scheduled create Zabbix host for device '%s' job", instance.device.name )
     else:
-        logger.info( "***********************************************************" )
-        logger.info( f"Updated Host in Zabbix for {instance.device.name}" )
-        logger.info( "***********************************************************" )
+        logger.info( "Queuing update Zabbix host for device '%s' job", instance.device.name )        
+        UpdateZabbixHost.run_job( zabbix_config=instance, request=get_current_request(), name=f"Update Host in Zabbix for {instance.device.name}" )
+        logger.info( "Successfully scheduled update Zabbix host for device '%s' job", instance.device.name )
 
-        UpdateZabbixHost.run_job(
-            zabbix_config=instance,
-            request=get_request(),
-            name=f"Update Host in Zabbix for {instance.device.name}"
-        )
+# ------------------------------------------------------------------------------
+# Device Delete ZabbixConfig
+# ------------------------------------------------------------------------------
 
 
 @receiver(pre_delete, sender=DeviceZabbixConfig)
 def dev_delete_zabbix_config(sender, instance: DeviceZabbixConfig, **kwargs):
     """
-    Before deleting a Device Zabbix configuration, delete the corresponding host in Zabbix.
+    Delete the associated Zabbix host before removing a DeviceZabbixConfig.
     """
 
-    logger.info( "***********************************************************" )
-    logger.info( f"Deleting Zabbix host prior to removing DeviceZabbixConfig (device={instance.device.name})." )
-    logger.info( "***********************************************************" )
+    logger.debug( "DeviceZabbixConfig pre-delete signal received: pk=%s, device=%s", instance.pk, getattr( instance.device, "name", "unknown" ) )
+
+    if not instance.hostid:
+        logger.error( "Cannot delete Zabbix host for device '%s': missing hostid (DeviceZabbixConfig pk=%s)", getattr( instance.device, "name", "unknown" ), instance.pk )
+        return
+    
+    logger.info( "Deleting Zabbix host for device '%s' (DeviceZabbixConfig pk=%s) prior to removing config", instance.device.name, instance.pk )
     
     try:
-        if instance and instance.hostid:
-            DeleteZabbixHost.run_job( hostid=instance.hostid )
-        else:
-            logger.info( f"Unable to delete {instance.device.name} in Zabbix, missing required hostid" )
-
-    except Exception:
-        # Surface the failure to keep NetBox and Zabbix consistent.
+        logger.info( "Queuing delete Zabbix host for device '%s' job", instance.device.name )
+        DeleteZabbixHost.run_job(hostid=instance.hostid)
+        logger.info( "Successfully scheduled deletion of Zabbix host for device '%s'", instance.device.name )
+    except Exception as e:
+        logger.error( "Failed to delete Zabbix host for device '%s': %s", instance.device.name, str( e ), exc_info=True )
         raise
 
 
 # ------------------------------------------------------------------------------
-# Zabbix Interface (Agent/SNMPv3) Signals
+# Create/Update Zabbix Interface (Agent/SNMPv3)
 # ------------------------------------------------------------------------------
 
 
 @receiver(post_save, sender=DeviceAgentInterface)
 @receiver(post_save, sender=DeviceSNMPv3Interface)
-def dev_save_zabbix_interface(sender, instance, created: bool, **kwargs):
-    
-    user = latest_change_user_forget_request_id( instance.pk )
+def dev_create_or_update_zabbix_interface(sender, instance, created: bool, **kwargs):
+    """
+    Create or update a Zabbix interface (Agent or SNMPv3) when saved.
+    """
+
+    logger.debug( "Device interface post-save signal received: pk=%s, created=%s, device=%s", instance.pk, created, getattr(instance.host.device, "name", "unknown") )
+
+    user = get_latest_change_user( instance.pk )
     if not user:
-        logger.info( f"Required user missing, unable to create/update Device Zabbix Interface" )
+        logger.error( "Cannot create/update Zabbix interface for instance pk=%s: missing latest change user", instance.pk )
         return
-    
 
-    if created:
-        logger.info( "***********************************************************" )
-        logger.info( f"Created Interface for {instance.host.device.name}" )
-        logger.info( "***********************************************************" )
+    action = "Created" if created else "Updated"
+    logger.info( "%s Zabbix interface for device '%s' (interface pk=%s)", action, instance.host.device.name, instance.pk )
 
-        CreateZabbixInterface.run_job(
-            zabbix_config=instance.host,
-            request=get_request(),
-            name=f"Create new interface for {instance.host.device.name}"
-        )
+    job_func = CreateZabbixInterface.run_job if created else UpdateZabbixInterface.run_job
 
-    else:
-        logger.info( "***********************************************************" )
-        logger.info( f"Updated Interface for {instance.host.device.name}" )
-        logger.info( "***********************************************************" )
-
-        UpdateZabbixInterface.run_job(
-            zabbix_config=instance.host,
-            request=get_request(),
-            name=f"Update interface for {instance.host.device.name}"
-        )
-
+    try:        
+        logger.info( "Queuing %s Zabbix interface job for device '%s'", action.lower(), instance.host.device.name )
+        job_func( zabbix_config=instance.host, request=get_current_request(), name=f"{action} interface for {instance.host.device.name}" )
+        logger.info( "Successfully scheduled %s Zabbix interface job for device '%s'", action.lower(), instance.host.device.name )
+    except Exception as e:
+        logger.error( "Failed to schedule %s Zabbix interface job for device '%s': %s", action.lower(), instance.host.device.name, str( e ), exc_info=True )
+        raise
 
 # ------------------------------------------------------------------------------
-# Device Interface Signals
+# Delete Zabbix Interface (Agent/SNMPv3)
 # ------------------------------------------------------------------------------
 
 
-@receiver(post_save, sender=Interface)
-def dev_interface(sender, instance, created:bool, **kwargs):
-
-    if created:
-        logger.info( "***********************************************************" )
-        logger.info( f"Created a new interface for device {instance.device.name}" )
-        logger.info( "***********************************************************" )
-        return
-    
-    logger.info( "***********************************************************" )
-    logger.info( f"Interface updated for device {instance.device.name}" )
-    logger.info( "***********************************************************" )
-    return
-
-
-# ------------------------------------------------------------------------------
-# IP Address Signals
-# ------------------------------------------------------------------------------
-
-
-#@receiver(pre_delete, sender=IPAddress)
-#def dev_delete_ipaddress(sender, instance: IPAddress,  **kwargs):
-#
-#    
-#    logger.info( "***********************************************************" )
-#    logger.info( f"Delete IPAddress ({instance.address})" )
-#    logger.info( "***********************************************************" )
-#
-#    user = latest_change_user_forget_request_id( instance.pk )
-#    if not user:
-#        return
-#    
-#    # If no assigned object (e.g., IP not bound to an interface/device), skip
-#    assigned = getattr( instance, "assigned_object", None )
-#    if not assigned:
-#        return
-#    
-#    # Resolve the parent device from the assigned object (interface, etc.)
-#    device = getattr( assigned, "device", None )
-#    if not isinstance( device, Device ):
-#        # Not a Device-backed assignment (e.g., VM interface) or not resolvable
-#        return
-#    
-#    try:
-#        device_zcfg = DeviceZabbixConfig.objects.get( device=device )
-#    except DeviceZabbixConfig.DoesNotExist:
-#        return
-#    
-#    from django.contrib import messages
-#    messages.error( get_request(), f"{device_zcfg.get_name()} is inconsistent with host configuration in Zabbix." )
-#    
-#    return
-#
-#
-#def associate_ip_with_zabbix_interface(ip: IPAddress) -> bool:
-#    """
-#    Attempt to associate the given IPAddress with its Zabbix interface.
-#
-#    Requirements:
-#      • IP must be the primary IP of its parent Device/VM
-#      • IP must have a DNS name
-#      • Interface must have a Zabbix agent or SNMPv3 interface
-#
-#    Returns:
-#        True if the association was successfully made, False otherwise.
-#    """
-#    if not is_primary_ip(ip):
-#        logger.info( "IP %s is not a primary IP", ip.address )
-#        return False
-#
-#    if not ip.dns_name:
-#        logger.info( "IP %s has no DNS name", ip.address )
-#        return False
-#
-#    devm = ip.assigned_object
-#    if isinstance( devm, Interface ):
-#        interface = Interface.objects.filter( id=devm.id ).first()
-#    elif isinstance( devm, VMInterface ):
-#        interface = VMInterface.objects.filter( id=devm.id ).first()
-#    else:
-#        logger.info( "IP %s not bound to a valid interface", ip.address )
-#        return False
-#
-#    if not interface:
-#        return False
-#
-#    # Find Zabbix interface
-#    zabbix_iface = getattr( interface, "agent_interface", None ) or \
-#                   getattr( interface, "snmpv3_interface", None )
-#
-#    if not zabbix_iface:
-#        logger.info( "No Zabbix interface found for interface %s", interface.id )
-#        return False
-#
-#    # Perform the association
-#    zabbix_iface.ip_address = ip
-#    zabbix_iface.save()
-#    logger.info( "Associated IP %s with Zabbix interface %s", ip.address, zabbix_iface.id )
-#
-#    return True
-
-
-#@receiver(post_save, sender=IPAddress)
-#def dev_update_ipaddress(sender, instance: IPAddress, created: bool, **kwargs):
-#    """
-#    When an IPAddress changes, schedule a Zabbix host update for the
-#    owning device (if any) with a DeviceZabbixConfig.
-#    """
-#
-#    ip = instance
-#    devm = ip.assigned_object
-#
-#    action = "Created" if created else "Updated"
-#
-#    logger.info("*" * 60)
-#    logger.info(f"{action} IP Address ({ip.address})")
-#    logger.info("*" * 60)
-#    
-#
-#    if created:
-#        if not associate_ip_with_zabbix_interface( ip ):
-#            return
-#
-#    # Update the host in Zabbix
-#    update_zabbix_host_for_instance( ip , f"{action} IP Address {ip.address}" ) 
-
-
-# ------------------------------------------------------------------------------
-# Device Signals
-# ------------------------------------------------------------------------------
-
-#@receiver(pre_save, sender=Device)
-#def device_primary_ip_changed(sender, instance: Device,  **kwargs):
-#
-#
-#    # HERE BE DRAGONS!  
-#    if primary_ip_changed( Device, instance ):
-#        logger.info("*" * 60)
-#        logger.info(f"Primary IP changed for {instance.name} to {instance.primary_ip4}")
-#        logger.info("*" * 60)
-#        associate_primary_ip( instance.primary_ip4 )
-#
-#    if instance.primary_ip4 and instance.primary_ip4.dns_name:
-#        update_zabbix_host_for_instance( instance, f"Primary IP Address updated" ) 
-
-
-# ------------------------------------------------------------------------------
-# Virtual Machine Signals
-# ------------------------------------------------------------------------------
-# (Add VM-specific signal handlers here as needed.)
-
-
-# ------------------------------------------------------------------------------
-# Test
-# ------------------------------------------------------------------------------
-
-
-def update_zabbix_host_for_instance(instance, message) -> None:
+@receiver(post_delete, sender=DeviceAgentInterface)
+@receiver(post_delete, sender=DeviceSNMPv3Interface)
+def dev_delete_interface(sender, instance, **kwargs):
     """
-    Resolve a Device from the given instance and trigger an UpdateZabbixHost job.
-    Works for IPAddress, Device, Interface, etc.
+    Delete a Zabbix interface (Agent or SNMPv3).
     """
-    # Determine which PK to use for latest-change user lookup
-    pk_for_user = getattr( instance, "pk", None )
-    if not pk_for_user:
-        logger.info( f"update_zabbix_host_for_instance: No primary key found for instance {instance}. Skipping update." )
-        return
 
-    user = latest_change_user_forget_request_id( pk_for_user )
+    logger.debug( "Device Zabbix interface post-delete signal received: pk=%s,  device=%s", instance.pk, getattr( instance.host.device, "name", "unknown" ) )
+    
+    user = get_latest_change_user( instance.pk )
     if not user:
-        logger.info( f"update_zabbix_host_for_instance: No user found for latest change on PK {pk_for_user}. Skipping update." )
-        return
-
-    # Try to resolve a Device regardless of model type
-    if isinstance( instance, Device ):
-        device = instance
-    else:
-        device = getattr( instance, "device", None )
-
-    if not isinstance( device, Device ):
-        logger.info( f"update_zabbix_host_for_instance: Could not resolve a Device from instance {instance}. Skipping update." )
-        return
-
-    try:
-        device_zcfg = DeviceZabbixConfig.objects.get( device=device )
-    except (DeviceZabbixConfig.DoesNotExist, DeviceZabbixConfig.MultipleObjectsReturned):
-
-        logger.info( f"update_zabbix_host_for_instance: No DeviceZabbixConfig found for device {device.name}. Skipping update." )
-        return
-
-    UpdateZabbixHost.run_job(
-        zabbix_config=device_zcfg,
-        request=get_request(),
-        name= f"{message}" if message else f"Update {device_zcfg.device.name} in Zabbix: {message}"
-    )
-
-
-def should_reassign_zabbix_ip(interface: Interface | VMInterface) -> bool:
-    """
-    Returns True if the interface's Zabbix config interface either:
-      a) has no IP assigned, or
-      b) is assigned an IP that is not the current primary IPv4 of the parent device/VM
-         or has no dns_name
-    """
-
-    # Determine parent device/VM
-    devm = getattr(interface, "device", None) or getattr(interface, "virtual_machine", None)
-    if not devm:
-        logger.info(f"should_reassign_zabbix_ip: No parent device/VM for interface {interface.id}")
-        return False
-
-    # Ensure the interface has a Zabbix config interface
-    zabbix_iface = getattr(interface, "agent_interface", None) or \
-                   getattr(interface, "snmpv3_interface", None)
-    if not zabbix_iface:
-        logger.info(f"should_reassign_zabbix_ip: Interface {interface.id} has no Zabbix config interface")
-        return False
-
-    # Check candidate primary IP
-    primary_ip = devm.primary_ip4
-    if not primary_ip:
-        logger.info(f"should_reassign_zabbix_ip: Device/VM {devm} has no primary IPv4")
-        return False
-
-    # Already correctly assigned?
-    if zabbix_iface.ip_address_id == primary_ip.id and primary_ip.dns_name:
-        logger.info(f"should_reassign_zabbix_ip: Zabbix interface {zabbix_iface.id} already assigned to correct primary IP {primary_ip.address}")
-        return False
-
-    # Otherwise, reassignment is needed
-    logger.info( f"should_reassign_zabbix_ip return True" )
-    return True
-
-
-def reassign_zabbix_ip_for_interface(interface: Interface | VMInterface) -> bool:
-    """
-    If the interface's Zabbix config interface lost its IP, attempt to
-    associate a new one that meets the required conditions:
-      a) New IP is the primary IPv4 of the parent device/VM
-      b) IP has a dns_name
-      c) IP belongs to the same interface
-
-    Returns True if an IP was successfully re-associated.
-    """
-    logger.info( "reassign_zabbix_ip_for_interface..." )
-
-    # Determine parent device/VM
-    devm = getattr( interface, "device", None ) or getattr( interface, "virtual_machine", None )
-    if not devm:
-        return False
-
-    # Ensure the interface has a Zabbix config interface
-    zabbix_iface = getattr( interface, "agent_interface", None ) or \
-                   getattr( interface, "snmpv3_interface", None )
-    if not zabbix_iface:
-        return False
-
-    # Candidate IP must be:
-    # 1) primary IPv4 of the device/VM
-    # 2) bound to THIS interface
-    # 3) have a DNS name
-    primary_ip = devm.primary_ip4
-    if not primary_ip:
-        return False
-
-    if primary_ip.assigned_object_id != interface.id:
-        logger.info( f"Primary IP {primary_ip} is not on interface {interface.id}" )
-        return False
-
-    if not primary_ip.dns_name:
-        logger.info( f"Primary IP {primary_ip} has no dns_name" )
-        return False
-
-    # Associate with Zabbix interface
-    zabbix_iface.ip_address = primary_ip
-    zabbix_iface.save()
-
-    logger.info( f"Re-associated Zabbix interface {zabbix_iface.id} with IP {primary_ip.address}" )
-    return True
-
-
-
-#
-# Delete IP Address
-#
-@receiver(pre_delete, sender=IPAddress)
-def dev_delete_ipaddress(sender, instance: IPAddress,  **kwargs):
-
-    
-    logger.info( "***********************************************************" )
-    logger.info( f"Delete IPAddress ({instance.address})" )
-    logger.info( "***********************************************************" )
-
-    ip = instance
-
-    # Get the assigned interface
-    interface = getattr( ip, "assigned_object", None )
-    if not interface:
+        logger.error( "Cannot delete Zabbix interface for instance pk=%s: missing latest change user", instance.pk )
         return
     
-    # Get the device assigned to the interface
-    device = getattr( interface, "device", None )
-    if not isinstance( device, Device ):
-        return
-    
-    # Get the Zabbix Configuration for the device
-    try:
-        device_zcfg = DeviceZabbixConfig.objects.get( device=device )
-        
-        messages.error( get_request(), f"Zabbix configuration for device '{device_zcfg.device.name}' may be out of sync." )
-        
-    except DeviceZabbixConfig.DoesNotExist:
-        pass
-
-    return
+    logger.info( "Queuing delete Zabbix interface for device '%s' (interface pk=%s) job ", instance.host.device.name, instance.pk )
+    UpdateZabbixHost.run_job( zabbix_config=instance.host, request=get_current_request(), name=f"Update Host in Zabbix for {instance.host.device.name}" )
+    logger.info( "Successfully scheduled deletion of Zabbix interface for device '%s' (interface pk=%s) job ", instance.host.device.name, instance.pk )
 
 
-#
-# Save IP Address
-#
+# ------------------------------------------------------------------------------
+# Create/Update IP Address
+# ------------------------------------------------------------------------------
+
+
 @receiver(post_save, sender=IPAddress)
-def zabbix_ip_post_save(sender, instance, created, **kwargs):
+def create_or_update_ip_address(sender, instance, created, **kwargs):
+    """
+    Handle creation or update of an IPAddress.
+    """
 
     ip = instance
     iface = ip.assigned_object
 
     action = "Created" if created else "Updated"
-    logger.info( "*" * 60 )
-    logger.info( f"{action} IP Address ({ip.address})" )
-    logger.info( "*" * 60 )
+    logger.debug( "IPAddress post-save signal received: pk=%s, action=%s, ip=%s", ip.pk, action, ip.address )
 
-    if ip.assigned_object:
-        parent = getattr( ip.assigned_object, 'parent_object', None )
-        logger.info( f"ip {ip}" )
-        logger.info( f"parent {parent}" )
-        logger.info( f"ip.family {ip.family}" )
-        logger.info( f"hasattr( parent, 'primary_ip4' ) {hasattr( parent, 'primary_ip4' )}" )
-        logger.info( f"primary_ip4 {parent.primary_ip4}" )
-        logger.info( f"parent.primary_ip4_id ({parent.primary_ip4_id})  == ip.pk ({ip.pk}) => {parent.primary_ip4_id == ip.pk} " )
-
-        if ip.family == 4 and hasattr( parent, 'primary_ip4' ) and parent.primary_ip4_id == ip.pk:
-            logger.info( f"IP IS PRIMARY" )
-        else:
-            logger.info( f"IP IS NOT A PRIMARY" )
-    else:
-        logger.info( f"IP IS NOT ASSIGNED TO AN OBJECT" )
-
-    if isinstance(iface, (Interface, VMInterface)):
-        devm = getattr( iface, "device", None ) or getattr( iface, "virtual_machine", None )
-        if devm and should_reassign_zabbix_ip( iface ):
-            reassign_zabbix_ip_for_interface( iface)
-    else:
-        logger.info( f"Object is not an instance of Interface or VMInterface. Skipping Zabbix update." )
+    if not isinstance(iface, (Interface, VMInterface)):
+        logger.info( "Assigned object for IP %s (pk=%s) is not Interface/VMInterface. Skipping Zabbix update.", ip.address, ip.pk )
         return
     
-    logger.info( f"update_zabbix_host_for_instance()" )
-    update_zabbix_host_for_instance( iface, f"{action} IP Address {ip.address}")
+    devm = getattr( iface, "device", None ) or getattr( iface, "virtual_machine", None )
+    if devm and needs_zabbix_ip_reassignment( iface ):
+        if assign_primary_ip_to_zabbix_interface( iface ):
+            logger.info( "Reassigned primary IP %s to Zabbix interface (pk=%s) for device/VM '%s'.", ip.address, iface.pk, devm.name )
+        else:
+            logger.warning( "Failed to reassign primary IP %s to Zabbix interface (pk=%s) for device/VM '%s'.", ip.address, iface.pk, devm.name )
+    
+    try:
+        schedule_zabbix_host_update( iface, f"{action} IP Address {ip.address}" )
+        logger.info( "Scheduled Zabbix host update for IP %s (interface pk=%s).", ip.address, iface.pk )
+    except Exception as e:
+        logger.error( "Failed to schedule Zabbix host update for IP %s (interface pk=%s): %s", ip.address, iface.pk, str( e ), exc_info=True )
+        raise
 
 
-def primary_ip4_changed(device: Device) -> bool:
-    if not device.pk:
-        return False
-    old_primary = ( Device.objects.filter( pk=device.pk ).values_list( "primary_ip4_id", flat=True ).first() )
-    return old_primary != device.primary_ip4_id
+# ------------------------------------------------------------------------------
+# Delete IP Address
+# ------------------------------------------------------------------------------
 
 
-#
-# Pre Save Device - Primary IP
-#
+@receiver(pre_delete, sender=IPAddress)
+def delete_ip_address(sender, instance: IPAddress,  **kwargs):
+    """
+    Handle deletion of an IPAddress.
+    """
+
+    ip = instance
+
+    logger.debug( "IPAddress pre-delete signal received: pk=%s, ip=%s", ip.pk, ip.address )
+
+    # Get the assigned interface
+    interface = getattr( ip, "assigned_object", None )
+    if not interface:
+        logger.info( "IP %s (pk=%s) has no assigned object. Skipping Zabbix update.", ip.address, ip.pk )
+        return
+    
+    # TODO: Handle VMs
+
+    # Get the device assigned to the interface
+    device = getattr( interface, "device", None )
+    if not isinstance( device, Device ):
+        logger.info( "Assigned object for IP %s (interface pk=%s) is not a Device. Skipping Zabbix update.", ip.address, interface.pk )
+        return
+    
+    # Get the Zabbix Configuration for the device
+    try:
+        device_zcfg = DeviceZabbixConfig.objects.get( device=device )
+        logger.warning( "Zabbix configuration for device '%s' may be out of sync due to IP %s deletion.", device.name, ip.address )
+        messages.error( get_current_request(), f"Zabbix configuration for device '{device_zcfg.device.name}' may be out of sync." )
+        
+    except DeviceZabbixConfig.DoesNotExist:
+        logger.debug( "No DeviceZabbixConfig found for device '%s'. Nothing to update in Zabbix.", device.name )
+
+
+# ------------------------------------------------------------------------------
+# Update Device
+# ------------------------------------------------------------------------------
+
+
 @receiver(pre_save, sender=Device)
-def zabbix_primary_ip_changed(sender, instance, **kwargs):
+def update_device(sender, instance, **kwargs):
+    """
+    Trigger Zabbix host updates when a Device's name or primary IPv4 changes.
+    """
 
-    logger.info("*" * 60)
-    logger.info(f"Pre Save Device")
-    logger.info("*" * 60)
+    logger.debug( "Pre-save signal for Device: pk=%s, name=%s", instance.pk, instance.name )
+    
 
-    if not primary_ip4_changed(instance):
-        logger.info(f"No Primary IPv4 change detected for device '{instance}'. Skipping Zabbix update.")
+    # Device name changed
+    if has_device_name_changed( instance ):
+        logger.info( "Device name changed: pk=%s, old_name=?, new_name=%s. Scheduling Zabbix host update.", instance.pk, instance.name )        
+        schedule_zabbix_host_update( instance, f"Update Zabbix host for device '{instance.name}' device name changed" )
+        return
+
+
+    # Check if primary IP changed
+    if not has_primary_ipv4_changed( instance ):
+        logger.debug( "No primary IPv4 change detected for Device pk=%s, name=%s. Skipping Zabbix update.", instance.pk, instance.name )
         return
 
     if not instance.primary_ip4:
-        logger.info(f"Primary IP cleared for device '{instance}'. Skipping Zabbix update.")
+        logger.info( "Primary IP cleared for Device pk=%s, name=%s. Skipping Zabbix update.", instance.pk, instance.name )
         return
 
+    # Update Zabbix host for the new primary IP
     iface = instance.primary_ip4.assigned_object
-    if isinstance(iface, (Interface, VMInterface)):
+    if isinstance( iface, (Interface, VMInterface)):
+        logger.info( "Primary IPv4 changed for Device pk=%s, name=%s, new IP=%s. Scheduling Zabbix update.", instance.pk, instance.name, instance.primary_ip4.address )
 
-        logger.info("*" * 60)
-        logger.info(f"Updated Primary IP Address ({instance.primary_ip4.address})")
-        logger.info("*" * 60)
-        if should_reassign_zabbix_ip(iface):
-            reassign_zabbix_ip_for_interface(iface)
+        if needs_zabbix_ip_reassignment(iface):
+            assign_primary_ip_to_zabbix_interface(iface)
 
-        update_zabbix_host_for_instance(
-            instance.primary_ip4,
-            f"Update Zabbix host for device '{instance.name}' primary IP {instance.primary_ip4.address} changed"
-        )
+        schedule_zabbix_host_update( instance.primary_ip4, f"Update Zabbix host for device '{instance.name}' primary IP {instance.primary_ip4.address} changed" )
 
-#    if instance.primary_ip4 and instance.primary_ip4.dns_name:
-#        iface = instance.primary_ip4.assigned_object
-#        if isinstance( iface, (Interface, VMInterface) ):
-#
-#            logger.info("*" * 60)
-#            logger.info(f"Updated Primary IP Address ({instance.primary_ip4.address})")
-#            logger.info("*" * 60)
-#            if should_reassign_zabbix_ip( iface):
-#                reassign_zabbix_ip_for_interface( iface )
-#            update_zabbix_host_for_instance( instance.primary_ip4 , f"Update Zabbix host for device '{instance.name}' primary IP {instance.primary_ip4.address} changed" )
-#    else:
-#        logger.info( f"No Primary IPv4 or dns_name for device '{instance.name}'. Skipping Zabbix update.")
+    else:
+        logger.warning( "Primary IP assigned_object for Device pk=%s, name=%s is not an Interface or VMInterface. Skipping Zabbix update.", instance.pk, instance.name )
+
+# end

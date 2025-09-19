@@ -8,6 +8,24 @@ NetBox plugin for Zabbix.
 
 
 
+## Logging
+
+Use logger.error() when something is wrong and action may be required (exceptions, inconsistent state, missing required data).
+
+Use logger.info() only for high-level events that operators care about (host created, host updated, config deleted). Keep these concise.
+
+Use logger.debug() for internal decisions and state checks (branching logic, computed values). Wrap in f-strings only if cheap to evaluate, or use lazy logging (%s) to avoid overhead when debug is off. 
+
+
+Examples
+
+| When                              | Level | Why                                 |
+| --------------------------------- | ------|------------------------------------ |
+| Function entry + decision details | debug | Only useful during troubleshooting. |
+| “No DeviceZabbixConfig found … Skipping update.” | warning | Likely a configuration issue. |
+| Job queued successfully           | info  | Operational event worth recording in production. |
+
+
 ### Bugs
 
 Not having a proper name for ZabbixConfig's makes it problematic for scripting and searching.

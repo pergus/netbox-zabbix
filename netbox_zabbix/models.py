@@ -499,14 +499,14 @@ class DeviceZabbixConfig(ZabbixConfig):
         """
         Returns a boolean indicating whether this host is in sync with Zabbix.
         """
-        from netbox_zabbix.utils import verify_config_internal
+        from netbox_zabbix.utils import compare_zabbix_config_with_host
         
-        result = verify_config_internal( self )
+        result = compare_zabbix_config_with_host( self )
         return result.get( "differ", False )
 
     def get_sync_diff(self):
-        from netbox_zabbix.utils import verify_config_internal
-        return verify_config_internal( self )
+        from netbox_zabbix.utils import compare_zabbix_config_with_host
+        return compare_zabbix_config_with_host( self )
 
     def get_sync_icon(self):
         """
