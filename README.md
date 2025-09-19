@@ -85,7 +85,7 @@ Add a view that lists all inconsistent devm/hosts.
   Exception: Failed to soft delete zabbix host 11537: No host with host id '11537' found in Zabbix
   No the jobs should not cause an exception. But a warning as result.
 
-* Rename 'host' in Interfaces to zconf?
+* Rename 'host' in Interfaces to zabbix_config?
 
 * CF that excludes a machine from appearing in NetBox only.
 

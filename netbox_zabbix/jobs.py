@@ -96,7 +96,8 @@ from netbox_zabbix.zabbix import (
     delete_host,
     get_host_interfaces,
     get_host_group,
-    create_host_group
+    create_host_group,
+    ZabbixHostNotFound
 )
 
 from core.choices import ObjectChangeActionChoices
@@ -664,7 +665,7 @@ def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
     Create a ZabbixConfig object for the given device or VM.
     """
     
-    from netbox_zabbix.signals.signals import dev_save_zabbix_config
+    from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_config
     
     try:
         zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
@@ -672,9 +673,9 @@ def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
         zcfg.full_clean()
 
         # Disable signals before saving the zabbix configuration
-        post_save.disconnect( dev_save_zabbix_config, sender=type( zcfg ) )
+        post_save.disconnect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
         zcfg.save()
-        post_save.connect( dev_save_zabbix_config, sender=type( zcfg ) )
+        post_save.connect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
 
         return zcfg
     
@@ -739,7 +740,7 @@ def create_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, 
 
     useip = UseIPChoices.DNS if getattr( ip, "dns_name", None ) else UseIPChoices.IP
 
-    from netbox_zabbix.signals.signals import dev_save_zabbix_interface
+    from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_interface
 
     try:
         interface_fields = dict(
@@ -754,9 +755,9 @@ def create_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, 
         iface.full_clean()
 
         # Disable signals before saving the interface
-        post_save.disconnect( dev_save_zabbix_interface, sender=interface_model )
+        post_save.disconnect( dev_create_or_update_zabbix_interface, sender=interface_model )
         iface.save()
-        post_save.connect( dev_save_zabbix_interface, sender=interface_model )
+        post_save.connect( dev_create_or_update_zabbix_interface, sender=interface_model )
         
         changelog_create( iface, user, request_id )
 
@@ -771,12 +772,12 @@ def save_zabbix_config( zcfg ):
     """
     Save the ZabbixConfig to NetBox after it has been updated.
     """
-    from netbox_zabbix.signals.signals import dev_save_zabbix_config
+    from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_config
 
     zcfg.full_clean()
-    post_save.disconnect( dev_save_zabbix_config, sender=type( zcfg ) )
+    post_save.disconnect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
     zcfg.save()
-    post_save.connect( dev_save_zabbix_config, sender=type( zcfg ) )
+    post_save.connect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
 
 
 # ------------------------------------------------------------------------------
@@ -813,10 +814,10 @@ def link_interface_in_zabbix( hostid, iface, name ):
     iface.hostid = hostid
     iface.full_clean()
 
-    from netbox_zabbix.signals.signals import dev_save_zabbix_interface
-    post_save.disconnect( dev_save_zabbix_interface, sender=type( iface ) )
+    from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_interface
+    post_save.disconnect( dev_create_or_update_zabbix_interface, sender=type( iface ) )
     iface.save()
-    post_save.connect( dev_save_zabbix_interface, sender=type( iface ) )
+    post_save.connect( dev_create_or_update_zabbix_interface, sender=type( iface ) )
 
 
 def normalize_ip(ip):
@@ -891,10 +892,10 @@ def link_missing_interface(zcfg, hostid):
     unlinked_iface.full_clean()
 
     # Temporarily disable signal to avoid recursion and save the interface
-    from netbox_zabbix.signals.signals import dev_save_zabbix_interface
-    post_save.disconnect( dev_save_zabbix_interface, sender=type( unlinked_iface ) )
+    from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_interface
+    post_save.disconnect( dev_create_or_update_zabbix_interface, sender=type( unlinked_iface ) )
     unlinked_iface.save( update_fields=["interfaceid", "hostid"] )
-    post_save.connect( dev_save_zabbix_interface, sender=type( unlinked_iface ) )
+    post_save.connect( dev_create_or_update_zabbix_interface, sender=type( unlinked_iface ) )
 
 
 # ------------------------------------------------------------------------------
@@ -1319,8 +1320,14 @@ def hard_delete_zabbix_host(hostid):
             data = get_host_by_id( hostid )
             delete_host( hostid )
             return { "message": f"Deleted zabbix host {hostid}", "data": data }
+        
+        except ZabbixHostNotFound as e:
+            msg = f"Failed to soft delete Zabbix host {hostid}: {str( e )}"
+            logger.info( msg )
+            return { "message": msg }
+        
         except Exception as e:
-            msg = f"Failed to delete zabbix host {hostid}: {str( e )}"
+            msg = f"Failed to delete Zabbix host {hostid}: {str( e )}"
             raise Exception( msg )
 
 
@@ -1354,11 +1361,11 @@ def soft_delete_zabbix_host(hostid):
             
             try:
                 # Try to fetch the graveyard group
-                graveyard_group = get_host_group(name=graveyard_group_name)
+                graveyard_group = get_host_group( name=graveyard_group_name )
                 graveyard_group_id = graveyard_group["groupid"]
             except Exception:
-                # Group does not exist → create it
-                result = create_host_group(name=graveyard_group_name)
+                # Group does not exist create it
+                result = create_host_group( name=graveyard_group_name )
                 graveyard_group_id = result["groupids"][0]
                 import_host_groups()
                 
@@ -1371,8 +1378,11 @@ def soft_delete_zabbix_host(hostid):
                 "data": data,
             }
 
+        except ZabbixHostNotFound as e:
+            logger.info( f"Failed to soft delete Zabbix host {hostid}: {str( e )}" )
+
         except Exception as e:
-            msg = f"Failed to soft delete zabbix host {hostid}: {str( e )}"
+            msg = f"Failed to soft delete Zabbix host {hostid}: {str( e )}"
             raise Exception( msg )
 
 
@@ -1808,7 +1818,10 @@ class UpdateZabbixHost( AtomicJobRunner ):
         if not model_cls:
             raise Exception( f"Unknown Zabbix config model: {config_model}" )
         
-        config = model_cls.objects.get( id=config_id )
+        try:
+            config = model_cls.objects.get( id=config_id )
+        except:
+            raise
 
         try:
             return update_host_in_zabbix( config, user, request_id )

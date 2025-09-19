@@ -6,7 +6,6 @@
 from django.utils import timezone
 from django.core.cache import cache
 from dcim.models import Device
-from strawberry import interface
 from virtualization.models import VirtualMachine
 from pyzabbix import ZabbixAPI
 from netbox_zabbix import models
@@ -16,11 +15,14 @@ from netbox_zabbix.config import (
     get_zabbix_api_endpoint,
     get_zabbix_token,
 )
-
 from netbox_zabbix import utils as utils
-
-
 from netbox_zabbix.logger import logger
+
+
+class ZabbixHostNotFound(Exception):
+    """Raised when a Zabbix host is not present in Zabbix."""
+    pass
+
 
 
 def get_zabbix_client():
@@ -482,7 +484,7 @@ def get_host_by_id(hostid):
     if not hosts:
         msg = f"No host with host id '{hostid}' found in Zabbix"
         logger.error( msg )
-        raise Exception( msg )
+        raise ZabbixHostNotFound( msg )
     
     if len(hosts) > 1:
         msg = f"Multiple hosts with host id '{hostid}' found in Zabbix"

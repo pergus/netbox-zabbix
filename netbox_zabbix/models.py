@@ -500,20 +500,25 @@ class DeviceZabbixConfig(ZabbixConfig):
         Returns a boolean indicating whether this host is in sync with Zabbix.
         """
         from netbox_zabbix.utils import compare_zabbix_config_with_host
-        
-        result = compare_zabbix_config_with_host( self )
-        return result.get( "differ", False )
+        try:
+            result = compare_zabbix_config_with_host( self )
+            return result.get( "differ", False )
+        except:
+            return False
 
     def get_sync_diff(self):
         from netbox_zabbix.utils import compare_zabbix_config_with_host
-        return compare_zabbix_config_with_host( self )
+        try:
+            return compare_zabbix_config_with_host( self )
+        except:
+            return {}
 
     def get_sync_icon(self):
         """
         Returns a checkmark or cross for template display.
         """
-        return mark_safe( "✘" ) if self.get_sync_status() else mark_safe( "✔" )
-
+        return mark_safe( "✔" ) if self.get_sync_status() else mark_safe( "✘" )
+    
 
 class VMZabbixConfig(ZabbixConfig):
     class Meta:

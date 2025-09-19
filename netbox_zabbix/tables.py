@@ -356,7 +356,11 @@ class DeviceZabbixConfigTable(NetBoxTable):
                            'templates', 'proxy', 'proxy_group', 'host_groups')
 
     def render_sync(self, record):
-        result = compare_zabbix_config_with_host( record )
+        try:
+            result = compare_zabbix_config_with_host( record )
+        except:
+            return mark_safe( "✘" )
+    
         return mark_safe( "✘" ) if result["differ"] else mark_safe( "✔" )
 
 
