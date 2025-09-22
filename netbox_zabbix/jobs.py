@@ -12,7 +12,13 @@
 # 
 # This ensures that the job always operates on a fresh, fully hydrated
 # instance, and avoids any issues with pickling complex Django objects.
-
+#
+# A temporary, in-memory flag (_skip_signal) is attached to some model instances
+# to signal that all connected Django signals should be ignored for a specific
+# save operation. The flag is never written to the database and exists only for
+# the lifetime of the Python object. Other requests, threads, and future saves
+# are unaffected, so normal signal processing resumes immediately after this
+# save completes.
 
 
 from dataclasses import dataclass, field
@@ -667,11 +673,9 @@ def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
         zcfg = zabbix_config_model( **zcfg_kwargs )
         zcfg.full_clean()
 
-        # Disable signals before saving the zabbix configuration
-        #post_save.disconnect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
+        # Mark this instance to bypass signals for this save operation only
         zcfg._skip_signal = True
         zcfg.save()
-        #post_save.connect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
 
         return zcfg
     
@@ -750,11 +754,9 @@ def create_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, 
         iface = interface_model( **interface_fields )
         iface.full_clean()
 
-        # Disable signals before saving the interface
-        #post_save.disconnect( dev_create_or_update_zabbix_interface, sender=interface_model )
+        # Mark this instance to bypass signals for this save operation only
         iface._skip_signal = True
         iface.save()
-        #post_save.connect( dev_create_or_update_zabbix_interface, sender=interface_model )
         
         changelog_create( iface, user, request_id )
 
@@ -811,11 +813,9 @@ def link_interface_in_zabbix( hostid, iface, name ):
     iface.hostid = hostid
     iface.full_clean()
 
-    from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_interface
-    #post_save.disconnect( dev_create_or_update_zabbix_interface, sender=type( iface ) )
+    # Disable 
     iface._skip_signal = True
     iface.save()
-    #post_save.connect( dev_create_or_update_zabbix_interface, sender=type( iface ) )
 
 
 def normalize_ip(ip):
@@ -889,12 +889,9 @@ def link_missing_interface(zcfg, hostid):
     unlinked_iface.hostid = hostid
     unlinked_iface.full_clean()
 
-    # Temporarily disable signal to avoid recursion and save the interface
-    from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_interface
-    #post_save.disconnect( dev_create_or_update_zabbix_interface, sender=type( unlinked_iface ) )
+    # Mark this instance to bypass signals for this save operation only
     unlinked_iface._skip_signal = True
     unlinked_iface.save( update_fields=["interfaceid", "hostid"] )
-    #post_save.connect( dev_create_or_update_zabbix_interface, sender=type( unlinked_iface ) )
 
 
 # ------------------------------------------------------------------------------
