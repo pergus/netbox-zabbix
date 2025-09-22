@@ -102,12 +102,9 @@ from netbox_zabbix.zabbix import (
 
 from core.choices import ObjectChangeActionChoices
 
-
 from netbox_zabbix.logger import logger
 
 
-
-from netbox_zabbix.models import DeviceZabbixConfig, VMZabbixConfig
 
 MODEL_MAP = {
     "DeviceZabbixConfig": DeviceZabbixConfig,
@@ -649,7 +646,6 @@ def associate_instance_with_job(job, instance):
     
     Notes
     -----
-    - Persists the association by calling ``job.save()``.
     - Can be used inside a job runner to link newly created or updated objects
       back to the job that created/modified them.
     - The association is stored using Django's ContentType framework for
@@ -657,7 +653,6 @@ def associate_instance_with_job(job, instance):
     """
     job.object_type_id = ContentType.objects.get_for_model( instance ).pk
     job.object_id = instance.pk
-    #job.save()
 
 
 def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
@@ -673,9 +668,10 @@ def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
         zcfg.full_clean()
 
         # Disable signals before saving the zabbix configuration
-        post_save.disconnect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
+        #post_save.disconnect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
+        zcfg._skip_signal = True
         zcfg.save()
-        post_save.connect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
+        #post_save.connect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
 
         return zcfg
     
@@ -755,9 +751,10 @@ def create_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, 
         iface.full_clean()
 
         # Disable signals before saving the interface
-        post_save.disconnect( dev_create_or_update_zabbix_interface, sender=interface_model )
+        #post_save.disconnect( dev_create_or_update_zabbix_interface, sender=interface_model )
+        iface._skip_signal = True
         iface.save()
-        post_save.connect( dev_create_or_update_zabbix_interface, sender=interface_model )
+        #post_save.connect( dev_create_or_update_zabbix_interface, sender=interface_model )
         
         changelog_create( iface, user, request_id )
 
@@ -815,9 +812,10 @@ def link_interface_in_zabbix( hostid, iface, name ):
     iface.full_clean()
 
     from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_interface
-    post_save.disconnect( dev_create_or_update_zabbix_interface, sender=type( iface ) )
+    #post_save.disconnect( dev_create_or_update_zabbix_interface, sender=type( iface ) )
+    iface._skip_signal = True
     iface.save()
-    post_save.connect( dev_create_or_update_zabbix_interface, sender=type( iface ) )
+    #post_save.connect( dev_create_or_update_zabbix_interface, sender=type( iface ) )
 
 
 def normalize_ip(ip):
@@ -893,9 +891,10 @@ def link_missing_interface(zcfg, hostid):
 
     # Temporarily disable signal to avoid recursion and save the interface
     from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_interface
-    post_save.disconnect( dev_create_or_update_zabbix_interface, sender=type( unlinked_iface ) )
+    #post_save.disconnect( dev_create_or_update_zabbix_interface, sender=type( unlinked_iface ) )
+    unlinked_iface._skip_signal = True
     unlinked_iface.save( update_fields=["interfaceid", "hostid"] )
-    post_save.connect( dev_create_or_update_zabbix_interface, sender=type( unlinked_iface ) )
+    #post_save.connect( dev_create_or_update_zabbix_interface, sender=type( unlinked_iface ) )
 
 
 # ------------------------------------------------------------------------------

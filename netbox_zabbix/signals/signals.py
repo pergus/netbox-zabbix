@@ -287,6 +287,11 @@ def dev_create_or_update_zabbix_config(sender, instance: DeviceZabbixConfig, cre
 
     logger.debug( "DeviceZabbixConfig signal: pk=%s created=%s", instance.pk, created )
 
+    if getattr(instance, "_skip_signal", False):
+        logger.debug( "DeviceZabbixConfig signal skipped for pk=%s (created=%s) because _skip_signal flag is set", instance.pk, created )
+        return
+
+    
     user = get_latest_change_user( instance.pk )
     if not user:
         logger.error( "No user found for DeviceZabbixConfig %s. Cannot create/update Zabbix host.", instance.pk )
@@ -360,6 +365,11 @@ def dev_create_or_update_zabbix_interface(sender, instance, created: bool, **kwa
     """
 
     logger.debug( "Device interface post-save signal received: pk=%s, created=%s, device=%s", instance.pk, created, getattr(instance.host.device, "name", "unknown") )
+
+    if getattr(instance, "_skip_signal", False):
+        logger.debug( "Device interface post-save signal skipped for pk=%s (created=%s) because _skip_signal flag is set", instance.pk, created )
+        return
+
 
     user = get_latest_change_user( instance.pk )
     if not user:
