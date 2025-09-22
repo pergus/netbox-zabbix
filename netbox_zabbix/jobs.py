@@ -442,6 +442,8 @@ def build_payload(zcfg, for_update=False, pre_data=None) -> dict:
         "host":           linked_obj.name,
         "status":         str( zcfg.status ),
         "monitored_by":   str( zcfg.monitored_by ),
+        "proxyid":        "0",
+        "proxy_groupid":  "0",
         "description":    str( zcfg.description ) if zcfg.description else "",
         "tags":           get_tags(linked_obj),
         "groups":         [ {"groupid": g.groupid} for g in zcfg.host_groups.all() ],

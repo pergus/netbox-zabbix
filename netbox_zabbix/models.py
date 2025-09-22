@@ -531,7 +531,7 @@ class DeviceZabbixConfig(ZabbixConfig):
         Returns a checkmark or cross for template display.
         """
         return mark_safe( "✘" ) if self.get_sync_status() else mark_safe( "✔" )
-    
+
 
 class VMZabbixConfig(ZabbixConfig):
     class Meta:
@@ -661,7 +661,7 @@ class BaseSNMPv3Interface(HostInterface):
         abstract = True
     
     # Reference to the Zabbix configuration object for the device this interface belongs to.
-    host = models.ForeignKey( to='DeviceZabbixConfig', on_delete=models.CASCADE, related_name='snmpv3_interfaces' )
+    #host = models.ForeignKey( to='DeviceZabbixConfig', on_delete=models.CASCADE, related_name='snmpv3_interfaces' )
 
     # Interface type - The user doens't have to set this.
     type = models.IntegerField(choices=TypeChoices, default=TypeChoices.SNMP )

@@ -1,6 +1,6 @@
 {% extends 'generic/object.html' %}
 {% load tab_utils %}
-{% load array_to_items %}
+{% load diff_to_table %}
 
 
 {% block extra_controls %}
@@ -70,8 +70,8 @@
                             {% for field, change in diff.changed.items %}
                                 <tr>
                                     <td>{{ field }}</td>
-                                    <td>{{ change.from|array_to_items }}</td>
-                                    <td>{{ change.to|array_to_items }}</td>
+                                    <td>{{ change.from|diff_to_table }}</td>
+                                    <td>{{ change.to|diff_to_table }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>

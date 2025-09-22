@@ -73,7 +73,6 @@ Add a view that lists all inconsistent devm/hosts.
 
 * Not having a proper name for ZabbixConfig's makes it problematic for scripting and searching.
 
-
 * Should the system issue a warning when a template is removed while it is 
   still used by a default mapping? - Yes!
   Should it also block the removal? - No
@@ -81,7 +80,6 @@ Add a view that lists all inconsistent devm/hosts.
   Blocking the removal doesn’t make sense, since if the template has already 
   been removed from Zabbix, it no longer exists anyway.
   Also, it is ok for a host in Zabbix not have any templates.
-
 
 * When the implementation works for Devices, implement the corresponding code
   for Virual Machines.
@@ -100,7 +98,6 @@ Add a view that lists all inconsistent devm/hosts.
 * Since the background job doesn't use the system job decorator it isn't
   started automatically by NB when the rqworker is started.
   Look into how this can be fixed.
-
 
 * Go over all models and make sure that the fields doesn't have unnecessary
   null=True and blank=True settings. Many of them were added to prevent having
