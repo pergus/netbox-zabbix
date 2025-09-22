@@ -62,6 +62,15 @@ class ConfigEditView(generic.ObjectEditView):
 class ConfigDeleteView(generic.ObjectDeleteView):
     queryset = models.Config.objects.all()
 
+    def post(self, request, *args, **kwargs):
+        obj = self.get_object( **kwargs )
+    
+        if obj:
+            messages.error( request, "You cannot delete the configuration." )
+            return redirect('plugins:netbox_zabbix:config_list' )
+    
+        return super().post( request, *args, **kwargs )
+    
 
 def zabbix_check_connection(request):
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
@@ -580,12 +589,24 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
         
         # Get all devices that do NOT already exist in Zabbix
         zabbix_hostnames = z.get_cached_zabbix_hostnames()
-        queryset = (
-            Device.objects
-            .exclude( name__in=zabbix_hostnames )
-            .select_related( "site", "role", "platform" )
-            .prefetch_related( "tags", "zbx_device_config" )
-        )
+        
+        if config.get_exclude_custom_field_enabled():
+            custom_field_name = config.get_exclude_custom_field_name()
+            filter_kwargs = { f"custom_field_data__{custom_field_name}": True }
+            queryset = (
+                Device.objects
+                .exclude( name__in=zabbix_hostnames )
+                .exclude(**filter_kwargs) 
+                .select_related( "site", "role", "platform" )
+                .prefetch_related( "tags", "zbx_device_config" )
+            )
+        else:
+            queryset = (
+                Device.objects
+                .exclude( name__in=zabbix_hostnames )
+                .select_related( "site", "role", "platform" )
+                .prefetch_related( "tags", "zbx_device_config" )
+            )
 
         # Build the mapping cache
         self.device_mapping_cache = self.build_device_mapping_cache(queryset)

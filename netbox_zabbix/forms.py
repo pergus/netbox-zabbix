@@ -21,10 +21,10 @@ from dcim.models import Device
 from dcim.forms import DeviceFilterForm
 
 from virtualization.models import VirtualMachine
-from virtualization.forms import VirtualMachineFilterForm
 
 from netbox_zabbix import models
 from netbox_zabbix import config
+from netbox_zabbix.utils import create_custom_field
 from netbox_zabbix import zabbix as z
 from netbox_zabbix.inventory_properties import inventory_properties
 
@@ -78,6 +78,9 @@ class ConfigForm(NetBoxModelForm):
                   'graveyard',
                   'graveyard_suffix',
                   name="Delete Setting" ),
+        FieldSet( 'exclude_custom_field_name',
+                  'exclude_custom_field_enabled',
+                  name="Additional Settings" ),
         FieldSet( 'inventory_mode',
                   'monitored_by',
                   'tls_connect', 
@@ -188,7 +191,19 @@ class ConfigForm(NetBoxModelForm):
             graveyard_suffix = self.cleaned_data.get( "graveyard_suffix" )
             if not graveyard_suffix:
                 raise ValidationError( f"Soft delete require a gravyard suffix" )
-            
+        
+        # Custom field for excluding a device/vm from Zabbix
+        exclude_custom_field_name = self.cleaned_data.get( "exclude_custom_field_name" )
+        if exclude_custom_field_name:
+            defaults = {
+                "label": "Exclude from Zabbix",
+                "type": "boolean",
+                "default": False,
+                "required": False,
+                "description": "If set, this object will be ignored in Zabbix synchronization."
+            }
+            create_custom_field( exclude_custom_field_name, defaults )
+
 
 # ------------------------------------------------------------------------------
 # Templates

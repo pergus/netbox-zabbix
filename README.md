@@ -28,15 +28,6 @@ Examples
 
 ### Bugs
 
-Not having a proper name for ZabbixConfig's makes it problematic for scripting and searching.
-
-
-[FIXED] Import doesn't include proxy/proxy group.
-
-
-[FIXED] Mapping ins't updated when the user change page for Devices Exclusive To NetBox.
-        To update the mapping the user has to reload the page....
-
 
 ### Interfaces
 
@@ -76,11 +67,21 @@ To fix the inconsistency with removing interfaces the user has to add an interfa
 Add a view that lists all inconsistent devm/hosts.
 
 
-### Todo
+### Todo/Bugs
 
 * Rename 'host' in Interfaces to zabbix_config or zcfg?
 
-* CF that excludes a machine from appearing in NetBox only.
+* Not having a proper name for ZabbixConfig's makes it problematic for scripting and searching.
+
+
+* Should the system issue a warning when a template is removed while it is 
+  still used by a default mapping? - Yes!
+  Should it also block the removal? - No
+
+  Blocking the removal doesn’t make sense, since if the template has already 
+  been removed from Zabbix, it no longer exists anyway.
+  Also, it is ok for a host in Zabbix not have any templates.
+
 
 * When the implementation works for Devices, implement the corresponding code
   for Virual Machines.
@@ -101,26 +102,18 @@ Add a view that lists all inconsistent devm/hosts.
   Look into how this can be fixed.
 
 
-* Should the system issue a warning when a template is removed while it is 
-  still used by a default mapping? - Yes!
-  Should it also block the removal? - No
-
-  Blocking the removal doesn’t make sense, since if the template has already 
-  been removed from Zabbix, it no longer exists anyway.
-  Also, it is ok for a host in Zabbix not have any templates.
- 
-
 * Go over all models and make sure that the fields doesn't have unnecessary
   null=True and blank=True settings. Many of them were added to prevent having
   to dump the database when running makemigrations.
 
-
 * Refactor the classes in jobs.py.
-
 
 * Implement maintenance mode.
 
-* Add support for IPv6primary interfaces. (Maybe)
+
+[DONE] CF that excludes a machine from appearing in NetBox only.
+
+[DONE] Bug - Users can delete the Configuration.
 
 [DONE] Should deleting a host in zabbix that doesn't exist cause an exception?
   Exception: Failed to soft delete zabbix host 11537: No host with host id '11537' found in Zabbix
@@ -135,40 +128,35 @@ Add a view that lists all inconsistent devm/hosts.
 
 [DONE] DNS name changes
 
-
 [DONE] netbox_zabbix.jobs.ExceptionWithData: ('Error -32602: Invalid params., 
        Cannot link template "AXIS Debian" to host "dk-ece007w", because its 
        parent template "ICMP Ping" would be linked twice.', -32602)
 
-
 [DONE] Should I add additional information about templates to Zabbix to make
        the checks easier.
 
-
 [DONE] There might a logical error in how Device/VM mapping design.
-  
 
 [DONE] The interface hostid shoud be set to the Zabbix Hostid.
-
 
 [DONE] Add delete button to Agent Interfaces and SNMP Interfaces.
 This took longer than expected beacuse I couldn't get it to work.
 The solution was to implement bulk delete.
 
-
 [DONE] Update/Delete interfaces should record the changes in the ZC change log
        and update Zabbix.
 
-[WAIT] If a global default setting changes, should all ZC and Hosts in Z also update?
-  Don't think so.
+[DONE] Import doesn't include proxy/proxy group.
 
-
-
+[DNE] Mapping ins't updated when the user change page for Devices Exclusive To NetBox.
+        To update the mapping the user has to reload the page....
 
 [DONE] The helper function 'quick_add_interface' should take a Zabbix Config
   instance as argument and only add an interface. Now it also creates
   the Zabbix Config which isn't correct if we want separations of concerns.
 
+[WAIT] If a global default setting changes, should all ZC and Hosts in Z also update?
+  Don't think so.
 
 
 

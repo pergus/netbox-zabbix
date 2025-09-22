@@ -52,7 +52,7 @@ def get_auto_validate_quick_add():
 
 def get_event_log_enabled():
     """
-    Retrieves the event log enabled  from the configuration.
+    Retrieves the event log enabled from the configuration.
     
     Returns:
         The event log enabled as specified in the configuration.
@@ -174,6 +174,7 @@ def set_last_checked( timestamp ):
 # Delete Settings
 # ------------------------------------------------------------------------------
 
+
 def get_delete_setting():
     """
     Retrieves the delete setting value from the configuration.
@@ -203,6 +204,31 @@ def get_graveyard_suffix():
     """
     return get_config().graveyard_suffix
 
+
+# ------------------------------------------------------------------------------
+# Additional Settings
+# ------------------------------------------------------------------------------
+
+def get_exclude_custom_field_name():
+    """
+    Retrieves the exclude custom field name from the configuration.
+    
+    Returns:
+        The exclude custom field name as specified in the configuration.
+    """
+    
+    return get_config().exclude_custom_field_name
+
+
+def get_exclude_custom_field_enabled():
+    """
+    Retrieves the exclude custom field enabled from the configuration.
+    
+    Returns:
+        The exclude custom field enabled as specified in the configuration.
+    """
+    
+    return get_config().exclude_custom_field_enabled
 
 
 # ------------------------------------------------------------------------------
@@ -274,6 +300,7 @@ def get_tls_psk():
 # Agent Specific Defaults
 # ------------------------------------------------------------------------------
 
+
 def get_agent_port():
     """
     Retrieves the default agent port from the configuration.
@@ -282,7 +309,7 @@ def get_agent_port():
         The default agent port as specified in the configuration.
     """
     return get_config().agent_port
-    
+
 
 # ------------------------------------------------------------------------------
 # SNMPv3 Specific Defaults

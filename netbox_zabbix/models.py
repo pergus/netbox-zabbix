@@ -259,6 +259,19 @@ class Config(NetBoxModel):
         help_text="Suffix for deleted hosts in the 'graveyard'."
     )
     
+    # Additional Settings
+
+    exclude_custom_field_name = models.CharField(
+        verbose_name="Exclution Custom Field",
+        max_length=255,
+        null=True,
+        blank=True,
+        default="Exclude from Zabbix",
+        help_text="If this custom field is set, the object will be excluded from Zabbix synchronization and from listings of devices and virtual machines in NetBox."
+    )
+    
+    exclude_custom_field_enabled = models.BooleanField( verbose_name="Exclude Custom Field Enabled", default=False )
+    
 
     # Common Defaults
     inventory_mode = models.IntegerField(
