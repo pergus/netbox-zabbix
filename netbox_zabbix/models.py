@@ -517,7 +517,7 @@ class DeviceZabbixConfig(ZabbixConfig):
         """
         Returns a checkmark or cross for template display.
         """
-        return mark_safe( "✔" ) if self.get_sync_status() else mark_safe( "✘" )
+        return mark_safe( "✘" ) if self.get_sync_status() else mark_safe( "✔" )
     
 
 class VMZabbixConfig(ZabbixConfig):

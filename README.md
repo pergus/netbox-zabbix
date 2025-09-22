@@ -62,9 +62,6 @@ items are left that use the interface. This means that templates has to be
 deleted befor removing the interface.
 
 
-
-
-
 ### Solution
 
 | NetBox Action     | Behaviour | State     |
@@ -81,27 +78,15 @@ Add a view that lists all inconsistent devm/hosts.
 
 ### Todo
 
-* Should deleting a host in zabbix that doesn't exist cause an exception?
-  Exception: Failed to soft delete zabbix host 11537: No host with host id '11537' found in Zabbix
-  No the jobs should not cause an exception. But a warning as result.
-
-* Rename 'host' in Interfaces to zabbix_config?
+* Rename 'host' in Interfaces to zabbix_config or zcfg?
 
 * CF that excludes a machine from appearing in NetBox only.
-
-
-[DONE] What if an interface delete and reassign an ip address?
-[DONE] What if an interface is deleted.
-
-What if the deleted interface is the last interface? This fails.
-
-
 
 * When the implementation works for Devices, implement the corresponding code
   for Virual Machines.
 
-* Not all interface default settings are used, e.g. snmpv3_contextname.
-  So go over the import code in jobs.py and make use of the default settings.
+* Should NetBox be the source for proxies/proxy group and groups?
+  And Zabbix should only be the source for Templates?
 
 * The date when scheduling the background job should use
   
@@ -115,18 +100,36 @@ What if the deleted interface is the last interface? This fails.
   started automatically by NB when the rqworker is started.
   Look into how this can be fixed.
 
+
+* Should the system issue a warning when a template is removed while it is 
+  still used by a default mapping? - Yes!
+  Should it also block the removal? - No
+
+  Blocking the removal doesn’t make sense, since if the template has already 
+  been removed from Zabbix, it no longer exists anyway.
+  Also, it is ok for a host in Zabbix not have any templates.
+ 
+
 * Go over all models and make sure that the fields doesn't have unnecessary
   null=True and blank=True settings. Many of them were added to prevent having
   to dump the database when running makemigrations.
 
-* Should the system issue a warning when a template is removed while it is still used by a default mapping?
-  Should it also block the removal?
-  Blocking the removal doesn’t make sense, since if the template has already been removed from Zabbix, it no longer exists anyway.
- 
+
+* Refactor the classes in jobs.py.
+
+
 * Implement maintenance mode.
 
 * Add support for IPv6primary interfaces. (Maybe)
 
+[DONE] Should deleting a host in zabbix that doesn't exist cause an exception?
+  Exception: Failed to soft delete zabbix host 11537: No host with host id '11537' found in Zabbix
+  No the jobs should not cause an exception. But a warning as result.
+
+
+[DONE] Handle delete of an ip addres and/or interface on a device.
+
+[DONE] Handle delete of an Z-interface.
 
 [DONE] Failsafe delete - implemented Hard/Soft delete.
 

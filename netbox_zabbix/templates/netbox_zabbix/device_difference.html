@@ -2,6 +2,38 @@
 {% load tab_utils %}
 {% load array_to_items %}
 
+
+{% block extra_controls %}
+<div class="dropdown">
+    <button id="add-components" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown"
+        aria-expanded="false">
+        <i class="mdi mdi-plus-thick" aria-hidden="true"></i> Add Interface
+    </button>
+    <ul class="dropdown-menu" aria-labeled-by="add-components">
+        <li><a class="dropdown-item"
+                href="{% url 'plugins:netbox_zabbix:deviceagentinterface_add' %}?device_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}">
+                Agent Interface
+            </a>
+        </li>
+        <li><a class="dropdown-item"
+                href="{% url 'plugins:netbox_zabbix:devicesnmpv3interface_add' %}?device_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}">
+                SNMPv3 Interface
+            </a>
+        </li>
+
+    </ul>
+</div>
+
+<div>
+    <a href="{% url 'plugins:netbox_zabbix:sync_device_with_zabbix' %}?device_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}"
+        class="btn btn-primary">
+        <i class="mdi mdi-sync"></i> Sync With Zabbix
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block tabs %}
 <ul class="nav nav-tabs" role="presentation">
     {# Primary overview tab #}
@@ -14,7 +46,6 @@
     {% model_view_tabs_exlude_jobs object %}
 </ul>
 {% endblock tabs %}
-
 
 
 {% block content %}
