@@ -338,7 +338,7 @@ def dev_delete_zabbix_config(sender, instance: DeviceZabbixConfig, **kwargs):
         
     try:
         logger.info( "Queuing delete Zabbix host for device '%s' job", instance.device.name )
-        DeleteZabbixHost.run_job(hostid=instance.hostid)
+        DeleteZabbixHost.run_job( hostid=instance.hostid )
         logger.info( "Successfully scheduled deletion of Zabbix host for device '%s'", instance.device.name )
     except Exception as e:
         logger.error( "Failed to delete Zabbix host for device '%s': %s", instance.device.name, str( e ), exc_info=True )
@@ -364,7 +364,7 @@ def dev_create_or_update_zabbix_interface(sender, instance, created: bool, **kwa
     Create or update a Zabbix interface (Agent or SNMPv3) when saved.
     """
 
-    logger.debug( "Device interface post-save signal received: pk=%s, created=%s, device=%s", instance.pk, created, getattr(instance.host.device, "name", "unknown") )
+    logger.debug( "Device interface post-save signal received: pk=%s, created=%s, device=%s", instance.pk, created, getattr(instance.zcfg.device, "name", "unknown") )
 
     if getattr(instance, "_skip_signal", False):
         logger.debug( "Device interface post-save signal skipped for pk=%s (created=%s) because _skip_signal flag is set", instance.pk, created )
@@ -377,16 +377,16 @@ def dev_create_or_update_zabbix_interface(sender, instance, created: bool, **kwa
         return
 
     action = "Created" if created else "Updated"
-    logger.info( "%s Zabbix interface for device '%s' (interface pk=%s)", action, instance.host.device.name, instance.pk )
+    logger.info( "%s Zabbix interface for device '%s' (interface pk=%s)", action, instance.zcfg.device.name, instance.pk )
 
     job_func = CreateZabbixInterface.run_job if created else UpdateZabbixInterface.run_job
 
     try:        
-        logger.info( "Queuing %s Zabbix interface job for device '%s'", action.lower(), instance.host.device.name )
-        job_func( zabbix_config=instance.host, request=get_current_request(), name=f"{action} interface for {instance.host.device.name}" )
-        logger.info( "Successfully scheduled %s Zabbix interface job for device '%s'", action.lower(), instance.host.device.name )
+        logger.info( "Queuing %s Zabbix interface job for device '%s'", action.lower(), instance.zcfg.device.name )
+        job_func( zabbix_config=instance.zcfg, request=get_current_request(), name=f"{action} interface for {instance.zcfg.device.name}" )
+        logger.info( "Successfully scheduled %s Zabbix interface job for device '%s'", action.lower(), instance.zcfg.device.name )
     except Exception as e:
-        logger.error( "Failed to schedule %s Zabbix interface job for device '%s': %s", action.lower(), instance.host.device.name, str( e ), exc_info=True )
+        logger.error( "Failed to schedule %s Zabbix interface job for device '%s': %s", action.lower(), instance.zcfg.device.name, str( e ), exc_info=True )
         raise
 
 
@@ -404,16 +404,16 @@ def handle_interface_post_delete(sender, instance, **kwargs):
       2. Schedule Zabbix host update to reflect interface deletion.
     """
 
-    device_name = getattr( instance.host, "get_name", lambda: "unknown" )()
+    device_name = getattr(getattr(getattr(instance, "zcfg", None), "device", None), "name", "unknown")
     interface_type = "Agent" if isinstance( instance, DeviceAgentInterface ) else "SNMPv3"
 
     logger.debug( "Post-delete signal received for %s interface (pk=%s, device='%s')", interface_type, instance.pk, device_name )
     
     # Don't do anything if the Zabbix configuration is being deleted and 
     # handle_interface_post_delete() has been called due to CASCADE.
-    host = getattr( instance, "host", None)
-    if is_config_being_deleted(host.id):
-        logger.debug( "Skipping Zabbix update for interface %s (pk=%s): parent config %s is being deleted", instance.name, instance.pk, host.id )
+    zcfg = getattr( instance, "zcfg", None)
+    if is_config_being_deleted( zcfg.id ):
+        logger.debug( "Skipping Zabbix update for interface %s (pk=%s): parent config %s is being deleted", instance.name, instance.pk, zcfg.id )
         return
     
     # ------------------------------
@@ -421,9 +421,9 @@ def handle_interface_post_delete(sender, instance, **kwargs):
     # ------------------------------
     if instance.main == MainChoices.YES:
         remaining_interfaces = (
-            instance.host.agent_interfaces.exclude( pk=instance.pk )
+            instance.zcfg.agent_interfaces.exclude( pk=instance.pk )
             if isinstance( instance, DeviceAgentInterface )
-            else instance.host.snmpv3_interfaces.exclude( pk=instance.pk )
+            else instance.zcfg.snmpv3_interfaces.exclude( pk=instance.pk )
         )
         fallback = remaining_interfaces.first()
         if fallback:
@@ -444,7 +444,7 @@ def handle_interface_post_delete(sender, instance, **kwargs):
         return
 
     try:
-        device_zcfg = DeviceZabbixConfig.objects.get( device=instance.host.device )
+        device_zcfg = DeviceZabbixConfig.objects.get( device=instance.zcfg.device )
     except DeviceZabbixConfig.DoesNotExist:
         logger.warning( "Device '%s' has no Zabbix configuration. Skipping Zabbix job.", device_name )
         return

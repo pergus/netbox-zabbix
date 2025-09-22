@@ -907,7 +907,7 @@ class ZabbixConfigEditView(View):
         except models.VMZabbixConfig.DoesNotExist:
             pass
 
-        raise Http404("Host not found")    
+        raise Http404("Host not found")
 
 
 class ZabbixConfigDeleteView(View):
@@ -939,9 +939,9 @@ def run_sync_device_with_zabbix(request):
 
         jobs.UpdateZabbixHost.run_job_now( zabbix_config=config, request=request )
 
-        messages.success( request, f"Sync {config.get_name()} with Zabbix succeeded." )
+        messages.success( request, f"Sync {config.name} with Zabbix succeeded." )
     except Exception as e:
-        messages.error( request, f"Failed to sync {config.get_name()} with Zabbix. Reason: {str( e ) }" )
+        messages.error( request, f"Failed to sync {config.name} with Zabbix. Reason: {str( e ) }" )
 
 
 def sync_device_with_zabbix(request):
@@ -1154,19 +1154,19 @@ class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
 
         try:
             interface = self.get_object( pk=kwargs.get("pk") )
-            hostid = interface.host.hostid
+            hostid = interface.zcfg.hostid
             interfaceid = interface.interfaceid
             name = interface.name
 
             # If the inteface is the main interface and if there are other agent interfaces
             # then Zabbix allows it to be deleted.
-            if interface.main == models.MainChoices.YES and interface.host.agent_interfaces.all().count() < 1:
+            if interface.main == models.MainChoices.YES and interface.zcfg.agent_interfaces.all().count() < 1:
                 return super().post(request, *args, **kwargs)
             
             # Otherwise a check to verify if there are templates that needs to be deleted before we can delete the interface.
             if not z.can_remove_interface( hostid, interfaceid ):
                 messages.error( request, f"Interface {name} is linked to one or more items in Zabbix. Unable to delete interface." )
-                return redirect( request.POST.get('return_url') or interface.host.get_absolute_url() )
+                return redirect( request.POST.get('return_url') or interface.zcfg.get_absolute_url() )
         except:
             pass
 
@@ -1210,19 +1210,19 @@ class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
 
         try:
             interface = self.get_object( pk=kwargs.get("pk") )
-            hostid = interface.host.hostid
+            hostid = interface.zcfg.hostid
             interfaceid = interface.interfaceid
             name = interface.name
 
             # If the inteface is the main interface and if there are other agent interfaces
             # then Zabbix allows it to be deleted.
-            if interface.main == models.MainChoices.YES and interface.host.snmpv3_interface.all().count() < 1:
+            if interface.main == models.MainChoices.YES and interface.zcfg.snmpv3_interface.all().count() < 1:
                 return super().post(request, *args, **kwargs)
             
             # Otherwise a check to verify if there are templates that needs to be deleted before we can delete the interface.
             if not z.can_remove_interface( hostid, interfaceid ):
                 messages.error( request, f"Interface {name} is linked to one or more items in Zabbix. Unable to delete interface." )
-                return redirect( request.POST.get('return_url') or interface.host.get_absolute_url() )
+                return redirect( request.POST.get('return_url') or interface.zcfg.get_absolute_url() )
         except:
             pass
 

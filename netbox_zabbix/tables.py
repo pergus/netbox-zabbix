@@ -373,7 +373,7 @@ class NetBoxOnlyVMsTable(VirtualMachineTable):
 
 
 class DeviceZabbixConfigTable(NetBoxTable):
-    name        = tables.Column( accessor='get_name', order_by='device', verbose_name='Name', linkify=True )
+    name        = tables.Column( accessor='name', order_by='name', verbose_name='Name', linkify=True )
     device      = tables.Column( accessor='device', verbose_name='Device', linkify=True )
     sync        = tables.BooleanColumn( accessor='sync', verbose_name="In Sync", orderable=False )
     status      = tables.Column()
@@ -402,7 +402,7 @@ class DeviceZabbixConfigTable(NetBoxTable):
 
 
 class VMZabbixConfigTable(NetBoxTable):
-    name            = tables.Column( accessor='get_name', verbose_name='Name', linkify=True )
+    name            = tables.Column( accessor='name', verbose_name='name', linkify=True )
     virtual_machine = tables.Column( accessor='virtual_machine', verbose_name='VM', linkify=True )
     status          = tables.Column()
     hostid          = tables.Column( verbose_name='Zabbix Host ID' )
@@ -437,7 +437,7 @@ class ZabbixConfigActionsColumn(ActionsColumn):
 
 
 class ZabbixConfigTable(NetBoxTable):
-    name = tables.Column( accessor='get_name', verbose_name='Host Name', linkify=True )
+    name = tables.Column( accessor='name', verbose_name='Host Name', linkify=True )
     type = tables.Column( empty_values=(), verbose_name='Type', order_by=('device__name', 'virtual_machine__name') )
     hostid = tables.Column( verbose_name='Zabbix Host ID' )
     status = tables.Column()
@@ -573,10 +573,10 @@ class DeviceAgentInterfaceTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.DeviceAgentInterface
         actions = ("bulk_edit", "bulk_delete", "edit", "delete" )
-        fields = ("name", "host", "interface", "resolved_ip_address", 
+        fields = ("name", "zcfg", "interface", "resolved_ip_address", 
                   "resolved_dns_name", "hostid", "interfaceid", "available", 
                   "useip", "main",  "port" )
-        default_columns = ("name", "host", "interface", "resolved_ip_address", 
+        default_columns = ("name", "zcfg", "interface", "resolved_ip_address", 
                            "resolved_dns_name", "port", "useip", "main")
 
 
@@ -588,7 +588,7 @@ class DeviceSNMPv3InterfaceTable(NetBoxTable):
     
     class Meta(NetBoxTable.Meta):
         model = models.DeviceSNMPv3Interface
-        fields = ( "name", "host", "interface", 
+        fields = ( "name", "zcfg", "interface", 
                     "resolved_ip_address", "resolved_dns_name", 
                     "hostid", "interfaceid", "available", "useip", "main",  "port",
                     "max_repetitions",
@@ -600,7 +600,7 @@ class DeviceSNMPv3InterfaceTable(NetBoxTable):
                     "privprotocol",
                     "privpassphrase",
                     "bulk" )
-        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main" )
+        default_columns = ("name", "zcfg", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main" )
 
 
 class VMAgentInterfaceTable(NetBoxTable):
@@ -611,8 +611,8 @@ class VMAgentInterfaceTable(NetBoxTable):
         
     class Meta(NetBoxTable.Meta):
         model = models.VMAgentInterface
-        fields = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "hostid", "interfaceid", "available", "useip", "main",  "port" )
-        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main" )
+        fields = ("name", "zcfg", "interface", "resolved_ip_address", "resolved_dns_name", "hostid", "interfaceid", "available", "useip", "main",  "port" )
+        default_columns = ("name", "zcfg", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main" )
 
 
 class VMSNMPv3InterfaceTable(NetBoxTable):
@@ -623,7 +623,7 @@ class VMSNMPv3InterfaceTable(NetBoxTable):
     
     class Meta(NetBoxTable.Meta):
         model = models.VMSNMPv3Interface
-        fields = ( "name", "host", "interface", 
+        fields = ( "name", "zcfg", "interface", 
                     "resolved_ip_address", "resolved_dns_name", 
                     "hostid", "interfaceid", "available", "useip", "main",  "port",
                     "snmp_max_repetitions",
@@ -635,7 +635,7 @@ class VMSNMPv3InterfaceTable(NetBoxTable):
                     "snmp_privprotocol",
                     "snmp_privpassphrase",
                     "snmp_bulk" )
-        default_columns = ("name", "host", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main" )
+        default_columns = ("name", "zcfg", "interface", "resolved_ip_address", "resolved_dns_name", "port", "useip", "main" )
 
 
 # ------------------------------------------------------------------------------
@@ -802,22 +802,8 @@ class ZabbixProblemTable(tables.Table):
 
 from core.models import Job
 from core.tables import JobTable
-from django_tables2.utils import A
-from django_tables2 import LinkColumn
 
 class DeviceZabbixTasksTable(JobTable):
-
-#    id = LinkColumn(
-#        viewname='core:job',  # built-in Job detail view
-#        args=[A('pk')],
-#        verbose_name='ID'
-#    )
-#    name = LinkColumn(
-#        viewname='core:job',
-#        args=[A('pk')],
-#        verbose_name='Name'
-#    )
-
     actions = []
 
     class Meta(NetBoxTable.Meta):

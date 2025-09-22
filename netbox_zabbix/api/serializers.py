@@ -75,39 +75,19 @@ class HostGroupSerializer(serializers.ModelSerializer):
 
 
 class DeviceZabbixConfigSerializer(NetBoxModelSerializer):
-    name = serializers.SerializerMethodField()
-    display = serializers.SerializerMethodField()
-
+    templates = TemplateSerializer( many=True, read_only=True )
+    
     class Meta:
         model = models.DeviceZabbixConfig
         fields = '__all__'
     
-    templates = TemplateSerializer( many=True, read_only=True )
-
-    def get_display(self, obj):
-        return obj.get_name()
-    
-    def get_name(self, obj):
-        # This method is called to get the value for the `name` field
-        return obj.get_name()
 
 class VMZabbixConfigSerializer(NetBoxModelSerializer):
-    name = serializers.SerializerMethodField()
-    display = serializers.SerializerMethodField()
-    
+    templates = TemplateSerializer( many=True, read_only=True )
+
     class Meta:
         model = models.VMZabbixConfig
         fields = '__all__'
-        
-    templates = TemplateSerializer( many=True, read_only=True )
-
-    def get_display(self, obj):
-        return obj.get_name()
-    
-    def get_name(self, obj):
-        # This method is called to get the value for the `name` field
-        return obj.get_name()
-
 
 # ------------------------------------------------------------------------------
 # Interfaces

@@ -690,7 +690,7 @@ def apply_mapping_to_config( zcfg, mapping, monitored_by ):
     Apply templates, host groups, monitored_by, and proxies from the mapping onto the ZabbixConfig.
     """
     
-    logger.debug( f"Apply mapping {mapping.name} to {zcfg.get_name()}" )
+    logger.debug( f"Apply mapping {mapping.name} to {zcfg.name}" )
 
     # Templates
     for template in mapping.templates.all():
@@ -747,7 +747,7 @@ def create_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, 
     try:
         interface_fields = dict(
             name=f"{obj.name}-{interface_name_suffix}",
-            host=zcfg,
+            zcfg=zcfg,
             interface=ip.assigned_object,
             ip_address=ip,
             useip=useip,
@@ -846,11 +846,11 @@ def link_missing_interface(zcfg, hostid):
             break
 
     if not unlinked_iface:  
-        logger.info( f"All interfaces for {zcfg.get_name()} are already linked")
+        logger.info( f"All interfaces for {zcfg.name} are already linked")
         return
 
     if not zbx_interfaces:
-        logger.info( f"No interfaces found in Zabbix for host {zcfg.get_name()} hostid ({zcfg.hostid})" )
+        logger.info( f"No interfaces found in Zabbix for host {zcfg.name} hostid ({zcfg.hostid})" )
         return
 
     # Normalize unlinked IP (remove /prefix) for comparison
@@ -1926,7 +1926,7 @@ class CreateZabbixInterface(BaseZabbixInterfaceJob):
         if not config.hostid:
             raise Exception(
                 f"Cannot create interface for '{config.devm_name()}': "
-                f"Zabbix config '{config.get_name()}' has no associated Zabbix host id."
+                f"Zabbix config '{config.name}' has no associated Zabbix host id."
             )
 
         retval = update_host_in_zabbix(config, kwargs.get("user"), kwargs.get("request_id"))
@@ -1946,7 +1946,7 @@ class UpdateZabbixInterface(BaseZabbixInterfaceJob):
         if not config.hostid:
             raise Exception(
                 f"Cannot update interface for '{config.devm_name()}': "
-                f"Zabbix config '{config.get_name()}' has no associated Zabbix host id."
+                f"Zabbix config '{config.name}' has no associated Zabbix host id."
             )
 
         # Assoicate the interface with the interfaceid

@@ -117,12 +117,12 @@ class DeviceZabbixConfigViewSet(NetBoxModelViewSet):
             interface = Interface.objects.get( id=assigned_object_id )
     
             data = {
-                'name': zabbix_config.get_name(),
-                'interface': interface.name,
-                'interface_id': interface.pk,
-                'ip_address': str( primary_ip.address ),
+                'name':          zabbix_config.name,
+                'interface':     interface.name,
+                'interface_id':  interface.pk,
+                'ip_address':    str( primary_ip.address ),
                 'ip_address_id': primary_ip.pk,
-                'dns_name': str( primary_ip.dns_name or "" ),
+                'dns_name':      str( primary_ip.dns_name or "" ),
             }
 
             return Response(data)
@@ -148,12 +148,12 @@ class VMZabbixConfigViewSet(NetBoxModelViewSet):
             interface = Interface.objects.get( id=assigned_object_id )
     
             data = {
-                'name': zabbix_config.get_name(),
-                'interface': interface.name,
-                'interface_id': interface.pk,
-                'ip_address': str( primary_ip.address ),
+                'name':          zabbix_config.name,
+                'interface':     interface.name,
+                'interface_id':  interface.pk,
+                'ip_address':    str( primary_ip.address ),
                 'ip_address_id': primary_ip.pk,
-                'dns_name': str( primary_ip.dns_name or "" ),
+                'dns_name':      str( primary_ip.dns_name or "" ),
             }
     
             return Response(data)

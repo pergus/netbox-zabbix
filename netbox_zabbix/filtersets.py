@@ -111,35 +111,35 @@ class VMZabbixConfigFilterSet(NetBoxModelFilterSet):
 
 
 class DeviceAgentInterfaceFilterSet(django_filters.FilterSet):
-    host_id = django_filters.NumberFilter( field_name='host__id' )
+    zcfg_id = django_filters.NumberFilter( field_name='zcfg__id' )
 
     class Meta:
         model = models.DeviceAgentInterface
-        fields = ['host_id']
+        fields = ['zcfg_id']
 
 
 class DeviceSNMPv3InterfaceFilterSet(django_filters.FilterSet):
-    host_id = django_filters.NumberFilter( field_name='host__id' )
+    zcfg_id = django_filters.NumberFilter( field_name='zcfg__id' )
 
     class Meta:
         model = models.DeviceSNMPv3Interface
-        fields = ['host_id']
+        fields = ['zcfg_id']
 
 
 class VMAgentInterfaceFilterSet(django_filters.FilterSet):
-    host_id = django_filters.NumberFilter( field_name='host__id' )
+    zcfg_id = django_filters.NumberFilter( field_name='zcfg__id' )
 
     class Meta:
         model = models.VMAgentInterface
-        fields = ['host_id']
+        fields = ['zcfg_id']
 
 
 class VMSNMPv3InterfaceFilterSet(django_filters.FilterSet):
-    host_id = django_filters.NumberFilter( field_name='host__id' )
+    zcfg_id = django_filters.NumberFilter( field_name='zcfg__id' )
 
     class Meta:
         model = models.VMSNMPv3Interface
-        fields = ['host_id']
+        fields = ['zcfg_id']
 
 
 # ------------------------------------------------------------------------------

@@ -20,7 +20,7 @@
                     <tr>
                         <th scope="row">Name</th>
                         <td>
-                            <a href="{{ config.get_absolute_url }}">{{ config.get_name }}</a>
+                            <a href="{{ config.get_absolute_url }}">{{ config.name }}</a>
                         </td>
                     </tr>
 
@@ -84,7 +84,7 @@
             <h2 class="card-header">
                 Agent Interfaces
             </h2>
-            {% htmx_table 'plugins:netbox_zabbix:deviceagentinterface_list' host_id=config.pk %}
+            {% htmx_table 'plugins:netbox_zabbix:deviceagentinterface_list' zcfg_id=config.pk %}
         </div>
     </div>
 </div>
@@ -95,7 +95,7 @@
             <h2 class="card-header">
                 SNMPv3 Interfaces
             </h2>
-            {% htmx_table 'plugins:netbox_zabbix:devicesnmpv3interface_list' host_id=config.pk %}
+            {% htmx_table 'plugins:netbox_zabbix:devicesnmpv3interface_list' zcfg_id=config.pk %}
         </div>
     </div>
 </div>

@@ -69,9 +69,12 @@ Add a view that lists all inconsistent devm/hosts.
 
 ### Todo/Bugs
 
-* Rename 'host' in Interfaces to zabbix_config or zcfg?
+[DONE] Rename 'host' in Interfaces to zabbix_config or zcfg?
+       Need testing before I can upload this to git.
 
-* Not having a proper name for ZabbixConfig's makes it problematic for scripting and searching.
+[DONE] Not having a proper name for ZabbixConfig's makes it problematic for scripting and searching.
+       Need testing before I can upload this to git.
+
 
 * Should the system issue a warning when a template is removed while it is 
   still used by a default mapping? - Yes!
@@ -102,6 +105,8 @@ Add a view that lists all inconsistent devm/hosts.
 * Go over all models and make sure that the fields doesn't have unnecessary
   null=True and blank=True settings. Many of them were added to prevent having
   to dump the database when running makemigrations.
+
+* Make sure the API works as expected.
 
 * Refactor the classes in jobs.py.
 

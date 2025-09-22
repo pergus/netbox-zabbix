@@ -479,6 +479,7 @@ class ZabbixConfig(NetBoxModel, JobsMixin):
     class Meta:
         abstract = True
 
+    name         = models.CharField( max_length=200, unique=True, blank=True, null=True, help_text="Name for this Zabbix configuration." )
     hostid       = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
     status       = models.IntegerField( choices=StatusChoices.choices, default=StatusChoices.ENABLED, help_text="Host monitoring status." )
     host_groups  = models.ManyToManyField( HostGroup, help_text="Assigned Host Groups." )
@@ -497,10 +498,7 @@ class DeviceZabbixConfig(ZabbixConfig):
     device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zbx_device_config' )
 
     def __str__(self):
-        return f"zbx-{self.device.name}"
-
-    def get_name(self):
-        return f"zbx-{self.device.name}"
+        return self.name
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:devicezabbixconfig", args=[self.pk] )
@@ -532,6 +530,12 @@ class DeviceZabbixConfig(ZabbixConfig):
         """
         return mark_safe( "✘" ) if self.get_sync_status() else mark_safe( "✔" )
 
+    def save(self, *args, **kwargs):
+        # Default name if not provided
+        if not self.name and self.device:
+            self.name = f"z-{self.device.name}"
+        super().save(*args, **kwargs)
+
 
 class VMZabbixConfig(ZabbixConfig):
     class Meta:
@@ -541,10 +545,7 @@ class VMZabbixConfig(ZabbixConfig):
     virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zbx_vm_config' )
 
     def __str__(self):
-        return f"zbx-{self.virtual_machine.name}"
-
-    def get_name(self):
-        return f"zbx-{self.virtual_machine.name}"
+        return self.name
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:vmzabbixconfig", args=[self.pk] )
@@ -552,6 +553,11 @@ class VMZabbixConfig(ZabbixConfig):
     def devm_name(self):
         return self.device.name if self.device else None
 
+    def save(self, *args, **kwargs):
+        # Default name if not provided
+        if not self.name and self.device:
+            self.name = f"z-{self.device.name}"
+        super().save(*args, **kwargs)
 
 # ------------------------------------------------------------------------------
 # Interfaces
@@ -562,7 +568,7 @@ class HostInterface(NetBoxModel):
     class Meta:
         abstract = True
     
-    # Name of the host interface in NetBox
+    # Name of the zabbix config interface in NetBox
     name = models.CharField( verbose_name="Name", max_length=255, blank=False, null=False, help_text="Name for the interface in NetBox." )
 
     # Zabbix Host ID - This is collected from Zabbix
@@ -594,20 +600,17 @@ class BaseAgentInterface(HostInterface):
     
     def __str__(self):
         return f"{self.name}"
-    
-    def get_name(self):
-        return f"{self.name}"
 
 
     def _get_primary_ip(self):
         """
-        Return the primary IP from the host's device or VM, or None.
+        Return the primary IP from the zcfg's device or VM, or None.
         """
-        host = self.host
-        if hasattr( host, "device" ) and host.device:
-            return host.device.primary_ip4 or host.device.primary_ip6
-        elif hasattr( host, "virtual_machine" ) and host.virtual_machine:
-            return host.virtual_machine.primary_ip4 or host.virtual_machine.primary_ip6
+        zcfg = self.zcfg
+        if hasattr( zcfg, "device" ) and zcfg.device:
+            return zcfg.device.primary_ip4 or zcfg.device.primary_ip6
+        elif hasattr( zcfg, "virtual_machine" ) and zcfg.virtual_machine:
+            return zcfg.virtual_machine.primary_ip4 or zcfg.virtual_machine.primary_ip6
         return None
     
     @property
@@ -648,7 +651,7 @@ class BaseAgentInterface(HostInterface):
 
         # Ensure only one agent interface is the the main interface.
         if self.main == MainChoices.YES:
-            existing_mains = self.host.agent_interfaces.filter( main=MainChoices.YES ).exclude( pk=self.pk )
+            existing_mains = self.zcfg.agent_interfaces.filter( main=MainChoices.YES ).exclude( pk=self.pk )
             if existing_mains.exists():
                 existing_mains.update( main=MainChoices.NO )
         
@@ -659,12 +662,9 @@ class BaseAgentInterface(HostInterface):
 class BaseSNMPv3Interface(HostInterface):
     class Meta:
         abstract = True
-    
-    # Reference to the Zabbix configuration object for the device this interface belongs to.
-    #host = models.ForeignKey( to='DeviceZabbixConfig', on_delete=models.CASCADE, related_name='snmpv3_interfaces' )
 
     # Interface type - The user doens't have to set this.
-    type = models.IntegerField(choices=TypeChoices, default=TypeChoices.SNMP )
+    type = models.IntegerField( choices=TypeChoices, default=TypeChoices.SNMP )
     
     # Port number used by the interface
     port = models.IntegerField( verbose_name="Port", default=161, help_text="IP address used by the interface." )
@@ -702,21 +702,18 @@ class BaseSNMPv3Interface(HostInterface):
 
     def __str__(self):
         return f"{self.name}"
-    
-    def get_name(self):
-        return f"{self.name}"
-    
+
     def _get_primary_ip(self):
         """
-        Return the primary IP from the host's device or VM, or None.
+        Return the primary IP from the zcfg's device or VM, or None.
         """
-        host = self.host
-        if hasattr( host, "device" ) and host.device:
-            return host.device.primary_ip4 or host.device.primary_ip6
-        elif hasattr( host, "virtual_machine" ) and host.virtual_machine:
-            return host.virtual_machine.primary_ip4 or host.virtual_machine.primary_ip6
+        zcfg = self.zcfg
+        if hasattr( zcfg, "device" ) and zcfg.device:
+            return zcfg.device.primary_ip4 or zcfg.device.primary_ip6
+        elif hasattr( zcfg, "virtual_machine" ) and zcfg.virtual_machine:
+            return zcfg.virtual_machine.primary_ip4 or zcfg.virtual_machine.primary_ip6
         return None
-    
+
     @property
     def resolved_dns_name(self):
         config = Config.objects.first()
@@ -726,7 +723,7 @@ class BaseSNMPv3Interface(HostInterface):
             return primary_ip.dns_name if primary_ip else None
         else:
             return self.ip_address.dns_name if self.ip_address else None
-    
+
     @property
     def resolved_ip_address(self):
         config = Config.objects.first()
@@ -736,17 +733,15 @@ class BaseSNMPv3Interface(HostInterface):
         else:
             return self.ip_address
 
-
     def save(self, *args, **kwargs):
         self.full_clean()
-    
+
         # Ensure only one agent interface is the the main interface.
         if self.main == MainChoices.YES:
-            existing_mains = self.host.snmpv3_interfaces.filter( main=MainChoices.YES ).exclude( pk=self.pk )
+            existing_mains = self.zcfg.snmpv3_interfaces.filter( main=MainChoices.YES ).exclude( pk=self.pk )
             if existing_mains.exists():
                 existing_mains.update( main=MainChoices.NO )
-        
-        
+
         return super().save(*args, **kwargs)
 
 
@@ -756,7 +751,7 @@ class DeviceAgentInterface(BaseAgentInterface):
         verbose_name_plural = "Device Agent Interfaces"
     
     # Reference to the Zabbix configuration object for the device this interface belongs to.
-    host = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
+    zcfg = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
 
     # The physical interface associated with this Agent configuration.
     interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, null=True, related_name="agent_interface" )
@@ -774,7 +769,7 @@ class DeviceSNMPv3Interface(BaseSNMPv3Interface):
         verbose_name_plural = "Device SNMPv3 Interfaces"
     
     # Reference to the Zabbix configuration object for the device this interface belongs to.
-    host = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="snmpv3_interfaces" )
+    zcfg = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="snmpv3_interfaces" )
     
     # The physical interface associated with this SNMPv3 configuration.
     interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
@@ -789,7 +784,7 @@ class VMAgentInterface(BaseAgentInterface):
         verbose_name_plural = "VM Agent Interfaces"
 
     # Reference to the Zabbix configuration object for the virtual machine this interface belongs to.
-    host = models.ForeignKey( to="VMZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
+    zcfg = models.ForeignKey( to="VMZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
 
     # The interface associated with this Agent configuration.
     interface = models.OneToOneField( to="virtualization.VMInterface", on_delete=models.CASCADE, blank=True, null=True, related_name="agent_interface" )
@@ -804,7 +799,7 @@ class VMSNMPv3Interface(BaseSNMPv3Interface):
         verbose_name_plural = "VM SNMPv3 Interfaces"
 
     # Reference to the Zabbix configuration object for the virtual machine this interface belongs to.
-    host = models.ForeignKey( to="VMZabbixConfig", on_delete=models.CASCADE, related_name="snmpv3_interfaces" )
+    zcfg = models.ForeignKey( to="VMZabbixConfig", on_delete=models.CASCADE, related_name="snmpv3_interfaces" )
 
     # The interface associated with this SNMPv3 configuration.
     interface = models.OneToOneField( to="virtualization.VMInterface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
