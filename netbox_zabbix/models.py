@@ -497,6 +497,15 @@ class DeviceZabbixConfig(ZabbixConfig):
     
     device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zbx_device_config' )
 
+
+    @property
+    def has_agent_interface(self):
+        return self.agent_interfaces.exists()
+
+    @property
+    def has_snmpv3_interface(self):
+        return self.snmpv3_interfaces.exists()
+    
     def __str__(self):
         return self.name
 
@@ -544,6 +553,15 @@ class VMZabbixConfig(ZabbixConfig):
     
     virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zbx_vm_config' )
 
+
+    @property
+    def has_agent_interface(self):
+        return self.agent_interfaces.exists()
+    
+    @property
+    def has_snmpv3_interface(self):
+        return self.snmpv3_interfaces.exists()
+    
     def __str__(self):
         return self.name
 
@@ -732,6 +750,7 @@ class BaseSNMPv3Interface(HostInterface):
             return self._get_primary_ip()
         else:
             return self.ip_address
+
 
     def save(self, *args, **kwargs):
         self.full_clean()

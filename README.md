@@ -69,12 +69,7 @@ Add a view that lists all inconsistent devm/hosts.
 
 ### Todo/Bugs
 
-[DONE] Rename 'host' in Interfaces to zabbix_config or zcfg?
-       Need testing before I can upload this to git.
-
-[DONE] Not having a proper name for ZabbixConfig's makes it problematic for scripting and searching.
-       Need testing before I can upload this to git.
-
+* Replace checks for interfaces in utils? with calls to has_agent_interface & has_snmpv3_interface.
 
 * Should the system issue a warning when a template is removed while it is 
   still used by a default mapping? - Yes!
@@ -111,6 +106,12 @@ Add a view that lists all inconsistent devm/hosts.
 * Refactor the classes in jobs.py.
 
 * Implement maintenance mode.
+
+[DONE] Added has_agent_interface/has_snmpv3_interface methods to ZConfig.
+
+[DONE] Rename 'host' in Interfaces to zabbix_config or zcfg?
+
+[DONE] Not having a proper name for ZabbixConfig's makes it problematic for scripting and searching.
 
 
 [DONE] CF that excludes a machine from appearing in NetBox only.
