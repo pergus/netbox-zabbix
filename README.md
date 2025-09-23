@@ -69,6 +69,16 @@ Add a view that lists all inconsistent devm/hosts.
 
 ### Todo/Bugs
 
+
+* It should not be possible to assign an ip address to a zabbix interface
+  for an ip that isn't associated with the underlyin device or vm.
+  Let's say we have two devices A and B. It should not be possible to
+  create a zabbix interface for A and assign it an IP that belongs to B.
+
+
+* Since I rewrote a lot of code yesterday, run over all tests.
+  Is it possible to automat the tests? Maybe but the UI has to be tested as well.
+
 * Replace checks for interfaces in utils? with calls to has_agent_interface & has_snmpv3_interface.
 
 * Should the system issue a warning when a template is removed while it is 
@@ -81,6 +91,10 @@ Add a view that lists all inconsistent devm/hosts.
 
 * When the implementation works for Devices, implement the corresponding code
   for Virual Machines.
+
+* After implementing VMs - I think that a lot of the code can be reused/simplified.
+  I think we could have only one class for Zabbix Config and a class for each
+  interface type.
 
 * Should NetBox be the source for proxies/proxy group and groups?
   And Zabbix should only be the source for Templates?
@@ -106,6 +120,11 @@ Add a view that lists all inconsistent devm/hosts.
 * Refactor the classes in jobs.py.
 
 * Implement maintenance mode.
+
+
+[DONE] Edit zabbix configuration - when chaning monitored by to say proxy, then
+  the form should force the user to add a proxy. The same goes for proxy group.
+
 
 [DONE] Added has_agent_interface/has_snmpv3_interface methods to ZConfig.
 

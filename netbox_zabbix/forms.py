@@ -416,7 +416,18 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
             except Exception as e:
                 raise ValidationError( str( e ) )
             
-            
+        # Check monitored by
+        monitored_by = self.cleaned_data.get( "monitored_by" )
+
+        if monitored_by == models.MonitoredByChoices.Proxy:
+            if not self.cleaned_data.get( "proxy" ):
+                raise ValidationError( "A proxy name is requried" )
+
+        if monitored_by == models.MonitoredByChoices.ProxyGroup:
+            if not self.cleaned_data.get( "proxy_group" ):
+                raise ValidationError( "A proxy group name is requried" )
+        
+
         return self.cleaned_data
 
 
