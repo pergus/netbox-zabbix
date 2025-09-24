@@ -1,9 +1,13 @@
 # utils.py
 
+from math import remainder
 from netbox_zabbix import models
 from netbox_zabbix.config import get_default_tag, get_tag_prefix
 from netbox_zabbix.inventory_properties import inventory_properties
 from netbox_zabbix import zabbix as z
+import json
+
+
 from netbox_zabbix.logger import logger
 
 
@@ -377,7 +381,7 @@ def validate_templates_and_interface(templateids: list, interface_type=models.In
 
 # ------------------------------------------------------------------------------
 # Quick Add helper functions
-#
+# ------------------------------------------------------------------------------
 
 def validate_quick_add( devm ):
     if not devm.primary_ip4_id:
@@ -388,7 +392,7 @@ def validate_quick_add( devm ):
 
 # ------------------------------------------------------------------------------
 # Validate Zabbix Configuration against Zabbix Host
-#
+# ------------------------------------------------------------------------------
 
 
 def diff_lists(source_list, target_list, current_path=""):
@@ -415,7 +419,6 @@ def diff_lists(source_list, target_list, current_path=""):
                 }
 
     return diff_result
-
 
 def json_diff(source_data, target_data, special_keys_set=None, list_identity_key_map=None, current_path=""):
     """
@@ -491,7 +494,6 @@ def json_diff(source_data, target_data, special_keys_set=None, list_identity_key
 
     diff_result["differ"] = bool(diff_result["added"] or diff_result["removed"] or diff_result["changed"])
     return diff_result
-
 
 def get_by_path(obj, parts):
     """Return nested value in dict by parts list, or None if missing."""
@@ -578,7 +580,6 @@ def diff_special_list_items(source_list, target_list, identity_key,
 
     return changed_from_list, changed_to_list
 
-
 def normalize_inventory(payload_inventory, zabbix_inventory):
     """
     Keep only the inventory fields present in the payload,
@@ -588,7 +589,6 @@ def normalize_inventory(payload_inventory, zabbix_inventory):
     for key in payload_inventory.keys():
         normalized_inventory[key] = zabbix_inventory.get( key, "" )
     return normalized_inventory
-
 
 def normalize_zabbix_host_dynamic_v1(zabbix_host, payload_template):
     """
@@ -625,10 +625,8 @@ def normalize_zabbix_host_dynamic_v1(zabbix_host, payload_template):
     }
     return normalized_host
 
-
 def normalize_details(payload_details, zabbix_details):
     return {k: zabbix_details.get(k, "") for k in payload_details.keys()}
-
 
 def normalize_zabbix_host_dynamic(zabbix_host, payload_template):
     """
@@ -681,7 +679,7 @@ def normalize_zabbix_host_dynamic(zabbix_host, payload_template):
 
     return normalized_host
 
-def compare_zabbix_config_with_host(zabbix_config):
+def compare_zabbix_config_with_host(zabbix_config, debug=False):
     """
     Compare a NetBox Zabbix configuration object with the corresponding
     host definition retrieved from Zabbix and return a structured diff.
@@ -709,23 +707,229 @@ def compare_zabbix_config_with_host(zabbix_config):
     list_identity_key_map = { "interfaces": "interfaceid", "templates": "templateid", "groups": "groupid",  "tags": "tag" }
 
     diff_result = json_diff( payload, zabbix_host, special_keys_set, list_identity_key_map )
+
+    if debug:
+        logger.info( f"zabbix_host_raw { json.dumps( zabbix_host_raw, indent=2 ) }" )
+        logger.info( f"payload { json.dumps( payload, indent=2 ) }" )
+
     return diff_result
 
 
-
 # Function used to test the 'compare_zabbix_config_with_host' function
-def config_compare(name):
-    import json
+def config_compare(name, debug=False):
     try:
-        device = models.Device.objects.get( name=name)
+        device = models.Device.objects.get( name=name )
         zabbix_config = models.DeviceZabbixConfig.objects.get( device=device )
-        result = compare_zabbix_config_with_host( zabbix_config )
+        result = compare_zabbix_config_with_host( zabbix_config, debug )
         print( f"{json.dumps( result, indent=2 )}" )
     except:
         print( f"Could't compare {name}." )
 
 
+# ------------------------------------------------------------------------------
+# New Implementation of compare configuration
+# ------------------------------------------------------------------------------
 
+def compare_json(obj_a, obj_b):
+    """
+    Recursively compare two JSON-compatible objects.
+
+    Returns (a_diff, b_diff):
+      - a_diff: what is different in obj_a relative to obj_b
+      - b_diff: what is different in obj_b relative to obj_a
+    """
+
+    # Case 1: both are dicts
+    if isinstance( obj_a, dict ) and isinstance( obj_b, dict ):
+        a_diff, b_diff = {}, {}                 # Initialize differences for each object
+        all_keys = set( obj_a ) | set( obj_b )  # All keys present in either dict
+
+        for key in all_keys:
+
+            # Key exists in both dicts, compare values recursively
+            if key in obj_a and key in obj_b:
+                sub_a, sub_b = compare_json( obj_a[key], obj_b[key] )
+
+                # Only store differences if there are any
+                if sub_a != {} and sub_a != [] and sub_a is not None:
+                    a_diff[key] = sub_a
+                
+                if sub_b != {} and sub_b != [] and sub_b is not None:
+                    b_diff[key] = sub_b
+
+            # Key exists only in obj_a
+            elif key in obj_a:
+                a_diff[key] = obj_a[key]
+            
+            # Key exists only in obj_b
+            else:
+                b_diff[key] = obj_b[key]
+
+        return a_diff, b_diff
+
+    # Case 2: both are lists
+    if isinstance( obj_a, list ) and isinstance( obj_b, list ):
+
+        # Items in obj_a not in obj_b
+        a_only = [ item for item in obj_a if item not in obj_b ]
+
+        # Items in obj_b not in obj_a
+        b_only = [ item for item in obj_b if item not in obj_a ]
+
+        return ( a_only if a_only else [], b_only if b_only else [] )
+
+
+    # Case 3: primitives (string, number, bool, None)
+    # If the values are the same, return None for both
+    # If different, return the differing values
+    return ( obj_a if obj_a != obj_b else None, obj_b if obj_a != obj_b else None )
+
+
+def rewrite_tags(host_dict):
+    """
+    Rewrite the tags in a host dictionary to be a list of single-key dicts,
+    where the original 'tag' becomes the key and 'value' becomes the value.
+
+    Args:
+        host_dict (dict): The host dictionary containing 'tags' key.
+
+    Returns:
+        dict: The same host dictionary with rewritten 'tags'.
+    """
+
+
+    if "tags" in host_dict and isinstance( host_dict["tags"], list ):
+        new_tags = [ { t["tag"]: t.get("value", "") } for t in host_dict["tags"] if "tag" in t ]
+        host_dict["tags"] = new_tags
+    return host_dict
+
+
+def convert_single_obj_array_to_sorted_strings(arr):
+    """
+    Convert a list of single-key dicts to a sorted list of their values as strings.
+
+    Example:
+    [ {"groupid": "7"}, {"groupid": "75"} ] -> [ "7", "75" ]
+    """
+    # Extract the single value from each dict
+    values = [list(item.values())[0] for item in arr if isinstance(item, dict) and len(item) == 1]
+    # Sort the list as strings
+    return sorted(values)
+
+
+def normalize_host(zabbix_host, payload_template):
+    """
+    Simplified normalization of a Zabbix host dict to match the structure of a payload template.
+
+    - Recursively matches nested dicts.
+    - Preserves all lists in order.
+    - Missing keys get default empty values from template.
+    """
+    normalized = {}
+
+    for key, template_value in payload_template.items():
+        value = zabbix_host.get( key, None )
+
+        if value is None:
+            # Missing key -> use empty/default from template
+            if isinstance( template_value, dict ):
+                normalized[key] = {}
+            elif isinstance( template_value, list ):
+                normalized[key] = []
+            else:
+                normalized[key] = template_value
+            continue
+
+        if isinstance( template_value, dict ):
+            normalized[key] = normalize_host( value, template_value )
+
+        elif isinstance( template_value, list ):
+            if template_value and isinstance( template_value[0], dict ):
+                # List of dicts -> normalize each item recursively using template element
+                template_elem = template_value[0]
+                normalized[key] = [ normalize_host( item, template_elem ) for item in value ]
+            else:
+                # List of primitives -> preserve order
+                normalized[key] = list( value )
+
+        else:
+            normalized[key] = value
+
+    return normalized
+
+
+def preprocess_host(host, template):
+    """
+    Normalize a host dictionary (payload or Zabbix) and rewrite its structure 
+    for comparison.
+
+    Steps:
+    1. Normalize host to match template structure.
+    2. Rewrite tags to { "tag": "value" } format.
+    3. Convert 'groups' and 'templates' to sorted lists of strings.
+    
+    Args:
+        host (dict): The host dictionary (NetBox payload or Zabbix host).
+        template (dict): Template dictionary to guide normalization.
+    
+    Returns:
+        dict: Preprocessed host ready for comparison.
+    """
+    # Step 1: Normalize host
+    normalized = normalize_host( host, template )
+
+    # Step 2: Rewrite tags
+    if "tags" in normalized and isinstance( normalized["tags"], list ):
+        normalized["tags"] = [
+            {t["tag"]: t.get("value", "")} for t in normalized["tags"] if "tag" in t
+        ]
+
+    # Step 3: Convert groups and templates to sorted lists of strings
+    for key in ["groups", "templates"]:
+        if key in normalized and isinstance( normalized[key], list ):
+            normalized[key] = sorted(
+                list( item.values() )[0] for item in normalized[key] 
+                if isinstance( item, dict ) and len( item ) == 1
+            )
+
+    return normalized
+
+
+def new_compare(name="dk-ece003w", debug=False):
+    """
+    Function used to test compare configuration
+
+    # Before using new_compare()
+    import netbox_zabbix.utils
+    from importlib import reload
+    from netbox_zabbix.utils import new_compare
+
+    # To reload new_compare()
+    reload(netbox_zabbix.utils) ; from netbox_zabbix.utils import new_compare
+    """
+
+    # Retrieve device and config
+    device = models.Device.objects.get( name=name )
+    config = models.DeviceZabbixConfig.objects.get( device=device )
+    from netbox_zabbix.jobs import build_payload
+    payload = build_payload(config, True)
+
+    zabbix_host_raw = z.get_host_by_id_with_templates( config.hostid )
+
+    # Preprocess both payload and Zabbix host
+    payload_processed = preprocess_host( payload, payload )
+    zabbix_processed = preprocess_host( zabbix_host_raw, payload )
+
+    # Compare recursively
+    netbox_config, zabbix_config = compare_json( payload_processed, zabbix_processed )
+
+    print( f"*" * 60 )
+    print( f"** CONFIGURATION DIFFERENCE **")
+    print( f"*" * 60 )
+    print( "NETBOX" )
+    print( f"{json.dumps( netbox_config, indent=2 ) }" )
+    print( "ZABBIX" )
+    print( f"{json.dumps( zabbix_config, indent=2 ) }" )
 
 # ------------------------------------------------------------------------------
 # Custom Fields

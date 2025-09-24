@@ -575,7 +575,6 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
 
         # Validate DNS name
         ip_address = self.cleaned_data.get( "ip_address" )
-        logger.info( f"ip_address: {ip_address}" )
         if not ip_address.dns_name:
             raise ValidationError( "The IP address require a DNS name" )
 

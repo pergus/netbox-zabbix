@@ -494,6 +494,16 @@ def get_host_by_id(hostid):
     return hosts[0]
 
 
+def get_host_by_id_with_templates(hostid):
+
+    try:
+        host = get_host_by_id( hostid )
+        host["templates"] = host.pop( "parentTemplates", [] )
+        return host
+    except:
+        raise
+    
+
 # ------------------------------------------------------------------------------
 # Import Settings
 # ------------------------------------------------------------------------------
@@ -521,7 +531,7 @@ def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item
     except ZabbixConfigNotFound as e:
         raise
     except Exception as e:
-        logger.error(f"Failed to fetch Zabbix {name}")
+        logger.error( f"Failed to fetch Zabbix {name}" )
         raise
 
     remote_ids = {item[id_field] for item in items}
@@ -543,6 +553,7 @@ def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item
 
         if "parentTemplates" in item:
             parent_ids = [ p["templateid"] for p in item["parentTemplates"] ]
+            
             parents = []
             for pid in parent_ids:
                 parent, _ = model.objects.get_or_create( templateid=pid, defaults={"name": f"Placeholder-{pid}"} )

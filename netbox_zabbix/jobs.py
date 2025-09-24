@@ -262,6 +262,7 @@ def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine])
     
     # Validate Zabbix templates exists in NetBox
     zabbix_templates = zabbix_host.get( "parentTemplates", [] )
+    
     if len( zabbix_templates ) == 0:
         raise Exception( "The Zabbix host has no assigned templates" )
     
