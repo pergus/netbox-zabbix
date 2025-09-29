@@ -495,6 +495,23 @@ def get_host_by_id(hostid):
 
 
 def get_host_by_id_with_templates(hostid):
+    """
+    Retrieves detailed information about a single host from Zabbix by hostid.
+    
+    The returned host includes interfaces, templates, tags, groups, and inventory
+    data. Validates that exactly one host is found. The key 'parentTemplates'
+    that is returned from Zabbix is renamed to 'templates'.
+    
+    Args:
+        hostid (str): The hostid of the Zabbix host to retrieve.
+    
+    Returns:
+        dict: A dictionary containing the Zabbix host's details.
+    
+    Raises:
+        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        Exception: If no host, multiple hosts, or an API error occurs.
+    """
 
     try:
         host = get_host_by_id( hostid )

@@ -1581,6 +1581,6 @@ class DeviceZabbixConfigDiffTabView(generic.ObjectView):
     template_name = 'netbox_zabbix/device_difference.html'
 
     def get_extra_context(self, request, instance):
-        return { "diff": instance.get_sync_diff() }
+        return { "configurations": instance.get_sync_diff() }
     
 # end

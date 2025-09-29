@@ -34,8 +34,8 @@ def render_cell(value):
     return str( value )
 
 
-@register.filter(name="diff_to_table")
-def diff_to_table(value):
+@register.filter(name="config_to_table")
+def config_to_table(value):
     """
     Render a list of dicts or a dict as an HTML table with compact nested dicts.
     """
@@ -49,7 +49,7 @@ def diff_to_table(value):
     if isinstance( value, dict ):
         value = [value]
 
-    if not isinstance( value, (list, tuple) ) or not value:
+    if not isinstance( value, list ) or not value:
         return "" if value is None else str( value )
 
     # If it's a list of primitives, display as a simple list

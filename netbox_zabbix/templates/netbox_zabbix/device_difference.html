@@ -1,6 +1,6 @@
 {% extends 'generic/object.html' %}
 {% load tab_utils %}
-{% load diff_to_table %}
+{% load config_to_table %}
 
 
 {% block extra_controls %}
@@ -51,41 +51,25 @@
 {% block content %}
 
 <div class="row">
-    <div class="col col-md-12">
+    <div class="col-md-6">
         <div class="card">
-            <h5 class="card-header">Configuration Differences</h5>
+            <h5 class="card-header bg-primary">NetBox Configuration</h5>
             <div class="card-body">
+                {{ configurations.netbox|config_to_table|safe }}
+            </div>
+        </div>
+    </div>
 
-                {% if diff.changed %}
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Field</th>
-                                <th>NetBox</th>
-                                <th>Zabbix</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for field, change in diff.changed.items %}
-                                <tr>
-                                    <td>{{ field }}</td>
-                                    <td>{{ change.from|diff_to_table }}</td>
-                                    <td>{{ change.to|diff_to_table }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="text-center text-muted py-3">
-                    No differences found — configuration is in sync.
-                </div>
-                {% endif %}
-
+    <div class="col-md-6">
+        <div class="card">
+            <h5 class="card-header bg-danger">Zabbix Configuration</h5>
+            <div class="card-body">
+                {{ configurations.zabbix|config_to_table|safe }}
             </div>
         </div>
     </div>
 </div>
+
+
 
 {% endblock %}
