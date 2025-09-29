@@ -39,8 +39,6 @@ This is the reason why the plugin cannot require that a host has a Template.
 This is also the reason why Zabbix doesn't require Templates for a host.
 
 
-
-
 ## Here be Dragons!
 
 ### Problem With IPs and Interfaces
@@ -69,17 +67,8 @@ Add a view that lists all inconsistent devm/hosts.
 
 ### Todo/Bugs
 
-
-* It should not be possible to assign an ip address to a zabbix interface
-  for an ip that isn't associated with the underlyin device or vm.
-  Let's say we have two devices A and B. It should not be possible to
-  create a zabbix interface for A and assign it an IP that belongs to B.
-
-
 * Since I rewrote a lot of code yesterday, run over all tests.
   Is it possible to automat the tests? Maybe but the UI has to be tested as well.
-
-* Replace checks for interfaces in utils? with calls to has_agent_interface & has_snmpv3_interface.
 
 * Should the system issue a warning when a template is removed while it is 
   still used by a default mapping? - Yes!
@@ -121,6 +110,14 @@ Add a view that lists all inconsistent devm/hosts.
 
 * Implement maintenance mode.
 
+
+[DONE] Replace checks for interfaces in forms? with calls to has_agent_interface & has_snmpv3_interface.
+
+
+[DONE] It should not be possible to assign an ip address to a zabbix interface
+  for an ip that isn't associated with the underlyin device or vm.
+  Let's say we have two devices A and B. It should not be possible to
+  create a zabbix interface for A and assign it an IP that belongs to B.
 
 [DONE] Edit zabbix configuration - when chaning monitored by to say proxy, then
   the form should force the user to add a proxy. The same goes for proxy group.

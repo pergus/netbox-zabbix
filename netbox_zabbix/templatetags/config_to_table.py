@@ -5,7 +5,7 @@ import json
 register = template.Library()
 
 
-def render_cell(value):
+def render_cell_v1(value):
     """
     Render a dict or list inside a table cell.
     Dicts are rendered vertically for compactness.
@@ -32,6 +32,47 @@ def render_cell(value):
         return mark_safe( "".join( tables ) )
 
     return str( value )
+
+
+def render_cell(value):
+    """
+    Render a dict or list inside a table cell.
+    - Single dict: vertical table
+    - List of dicts: merge all dicts into one vertical table
+    - List of primitives: vertical table
+    """
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return value
+
+    # Single dict
+    if isinstance(value, dict):
+        rows = "".join(f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in value.items())
+        return mark_safe(f"<table class='table table-sm table-borderless mb-0'>{rows}</table>")
+
+    # List
+    if isinstance(value, list):
+        if not value:
+            return ""
+
+        # List of dicts
+        if all(isinstance(item, dict) for item in value):
+            # Merge all key/value pairs
+            merged_items = {}
+            for item in value:
+                merged_items.update(item)
+            rows = "".join(f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in merged_items.items())
+            return mark_safe(f"<table class='table table-sm table-borderless mb-0'>{rows}</table>")
+
+        # List of primitives
+        rows = "".join(f"<tr><td>{item}</td></tr>" for item in value)
+        return mark_safe(f"<table class='table table-sm table-borderless mb-0'>{rows}</table>")
+
+    # Fallback
+    return str(value)
+
 
 
 @register.filter(name="config_to_table")

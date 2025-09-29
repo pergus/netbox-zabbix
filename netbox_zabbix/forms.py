@@ -383,16 +383,15 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
         super().clean() 
     
         templates = self.cleaned_data.get( "templates" )
-        #if not templates:
-        #    raise ValidationError( "At least one template must be selected." )
     
         template_ids = [ t.templateid for t in templates ]
     
         device_config = self.instance
         if device_config and device_config.pk:
-            has_agent = getattr( device_config, "agent_interfaces", None ) and device_config.agent_interfaces.exists()
-            has_snmp = getattr( device_config,  "snmpv3_interfaces", None ) and device_config.snmpv3_interfaces.exists()
-        
+            
+            has_agent = device_config.has_agent_interface
+            has_snmp  = device_config.has_snmpv3_interface
+
             if has_agent and has_snmp:
                 interface_type = models.InterfaceTypeChoices.Any
             elif has_agent:

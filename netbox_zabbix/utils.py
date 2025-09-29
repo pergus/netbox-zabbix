@@ -197,7 +197,7 @@ def get_template_dependencies(templateid):
 
     deps = []
     for trig in triggers:
-        for dep in trig.get("dependencies", []):
+        for dep in trig.get( "dependencies", [] ):
             dep_triggerid = dep["triggerid"]
             dep_trigger = z.get_trigger( dep_triggerid )[0]
 
@@ -263,8 +263,9 @@ def validate_templates(templateids: list):
     - Conflicts: two selected templates (or their parents) include the same template.
     - Missing dependencies: any dependency (direct or recursive) not in the selection.
     """
+
     seen = {}
-    template_objects = models.Template.objects.filter(templateid__in=templateids)
+    template_objects = models.Template.objects.filter( templateid__in=templateids )
 
     def get_all_parents(template, visited=None):
         """Recursively collect all parents of a template."""
@@ -272,11 +273,11 @@ def validate_templates(templateids: list):
             visited = set()
         if template.id in visited:
             return set()
-        visited.add(template.id)
+        visited.add( template.id )
 
         parents = set(template.parents.all())
         for parent in template.parents.all():
-            parents |= get_all_parents(parent, visited)
+            parents |= get_all_parents( parent, visited )
         return parents
 
     def get_all_dependencies(template, visited=None):
@@ -285,16 +286,16 @@ def validate_templates(templateids: list):
             visited = set()
         if template.id in visited:
             return set()
-        visited.add(template.id)
+        visited.add( template.id )
 
-        deps = set(template.dependencies.all())
+        deps = set( template.dependencies.all() )
         for dep in template.dependencies.all():
-            deps |= get_all_dependencies(dep, visited)
+            deps |= get_all_dependencies( dep, visited )
         return deps
 
     for template in template_objects:
         # Check for conflicts through parent inheritance
-        inherited_templates = {template} | get_all_parents(template)
+        inherited_templates = {template} | get_all_parents( template )
         for inherited_template in inherited_templates:
             if inherited_template.id in seen:
                 raise Exception(
@@ -305,7 +306,7 @@ def validate_templates(templateids: list):
             seen[inherited_template.id] = template
 
         # Check for missing dependencies (recursive)
-        for dependent_template in get_all_dependencies(template):
+        for dependent_template in get_all_dependencies( template ):
             if dependent_template.templateid not in templateids:
                 raise Exception(
                     f"Missing dependency: '{template.name}' depends on "
@@ -319,7 +320,8 @@ def validate_template_interface(templateids: list, interface_type):
     """
     Validate if all templates are compatible with the given interface type.
     """
-    template_objects = models.Template.objects.filter(templateid__in=templateids)
+
+    template_objects = models.Template.objects.filter( templateid__in=templateids )
 
     def get_all_parents(template, visited=None):
         """Recursively collect all parents of a template."""
@@ -327,38 +329,45 @@ def validate_template_interface(templateids: list, interface_type):
             visited = set()
         if template.id in visited:
             return set()
-        visited.add(template.id)
+        visited.add( template.id )
 
-        parents = set(template.parents.all())
+        parents = set( template.parents.all() )
         for parent in template.parents.all():
-            parents |= get_all_parents(parent, visited)
+            parents |= get_all_parents( parent, visited )
         return parents
 
     def get_all_dependencies(template, visited=None):
         """Recursively collect all dependencies of a template."""
+        
         if visited is None:
             visited = set()
+        
         if template.id in visited:
             return set()
-        visited.add(template.id)
+        
+        visited.add( template.id )
 
-        deps = set(template.dependencies.all())
+        deps = set( template.dependencies.all() )
         for dep in template.dependencies.all():
-            deps |= get_all_dependencies(dep, visited)
+            deps |= get_all_dependencies( dep, visited )
+        
         return deps
 
     def is_interface_compatible(template_iftype, target_iftype):
         """Check if a template interface type is compatible with target type."""
+        
         if target_iftype == models.InterfaceTypeChoices.Any:
             return True
+        
         if template_iftype == models.InterfaceTypeChoices.Any:
             return True
+        
         return template_iftype == target_iftype
 
     for template in template_objects:
         all_related = {template} | get_all_parents(template) | get_all_dependencies(template)
         for related_template in all_related:
-            if not is_interface_compatible(related_template.interface_type, interface_type):
+            if not is_interface_compatible( related_template.interface_type, interface_type ):
                 raise Exception(
                     f"Interface type mismatch: '{related_template.name}' "
                     f"requires {models.InterfaceTypeChoices(related_template.interface_type).label}, "
@@ -373,8 +382,8 @@ def validate_templates_and_interface(templateids: list, interface_type=models.In
     Validate if a selection of templates can be combined without conflict,
     and if they are valid for the given interface type.
     """
-    validate_templates(templateids)
-    validate_template_interface(templateids, interface_type)
+    validate_templates( templateids )
+    validate_template_interface( templateids, interface_type )
     return True
 
 
@@ -483,7 +492,7 @@ def convert_single_obj_array_to_sorted_strings(arr):
     return sorted(values)
 
 
-def normalize_host(zabbix_host, payload_template):
+def normalize_host_v1(zabbix_host, payload_template):
     """
     Simplified normalization of a Zabbix host dict to match the structure of a payload template.
 
@@ -524,6 +533,45 @@ def normalize_host(zabbix_host, payload_template):
     return normalized
 
 
+def normalize_host(zabbix_host, payload_template):
+    """
+    Normalize a Zabbix host dict to match the structure of a payload template.
+
+    - Recursively matches nested dicts.
+    - Preserves all lists in order.
+    - Missing keys get default empty values from template.
+    """
+    normalized = {}
+
+    for key, template_value in payload_template.items():
+        if key not in zabbix_host:
+            # If a key is missing then set the value to represent 'empty'.
+            if isinstance( template_value, dict ):
+                normalized[key] = {}
+            elif isinstance( template_value, list ):
+                normalized[key] = []
+            else:
+                normalized[key] = ""
+            continue
+
+        value = zabbix_host[key]
+
+        if isinstance( template_value, dict ) and isinstance( value, dict ):
+            normalized[key] = normalize_host( value, template_value )
+
+        elif isinstance( template_value, list ) and isinstance( value, list ):
+            if template_value and isinstance( template_value[0], dict ):
+                template_elem = template_value[0]
+                normalized[key] = [ normalize_host( item, template_elem ) for item in value ]
+            else:
+                normalized[key] = list( value )
+
+        else:
+            normalized[key] = value
+
+    return normalized
+
+
 def preprocess_host(host, template):
     """
     Normalize a host dictionary (payload or Zabbix) and rewrite its structure 
@@ -543,6 +591,7 @@ def preprocess_host(host, template):
     """
     # Step 1: Normalize host
     normalized = normalize_host( host, template )
+    logger.info( f"normalized {json.dumps( normalized, indent=2 ) }" )
 
     # Step 2: Rewrite tags
     if "tags" in normalized and isinstance( normalized["tags"], list ):
@@ -565,17 +614,20 @@ def compare_zabbix_config_with_host(zabbix_config):
 
     retval = { "differ": False, "netbox": {}, "zabbix": {} }
 
-    if not zabbix_config.hostid:
-        return retval
-    
     from netbox_zabbix.jobs import build_payload
     payload = build_payload( zabbix_config, True )
-    zabbix_host_raw = z.get_host_by_id_with_templates( zabbix_config.hostid )
+
+    zabbix_host_raw = {}
+    if zabbix_config.hostid:
+        try:
+            zabbix_host_raw = z.get_host_by_id_with_templates( zabbix_config.hostid )
+        except:
+            pass
     
     # Preprocess both the payload and zabbix host
     payload_processed = preprocess_host( payload, payload )
     zabbix_processed  = preprocess_host( zabbix_host_raw, payload )
-    
+
     # Compare the json documents
     netbox_config, zabbix_config = compare_json( payload_processed, zabbix_processed )
     
@@ -603,23 +655,9 @@ def cli_compare_config(name="dk-ece003w"):
     # Retrieve device and config
     device = models.Device.objects.get( name=name )
     config = models.DeviceZabbixConfig.objects.get( device=device )
-    from netbox_zabbix.jobs import build_payload
-    payload = build_payload( config, True )
 
-    zabbix_host_raw = z.get_host_by_id_with_templates( config.hostid )
+    result = compare_zabbix_config_with_host( config )
 
-    # Preprocess both payload and Zabbix host
-    payload_processed = preprocess_host( payload, payload )
-    zabbix_processed  = preprocess_host( zabbix_host_raw, payload )
-
-    # Compare the json documents
-    netbox_config, zabbix_config = compare_json( payload_processed, zabbix_processed )
-
-    result = {
-        "differ": False if netbox_config == {} and zabbix_config == {} else True,
-        "netbox": netbox_config,
-        "zabbix": zabbix_config
-    }
     print( f"{json.dumps( result, indent=2 ) }" )
 
 

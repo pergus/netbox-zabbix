@@ -50,8 +50,9 @@
 
 {% block content %}
 
+{% if configurations.netbox  %}
 <div class="row">
-    <div class="col-md-6">
+    <div class="col-md-12">
         <div class="card">
             <h5 class="card-header bg-primary">NetBox Configuration</h5>
             <div class="card-body">
@@ -59,17 +60,18 @@
             </div>
         </div>
     </div>
+</div>
+{% endif %}
 
-    <div class="col-md-6">
-        <div class="card">
-            <h5 class="card-header bg-danger">Zabbix Configuration</h5>
-            <div class="card-body">
-                {{ configurations.zabbix|config_to_table|safe }}
-            </div>
+{% if configurations.zabbix %}
+<div class="col-md-12">
+    <div class="card">
+        <h5 class="card-header bg-danger">Zabbix Configuration</h5>
+        <div class="card-body">
+            {{ configurations.zabbix|config_to_table|safe }}
         </div>
     </div>
 </div>
-
-
+{% endif %}
 
 {% endblock %}
