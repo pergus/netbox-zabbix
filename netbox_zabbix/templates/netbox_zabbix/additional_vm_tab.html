@@ -1,0 +1,130 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load plugins %}
+{% load render_table from django_tables2 %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item"></li>
+{% endblock %}
+
+{% block content %}
+
+{% if config %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">Virtual Machine Zabbix Config</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Name</th>
+                        <td>
+                            <a href="{{ config.get_absolute_url }}">{{ config.name }}</a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Device</th>
+                        <td>
+                            <a href="{{ config.device.get_absolute_url }}">{{ config.virtual_machine.name }}</a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">In Sync with Zabbix</th>
+                        <td> {{ config.get_sync_icon|safe }} </td>
+                    </tr>
+
+
+                    <tr>
+                        <th scope="row">Zabbix Host ID</th>
+                        <td>{{ config.hostid }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Status</th>
+                        <td>{{ config.get_status_display }}</td>
+                    </tr>
+
+
+                    <tr>
+                        <th scope="row">Monitored By</th>
+                        <td>{{ config.get_monitored_by_display }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Proxy</th>
+                        <td>{{ config.proxy }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Proxy Group</th>
+                        <td>{{ config.proxy_group }}</td>
+                    </tr>
+
+                    <tr>
+                        <th>Templates</th>
+                        <td>
+                            {% for template in config.templates.all %}
+                            <a href="{{ template.get_absolute_url }}" class="badge text-bg-primary">{{ template.name }}</a>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header">
+                Agent Interfaces
+            </h2>
+            {% htmx_table 'plugins:netbox_zabbix:deviceagentinterface_list' zcfg_id=config.pk %}
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header">
+                SNMPv3 Interfaces
+            </h2>
+            {% htmx_table 'plugins:netbox_zabbix:devicesnmpv3interface_list' zcfg_id=config.pk %}
+        </div>
+    </div>
+</div>
+
+
+{% if table.rows %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header">
+                Problems
+            </h2>
+            {% render_table table %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    {% trans "No Zabbix Problems." %}
+</div>
+{% endif %}
+
+
+{% else %}
+
+<div class="alert alert-info">
+    {% trans "No Zabbix configuration." %}
+</div>
+
+{% endif %}
+
+{% endblock %}

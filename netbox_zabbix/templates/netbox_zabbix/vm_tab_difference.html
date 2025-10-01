@@ -1,13 +1,6 @@
 {% extends 'generic/object.html' %}
-{% load buttons %}
-{% load custom_links %}
-{% load helpers %}
-{% load perms %}
-{% load plugins %}
-{% load tabs %}
-{% load i18n %}
 {% load tab_utils %}
-{% load render_table from django_tables2 %}
+{% load config_to_table %}
 
 
 {% block extra_controls %}
@@ -18,12 +11,12 @@
     </button>
     <ul class="dropdown-menu" aria-labeled-by="add-components">
         <li><a class="dropdown-item"
-                href="{% url 'plugins:netbox_zabbix:deviceagentinterface_add' %}?device_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}">
+                href="{% url 'plugins:netbox_zabbix:deviceagentinterface_add' %}?vm_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:vmzabbixconfig' object.id %}">
                 Agent Interface
             </a>
         </li>
         <li><a class="dropdown-item"
-                href="{% url 'plugins:netbox_zabbix:devicesnmpv3interface_add' %}?device_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}">
+                href="{% url 'plugins:netbox_zabbix:devicesnmpv3interface_add' %}?vm_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:vmzabbixconfig' object.id %}">
                 SNMPv3 Interface
             </a>
         </li>
@@ -32,7 +25,7 @@
 </div>
 
 <div>
-    <a href="{% url 'plugins:netbox_zabbix:sync_device_with_zabbix' %}?device_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}"
+    <a href="{% url 'plugins:netbox_zabbix:sync_with_zabbix' %}?model=vm&zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:vmzabbixconfig' object.id %}"
         class="btn btn-primary">
         <i class="mdi mdi-sync"></i> Sync With Zabbix
     </a>
@@ -55,16 +48,30 @@
 {% endblock tabs %}
 
 
-
 {% block content %}
+
+{% if configurations.netbox  %}
 <div class="row">
-    <div class="col col-md-12">
+    <div class="col-md-12">
         <div class="card">
-            <h2 class="card-header">Jobs for {{ object.name }}</h2>
+            <h5 class="card-header bg-primary">NetBox Configuration</h5>
             <div class="card-body">
-                {% render_table table %}
+                {{ configurations.netbox|config_to_table|safe }}
             </div>
         </div>
     </div>
 </div>
+{% endif %}
+
+{% if configurations.zabbix %}
+<div class="col-md-12">
+    <div class="card">
+        <h5 class="card-header bg-danger">Zabbix Configuration</h5>
+        <div class="card-body">
+            {{ configurations.zabbix|config_to_table|safe }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

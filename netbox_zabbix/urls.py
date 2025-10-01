@@ -16,7 +16,6 @@ urlpatterns = (
     # Configuration
     # --------------------------------------------------------------------------
 
-    # Configuration
     path( 'configs/',                    views.ConfigListView.as_view(),   name='config_list' ),
     path( 'configs/add/',                views.ConfigEditView.as_view(),   name='config_add' ),
     path( 'configs/<int:pk>/',           views.ConfigView.as_view(),       name='config' ),
@@ -24,8 +23,7 @@ urlpatterns = (
     path( 'configs/<int:pk>/delete/',    views.ConfigDeleteView.as_view(), name='config_delete' ),
     path( 'configs/<int:pk>/changelog/', ObjectChangeLogView.as_view(),    name='config_changelog', kwargs={'model': models.Config}, ),
 
-    # Check Zabbix Connection
-    path('zabbix/check-connection', views.zabbix_check_connection, name='check_zabbix_connection' ),
+    path('zabbix/check-connection',      views.zabbix_check_connection,    name='check_zabbix_connection' ),
         
     # --------------------------------------------------------------------------
     # Templates
@@ -41,7 +39,6 @@ urlpatterns = (
     path( 'templates/review-deletions/',  views.templates_review_deletions,       name='templates_review_deletions' ), 
     path( 'templates/confirm-deletions/', views.templates_confirm_deletions,      name='templates_confirm_deletions' ),
 
-
     # --------------------------------------------------------------------------
     # Zabbix Import Settings (Tempate, Proxies, etc.)
     # --------------------------------------------------------------------------
@@ -51,8 +48,7 @@ urlpatterns = (
     path( 'zabbix/import_proxies',      views.import_proxies,         name='import_proxies' ),
     path( 'zabbix/import-proxy-groups', views.import_proxy_groups,    name='import_proxy_groups' ),
     path( 'zabbix/import-host-group',   views.import_host_groups,     name='import_host_groups' ),
-    
-    
+
     # --------------------------------------------------------------------------
     # Proxy
     # --------------------------------------------------------------------------
@@ -108,17 +104,19 @@ urlpatterns = (
     path( 'devices/zabbix-config/delete/',             views.DeviceZabbixConfigBulkDeleteView.as_view(), name='devicezabbixconfig_bulk_delete' ),
     path( 'devices/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                    name='devicezabbixconfig_changelog', kwargs={'model': models.DeviceZabbixConfig} ),
     path( 'devices/zabbix-config/<int:pk>/jobs',       views.DeviceZabbixConfigJobsTabView.as_view(),    name='devicezabbixconfig_jobs' ),
-
     path( 'devices/zabbix-config/<int:pk>/difference', views.DeviceZabbixConfigDiffTabView.as_view(),    name='devicezabbixconfig_difference'),
 
     # VM Zabbix Configuration
-    path( 'virtual-machines/zabbix-config/',                    views.VMZabbixConfigListView.as_view(),   name='vmzabbixconfig_list' ),
-    path( 'virtual-machines/zabbix-config/add/',                views.VMZabbixConfigEditView.as_view(),   name='vmzabbixconfig_add' ),
-    path( 'virtual-machines/zabbix-config/<int:pk>/',           views.VMZabbixConfigView.as_view(),       name='vmzabbixconfig' ),
-    path( 'virtual-machines/zabbix-config/<int:pk>/edit/',      views.VMZabbixConfigEditView.as_view(),   name='vmzabbixconfig_edit' ),
-    path( 'virtual-machines/zabbix-config/<int:pk>/delete/',    views.VMZabbixConfigDeleteView.as_view(), name='vmzabbixconfig_delete' ),
-    path( 'virtual-machines/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),            name='vmzabbixconfig_changelog', kwargs={'model': models.VMZabbixConfig} ),
-
+    path( 'virtual-machines/zabbix-config/',                    views.VMZabbixConfigListView.as_view(),       name='vmzabbixconfig_list' ),
+    path( 'virtual-machines/zabbix-config/add/',                views.VMZabbixConfigEditView.as_view(),       name='vmzabbixconfig_add' ),
+    path( 'virtual-machines/zabbix-config/<int:pk>/',           views.VMZabbixConfigView.as_view(),           name='vmzabbixconfig' ),
+    path( 'virtual-machines/zabbix-config/<int:pk>/edit/',      views.VMZabbixConfigEditView.as_view(),       name='vmzabbixconfig_edit' ),
+    path( 'virtual-machines/zabbix-config/<int:pk>/delete/',    views.VMZabbixConfigDeleteView.as_view(),     name='vmzabbixconfig_delete' ),
+    path( 'virtual-machines/zabbix-config/delete/',             views.VMZabbixConfigBulkDeleteView.as_view(), name='vmzabbixconfig_bulk_delete' ),
+    path( 'virtual-machines/zabbix-config/<int:pk>/jobs',       views.VMZabbixConfigJobsTabView.as_view(),    name='vmzabbixconfig_jobs' ),
+    path( 'virtual-machines/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                name='vmzabbixconfig_changelog', kwargs={'model': models.VMZabbixConfig} ),
+    path( 'virtual-machiens/zabbix-config/<int:pk>/difference', views.VMZabbixConfigDiffTabView.as_view(),    name='vmzabbixconfig_difference'),
+    
     # Zabbix Configs (Devices and VMs combined)
     path( 'zabbix/configs/',                     views.ZabbixConfigListView.as_view(),   name='zabbixconfig_list' ),
     path( 'zabbix/configs/edit/<int:pk>/',       views.ZabbixConfigEditView.as_view(),   name='zabbixconfig_edit' ),
@@ -129,8 +127,7 @@ urlpatterns = (
     # --------------------------------------------------------------------------
     # Sync With Zabbix
     # --------------------------------------------------------------------------
-    path( 'zabbix/sync', views.sync_device_with_zabbix, name='sync_device_with_zabbix' ),
-
+    path( 'zabbix/sync', views.sync_with_zabbix, name='sync_with_zabbix' ),
 
     # --------------------------------------------------------------------------
     # Importable Hosts

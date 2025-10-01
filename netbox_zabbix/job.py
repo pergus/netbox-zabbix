@@ -46,43 +46,44 @@ class AtomicJobRunner(JobRunner):
     def handle(cls, job, *args, **kwargs):
         cls.job = job
         result = {}
-
+        signal_id  = str( kwargs.get( "signal_id", None ) )
+        
         try:
             job.start()
             with transaction.atomic():
                 result = cls(job).run( *args, **kwargs ) or {}
                 job.data = { 
-                    "status": "success", 
-                    "result": result, 
-                    "request_id": str( kwargs.get( "request_id" ) ),
-                    "data": result.get( "data" ),
-                    "pre_data": result.get( "pre_data" ),
-                    "post_data": result.get( "post_data" ),
+                    "status":     "success", 
+                    "result":     result, 
+                    "signal_id":  str( kwargs.get( "signal_id" ) ),
+                    "data":       result.get( "data" ),
+                    "pre_data":   result.get( "pre_data" ),
+                    "post_data":  result.get( "post_data" ),
                 }
                 job.terminate( status=JobStatusChoices.STATUS_COMPLETED )
-
-            cls._log_event( name=job.name, job=job, result=result )
+            cls._log_event( name=job.name, job=job, result=result, signal_id=signal_id )
 
         except Exception as e:
             error_msg = str( e )
-            data = getattr( e, "data", None )
-            pre_data = getattr( e, "pre_data", None )
+            data      = getattr( e, "data", None )
+            pre_data  = getattr( e, "pre_data", None )
             post_data = getattr( e, "post_data", None )
-
+            
             job.data = {
-                "status": "failed",
-                "error": error_msg,
-                "message": "Database changes have been reverted automatically.",
-                "data": data,
-                "pre_data": pre_data,
-                "post_data": post_data,
+                "status":     "failed",
+                "error":      error_msg,
+                "message":    "Database changes have been reverted automatically.",
+                "signal_id":  signal_id,
+                "data":       data,
+                "pre_data":   pre_data,
+                "post_data":  post_data,
             }
 
             job.terminate( status=JobStatusChoices.STATUS_ERRORED, error=error_msg )
             
             logger.error( e )
             
-            cls._log_event( name=job.name, job=job, result=result, exception=error_msg, data=data, pre_data=pre_data, post_data=post_data )
+            cls._log_event( name=job.name, job=job, result=result, exception=error_msg, data=data, pre_data=pre_data, post_data=post_data, signal_id=signal_id )
             raise
 
         finally:
@@ -94,6 +95,7 @@ class AtomicJobRunner(JobRunner):
                     user=job.user,
                     schedule_at=new_scheduled_time,
                     interval=job.interval,
+                    signal_id=job.signal_id,
                     **kwargs,
                 )
 
@@ -116,27 +118,27 @@ class AtomicJobRunner(JobRunner):
         return result.get( "message", str( result ) )
     
     @staticmethod
-    def _log_event(name, job=None, result=None, exception=None, data=None, pre_data=None, post_data=None ):
+    def _log_event(name, job=None, result=None, exception=None, data=None, pre_data=None, post_data=None, signal_id=None ):
         from netbox_zabbix.models import EventLog # Here to prevent circular imports
         if not get_event_log_enabled():
             return
         
         # Ensure result is a dictionary
         result = result or {}
-
         payload = {
             "name":      name,
             "job":       job,
+            "signal_id": signal_id,
             "message":   result.get( "message", str( result ) if not exception else "" ),
             "data":      data      if data      else result.get( "data" ),
             "pre_data":  pre_data  if pre_data  else result.get( "pre_data" ),
-            "post_data": post_data if post_data else result.get( "post_data" )
+            "post_data": post_data if post_data else result.get( "post_data" ),
         }
 
         if exception:
             payload["exception"] = exception
 
         # Only pass allowed keys to EventLog
-        allowed_fields = { "name", "job", "message", "data", "pre_data", "post_data", "exception" }
+        allowed_fields = { "name", "job", "message", "data", "pre_data", "post_data", "exception", "signal_id" }
         safe_payload = { k: v for k, v in payload.items() if k in allowed_fields and v is not None }
         EventLog.objects.create( **safe_payload )

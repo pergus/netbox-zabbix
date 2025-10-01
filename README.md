@@ -67,6 +67,20 @@ Add a view that lists all inconsistent devm/hosts.
 
 ### Todo/Bugs
 
+* Add user to the event log.
+
+
+* When adding a zcfg by hand there is no event for it in the event log.
+  Also, no Zabbix Host configuration is created which means that when
+  adding a new interface it fails since there is no zabbix host id.
+  I have seen this for vms but it works for devices.
+
+
+* Should the zabbix host pre-data be normalized before it is displayed or 
+  when it is saved to the event/job logs? I could just normalize it
+  when displaying the data just in case we need the full data...dunno.
+
+
 * Since I rewrote a lot of code yesterday, run over all tests.
   Is it possible to automat the tests? Maybe but the UI has to be tested as well.
 

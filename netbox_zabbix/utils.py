@@ -492,47 +492,6 @@ def convert_single_obj_array_to_sorted_strings(arr):
     return sorted(values)
 
 
-def normalize_host_v1(zabbix_host, payload_template):
-    """
-    Simplified normalization of a Zabbix host dict to match the structure of a payload template.
-
-    - Recursively matches nested dicts.
-    - Preserves all lists in order.
-    - Missing keys get default empty values from template.
-    """
-    normalized = {}
-
-    for key, template_value in payload_template.items():
-        value = zabbix_host.get( key, None )
-
-        if value is None:
-            # Missing key -> use empty/default from template
-            if isinstance( template_value, dict ):
-                normalized[key] = {}
-            elif isinstance( template_value, list ):
-                normalized[key] = []
-            else:
-                normalized[key] = template_value
-            continue
-
-        if isinstance( template_value, dict ):
-            normalized[key] = normalize_host( value, template_value )
-
-        elif isinstance( template_value, list ):
-            if template_value and isinstance( template_value[0], dict ):
-                # List of dicts -> normalize each item recursively using template element
-                template_elem = template_value[0]
-                normalized[key] = [ normalize_host( item, template_elem ) for item in value ]
-            else:
-                # List of primitives -> preserve order
-                normalized[key] = list( value )
-
-        else:
-            normalized[key] = value
-
-    return normalized
-
-
 def normalize_host(zabbix_host, payload_template):
     """
     Normalize a Zabbix host dict to match the structure of a payload template.
@@ -591,7 +550,6 @@ def preprocess_host(host, template):
     """
     # Step 1: Normalize host
     normalized = normalize_host( host, template )
-    logger.info( f"normalized {json.dumps( normalized, indent=2 ) }" )
 
     # Step 2: Rewrite tags
     if "tags" in normalized and isinstance( normalized["tags"], list ):

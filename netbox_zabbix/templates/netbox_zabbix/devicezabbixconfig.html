@@ -26,7 +26,7 @@
 </div>
 
 <div>
-<a href="{% url 'plugins:netbox_zabbix:sync_device_with_zabbix' %}?device_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}" class="btn btn-primary">
+<a href="{% url 'plugins:netbox_zabbix:sync_with_zabbix' %}?model=device&zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:devicezabbixconfig' object.id %}" class="btn btn-primary">
     <i class="mdi mdi-sync"></i> Sync With Zabbix
 </a>
 </div>

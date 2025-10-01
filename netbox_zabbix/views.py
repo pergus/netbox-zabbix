@@ -598,14 +598,14 @@ class NetBoxOnlyDevicesView(generic.ObjectListView):
                 .exclude( name__in=zabbix_hostnames )
                 .exclude(**filter_kwargs) 
                 .select_related( "site", "role", "platform" )
-                .prefetch_related( "tags", "zbx_device_config" )
+                .prefetch_related( "tags", "zcfg" )
             )
         else:
             queryset = (
                 Device.objects
                 .exclude( name__in=zabbix_hostnames )
                 .select_related( "site", "role", "platform" )
-                .prefetch_related( "tags", "zbx_device_config" )
+                .prefetch_related( "tags", "zcfg" )
             )
 
         # Build the mapping cache
@@ -817,7 +817,7 @@ class ZabbixOnlyHostsView(GenericTemplateView):
 
 
 # ------------------------------------------------------------------------------
-# Zabbix Configurations
+# Device Zabbix Configurations
 # ------------------------------------------------------------------------------
 
 
@@ -846,7 +846,12 @@ class DeviceZabbixConfigBulkDeleteView(generic.BulkDeleteView):
     table = tables.DeviceZabbixConfigTable
 
     def get_return_url(self, request, obj=None):
-            return reverse('plugins:netbox_zabbix:devicezabbixconfig_list')
+        return reverse('plugins:netbox_zabbix:devicezabbixconfig_list')
+
+
+# ------------------------------------------------------------------------------
+# VM Zabbix Configurations
+# ------------------------------------------------------------------------------
 
 
 class VMZabbixConfigView(generic.ObjectView):
@@ -867,6 +872,14 @@ class VMZabbixConfigEditView(generic.ObjectEditView):
 
 class VMZabbixConfigDeleteView(generic.ObjectDeleteView):
     queryset = models.VMZabbixConfig.objects.all()
+
+
+class VMZabbixConfigBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.VMZabbixConfig.objects.all()
+    table = tables.VMZabbixConfigTable
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:vmzabbixconfig_list')
 
 
 # ------------------------------------------------------------------------------
@@ -932,25 +945,31 @@ class ZabbixConfigDeleteView(View):
 # ------------------------------------------------------------------------------
 
 
-def run_sync_device_with_zabbix(request):
+def run_sync_with_zabbix(request):
     try:
-        zabbix_config_id = request.GET.get( "device_zabbix_config_id" )
-        config = models.DeviceZabbixConfig.objects.get( id = zabbix_config_id )
+        model = request.GET.get( "model" )
+        config_id = request.GET.get( "zabbix_config_id" )
+
+        if model == "device":
+            config = models.DeviceZabbixConfig.objects.get( id=config_id )
+        elif model == "vm":
+            config = models.VMZabbixConfig.objects.get( id=config_id )
+        else:
+            raise Exception( f"model {model} has to be either 'device' or 'vm'" )
 
         jobs.UpdateZabbixHost.run_job_now( zabbix_config=config, request=request )
-
         messages.success( request, f"Sync {config.name} with Zabbix succeeded." )
     except Exception as e:
         messages.error( request, f"Failed to sync {config.name} with Zabbix. Reason: {str( e ) }" )
 
 
-def sync_device_with_zabbix(request):
+def sync_with_zabbix(request):
     """
     View-based wrapper around sync with Zabbix
     """
     redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
     
-    run_sync_device_with_zabbix( request )
+    run_sync_with_zabbix( request )
 
     return redirect( redirect_url )
 
@@ -997,7 +1016,6 @@ class ImportableDeviceListView(generic.ObjectListView):
                 device = Device.objects.filter( pk=selected_ids[0] ).first()
                 if device:
                     try:
-                        logger.info( f"Validating device '{device.name}'" )
                         result = jobs.ValidateDeviceOrVM.run_now( model_instance=device, request=request, name=f"Validate {device.name}" )
                         messages.success( request, result )
                     except Exception as e:
@@ -1083,7 +1101,6 @@ class ImportableVMListView(generic.ObjectListView):
                 vm = VirtualMachine.objects.filter( pk=selected_ids[0] ).first()
                 if vm:
                     try:
-                        logger.info( f"Validating VM '{vm.name}'" )
                         result = jobs.ValidateDeviceOrVM.run_now( model_instance=vm, request=request, name=f"Validate {vm.name}" )
                         messages.success( request, result )
                     except Exception as e:
@@ -1098,16 +1115,18 @@ class ImportableVMListView(generic.ObjectListView):
             # Add a check to make sure there are any selected hosts, print a warning if not.
             selected_ids = request.POST.getlist( 'pk' )
             queryset = VirtualMachine.objects.filter( pk__in=selected_ids )
+
             success_counter = 0
             max_success_messages = config.get_max_success_notifications()
+
             for vm in queryset:
                 try:
-                    logger.info ( f"importing vm {vm.name}" )
-                    job = jobs.ImportFromZabbix.run_job( device_or_vm=vm, user=request.user, request_id=request.id )
+                    job = jobs.ImportFromZabbix.run_job( model_instance=vm, request=request  )
                     message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to import {vm.name} from Zabbix' )
                     if success_counter < max_success_messages:
-                        messages.success(request, message)
-                        success_counter += 1    
+                        messages.success( request, message )
+                        success_counter += 1
+
                 except Exception as e:
                     msg = f"Failed to create job for {request.user} to import vm '{vm}' from Zabbix {str( e )}"
                     messages.error( request, msg )
@@ -1551,7 +1570,7 @@ class ZabbixDeviceTabView(generic.ObjectView):
 
 
 # ------------------------------------------------------------------------------
-# Tasks Tab 
+# Device Tab for Tasks
 # ------------------------------------------------------------------------------
 
 
@@ -1560,7 +1579,7 @@ class DeviceZabbixConfigJobsTabView(generic.ObjectView):
 
     queryset = models.DeviceZabbixConfig.objects.all()
     tab = ViewTab( label="Tasks", badge=lambda instance: instance.jobs.count() )
-    template_name = 'netbox_zabbix/device_jobs.html'
+    template_name = 'netbox_zabbix/device_tab_jobs.html'
 
     def get_extra_context(self, request, instance):
         queryset = instance.jobs.all()
@@ -1569,7 +1588,7 @@ class DeviceZabbixConfigJobsTabView(generic.ObjectView):
 
 
 # ------------------------------------------------------------------------------
-# Zabbix Diff Tab
+# Device Tab for Zabbix Diff
 # ------------------------------------------------------------------------------
 
 
@@ -1578,9 +1597,81 @@ class DeviceZabbixConfigDiffTabView(generic.ObjectView):
 
     queryset = models.DeviceZabbixConfig.objects.all()
     tab = ViewTab( label="Difference", badge=lambda instance: int( instance.get_sync_status() ), hide_if_empty=True )
-    template_name = 'netbox_zabbix/device_difference.html'
+    template_name = 'netbox_zabbix/device_tab_difference.html'
 
     def get_extra_context(self, request, instance):
         return { "configurations": instance.get_sync_diff() }
-    
+
+
+
+
+# ------------------------------------------------------------------------------
+# VM Tab for Zabbix Details
+# ------------------------------------------------------------------------------
+
+#@register_model_view(Device, name="Zabbix", path="zabbix")
+#class VMDeviceTabView(generic.ObjectView):
+#    queryset = models.VMZabbixConfig.objects.all()
+#    tab = ViewTab(
+#        label="Zabbix",
+#        hide_if_empty=True,
+#        badge=lambda virtual_machine: str( len( z.get_problems( virtual_machine.name ) ) )  if models.VMZabbixConfig.objects.filter( virtual_machine=virtual_machine ).exists() else 0
+#    )
+#
+#    def get(self, request, pk):
+#        virtual_machine = get_object_or_404( VirtualMachine, pk=pk )
+#        config = models.VMZabbixConfig.objects.filter( virtual_machine=virtual_machine ).first()
+#
+#        problems = []
+#        table = None
+#        if config:
+#            problems = z.get_problems( virtual_machine.name )
+#            table = tables.ZabbixProblemTable( problems )
+#
+#        return render(
+#            request,
+#            "netbox_zabbix/additional_vm_tab.html",
+#            context={
+#                "tab": self.tab,
+#                "object": virtual_machine,
+#                "config": config,
+#                "table": table,
+#            },
+#        )
+
+
+# ------------------------------------------------------------------------------
+# VM Tab for Tasks
+# ------------------------------------------------------------------------------
+
+
+@register_model_view(models.VMZabbixConfig, name='jobs')
+class VMZabbixConfigJobsTabView(generic.ObjectView):
+
+    queryset = models.VMZabbixConfig.objects.all()
+    tab = ViewTab( label="Tasks", badge=lambda instance: instance.jobs.count() )
+    template_name = 'netbox_zabbix/vm_tab_jobs.html'
+
+    def get_extra_context(self, request, instance):
+        queryset = instance.jobs.all()
+        table = JobTable( queryset )
+        return { "table": table }
+
+# ------------------------------------------------------------------------------
+# VM Tab for Zabbix Diff
+# ------------------------------------------------------------------------------
+
+@register_model_view(models.VMZabbixConfig, name='difference')
+class VMZabbixConfigDiffTabView(generic.ObjectView):
+
+    queryset = models.VMZabbixConfig.objects.all()
+    tab = ViewTab( label="Difference", badge=lambda instance: int( instance.get_sync_status() ), hide_if_empty=True )
+    template_name = 'netbox_zabbix/vm_tab_difference.html'
+
+    def get_extra_context(self, request, instance):
+        return { "configurations": instance.get_sync_diff() }
+
+
+
+
 # end

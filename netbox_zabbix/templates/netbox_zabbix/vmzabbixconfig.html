@@ -1,6 +1,8 @@
 {% extends 'generic/object.html' %}
 {% load render_table from django_tables2 %}
-
+{% load helpers %}
+{% load i18n %}
+{% load tab_utils %}
 
 {% block extra_controls %}
 <div class="dropdown">
@@ -11,7 +13,6 @@
     <ul class="dropdown-menu" aria-labeled-by="add-components">
         <li><a class="dropdown-item"
                 href="{% url 'plugins:netbox_zabbix:vmagentinterface_add' %}?vm_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:vmzabbixconfig' object.id %}">
-
                 Agent Interface
             </a>
         </li>
@@ -23,7 +24,30 @@
 
     </ul>
 </div>
+
+<div>
+    <a href="{% url 'plugins:netbox_zabbix:sync_with_zabbix' %}?model=vm&zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:vmzabbixconfig' object.id %}"
+        class="btn btn-primary">
+        <i class="mdi mdi-sync"></i> Sync With Zabbix
+    </a>
+</div>
+
 {% endblock %}
+
+
+{% block tabs %}
+<ul class="nav nav-tabs" role="presentation">
+    {# Primary overview tab #}
+    <li class="nav-item">
+        <a class="nav-link{% if not tab %} active{% endif %}" href="{{ object.get_absolute_url }}">
+            {{ object|meta:"verbose_name"|bettertitle }}
+        </a>
+    </li>
+    {# Include tabs for registered model views except for jobs #}
+    {% model_view_tabs_exlude_jobs object %}
+</ul>
+{% endblock tabs %}
+
 
 {% block content %}
 <div class="row">
@@ -40,13 +64,24 @@
                     <tr>
                         <th scope="row">Virtual Machine</th>
                         <td>
-                            <a href="{{ object.device.get_absolute_url }}">{{ object.virtual_machine.name }}</a>
+                            <a href="{{ object.virtual_machine.get_absolute_url }}">{{ object.virtual_machine.name }}</a>
                         </td>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">In Sync with Zabbix</th>
+                        <td> {{ object.get_sync_icon|safe }} </td>
+                    </tr>
+                    
+                    
+                    <tr>
+                        <th scope="row">Zabbix Host ID</th>
+                        <td>{{ object.hostid }}</td>
                     </tr>
 
                     <tr>
                         <th scope="row">Status</th>
-                        <td>{{ object.status }}</td>
+                        <td>{{ object.get_status_display }}</td>
                     </tr>
 
                     <tr>
@@ -54,10 +89,26 @@
                         <td>{{ object.get_monitored_by_display }}</td>
                     </tr>
 
+
                     <tr>
-                        <th scope="row">Zabbix Host ID</th>
-                        <td>{{ object.hostid }}</td>
+                        <th scope="row">Proxy</th>
+                        <td>{{ object.proxy }}</td>
                     </tr>
+                    
+                    <tr>
+                        <th scope="row">Proxy Group</th>
+                        <td>{{ object.proxy_group }}</td>
+                    </tr>
+                    
+                    <tr>
+                        <th>Host Groups</th>
+                        <td>
+                            {% for host_group in object.host_groups.all %}
+                            <a href="{{ host_group.get_absolute_url }}" class="badge text-bg-primary">{{ host_group.name }}</a>
+                            {% endfor %}
+                        </td>
+                    </tr>
+
 
                     <tr>
                         <th>Templates</th>
@@ -74,21 +125,19 @@
     </div>
 </div>
 
+{% if object.description %}
 <div class="row">
     <div class="col col-md-12">
         <div class="card">
             <h2 class="card-header">{% trans "Description" %}</h2>
             <div class="card-body">
-                {% if object.description %}
                 {{ object.description|markdown }}
-                {% else %}
                 <span class="text-muted">{% trans "None" %}</span>
-                {% endif %}
             </div>
         </div>
     </div>
 </div>
-
+{% endif %}
 
 <div class="row">
     <div class="col col-md-12">

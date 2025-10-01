@@ -495,7 +495,7 @@ class DeviceZabbixConfig(ZabbixConfig):
         verbose_name = "Zabbix Device Configuration"
         verbose_name_plural = "Zabbix Device Configurations"
     
-    device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zbx_device_config' )
+    device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zcfg' )
 
 
     @property
@@ -551,7 +551,7 @@ class VMZabbixConfig(ZabbixConfig):
         verbose_name = "Zabbix VM Configuration"
         verbose_name_plural = "Zabbix VM Configurations"
     
-    virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zbx_vm_config' )
+    virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zcfg' )
 
 
     @property
@@ -569,13 +569,38 @@ class VMZabbixConfig(ZabbixConfig):
         return reverse( "plugins:netbox_zabbix:vmzabbixconfig", args=[self.pk] )
 
     def devm_name(self):
-        return self.device.name if self.device else None
+        return self.virtual_machine.name if self.virtual_machine else None
 
+    def get_sync_status(self):
+        """
+        Returns a boolean indicating whether this host is in sync with Zabbix.
+        """
+        from netbox_zabbix.utils import compare_zabbix_config_with_host
+        try:
+            result = compare_zabbix_config_with_host( self )
+            return result.get( "differ", False )
+        except:
+            return False
+    
+    def get_sync_diff(self):
+        from netbox_zabbix.utils import compare_zabbix_config_with_host
+        try:
+            return compare_zabbix_config_with_host( self )
+        except:
+            return {}
+    
+    def get_sync_icon(self):
+        """
+        Returns a checkmark or cross for template display.
+        """
+        return mark_safe( "✘" ) if self.get_sync_status() else mark_safe( "✔" )
+    
     def save(self, *args, **kwargs):
         # Default name if not provided
-        if not self.name and self.device:
-            self.name = f"z-{self.device.name}"
+        if not self.name and self.virtual_machine:
+            self.name = f"z-{self.virtual_machine.name}"
         super().save(*args, **kwargs)
+
 
 # ------------------------------------------------------------------------------
 # Interfaces
@@ -626,9 +651,10 @@ class BaseAgentInterface(HostInterface):
         """
         zcfg = self.zcfg
         if hasattr( zcfg, "device" ) and zcfg.device:
-            return zcfg.device.primary_ip4 or zcfg.device.primary_ip6
+            return zcfg.device.primary_ip4
+        
         elif hasattr( zcfg, "virtual_machine" ) and zcfg.virtual_machine:
-            return zcfg.virtual_machine.primary_ip4 or zcfg.virtual_machine.primary_ip6
+            return zcfg.virtual_machine.primary_ip4
         return None
     
     @property
@@ -794,7 +820,7 @@ class DeviceSNMPv3Interface(BaseSNMPv3Interface):
     interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
     
     # IP address used by the interface. Can be empty if connection is made via DNS.
-    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="device_snmp3_interface" )
+    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="device_snmpv3_interface" )
 
 
 class VMAgentInterface(BaseAgentInterface):
@@ -824,7 +850,7 @@ class VMSNMPv3Interface(BaseSNMPv3Interface):
     interface = models.OneToOneField( to="virtualization.VMInterface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
     
     # IP address used by the interface. Can be empty if connection is made via DNS.
-    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="vm_snmp3_interface" )
+    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="vm_snmpv3_interface" )
 
 
 # ------------------------------------------------------------------------------
@@ -1025,6 +1051,7 @@ class VMMapping(Mapping):
 class EventLog(NetBoxModel):
     name      = models.CharField( verbose_name="Name", max_length=256, help_text="Event name." )
     job       = models.ForeignKey( Job, on_delete=models.CASCADE, null=True, related_name='logs', help_text="Job reference." )
+    signal_id = models.TextField( verbose_name="Signal ID", blank=True, default="", help_text="Signal ID." )
     message   = models.TextField( verbose_name="Message", blank=True, default="", help_text="Event message." )
     exception = models.TextField( verbose_name="Exception", blank=True, default="", help_text="Exception." )
     data      = models.JSONField( verbose_name="Data", null=True, blank=True, default=dict, help_text="Event data." )

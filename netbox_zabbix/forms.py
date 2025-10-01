@@ -366,7 +366,6 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
         # Exclude already used devices from the queryset
         if not instance or not instance.pk:  
             # Creating a new DeviceZabbixConfig
-            logger.info( "Adding a new DeviceZabbixConfig" )
             used_device_ids = models.DeviceZabbixConfig.objects.values_list( 'device_id', flat=True )
             self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
 
@@ -455,20 +454,30 @@ class VMZabbixConfigForm(NetBoxModelForm):
 
     class Meta:
         model = models.VMZabbixConfig
-        fields = ('virtual_machine', 'status', 'monitored_by', 'templates', 'proxy', 'proxy_group', 'host_groups')
+        fields = ('virtual_machine', 'status', 'monitored_by', 'templates', 'proxy', 
+                  'proxy_group', 'host_groups', 'description')
 
     def __init__(self, *args, **kwargs):
-        instance = kwargs.get('instance', None)
+        instance = kwargs.get( 'instance', None )
     
-        super().__init__(*args, **kwargs)
+        super().__init__( *args, **kwargs )
 
 
         # Add specific virtual machine 
-        if self.initial.get('vm_id'):
+        if self.initial.get( 'vm_id' ):
             specific_vm_id = self.initial.get( 'vm_id' )
             self.fields['virtual_machine'].queryset = VirtualMachine.objects.filter( pk=specific_vm_id )
             self.initial['virtual_machine'] = specific_vm_id
+
+            # Default name
+            try:
+                vm = VirtualMachine.objects.get( pk=specific_vm_id )
+                self.initial['name'] = f"z-{vm.name}"
+            except VirtualMachine.DoesNotExist:
+                pass
+            
             return
+        
         
         # Exclude already used virtual machine from the queryset
         if not instance or not instance.pk:  

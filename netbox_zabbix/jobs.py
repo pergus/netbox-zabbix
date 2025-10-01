@@ -34,8 +34,6 @@ from virtualization.models import VirtualMachine, VMInterface
 from core.models import Job
 from datetime import timedelta, datetime
 
-from django.db.models.signals import post_save
-
 
 import netaddr
 
@@ -254,10 +252,10 @@ def validate_zabbix_host(zabbix_host: dict, host: Union[Device, VirtualMachine])
 
     # Check for existing Zabbix config objects
     if isinstance( host, Device ):
-        if hasattr( host, 'devicezabbixconfig' ) and host.devicezabbixconfig is not None:
+        if hasattr( host, 'zcfg' ) and host.zcfg is not None:
             raise Exception(f"Device '{host.name}' already has a DeviceZabbixConfig associated")
     else:  # VirtualMachine
-        if hasattr( host, 'vmzabbixconfig' ) and host.vmzabbixconfig is not None:
+        if hasattr( host, 'zcfg' ) and host.zcfg is not None:
             raise Exception( f"VM '{host.name}' already has a VMZabbixConfig associated" )
     
     # Validate Zabbix templates exists in NetBox
@@ -497,10 +495,6 @@ def build_payload(zcfg, for_update=False, pre_data=None) -> dict:
         if for_update:
             if iface.interfaceid:
                 entry["interfaceid"] = str( iface.interfaceid )
-            #else:
-            #    key = ( entry["ip"], entry["dns"], entry["type"], entry["port"] )
-            #    if key in existing_ifaces:
-            #        entry["interfaceid"] = existing_ifaces[key]
 
         interfaces.append( entry )
 
@@ -668,9 +662,7 @@ def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
     """
     Create a ZabbixConfig object for the given device or VM.
     """
-    
-    from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_config
-    
+
     try:
         zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
         zcfg = zabbix_config_model( **zcfg_kwargs )
@@ -743,8 +735,6 @@ def create_zabbix_interface( obj, zcfg, interface_model, interface_name_suffix, 
 
     useip = UseIPChoices.DNS if getattr( ip, "dns_name", None ) else UseIPChoices.IP
 
-    from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_interface
-
     try:
         interface_fields = dict(
             name=f"{obj.name}-{interface_name_suffix}",
@@ -774,12 +764,9 @@ def save_zabbix_config( zcfg ):
     """
     Save the ZabbixConfig to NetBox after it has been updated.
     """
-    from netbox_zabbix.signals.signals import dev_create_or_update_zabbix_config
-
     zcfg.full_clean()
-    post_save.disconnect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
+    zcfg._skip_signal = True
     zcfg.save()
-    post_save.connect( dev_create_or_update_zabbix_config, sender=type( zcfg ) )
 
 
 # ------------------------------------------------------------------------------
@@ -1042,7 +1029,7 @@ def import_zabbix_config(ctx: ImportContext):
                     useip       = iface["useip"],
                     main        = iface["main"],
                     port        = iface["port"],
-                    host        = config,
+                    zcfg        = config,
                     interface   = nb_interface,
                     ip_address  = nb_ip_address,
                 )
@@ -1064,7 +1051,7 @@ def import_zabbix_config(ctx: ImportContext):
                     useip       = iface["useip"],
                     main        = iface["main"],
                     port        = iface["port"],
-                    host        = config,
+                    zcfg        = config,
                     interface   = nb_interface,
                     ip_address  = nb_ip_address,
 
@@ -1143,7 +1130,7 @@ def provision_zabbix_host(ctx: ProvisionContext):
     try:
         monitored_by = get_monitored_by()
 
-        mapping = ( resolve_device_mapping if isinstance(ctx.obj, Device) else resolve_vm_mapping )(ctx.obj, ctx.interface_model)
+        mapping = ( resolve_device_mapping if isinstance( ctx.obj, Device ) else resolve_vm_mapping )( ctx.obj, ctx.interface_model )
 
         # Check if a Zabbix config already exists
         zabbix_config = ctx.zabbix_config_model.objects.filter( **{ctx.host_field_name: ctx.obj} ).first()
@@ -1247,52 +1234,6 @@ def update_host_in_zabbix(zabbix_config, user, request_id):
             raise
         raise ExceptionWithData(
             f"Failed to update Zabbix host {zabbix_config.devm_name()}: {e}",
-            pre_data=pre_data,
-            post_data=payload,
-        )
-
-    # Add a change log entry for the update
-    changelog_update( zabbix_config, user, request_id )
-
-    return {
-        "message":  f"Updated Zabbix host {zabbix_config.hostid}",
-        "pre_data": pre_data,
-        "post_data": payload,
-    }
-
-
-def device_update_zabbix_host(zabbix_config, user, request_id):
-
-    if not zabbix_config:
-        raise ExceptionWithData( "No ZabbixConfig provided" )
-
-    # Fetch current state of the host in Zabbix
-    pre_data = get_host_by_id( zabbix_config.hostid )
-
-    # Current template IDs in Zabbix (directly assigned to host)
-    current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
-
-    # Templates currently assigned in NetBox
-    new_template_ids = set( str( tid ) for tid in zabbix_config.templates.values_list( "templateid", flat=True ) )
-
-    # Only remove templates that are no longer assigned
-    removed_template_ids = current_template_ids - new_template_ids
-    templates_clear = [ {"templateid": tid} for tid in removed_template_ids ]
-
-    # Build payload for update
-    payload = build_payload( zabbix_config, for_update=True )
-    if templates_clear:
-        payload[ "templates_clear" ] = templates_clear
-
-    try:
-        update_host( **payload )
-
-    except Exception as e:
-        # Don’t wrap twice – keep context if already ExceptionWithData
-        if isinstance( e, ExceptionWithData ):
-            raise
-        raise ExceptionWithData(
-            f"Failed to update Zabbix host {zabbix_config.device}: {e}",
             pre_data=pre_data,
             post_data=payload,
         )
@@ -1766,7 +1707,7 @@ class CreateZabbixHost( AtomicJobRunner ):
             raise ExceptionWithData(e, data=locals().get("payload"))
 
     @classmethod
-    def run_job(cls, zabbix_config, request, schedule_at=None, interval=None, immediate=False, name=None):
+    def run_job(cls, zabbix_config, request, schedule_at=None, interval=None, immediate=False, name=None, signal_id=None):
         # TODO: Add parameter checks here
         
         if name is None:
@@ -1778,6 +1719,7 @@ class CreateZabbixHost( AtomicJobRunner ):
             "schedule_at":  schedule_at,
             "interval":     interval,
             "immediate":    immediate,
+            "signal_id":    signal_id,
             "config_id":    zabbix_config.id,
             "config_model": zabbix_config.__class__.__name__
         }
@@ -1828,7 +1770,7 @@ class UpdateZabbixHost( AtomicJobRunner ):
             raise
 
     @classmethod
-    def run_job(cls, zabbix_config, request, schedule_at=None, interval=None, immediate=False, name=None):
+    def run_job(cls, zabbix_config, request, user=None, schedule_at=None, interval=None, immediate=False, name=None, signal_id=None):
         # TODO: Add parameter checks here
         
         if name is None:
@@ -1840,6 +1782,7 @@ class UpdateZabbixHost( AtomicJobRunner ):
             "schedule_at":  schedule_at,
             "interval":     interval,
             "immediate":    immediate,
+            "signal_id":    signal_id,
             "config_id":    zabbix_config.id,
             "config_model": zabbix_config.__class__.__name__
         }
@@ -1847,7 +1790,9 @@ class UpdateZabbixHost( AtomicJobRunner ):
         if request:
             job_args["user"]       = request.user
             job_args["request_id"] = request.id
-        
+        else:
+            if user:
+                job_args["user"] = user
 
         if interval is None:
             netbox_job = cls.enqueue( **job_args )
@@ -1879,18 +1824,18 @@ class BaseZabbixInterfaceJob(AtomicJobRunner):
 
     @classmethod
     def get_config(cls, **kwargs):
-        config_id    = require_kwargs(kwargs, "config_id")
-        config_model = require_kwargs(kwargs, "config_model")
+        config_id    = require_kwargs( kwargs, "config_id" )
+        config_model = require_kwargs( kwargs, "config_model" )
 
-        model_cls = MODEL_MAP.get(config_model)
+        model_cls = MODEL_MAP.get( config_model )
         if not model_cls:
             raise Exception(f"Unknown Zabbix config model: {config_model}")
 
-        return model_cls.objects.get(id=config_id)
+        return model_cls.objects.get( id=config_id )
 
     @classmethod
     def run_job(cls, zabbix_config, request=None, schedule_at=None,
-                    interval=None, immediate=False, name=None):
+                    interval=None, immediate=False, name=None, signal_id=None):
 
         if name is None:
             name = f"{cls.__name__} for {zabbix_config.devm_name()}"
@@ -1901,13 +1846,14 @@ class BaseZabbixInterfaceJob(AtomicJobRunner):
             "schedule_at":  schedule_at,
             "interval":     interval,
             "immediate":    immediate,
+            "signal_id":    signal_id,
             "config_id":    zabbix_config.id,
             "config_model": zabbix_config.__class__.__name__,
         }
 
         if request:
             job_args["user"]       = request.user
-            job_args["request_id"] = getattr(request, "id", None)
+            job_args["request_id"] = getattr( request, "id", None )
 
         if interval is None:
             return cls.enqueue( **job_args )
@@ -1922,7 +1868,7 @@ class CreateZabbixInterface(BaseZabbixInterfaceJob):
 
     @classmethod
     def run(cls, *args, **kwargs):
-        config = cls.get_config(**kwargs)
+        config = cls.get_config( **kwargs )
 
         if not config.hostid:
             raise Exception(
@@ -1930,8 +1876,8 @@ class CreateZabbixInterface(BaseZabbixInterfaceJob):
                 f"Zabbix config '{config.name}' has no associated Zabbix host id."
             )
 
-        retval = update_host_in_zabbix(config, kwargs.get("user"), kwargs.get("request_id"))
-        link_missing_interface(config, config.hostid)
+        retval = update_host_in_zabbix( config, kwargs.get( "user" ), kwargs.get( "request_id" ) )
+        link_missing_interface( config, config.hostid )
         return retval
 
 
@@ -1942,7 +1888,7 @@ class UpdateZabbixInterface(BaseZabbixInterfaceJob):
 
     @classmethod
     def run(cls, *args, **kwargs):
-        config = cls.get_config(**kwargs)
+        config = cls.get_config( **kwargs )
 
         if not config.hostid:
             raise Exception(
@@ -1951,8 +1897,8 @@ class UpdateZabbixInterface(BaseZabbixInterfaceJob):
             )
 
         # Assoicate the interface with the interfaceid
-        link_missing_interface(config, config.hostid)
-        return update_host_in_zabbix(config, kwargs.get("user"), kwargs.get("request_id"))
+        link_missing_interface( config, config.hostid )
+        return update_host_in_zabbix( config, kwargs.get("user"), kwargs.get( "request_id" ) )
 
 
 class DeleteZabbixHost( AtomicJobRunner ):
@@ -1985,7 +1931,7 @@ class DeleteZabbixHost( AtomicJobRunner ):
             raise Exception( msg )
 
     @classmethod
-    def run_job(cls, hostid, user=None, schedule_at=None, interval=None, immediate=False, name=None):
+    def run_job(cls, hostid, user=None, schedule_at=None, interval=None, immediate=False, name=None, signal_id=None):
         if name is None:
             name = f"Delete Zabbix host '{hostid}'" 
         
@@ -1994,6 +1940,7 @@ class DeleteZabbixHost( AtomicJobRunner ):
             "schedule_at": schedule_at,
             "interval":    interval,
             "immediate":   immediate,
+            "signal_id":   signal_id,
             "user":        user,
             "hostid":      hostid,
         }

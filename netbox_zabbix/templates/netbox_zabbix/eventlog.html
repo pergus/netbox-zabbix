@@ -76,7 +76,7 @@
                                 {% endif %}
                             </td>
                         </tr>
-
+                        
                         {% if object.job %}
                         <tr>
                             <th>Status</th>
@@ -84,6 +84,12 @@
                         </tr>
                         {% endif %}
                         
+                        <tr>
+                            <th>Signal ID</th>
+                            <td>{{ object.signal_id}}</td>
+                        </tr>
+
+
                         {% if object.message  != "" %}
                         <tr>
                             <th>Message</th>
