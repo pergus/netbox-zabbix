@@ -3,8 +3,30 @@
 {% load helpers buttons %}
 
 {% block title %}
-NetBox Exclusive {{ model|meta:"verbose_name_plural"|bettertitle }}
+{{ model|meta:"verbose_name_plural"|bettertitle }} Exclusive To NetBox
 {% endblock %}
+
+{% block bulk_buttons %}
+{{ block.super }}
+<button type="submit" name="_quick_add_agent" class="btn btn-success">
+    <i class="mdi mdi-database-import-outline"></i> Quick Add Agent
+</button>
+<button type="submit" name="_quick_add_snmpv3" class="btn btn-success">
+    <i class="mdi mdi-database-import-outline"></i> Quick Add SNMPv3
+</button>
+
+<button type="submit" name="_validate_quick_add" class="btn btn-success">
+    <i class="mdi mdi-database-import-outline"></i> Validate
+</button>
+{% endblock %}
+
+{% block extra_table_controls %}
+
+<div class="btn-group" role="group">
+    <a href="">Add Config</a>
+</div>
+{% endblock %}
+
 
 {% block content %}
 {{ block.super }}

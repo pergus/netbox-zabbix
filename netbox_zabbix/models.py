@@ -1,4 +1,5 @@
 # models.py
+from importlib.util import module_from_spec
 from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
 
@@ -12,6 +13,7 @@ from core.models import Job
 from netbox.models import NetBoxModel
 from virtualization.models import VMInterface
 from netbox.models import JobsMixin
+from virtualization.models.virtualmachines import VirtualMachine
 
 from netbox_zabbix.logger import logger
 
@@ -363,6 +365,7 @@ class Config(NetBoxModel):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
+
 # ------------------------------------------------------------------------------
 # Templates
 # ------------------------------------------------------------------------------
@@ -448,7 +451,7 @@ class ProxyGroup(NetBoxModel):
 
 
 # ------------------------------------------------------------------------------
-# Host Group
+# Host Groups
 # ------------------------------------------------------------------------------
 
 
@@ -471,7 +474,380 @@ class HostGroup(NetBoxModel):
 
 
 # ------------------------------------------------------------------------------
-# Zabbix Configs
+# Tag Mapping
+# ------------------------------------------------------------------------------
+
+
+class TagMapping(NetBoxModel):
+    OBJECT_TYPE_CHOICES = [
+        ('device', 'Device'),
+        ('virtualmachine', 'Virtual Machine'),
+    ]
+
+    object_type = models.CharField( max_length=20, choices=OBJECT_TYPE_CHOICES, unique=True )
+    selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix tags" )
+
+    def __str__(self):
+        return f"Tag Mapping {self.object_type}"
+    
+    def get_absolute_url(self):
+        return reverse( "plugins:netbox_zabbix:tagmapping", args=[self.pk] )
+
+
+# ------------------------------------------------------------------------------
+# Inventory Mapping
+# ------------------------------------------------------------------------------
+
+
+class InventoryMapping(NetBoxModel):
+    OBJECT_TYPE_CHOICES = [
+        ('device', 'Device'),
+        ('virtualmachine', 'Virtual Machine'),
+    ]
+
+    object_type = models.CharField( max_length=20, choices=OBJECT_TYPE_CHOICES, unique=True )
+    selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix inventory" )
+
+    def __str__(self):
+        return f"Inventory Mapping {self.object_type}"
+    
+    def get_absolute_url(self):
+        return reverse( "plugins:netbox_zabbix:inventorymapping", args=[self.pk] )
+
+
+# ------------------------------------------------------------------------------
+# Mapping Base Object
+# ------------------------------------------------------------------------------
+
+
+class Mapping(NetBoxModel):
+    name = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the mapping." )
+    description = models.TextField( blank=True )
+    default = models.BooleanField( default=False )
+
+    # Configuration Settings
+    host_groups = models.ManyToManyField( HostGroup, help_text="Host groups used for matching hosts." )
+    templates   = models.ManyToManyField( Template, help_text="Templates used for matching hosts. Multiple templates can be selected." )
+    proxy       = models.ForeignKey( Proxy, on_delete=models.CASCADE, null=True, help_text="Proxy for matching hosts." )
+    proxy_group = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, null=True, help_text="Proxy group for matching hosts." )
+
+    interface_type = models.IntegerField( verbose_name="Interface Type", choices=InterfaceTypeChoices, default=InterfaceTypeChoices.Any, help_text="Limit mapping to interfaces of this type. Select 'Any' to include all types." )
+    
+    # Filters
+    sites     = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
+    roles     = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
+    platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
+
+
+    def delete(self, *args, **kwargs):
+        if self.default == True:
+            raise ValidationError( "Cannot delete default config" )
+        super().delete(*args, **kwargs)
+
+
+    def __str__(self):
+        return self.name
+
+
+    def get_absolute_url(self):
+        # Return None or a placeholder URL; you could log this if needed
+        return None
+
+
+# ------------------------------------------------------------------------------
+# Device Mapping
+# ------------------------------------------------------------------------------
+
+
+class DeviceMapping(Mapping):
+
+    @classmethod
+    def get_matching_filter(cls, device, interface_type=InterfaceTypeChoices.Any):
+        filters = cls.objects.filter( default=False )
+        matches = []
+        for f in filters:
+            if f.interface_type == interface_type:
+                if (
+                    (not f.sites.exists() or device.site in f.sites.all()) and
+                    (not f.roles.exists() or device.role in f.roles.all()) and
+                    (not f.platforms.exists() or device.platform in f.platforms.all())
+                ):
+                    matches.append( f )
+        if matches:
+            # Return the most specific filter (most fields defined/set)
+            matches.sort( key=lambda f: (
+                f.sites.count() > 0,
+                f.roles.count() > 0,
+                f.platforms.count() > 0
+            ), reverse=True )
+            return matches[0]
+        
+        # Fallback return the default mapping
+        return cls.objects.get( default=True )
+
+
+    def get_matching_devices_recursive(self):
+        # Step 1: Start with all devices and apply current mapping's filters
+        qs = Device.objects.all()
+
+        if self.sites.exists():
+            qs = qs.filter( site__in=self.sites.all() )
+        if self.roles.exists():
+            qs = qs.filter( role__in=self.roles.all() )
+        if self.platforms.exists():
+            qs = qs.filter( platform__in=self.platforms.all() )
+    
+        # Step 2: Define specificity count (how many fields are filtered)
+        def count_fields(mapping):
+            return sum( [ mapping.sites.exists(), mapping.roles.exists(), mapping.platforms.exists() ] )
+    
+        my_fields = count_fields(self)
+    
+        # Step 3: Get other, more specific mappings (more filters applied)
+        more_specific_mappings = DeviceMapping.objects.exclude( pk=self.pk ).filter( default=False )
+        more_specific_mappings = [m for m in more_specific_mappings if count_fields( m ) > my_fields]
+    
+        # Step 4: A mapping is more specific if it filters at least as narrowly as self in all fields
+        def is_more_specific(more_specific, current):
+            for field in ['sites', 'roles', 'platforms']:
+                current_ids  = set( getattr( current, field ).values_list( 'pk', flat=True ) )
+                specific_ids = set( getattr( more_specific, field ).values_list( 'pk', flat=True ))
+    
+                # current matches all: allow anything in more_specific
+                if not current_ids:
+                    continue
+    
+                # more_specific must match at least everything current does
+                if not specific_ids or not current_ids.issubset( specific_ids ):
+                    return False
+            return True
+    
+        # Step 5: Exclude devices matched by more specific mappings
+        for m in more_specific_mappings:
+            if is_more_specific( m, self ):
+                qs = qs.exclude( pk__in=m.get_matching_devices().values_list( 'pk', flat=True ) )
+
+        return qs
+    
+    def get_matching_devices(self):
+        """
+        Get Devices matching this mapping, excluding devices covered by more specific mappings.
+        """
+        def mapping_fields(mapping):
+            return {
+                "sites":     set( mapping.sites.values_list( "pk", flat=True ) ),
+                "roles":     set( mapping.roles.values_list( "pk", flat=True ) ),
+                "platforms": set( mapping.platforms.values_list( "pk", flat=True ) ),
+            }
+    
+        def count_fields(fields):
+            return sum( bool( v ) for v in fields.values() )
+    
+        # Step 1: Precompute related IDs for this mapping (self)
+        self_fields = mapping_fields( self )
+        my_specificity = count_fields( self_fields )
+    
+        # Step 2: Load candidate mappings (more specific mappings only)
+        candidates = (
+            DeviceMapping.objects.exclude( pk=self.pk )
+            .filter( default=False )
+            .prefetch_related( "sites", "roles", "platforms" )
+        )
+    
+        candidate_fields = {m.pk: mapping_fields(m) for m in candidates}
+    
+        # Keep only mappings strictly more specific than this mapping (self)
+        candidates = [
+            m for m in candidates
+            if count_fields( candidate_fields[m.pk] ) > my_specificity
+        ]
+    
+        # Step 3: Helper to compare specificity
+        def is_more_specific(more_specific_fields, current_fields):
+            for field in ["sites", "roles", "platforms"]:
+                current_ids = current_fields[field]
+                specific_ids = more_specific_fields[field]
+    
+                # If the current mapping doesn’t have a filter for the field, it allows everything.
+                # In that case, the more specific mapping is ignored.
+                if not current_ids:
+                    continue
+    
+                # If the current mapping does have a filter for the field, then the more 
+                # specific mapping must include all of those same values. 
+                # If not, the more specific mapping isn’t actually more specific than the current mapping.
+                if not specific_ids or not current_ids.issubset( specific_ids ):
+                    return False
+    
+            return True
+    
+        # Step 4: Precompute Device sets per mapping
+        all_devices = Device.objects.all().only( "pk", "site_id", "role_id", "platform_id" )
+    
+        device_sets = {}
+        for m in candidates:
+            fields = candidate_fields[m.pk]
+            device_qs = all_devices
+            if fields["sites"]:
+                device_qs = device_qs.filter( site_id__in=fields["sites"] )
+            if fields["roles"]:
+                device_qs = device_qs.filter( role_id__in=fields["roles"] )
+            if fields["platforms"]:
+                device_qs = device_qs.filter( platform_id__in=fields["platforms"] )
+            device_sets[m.pk] = set( device_qs.values_list( "pk", flat=True ) )
+    
+        # Step 5: Exclude all VMs covered by more specific mappings
+        exclude_ids = set()
+        for m in candidates:
+            if is_more_specific(candidate_fields[m.pk], self_fields):
+                exclude_ids.update(device_sets[m.pk])
+    
+        # Step 6: Compute self’s VMs
+        qs = all_devices
+        if self_fields["sites"]:
+            qs = qs.filter(site_id__in=self_fields["sites"])
+        if self_fields["roles"]:
+            qs = qs.filter(role_id__in=self_fields["roles"])
+        if self_fields["platforms"]:
+            qs = qs.filter(platform_id__in=self_fields["platforms"])
+    
+        if exclude_ids:
+            qs = qs.exclude(pk__in=exclude_ids)
+    
+        return qs
+    
+
+    def get_absolute_url(self):
+        return reverse( "plugins:netbox_zabbix:devicemapping", args=[self.pk] )
+
+
+# ------------------------------------------------------------------------------
+# VM Mapping
+# ------------------------------------------------------------------------------
+
+
+class VMMapping(Mapping):
+
+    @classmethod
+    def get_matching_filter(cls, virtual_machine, interface_type=InterfaceTypeChoices.Any):
+        filters = cls.objects.filter( default=False )
+        matches = []
+        for f in filters:
+            if f.interface_type == interface_type:
+                if (
+                    (not f.sites.exists() or virtual_machine.site in f.sites.all()) and
+                    (not f.roles.exists() or virtual_machine.role in f.roles.all()) and
+                    (not f.platforms.exists() or virtual_machine.platform in f.platforms.all())
+                ):
+                    matches.append( f )
+        if matches:
+            # Return the most specific filter (most field defined/set)
+            matches.sort( key=lambda f: (
+                f.sites.count() > 0,
+                f.roles.count() > 0,
+                f.platforms.count() > 0
+            ), reverse=True )
+            return matches[0]
+
+        # Fallback return the default mapping
+        return cls.obejcts.get( default=True )
+
+
+    def get_matching_virtual_machines(self):
+        """
+        Get VirtualMachines matching this mapping, excluding VMs covered by more specific mappings.
+        """
+    
+        def mapping_fields(mapping):
+            return {
+                "sites":     set( mapping.sites.values_list( "pk", flat=True ) ),
+                "roles":     set( mapping.roles.values_list( "pk", flat=True ) ),
+                "platforms": set( mapping.platforms.values_list( "pk", flat=True ) ),
+            }
+    
+        def count_fields(fields):
+            return sum( bool( v ) for v in fields.values() )
+    
+        # Step 1: Precompute related IDs for this mapping (self)
+        self_fields = mapping_fields( self )
+        my_specificity = count_fields( self_fields )
+    
+        # Step 2: Load candidate mappings (more specific mappings only)
+        candidates = (
+            VMMapping.objects.exclude( pk=self.pk )
+            .filter( default=False )
+            .prefetch_related( "sites", "roles", "platforms" )
+        )
+    
+        candidate_fields = {m.pk: mapping_fields(m) for m in candidates}
+    
+        # Keep only mappings strictly more specific than this mapping (self)
+        candidates = [
+            m for m in candidates
+            if count_fields( candidate_fields[m.pk] ) > my_specificity
+        ]
+    
+        # Step 3: Helper to compare specificity
+        def is_more_specific(more_specific_fields, current_fields):
+            for field in ["sites", "roles", "platforms"]:
+                current_ids = current_fields[field]
+                specific_ids = more_specific_fields[field]
+    
+                # If the current mapping doesn’t have a filter for the field, it allows everything.
+                # In that case, the more specific mapping is ignored.
+                if not current_ids:
+                    continue
+    
+                # If the current mapping does have a filter for the field, then the more 
+                # specific mapping must include all of those same values. 
+                # If not, the more specific mapping isn’t actually more specific than the current mapping.
+                if not specific_ids or not current_ids.issubset( specific_ids ):
+                    return False
+    
+            return True
+    
+        # Step 4: Precompute VM sets per mapping
+        all_vms = VirtualMachine.objects.all().only( "pk", "site_id", "role_id", "platform_id" )
+    
+        vm_sets = {}
+        for m in candidates:
+            fields = candidate_fields[m.pk]
+            vm_qs = all_vms
+            if fields["sites"]:
+                vm_qs = vm_qs.filter( site_id__in=fields["sites"] )
+            if fields["roles"]:
+                vm_qs = vm_qs.filter( role_id__in=fields["roles"] )
+            if fields["platforms"]:
+                vm_qs = vm_qs.filter( platform_id__in=fields["platforms"] )
+            vm_sets[m.pk] = set( vm_qs.values_list( "pk", flat=True ) )
+    
+        # Step 5: Exclude all VMs covered by more specific mappings
+        exclude_ids = set()
+        for m in candidates:
+            if is_more_specific(candidate_fields[m.pk], self_fields):
+                exclude_ids.update(vm_sets[m.pk])
+    
+        # Step 6: Compute self’s VMs
+        qs = all_vms
+        if self_fields["sites"]:
+            qs = qs.filter(site_id__in=self_fields["sites"])
+        if self_fields["roles"]:
+            qs = qs.filter(role_id__in=self_fields["roles"])
+        if self_fields["platforms"]:
+            qs = qs.filter(platform_id__in=self_fields["platforms"])
+    
+        if exclude_ids:
+            qs = qs.exclude(pk__in=exclude_ids)
+    
+        return qs
+    
+
+    def get_absolute_url(self):
+        return reverse( "plugins:netbox_zabbix:vmmapping", args=[self.pk] )
+
+
+# ------------------------------------------------------------------------------
+# Zabbix Configurations
 # ------------------------------------------------------------------------------
 
 
@@ -488,6 +864,11 @@ class ZabbixConfig(NetBoxModel, JobsMixin):
     proxy        = models.ForeignKey( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy." )
     proxy_group  = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group." )
     description  = models.TextField( blank=True, null=True, help_text="Optional description." )
+
+
+# ------------------------------------------------------------------------------
+# Device Zabbix Configurations
+# ------------------------------------------------------------------------------
 
 
 class DeviceZabbixConfig(ZabbixConfig):
@@ -546,11 +927,18 @@ class DeviceZabbixConfig(ZabbixConfig):
         super().save(*args, **kwargs)
 
 
+# ------------------------------------------------------------------------------
+# VM Zabbix Configurations
+# ------------------------------------------------------------------------------
+
+
 class VMZabbixConfig(ZabbixConfig):
     class Meta:
         verbose_name = "Zabbix VM Configuration"
         verbose_name_plural = "Zabbix VM Configurations"
     
+    # The Virtual Machine this Zabbix configuration is linked to.
+    # This is referred to as 'linked_object_field' in e.g. jobs.py.
     virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zcfg' )
 
 
@@ -790,6 +1178,11 @@ class BaseSNMPv3Interface(HostInterface):
         return super().save(*args, **kwargs)
 
 
+# --------------------------------------------------------------------------
+# Device Agent Interface
+# --------------------------------------------------------------------------
+
+
 class DeviceAgentInterface(BaseAgentInterface):
     class Meta:
         verbose_name = "Device Agent Interface"
@@ -808,6 +1201,11 @@ class DeviceAgentInterface(BaseAgentInterface):
         return reverse("plugins:netbox_zabbix:deviceagentinterface", kwargs={"pk": self.pk})
 
 
+# --------------------------------------------------------------------------
+# Device SNMPv3 Interface
+# --------------------------------------------------------------------------
+
+
 class DeviceSNMPv3Interface(BaseSNMPv3Interface):
     class Meta:
         verbose_name = "Device SNMPv3 Interface"
@@ -823,6 +1221,11 @@ class DeviceSNMPv3Interface(BaseSNMPv3Interface):
     ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="device_snmpv3_interface" )
 
 
+# --------------------------------------------------------------------------
+# VM Agent Interface
+# --------------------------------------------------------------------------
+
+
 class VMAgentInterface(BaseAgentInterface):
     class Meta:
         verbose_name = "VM Agent Interface"
@@ -836,6 +1239,11 @@ class VMAgentInterface(BaseAgentInterface):
 
     # IP address used by tahe interface. Can be empty if connection is made via DNS.
     ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="vm_agent_interface" )
+
+
+# --------------------------------------------------------------------------
+# Device SNMPv3 Interface
+# --------------------------------------------------------------------------
 
 
 class VMSNMPv3Interface(BaseSNMPv3Interface):
@@ -869,178 +1277,6 @@ class AvailableDeviceInterface(Interface):
 class AvailableVMInterface(VMInterface):
     class Meta:
         proxy = True
-
-
-# ------------------------------------------------------------------------------
-# Tag Mapping
-# ------------------------------------------------------------------------------
-
-
-class TagMapping(NetBoxModel):
-    OBJECT_TYPE_CHOICES = [
-        ('device', 'Device'),
-        ('virtualmachine', 'Virtual Machine'),
-    ]
-
-    object_type = models.CharField( max_length=20, choices=OBJECT_TYPE_CHOICES, unique=True )
-    selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix tags" )
-
-    def __str__(self):
-        return f"Tag Mapping {self.object_type}"
-    
-    def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:tagmapping", args=[self.pk] )
-
-
-# ------------------------------------------------------------------------------
-# Inventory Mapping
-# ------------------------------------------------------------------------------
-
-
-class InventoryMapping(NetBoxModel):
-    OBJECT_TYPE_CHOICES = [
-        ('device', 'Device'),
-        ('virtualmachine', 'Virtual Machine'),
-    ]
-
-    object_type = models.CharField( max_length=20, choices=OBJECT_TYPE_CHOICES, unique=True )
-    selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix inventory" )
-
-    def __str__(self):
-        return f"Inventory Mapping {self.object_type}"
-    
-    def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:inventorymapping", args=[self.pk] )
-
-
-# ------------------------------------------------------------------------------
-# Mapping Base Object
-# ------------------------------------------------------------------------------
-
-
-class Mapping(NetBoxModel):
-    name = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the mapping." )
-    description = models.TextField( blank=True )
-    default = models.BooleanField( default=False )
-
-    # Configuration Settings
-    host_groups = models.ManyToManyField( HostGroup, help_text="Host groups used for matching hosts." )
-    templates   = models.ManyToManyField( Template, help_text="Templates used for matching hosts. Multiple templates can be selected." )
-    proxy       = models.ForeignKey( Proxy, on_delete=models.CASCADE, null=True, help_text="Proxy for matching hosts." )
-    proxy_group = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, null=True, help_text="Proxy group for matching hosts." )
-
-    interface_type = models.IntegerField( verbose_name="Interface Type", choices=InterfaceTypeChoices, default=InterfaceTypeChoices.Any, help_text="Limit mapping to interfaces of this type. Select 'Any' to include all types." )
-    
-    # Filters
-    sites     = models.ManyToManyField( Site, blank=True, help_text="Restrict mapping to hosts at these sites. Leave blank to apply to all sites." )
-    roles     = models.ManyToManyField( DeviceRole, blank=True, help_text="Restrict mapping to hosts with these roles. Leave blank to include all roles." )
-    platforms = models.ManyToManyField( Platform, blank=True, help_text="Restrict mapping to hosts running these platforms. Leave blank to include all platforms." )
-
-
-    def delete(self, *args, **kwargs):
-        if self.default == True:
-            raise ValidationError( "Cannot delete default config" )
-        super().delete(*args, **kwargs)
-
-
-    def __str__(self):
-        return self.name
-
-
-    def get_absolute_url(self):
-        # Return None or a placeholder URL; you could log this if needed
-        return None
-
-
-# ------------------------------------------------------------------------------
-# Device Mapping
-# ------------------------------------------------------------------------------
-
-
-class DeviceMapping(Mapping):
-
-    @classmethod
-    def get_matching_filter(cls, device, interface_type=InterfaceTypeChoices.Any):
-        filters = cls.objects.filter( default=False )
-        matches = []
-        for f in filters:
-            if f.interface_type == interface_type:
-                if (
-                    (not f.sites.exists() or device.site in f.sites.all()) and
-                    (not f.roles.exists() or device.role in f.roles.all()) and
-                    (not f.platforms.exists() or device.platform in f.platforms.all())
-                ):
-                    matches.append( f )
-        if matches:
-            # Return the most specific filter (most fields set)
-            matches.sort( key=lambda f: (
-                f.sites.count() > 0,
-                f.roles.count() > 0,
-                f.platforms.count() > 0
-            ), reverse=True )
-            return matches[0]
-        
-        # Fallback return the default mapping
-        return cls.objects.get( default=True )
-
-
-    def get_matching_devices(self):
-    
-        # Step 1: Start with all devices and apply current mapping's filters
-        qs = Device.objects.all()
-        if self.sites.exists():
-            qs = qs.filter( site__in=self.sites.all() )
-        if self.roles.exists():
-            qs = qs.filter( role__in=self.roles.all() )
-        if self.platforms.exists():
-            qs = qs.filter( platform__in=self.platforms.all() )
-    
-        # Step 2: Define specificity count (how many fields are filtered)
-        def count_fields(mapping):
-            return sum([ mapping.sites.exists(), mapping.roles.exists(), mapping.platforms.exists() ])
-    
-        my_fields = count_fields(self)
-    
-        # Step 3: Get other, more specific mappings (more filters applied)
-        more_specific_mappings = DeviceMapping.objects.exclude( pk=self.pk ).filter( default=False )
-        more_specific_mappings = [m for m in more_specific_mappings if count_fields(m) > my_fields]
-    
-        # Step 4: A mapping is more specific if it filters at least as narrowly as self in all fields
-        def is_more_specific(more_specific, current):
-            for field in ['sites', 'roles', 'platforms']:
-                current_ids  = set( getattr( current, field ).values_list( 'pk', flat=True ) )
-                specific_ids = set( getattr( more_specific, field ).values_list( 'pk', flat=True ))
-    
-                # current matches all: allow anything in more_specific
-                if not current_ids:
-                    continue
-    
-                # more_specific must match at least everything current does
-                if not specific_ids or not current_ids.issubset( specific_ids ):
-                    return False
-            return True
-    
-        # Step 5: Exclude devices matched by more specific mappings
-        for m in more_specific_mappings:
-            if is_more_specific( m, self ):
-                qs = qs.exclude( pk__in=m.get_matching_devices().values_list( 'pk', flat=True ) )
-
-        return qs
-    
-
-    def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:devicemapping", args=[self.pk] )
-
-
-# ------------------------------------------------------------------------------
-# VM Mapping
-# ------------------------------------------------------------------------------
-
-
-class VMMapping(Mapping):
-
-    def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:vmmapping", args=[self.pk] )
 
 
 # ------------------------------------------------------------------------------

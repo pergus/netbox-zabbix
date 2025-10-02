@@ -433,18 +433,18 @@ def build_payload(zcfg, for_update=False, pre_data=None) -> dict:
         dict: Zabbix host.create() or host.update() payload.
     """
 
-    linked_obj = getattr( zcfg, "device", None ) or getattr( zcfg, "virtual_machine", None )
-    if not linked_obj:
+    linked_object = getattr( zcfg, "device", None ) or getattr( zcfg, "virtual_machine", None )
+    if not linked_object:
         raise Exception( "Zabbix config is not linked to a device or virtual machine." )
 
     payload = {
-        "host":           linked_obj.name,
+        "host":           linked_object.name,
         "status":         str( zcfg.status ),
         "monitored_by":   str( zcfg.monitored_by ),
         "proxyid":        "0",
         "proxy_groupid":  "0",
         "description":    str( zcfg.description ) if zcfg.description else "",
-        "tags":           get_tags(linked_obj),
+        "tags":           get_tags(linked_object),
         "groups":         [ {"groupid": g.groupid} for g in zcfg.host_groups.all() ],
         "templates":      [ {"templateid": t.templateid} for t in zcfg.templates.all() ],
         "inventory_mode": str( get_inventory_mode() ),
@@ -466,7 +466,7 @@ def build_payload(zcfg, for_update=False, pre_data=None) -> dict:
 
     # Inventory
     if payload["inventory_mode"] == str( InventoryModeChoices.MANUAL ):
-        payload["inventory"] = get_zabbix_inventory_for_object( linked_obj )
+        payload["inventory"] = get_zabbix_inventory_for_object( linked_object )
 
     # TLS
     if get_tls_connect() == TLSConnectChoices.PSK or get_tls_accept() == TLSConnectChoices.PSK:
@@ -658,14 +658,14 @@ def associate_instance_with_job(job, instance):
     job.object_id = instance.pk
 
 
-def create_zabbix_config( obj, host_field_name, zabbix_config_model ):
+def create_zabbix_config( obj, link_object_field_name, config_model ):
     """
-    Create a ZabbixConfig object for the given device or VM.
+    Create a ZabbixConfig object for the given Device or VM.
     """
 
     try:
-        zcfg_kwargs = { host_field_name: obj, "status": StatusChoices.ENABLED }
-        zcfg = zabbix_config_model( **zcfg_kwargs )
+        zcfg_kwargs = { link_object_field_name: obj, "status": StatusChoices.ENABLED }
+        zcfg = config_model( **zcfg_kwargs )
         zcfg.full_clean()
 
         # Mark this instance to bypass signals for this save operation only
@@ -1095,13 +1095,13 @@ class ProvisionContext:
     corresponding NetBox configuration.
     """
     
-    obj: Any  
+    object: Any
     # The Device or VM being provisioned
         
-    host_field_name: str  
+    link_object_field_name: str  
     # Field name on the config model that points back to obj (e.g., "device" or "virtual_machine")
         
-    zabbix_config_model: Type  
+    config_model: Type  
     # The Zabbix config model (e.g., DeviceZabbixConfig, VMZabbixConfig)
     
     interface_model: Type  
@@ -1130,15 +1130,15 @@ def provision_zabbix_host(ctx: ProvisionContext):
     try:
         monitored_by = get_monitored_by()
 
-        mapping = ( resolve_device_mapping if isinstance( ctx.obj, Device ) else resolve_vm_mapping )( ctx.obj, ctx.interface_model )
+        mapping = ( resolve_device_mapping if isinstance( ctx.object, Device ) else resolve_vm_mapping )( ctx.object, ctx.interface_model )
 
         # Check if a Zabbix config already exists
-        zabbix_config = ctx.zabbix_config_model.objects.filter( **{ctx.host_field_name: ctx.obj} ).first()
+        zabbix_config = ctx.config_model.objects.filter( **{ctx.link_object_field_name: ctx.object} ).first()
 
         if zabbix_config:
             # Existing config - only add interface and update host in Zabbix
             iface = create_zabbix_interface(
-                ctx.obj,
+                ctx.object,
                 zabbix_config,
                 ctx.interface_model,
                 ctx.interface_name_suffix,
@@ -1150,22 +1150,22 @@ def provision_zabbix_host(ctx: ProvisionContext):
             # Update existing host in Zabbix
             update_host_in_zabbix( zabbix_config, ctx.user, ctx.request_id )
 
-            link_interface_in_zabbix(zabbix_config.hostid, iface, ctx.obj.name)
-            save_zabbix_config(zabbix_config)
-            changelog_create(zabbix_config, ctx.user, ctx.request_id)
-            associate_instance_with_job(ctx.job, zabbix_config)
+            link_interface_in_zabbix (zabbix_config.hostid, iface, ctx.object.name )
+            save_zabbix_config( zabbix_config )
+            changelog_create( zabbix_config, ctx.user, ctx.request_id )
+            associate_instance_with_job( ctx.job, zabbix_config )
 
             return {
-                "message": f"Updated {ctx.obj.name} with new interface {iface.name} in Zabbix",
+                "message": f"Updated {ctx.object.name} with new interface {iface.name} in Zabbix",
                 "data": {"hostid": zabbix_config.hostid}
             }
 
         # No existing config exists so we do a full provisioning
-        zabbix_config = create_zabbix_config( ctx.obj, ctx.host_field_name, ctx.zabbix_config_model )
+        zabbix_config = create_zabbix_config( ctx.object, ctx.link_object_field_name, ctx.config_model )
         apply_mapping_to_config( zabbix_config, mapping, monitored_by )
 
         iface = create_zabbix_interface(
-            ctx.obj,
+            ctx.object,
             zabbix_config,
             ctx.interface_model,
             ctx.interface_name_suffix,
@@ -1176,13 +1176,13 @@ def provision_zabbix_host(ctx: ProvisionContext):
 
         hostid, payload = create_host_in_zabbix( zabbix_config )
         zabbix_config.hostid = hostid
-        link_interface_in_zabbix( hostid, iface, ctx.obj.name )
+        link_interface_in_zabbix( hostid, iface, ctx.object.name )
         save_zabbix_config( zabbix_config )
         changelog_create( zabbix_config, ctx.user, ctx.request_id )
         associate_instance_with_job( ctx.job, zabbix_config )
 
         return {
-            "message": f"Created {ctx.obj.name} with {mapping.name} mapping",
+            "message": f"Created {ctx.object.name} with {mapping.name} mapping",
             "data": payload
         }
 
@@ -1509,75 +1509,105 @@ class ImportFromZabbix( AtomicJobRunner ):
         return netbox_job
 
 
-class ProvisionDeviceAgent( AtomicJobRunner ):
+class ProvisionAgent(AtomicJobRunner):
     """
-    A NetBox JobRunner to provision a Device with an Agent interface in Zabbix.
+    A NetBox JobRunner to provision a Device or VM with an Agent interface in Zabbix.
     
-    This job creates a Zabbix configuration for a Device using the agent
-    interface model and registers it in Zabbix.
+    This job creates a Zabbix configuration using the Agent interface model and registers it in Zabbix.
     """
 
     @classmethod
     def run(cls, *args, **kwargs):
 
+        object = kwargs.get( "object" )
+        if object is None:
+            raise Exception( "Missing required device or virtual_machine instance" )
+
+        if isinstance( object, Device ):
+            link_object_field_name = "device"
+            config_model           = DeviceZabbixConfig
+            interface_model        = DeviceAgentInterface
+
+        elif isinstance( object, VirtualMachine ):
+            link_object_field_name = "virtual_machine"
+            config_model           = VMZabbixConfig
+            interface_model        = VMAgentInterface
+
+        else:
+            raise TypeError( f"Unsupported object type: {type(object)}" )
+
         job_args = {
-            "obj":                   require_kwargs( kwargs, "device" ),
-            "host_field_name":       "device",
-            "zabbix_config_model":   DeviceZabbixConfig,
-            "interface_model":       DeviceAgentInterface,
-            "interface_name_suffix": "agent",
-            "job":                   cls.job,
-            "user":                  cls.job.user,
-            "request_id":            kwargs.get( "request_id" ),
-            "interface_kwargs_fn":   lambda: {},
+            "object":                 object,
+            "link_object_field_name": link_object_field_name,
+            "config_model":           config_model,
+            "interface_model":        interface_model,
+            "interface_name_suffix":  "agent",
+            "job":                    cls.job,
+            "user":                   cls.job.user,
+            "request_id":             kwargs.get("request_id"),
+            "interface_kwargs_fn":    lambda: {},
         }
 
-        try:
-            return provision_zabbix_host( ProvisionContext( **job_args ) )
-        except Exception as e:
-            raise e
+        return provision_zabbix_host( ProvisionContext( **job_args ) )
 
     @classmethod
-    def run_job(cls, device, request, schedule_at=None, interval=None, immediate=False, name=None):
+    def run_job(cls, object, request, schedule_at=None, interval=None, immediate=False, name=None):
 
-        if not device:
-            raise Exception( "Missing required device instance" )
+        if not object:
+            raise Exception( "Missing required device or virtual machine instance" )
 
-        if name is None:
-            name = f"Provision Agent configuration for {device.name}"
+        if name is None and hasattr( object, "name" ):
+            name = f"Provision Agent configuration for {object.name}"
+        else:
+            raise Exception( f"Object has no name" )
 
         job_args = {
-            "name":         name,
-            "schedule_at":  schedule_at,
-            "interval":     interval,
-            "immediate":    immediate,
-            "device":       device,
+            "name":        name,
+            "schedule_at": schedule_at,
+            "interval":    interval,
+            "immediate":   immediate,
+            "object":      object
         }
-        
+
         if request:
-            job_args["user"]       = request.user
+            job_args["user"] = request.user
             job_args["request_id"] = request.id
-        
 
         if interval is None:
             netbox_job = cls.enqueue( **job_args )
         else:
             netbox_job = cls.enqueue_once( **job_args )
-        
+
         return netbox_job
 
 
-class ProvisionDeviceSNMPv3( AtomicJobRunner ):
+class ProvisionSNMPv3( AtomicJobRunner ):
     """
-    A NetBox JobRunner to provision a Device with a SNMPv3 interface in Zabbix.
+    A NetBox JobRunner to provision a Device or VM with a SNMPv3 interface in Zabbix.
     
-    This job creates a Zabbix configuration for a Device using the SNMPv3
-    interface model and registers it in Zabbix.
+    This job creates a Zabbix configuration using the SNMPv3 interface model and registers it in Zabbix.
     """
 
     @classmethod
     def run(cls, *args, **kwargs):
-
+        
+        object = kwargs.get( "object" )
+        if object is None:
+            raise Exception( "Missing required device or virtual_machine instance" )
+        
+        if isinstance( object, Device ):
+            link_object_field_name = "device"
+            config_model           = DeviceZabbixConfig
+            interface_model        = DeviceSNMPv3Interface
+        
+        elif isinstance( object, VirtualMachine ):
+            link_object_field_name = "virtual_machine"
+            config_model           = VMZabbixConfig
+            interface_model        = VMSNMPv3Interface
+        
+        else:
+            raise TypeError( f"Unsupported object type: {type(object)}" )
+        
         snmp_defaults = {
             "securityname":   get_snmpv3_securityname(),
             "authprotocol":   get_snmpv3_authprotocol(),
@@ -1587,15 +1617,15 @@ class ProvisionDeviceSNMPv3( AtomicJobRunner ):
         }
         
         job_args = {
-            "obj":                   require_kwargs( kwargs, "device" ),
-            "host_field_name":       "device",
-            "zabbix_config_model":   DeviceZabbixConfig,
-            "interface_model":       DeviceSNMPv3Interface,
-            "interface_name_suffix": "snmpv3",
-            "job":                   cls.job,
-            "user":                  cls.job.user,
-            "request_id":            kwargs.get( "request_id" ),
-            "interface_kwargs_fn":   lambda: snmp_defaults,
+            "object":                 object,
+            "link_object_field_name": link_object_field_name,
+            "config_model":           config_model,
+            "interface_model":        interface_model,
+            "interface_name_suffix":  "snmpv3",
+            "job":                    cls.job,
+            "user":                   cls.job.user,
+            "request_id":             kwargs.get( "request_id" ),
+            "interface_kwargs_fn":    lambda: snmp_defaults,
             
         }
         
@@ -1606,21 +1636,24 @@ class ProvisionDeviceSNMPv3( AtomicJobRunner ):
 
 
     @classmethod
-    def run_job(cls, device, request, schedule_at=None, interval=None, immediate=False, name=None):
+    def run_job(cls, object, request, schedule_at=None, interval=None, immediate=False, name=None):
 
-        if not device:
-            raise Exception( "Missing required device instance" )
+        if not object:
+            raise Exception( "Missing required device or virtual machine instance" )
 
-        if name is None:
-            name = f"Provision SNMPv3 configuration for {device.name}"
+        if name is None and hasattr( object, "name" ):
+            name = f"Provision SNMPv3 configuration for {object.name}"
+        else:
+            raise Exception( f"Object has no name" )
     
         job_args = {
             "name":         name,
             "schedule_at":  schedule_at,
             "interval":     interval,
             "immediate":    immediate,
-            "device":       device,
+            "object":       object,
         }
+
         if request:
             job_args["user"]       = request.user
             job_args["request_id"] = request.id

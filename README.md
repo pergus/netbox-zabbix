@@ -67,8 +67,16 @@ Add a view that lists all inconsistent devm/hosts.
 
 ### Todo/Bugs
 
+[DONE] Rename 'zabbix_config_model' in jobs to 'config_model'.
+
+* Add a menu item for listing devices/vms out of sync with Zabbix.
+
+* Should virtual_machine in VMZabbixConfig and device in DeviceZabbixConfig
+  both be renamed to linked_object?
+
 * Add user to the event log.
 
+* Clean up messages in singals. Maybe change the some info to debug or remove them.
 
 * When adding a zcfg by hand there is no event for it in the event log.
   Also, no Zabbix Host configuration is created which means that when

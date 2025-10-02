@@ -25,9 +25,9 @@
                     </tr>
 
                     <tr>
-                        <th scope="row">Device</th>
+                        <th scope="row">Virtual Machine</th>
                         <td>
-                            <a href="{{ config.device.get_absolute_url }}">{{ config.virtual_machine.name }}</a>
+                            <a href="{{ config.virtual_machine.get_absolute_url }}">{{ config.virtual_machine.name }}</a>
                         </td>
                     </tr>
 
@@ -84,7 +84,7 @@
             <h2 class="card-header">
                 Agent Interfaces
             </h2>
-            {% htmx_table 'plugins:netbox_zabbix:deviceagentinterface_list' zcfg_id=config.pk %}
+            {% htmx_table 'plugins:netbox_zabbix:vmagentinterface_list' zcfg_id=config.pk %}
         </div>
     </div>
 </div>
@@ -95,7 +95,7 @@
             <h2 class="card-header">
                 SNMPv3 Interfaces
             </h2>
-            {% htmx_table 'plugins:netbox_zabbix:devicesnmpv3interface_list' zcfg_id=config.pk %}
+            {% htmx_table 'plugins:netbox_zabbix:vmsnmpv3interface_list' zcfg_id=config.pk %}
         </div>
     </div>
 </div>

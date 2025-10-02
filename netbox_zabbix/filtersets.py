@@ -10,8 +10,6 @@ from netbox.filtersets import NetBoxModelFilterSet
 from netbox_zabbix import models
 
 
-# Configuration doesn't have a filterset
-
 # ------------------------------------------------------------------------------
 # Templates
 # ------------------------------------------------------------------------------
@@ -49,7 +47,7 @@ class ProxyFilterSet(NetBoxModelFilterSet):
 
 
 # ------------------------------------------------------------------------------
-# Proxy Group
+# Proxy Groups
 # ------------------------------------------------------------------------------
 
 
@@ -67,22 +65,43 @@ class ProxyGroupFilterSet(NetBoxModelFilterSet):
 
 
 # ------------------------------------------------------------------------------
-# Host Group Device
+# Device Host Groups
 # ------------------------------------------------------------------------------
 
 
-class HostGroupDeviceFilterSet(DeviceFilterSet):
+#class HostGroupDeviceFilterSet(DeviceFilterSet):
+#    class Meta(DeviceFilterSet.Meta):
+#        model = Device
+#        fields = DeviceFilterSet.Meta.fields
+
+
+# ------------------------------------------------------------------------------
+# VM Host Groups
+# ------------------------------------------------------------------------------
+
+
+#class HostGroupVMFilterSet(VirtualMachineFilterSet):
+#    class Meta(VirtualMachineFilterSet.Meta):
+#        model = VirtualMachine
+#        fields = VirtualMachineFilterSet.Meta.fields
+
+
+# ------------------------------------------------------------------------------
+# Device Mapping
+# ------------------------------------------------------------------------------
+
+
+class DeviceMappingFilterSet(DeviceFilterSet):
     class Meta(DeviceFilterSet.Meta):
         model = Device
         fields = DeviceFilterSet.Meta.fields
 
 
 # ------------------------------------------------------------------------------
-# Host Group VM
+# VM Mapping
 # ------------------------------------------------------------------------------
 
-
-class HostGroupVMFilterSet(VirtualMachineFilterSet):
+class VMMappingFilterSet(VirtualMachineFilterSet):
     class Meta(VirtualMachineFilterSet.Meta):
         model = VirtualMachine
         fields = VirtualMachineFilterSet.Meta.fields
@@ -143,22 +162,6 @@ class VMSNMPv3InterfaceFilterSet(django_filters.FilterSet):
 
 
 # ------------------------------------------------------------------------------
-# Device Mapping
-# ------------------------------------------------------------------------------
-
-
-class DeviceMappingFilterSet(DeviceFilterSet):
-    class Meta(DeviceFilterSet.Meta):
-        model = Device
-        fields = DeviceFilterSet.Meta.fields
-
-
-# ------------------------------------------------------------------------------
-# VM Mapping
-# ------------------------------------------------------------------------------
-
-
-# ------------------------------------------------------------------------------
 # NetBox Only Devices
 # ------------------------------------------------------------------------------
 
@@ -166,6 +169,16 @@ class NetBoxOnlyDevicesFilterSet(DeviceFilterSet):
     class Meta(DeviceFilterSet.Meta):
         model = Device
         fields = DeviceFilterSet.Meta.fields
+
+
+# ------------------------------------------------------------------------------
+# NetBox Only VMs
+# ------------------------------------------------------------------------------
+
+class NetBoxOnlyVMsFilterSet(VirtualMachineFilterSet):
+    class Meta(VirtualMachineFilterSet.Meta):
+        model = VirtualMachine
+        fields = VirtualMachineFilterSet.Meta.fields
 
 
 # end

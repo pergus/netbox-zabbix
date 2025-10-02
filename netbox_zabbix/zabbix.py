@@ -24,7 +24,6 @@ class ZabbixHostNotFound(Exception):
     pass
 
 
-
 def get_zabbix_client():
     """
     Initializes and returns an authenticated Zabbix API client.
@@ -689,10 +688,10 @@ def import_host_groups(max_deletions=None):
                         max_deletions=max_deletions )
 
 
-
 # ------------------------------------------------------------------------------
 # Host Groups
 # ------------------------------------------------------------------------------
+
 
 def create_host_group(**hostgroup):
     """

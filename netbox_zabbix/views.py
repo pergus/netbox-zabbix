@@ -1,12 +1,10 @@
 # views.py
-from core.tables.jobs import JobTable
-import netbox_zabbix.config as config
-from django.shortcuts import get_object_or_404
 
+# Standard library imports
 from django.contrib import messages
 from django.db.models import Count, F
 from django.http import Http404
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import capfirst, pluralize
 from django.urls import reverse
 from django.utils import timezone
@@ -14,17 +12,22 @@ from django.utils.safestring import mark_safe
 from django.views import View
 from django.views.decorators.http import require_POST
 from django.views.generic import TemplateView as GenericTemplateView
+
+# Third-party imports
 from django_tables2 import RequestConfig, SingleTableView
 
+# NetBox imports
+from core.tables.jobs import JobTable
 from dcim.models import Device
 from netbox.views import generic
 from utilities.paginator import EnhancedPaginator, get_paginate_count
 from utilities.views import ViewTab, register_model_view
 from virtualization.models import VirtualMachine
 
+# Plugin imports
 from netbox_zabbix import filtersets, forms, jobs, models, tables, zabbix as z
+import netbox_zabbix.config as config
 from netbox_zabbix.utils import validate_quick_add
-
 from netbox_zabbix.logger import logger
 
 
@@ -70,7 +73,12 @@ class ConfigDeleteView(generic.ObjectDeleteView):
             return redirect('plugins:netbox_zabbix:config_list' )
     
         return super().post( request, *args, **kwargs )
-    
+
+
+# --------------------------------------------------------------------------
+# Zabbix Check connection
+# --------------------------------------------------------------------------
+
 
 def zabbix_check_connection(request):
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
@@ -94,6 +102,45 @@ def zabbix_check_connection(request):
         config.set_last_checked( timezone.now() )
 
     return redirect( redirect_url )
+
+
+# ------------------------------------------------------------------------------
+# Sync With Zabbix
+# ------------------------------------------------------------------------------
+
+
+def run_sync_with_zabbix(request):
+    try:
+        model = request.GET.get( "model" )
+        config_id = request.GET.get( "zabbix_config_id" )
+
+        if model == "device":
+            config = models.DeviceZabbixConfig.objects.get( id=config_id )
+        elif model == "vm":
+            config = models.VMZabbixConfig.objects.get( id=config_id )
+        else:
+            raise Exception( f"model {model} has to be either 'device' or 'vm'" )
+
+        jobs.UpdateZabbixHost.run_job_now( zabbix_config=config, request=request )
+        messages.success( request, f"Sync {config.name} with Zabbix succeeded." )
+    except Exception as e:
+        messages.error( request, f"Failed to sync {config.name} with Zabbix. Reason: {str( e ) }" )
+
+
+def sync_with_zabbix(request):
+    """
+    View-based wrapper around sync with Zabbix
+    """
+    redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
+    
+    run_sync_with_zabbix( request )
+
+    return redirect( redirect_url )
+
+
+# --------------------------------------------------------------------------
+# Zabbix Import Settings (Tempate, Proxies, etc.)
+# --------------------------------------------------------------------------
 
 
 def zabbix_import_settings(request):
@@ -120,7 +167,7 @@ class TemplateView(generic.ObjectView):
         return {'fields': fields}
 
 
-class TemplateListView(generic.ObjectListView):    
+class TemplateListView(generic.ObjectListView):
     queryset = (
        models.Template.objects
        .annotate(
@@ -220,7 +267,7 @@ class ProxyView(generic.ObjectView):
     queryset = models.Proxy.objects.all()
 
 
-class ProxyListView(generic.ObjectListView):    
+class ProxyListView(generic.ObjectListView):
     queryset = models.Proxy.objects.all()
     filterset = filtersets.ProxyFilterSet
     filterset_form = forms.ProxyFilterForm
@@ -255,6 +302,7 @@ def proxies_confirm_deletions(request):
     selected_ids = request.POST.getlist( 'confirm_ids' )
     models.Proxy.objects.filter( id__in=selected_ids ).delete()
     return redirect( 'plugins:netbox_zabbix:proxies_review_deletions' )
+
 
 def run_import_proxies(request=None):
     try:
@@ -459,361 +507,264 @@ def import_host_groups(request):
 
 
 # ------------------------------------------------------------------------------
-# Quick Add Zabbix Interface
+# Tag Mapping
 # ------------------------------------------------------------------------------
 
 
-def device_validate_quick_add(request):
-    redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
-    if request.method == 'GET':
-        device_id = request.GET.get( "device_id" )
-        device = Device.objects.filter( pk=device_id ).first()
-        if not device:
-            messages.error( request, f"No Device with id {device_id} found" )
-        else:
-            try:
-                validate_quick_add( device )
-                messages.success( request, f"{device.name} is valid" )
-            except Exception as e:
-                messages.error( request, str( e ) )
-    return redirect( redirect_url )
+class TagMappingView(generic.ObjectView):
+    queryset = models.TagMapping.objects.all()
 
 
-def device_quick_add_agent(request):
-    redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
-
-    if request.method == 'GET':
-        device_id = request.GET.get( "device_id" )
-        device = Device.objects.filter( pk=device_id ).first()
-        if not device:
-            messages.error( request, f"No Device with id {device_id} found" )
-        else:
-            try:
-                validate_quick_add( device )
-                job = jobs.ProvisionDeviceAgent.run_job( device=device, request=request)
-                message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
-                messages.success( request, message )
-            except Exception as e:
-                messages.error( request, str( e ) )
-
-    return redirect( redirect_url )
+class TagMappingListView(generic.ObjectListView):
+    queryset = models.TagMapping.objects.all()
+    table = tables.TagMappingTable
+    template_name = 'netbox_zabbix/tag_mapping_list.html'
 
 
-def device_quick_add_snmpv3(request):
-    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+class TagMappingEditView(generic.ObjectEditView):
+    queryset = models.TagMapping.objects.all()
+    form = forms.TagMappingForm
+    template_name = 'netbox_zabbix/tag_mapping_edit.html'
 
-    if request.method == 'GET':
-        device_id = request.GET.get( "device_id" )
-        device = Device.objects.filter( pk=device_id ).first()
-        if not device:
-            messages.error( request, f"No Device with id {device_id} found" )
-        else:
-            try:
-                validate_quick_add( device )
-                job = jobs.ProvisionDeviceSNMPv3.run_job( device=device, reques=request )
-                message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {device.name}' )
-                messages.success( request, message )
-            except Exception as e:
-                messages.error( request, str( e ) )
-    return redirect( redirect_url )    
+
+class TagMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.TagMapping.objects.all()
 
 
 # ------------------------------------------------------------------------------
-# NetBox Ony Devices
+# Inventory Mapping
 # ------------------------------------------------------------------------------
 
 
-class NetBoxOnlyDevicesView(generic.ObjectListView):
-    """
-    View that lists NetBox devices which are not yet represented in Zabbix.
-    For each device, we also precompute and cache which DeviceMapping
-    applies (per interface type: Agent or SNMP). This avoids N+1 queries
-    when rendering the table.
-    """
-
-    table = tables.NetBoxOnlyDevicesTable
-    filterset = filtersets.NetBoxOnlyDevicesFilterSet
-    template_name = "netbox_zabbix/netbox_only_devices.html"
+class InventoryMappingView(generic.ObjectView):
+    queryset = models.InventoryMapping.objects.all()
 
 
-    def build_device_mapping_cache(self, queryset):
+class InventoryMappingListView(generic.ObjectListView):
+    queryset = models.InventoryMapping.objects.all()
+    table = tables.InventoryMappingTable
+    template_name = 'netbox_zabbix/inv_mapping_list.html'
 
-        # Load all mappings + M2M fields at once
-        all_mappings = (
-            models.DeviceMapping.objects.prefetch_related("sites", "roles", "platforms")
-        )
 
-        # Turn mappings into dictionaries so that all filtering can be done
-        # in Python instead of repetaded database queries.
-        # Each dict contains the mapping object itself and its filter sets.
-        mappings = []
-        for m in all_mappings:
-            mappings.append({
-                "obj": m,
-                "default": m.default,
-                "interface_type": m.interface_type,
-                "sites": set(m.sites.values_list("id", flat=True)),
-                "roles": set(m.roles.values_list("id", flat=True)),
-                "platforms": set(m.platforms.values_list("id", flat=True)),
-            })
+class InventoryMappingEditView(generic.ObjectEditView):
+    queryset = models.InventoryMapping.objects.all()
+    form = forms.InventoryMappingForm
+    template_name = 'netbox_zabbix/inv_mapping_edit.html'
+
+
+class InventoryMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.InventoryMapping.objects.all()
+
+
+# ------------------------------------------------------------------------------
+# Device Mapping
+# ------------------------------------------------------------------------------
+
+
+def count_matching_devices_for_mapping(obj):
+    return obj.get_matching_devices().count()
+
+
+@register_model_view(models.DeviceMapping, 'devices')
+class DeviceMappingDevicesView(generic.ObjectView):
+    queryset = models.DeviceMapping.objects.all()
+    template_name = 'netbox_zabbix/device_mapping_devices.html'
+    tab = ViewTab( label="Matching Devices",
+                   badge=lambda obj: count_matching_devices_for_mapping( obj ),
+                   weight=500 )
+    
+    def get_extra_context(self, request, instance):
+        queryset = instance.get_matching_devices()
+        table = tables.MatchingDeviceMappingTable( queryset )
+        RequestConfig( request,
+            {
+                "paginator_class": EnhancedPaginator,
+                "per_page": get_paginate_count(request),
+            }
+         ).configure( table )
+            
+        return {
+            "table": table,
+        }
+
+
+class DeviceMappingView(generic.ObjectView):
+    queryset = models.DeviceMapping.objects.all()
+    template_name = 'netbox_zabbix/device_mapping.html'
+    tab = ViewTab( label="Matching Devices",
+                   badge=lambda obj: obj.count(),
+                   weight=500 )
+    
+    def get_extra_context(self, request, instance):
+        devices = instance.get_matching_devices()
+        return {
+            "related_devices": [
+                {
+                    "queryset": devices,
+                    "label": "Devices",
+                    "count": devices.count()
+                }
+            ]
+        }
+
+
+class DeviceMappingListView(generic.ObjectListView):
+    queryset = models.DeviceMapping.objects.all()
+    table = tables.DeviceMappingTable
+    template_name = 'netbox_zabbix/device_mapping_list.html'
+
+
+class DeviceMappingEditView(generic.ObjectEditView):
+    queryset = models.DeviceMapping.objects.all()
+    form = forms.DeviceMappingForm
+    template_name = 'netbox_zabbix/device_mapping_edit.html'
+
+
+class DeviceMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.DeviceMapping.objects.all()
+
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:devicemapping_list')
+
+    def post(self, request, *args, **kwargs):
+        obj = self.get_object( **kwargs )
+    
+        if obj.default:
+            messages.error( request, "You cannot delete the default mapping." )
+            return redirect('plugins:netbox_zabbix:devicemapping_list' )
+    
+        return super().post( request, *args, **kwargs )
+
+
+class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.DeviceMapping.objects.all()
+    filterset_class = filtersets.DeviceMappingFilterSet
+    table = tables.DeviceMappingTable
+
+    def post(self, request, *args, **kwargs):
+        # Determine which objects are being deleted
+        selected_pks = request.POST.getlist( 'pk' )
+        mappings = models.Mapping.objects.filter( pk__in=selected_pks )
+    
+        # Check if any default mappings are included
+        default_mappings = mappings.filter( default=True )
+        if default_mappings.exists():
+            names = ", ".join( [m.name for m in default_mappings] )
+            messages.error( request, f"Cannot delete default mapping: {names}" )
+            return redirect('plugins:netbox_zabbix:devicemapping_list' )
+    
+        # No default mappings selected, proceed with normal deletion
+        return super().post(request, *args, **kwargs)
     
 
-        # Build a lookup cache of (device.id, interface_type) -> mapping
-        #
-        # Otherwise, when rendering the table, a to call
-        # `DeviceMapping.get_matching_filter()` is required per device * per interface type,
-        # which means hundreds/thousands of DB queries.
-        #
-        # Instead, we compute everything once here, in-memory, in O(#devices × #mappings),
-        # and table rendering just does a dictionary lookup.
-        #
-        cache = {}
-        for device in queryset:
-            device_site = device.site_id
-            device_role = device.role_id
-            device_platform = device.platform_id
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:devicemapping_list')
+
+
+# ------------------------------------------------------------------------------
+# VM Mapping
+# ------------------------------------------------------------------------------
+
+
+def count_matching_vms_for_mapping(obj):
+    return obj.get_matching_virtual_machines().count()
+
+
+@register_model_view(models.VMMapping, 'vms')
+class VMMappingVMsView(generic.ObjectView):
+    queryset = models.VMMapping.objects.all()
+    template_name = 'netbox_zabbix/vm_mapping_vms.html'
+    tab = ViewTab( label="Matching VMs",
+                   badge=lambda obj: count_matching_vms_for_mapping( obj ),
+                   weight=500 )
     
-            for interface_type in [ models.InterfaceTypeChoices.Agent, models.InterfaceTypeChoices.SNMP, ]:
-                mapping = self._find_best_mapping( device_site, device_role, device_platform, interface_type, mappings )
-                cache[(device.pk, interface_type)] = mapping
+    def get_extra_context(self, request, instance):
+        queryset = instance.get_matching_virtual_machines()
+        table = tables.MatchingVMMappingTable( queryset )
+        RequestConfig( request,
+            {
+                "paginator_class": EnhancedPaginator,
+                "per_page": get_paginate_count(request),
+            }
+         ).configure( table )
+            
+        return {
+            "table": table,
+        }
+
+
+class VMMappingView(generic.ObjectView):
+    queryset = models.VMMapping.objects.all()
+    template_name = 'netbox_zabbix/vm_mapping.html'
+    tab = ViewTab( label="Matching VMs",
+                  badge=lambda obj: obj.count(),
+                  weight=500 )
     
-        return cache
+    def get_extra_context(self, request, instance):
+        vms = instance.get_matching_virtual_machines()
 
-    def get_queryset(self, request):
+        return {
+            "related_vms": [
+                {
+                    "queryset": vms,
+                    "label": "Virtual Machines",
+                    "count": vms.count()
+                }
+            ]
+        }
 
-        """
-        Build the base queryset for devices, and precompute a mapping cache
-        so table rendering can look up the correct DeviceMapping for each
-        device without hitting the database repeatedly.
-        """
-        
-        # Get all devices that do NOT already exist in Zabbix
-        zabbix_hostnames = z.get_cached_zabbix_hostnames()
-        
-        if config.get_exclude_custom_field_enabled():
-            custom_field_name = config.get_exclude_custom_field_name()
-            filter_kwargs = { f"custom_field_data__{custom_field_name}": True }
-            queryset = (
-                Device.objects
-                .exclude( name__in=zabbix_hostnames )
-                .exclude(**filter_kwargs) 
-                .select_related( "site", "role", "platform" )
-                .prefetch_related( "tags", "zcfg" )
-            )
-        else:
-            queryset = (
-                Device.objects
-                .exclude( name__in=zabbix_hostnames )
-                .select_related( "site", "role", "platform" )
-                .prefetch_related( "tags", "zcfg" )
-            )
 
-        # Build the mapping cache
-        self.device_mapping_cache = self.build_device_mapping_cache(queryset)
+class VMMappingListView(generic.ObjectListView):
+    queryset = models.VMMapping.objects.all()
+    table = tables.VMMappingTable
+    template_name = 'netbox_zabbix/vm_mapping_list.html'
 
-        return queryset
 
-    def get_table(self, queryset, request, has_bulk_actions):
-        # Let NetBox build the table first
-        table = super().get_table(queryset, request, has_bulk_actions)
+class VMMappingEditView(generic.ObjectEditView):
+    queryset = models.VMMapping.objects.all()
+    form = forms.VMMappingForm
+    template_name = 'netbox_zabbix/vm_mapping_edit.html'
+
+
+class VMMappingDeleteView(generic.ObjectDeleteView):
+    queryset = models.VMMapping.objects.all()
     
-        # Now attach the cache
-        table.device_mapping_cache = getattr(self, "device_mapping_cache", {})
-    
-        return table
-
-    def _find_best_mapping(self, site_id, role_id, platform_id, intf_type, mappings):
-        """
-        Given a device (represented by its site/role/platform IDs) and an interface type,
-        find the most appropriate DeviceMapping from the preloaded list.
-        """
-
-        # Filter candidates - none default mappings that either explicitly match
-        # the interface type or are 'Any'.
-        candidates = [
-            m for m in mappings
-            if not m["default"] and (
-                m["interface_type"] == intf_type or m["interface_type"] == models.InterfaceTypeChoices.Any
-            )
-        ]
-
-        # Keep only those that match this device
-        def matches(m):
-            site_ok = not m["sites"] or site_id in m["sites"]
-            role_ok = not m["roles"] or role_id in m["roles"]
-            platform_ok = not m["platforms"] or platform_id in m["platforms"]
-            return site_ok and role_ok and platform_ok
-
-        matches_filtered = [ m for m in candidates if matches( m ) ]
-
-        # Pick the *most specific* match.
-        # Specificity = a mapping that sets more filters (sites, roles, platforms).
-        if matches_filtered:
-            matches_filtered.sort(
-                key=lambda m: ( bool( m["sites"] ), bool( m["roles"] ), bool( m["platforms"] ) ),
-                reverse=True
-            )
-            return matches_filtered[0]["obj"]
-
-        # If no matches, fall back to the default mapping.
-        for m in mappings:
-            if m["default"]:
-                return m["obj"]
-
-        return None
-    
-    def get_extra_context(self, request, instance=None):
-        """
-        Pass the view instance itself to the template context, so the table
-        can access `view.device_mapping_cache` when rendering columns.
-        """
-        return {"view": self}
+    def get_return_url(self, request, obj=None):
+        return reverse('plugins:netbox_zabbix:vmmapping_list')
     
     def post(self, request, *args, **kwargs):
-
-        if '_validate_quick_add' in request.POST:
-            
-            selected_ids = request.POST.getlist( 'pk' )
-            queryset = Device.objects.filter( pk__in=selected_ids )
-            
-            for device in queryset:
-                try:
-                    validate_quick_add( device )
-                    messages.success( request, f"{device.name} is valid" )
-                except Exception as e:
-                    messages.error( request, f"{str( e )}" )
-
-            return redirect( request.POST.get( 'return_url' ) or request.path )
-        
-        if '_quick_add_agent' in request.POST:
-
-            # Add a check to make sure there are any selected hosts, print a warning if not.
-            selected_ids = request.POST.getlist( 'pk' )
-            queryset = Device.objects.filter( pk__in=selected_ids )
-
-            success_counter = 0
-            max_success_messages = config.get_max_success_notifications()
-
-            for device in queryset:
-                try:
-                    validate_quick_add( device )
-                    job = jobs.ProvisionDeviceAgent.run_job( device=device, request=request )
-                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
-                    if success_counter < max_success_messages:
-                        messages.success( request, message )
-                        success_counter += 1
-
-                except Exception as e:
-                    msg = f"Failed to create job for {request.user} to quick add agent to '{device}' {str( e )}"
-                    messages.error( request, msg )
-                    logger.error( msg )
-            if len( queryset ) > max_success_messages:
-                suppressed = len(queryset) - max_success_messages
-                messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
-            return redirect( request.POST.get( 'return_url' ) or request.path )
-
-        if '_quick_add_snmpv3' in request.POST:
-        
-            # Add a check to make sure there are any selected hosts, print a warning if not.
-            selected_ids = request.POST.getlist( 'pk' )
-            queryset = Device.objects.filter( pk__in=selected_ids )
-
-            success_counter = 0
-            max_success_messages = config.get_max_success_notifications()
-
-            for device in queryset:
-                try:
-                    validate_quick_add( device )
-                    job = jobs.ProvisionDeviceSNMPv3.run_job( device=device, request=request )
-                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {device.name}' )
-                    if success_counter < max_success_messages:
-                        messages.success( request, message )
-                        success_counter += 1
-
-                except Exception as e:
-                    msg = f"Failed to create job for {request.user} to quick add snmpv3 to '{device}' {str( e )}"
-                    messages.error( request, msg )
-                    logger.error( msg )
-
-            if len( queryset ) > max_success_messages:
-                suppressed = len(queryset) - max_success_messages
-                messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
-
-            return redirect( request.POST.get( 'return_url' ) or request.path )
+        obj = self.get_object( **kwargs )
+    
+        if obj.default:
+            messages.error( request, "You cannot delete the default mapping." )
+            return redirect('plugins:netbox_zabbix:vmmapping_list' )
+    
+        return super().post( request, *args, **kwargs )
 
 
-# ------------------------------------------------------------------------------
-# NetBox Ony VMs
-# ------------------------------------------------------------------------------
+class VMMappingBulkDeleteView(generic.BulkDeleteView):
+    queryset = models.VMMapping.objects.all()
+    filterset_class = filtersets.VMMappingFilterSet
+    table = tables.VMMappingTable
 
+    def post(self, request, *args, **kwargs):
+        # Determine which objects are being deleted
+        selected_pks = request.POST.getlist( 'pk' )
+        mappings = models.Mapping.objects.filter( pk__in=selected_pks )
+    
+        # Check if any default mappings are included
+        default_mappings = mappings.filter( default=True )
+        if default_mappings.exists():
+            names = ", ".join( [m.name for m in default_mappings] )
+            messages.error( request, f"Cannot delete default mapping: {names}" )
+            return redirect('plugins:netbox_zabbix:vmmapping_list' )
+    
+        # No default mappings selected, proceed with normal deletion
+        return super().post(request, *args, **kwargs)
+    
 
-class NetBoxOnlyVMsView(generic.ObjectListView):
-    table = tables.NetBoxOnlyVMsTable
-    #filterset = filtersets.NetBoxOnlyVMsFilterSet
-    template_name = "netbox_zabbix/netbox_only_vms.html"
-
-    def get_queryset(self, request):
-        try:
-            zabbix_hostnames = {host["name"] for host in z.get_zabbix_hostnames()}
-        except config.ZabbixConfigNotFound as e:
-            messages.error( request, str( e ) )
-            return VirtualMachine.objects.none()
-        except Exception as e:
-            messages.error( request, f"Failed to retrieve hostnames from Zabbix: {str(e)}" )
-            return VirtualMachine.objects.none()
-
-        # Return only Virtual Machines that are not in Zabbix
-        return VirtualMachine.objects.exclude( name__in=zabbix_hostnames )
-
-
-# ------------------------------------------------------------------------------
-# Zabbix Only Hosts
-# ------------------------------------------------------------------------------
-
-
-class ZabbixOnlyHostsView(GenericTemplateView):
-    template_name = 'netbox_zabbix/zabbixonlyhosts.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data( **kwargs )
-
-        error_occurred = False
-        try:            
-            data = z.get_zabbix_only_hostnames()
-            web_address = config.get_zabbix_web_address()
-
-        except config.ZabbixConfigNotFound as e:
-            messages.error(self.request, str(e))
-            error_occurred = True
-
-        except Exception as e:
-            messages.error(self.request, f"Failed to fetch data from Zabbix: {str(e)}")
-            error_occurred = True
-        
-        if error_occurred:
-            empty_table = tables.ZabbixOnlyHostTable([], orderable=False)
-            RequestConfig(self.request).configure(empty_table)
-            context['table'] = empty_table
-            return context
-        
-        table = tables.ZabbixOnlyHostTable( data, orderable=False )
-        RequestConfig(
-            self.request, {
-                'paginator_class': EnhancedPaginator,
-                'per_page': get_paginate_count( self.request ),
-            }
-        ).configure( table )
-        
-        try:
-            web_address = config.get_zabbix_web_address()
-        except Exception as e:
-            raise e
-        
-        context.update({
-            'table': table,
-            'web_address': web_address,
-        })
-        return context
+    def get_return_url(self, request, obj=None):
+            return reverse('plugins:netbox_zabbix:vmmapping_list')
 
 
 # ------------------------------------------------------------------------------
@@ -940,43 +891,9 @@ class ZabbixConfigDeleteView(View):
         raise Http404("Host not found")
 
 
-# ------------------------------------------------------------------------------
-# Sync With Zabbix
-# ------------------------------------------------------------------------------
-
-
-def run_sync_with_zabbix(request):
-    try:
-        model = request.GET.get( "model" )
-        config_id = request.GET.get( "zabbix_config_id" )
-
-        if model == "device":
-            config = models.DeviceZabbixConfig.objects.get( id=config_id )
-        elif model == "vm":
-            config = models.VMZabbixConfig.objects.get( id=config_id )
-        else:
-            raise Exception( f"model {model} has to be either 'device' or 'vm'" )
-
-        jobs.UpdateZabbixHost.run_job_now( zabbix_config=config, request=request )
-        messages.success( request, f"Sync {config.name} with Zabbix succeeded." )
-    except Exception as e:
-        messages.error( request, f"Failed to sync {config.name} with Zabbix. Reason: {str( e ) }" )
-
-
-def sync_with_zabbix(request):
-    """
-    View-based wrapper around sync with Zabbix
-    """
-    redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
-    
-    run_sync_with_zabbix( request )
-
-    return redirect( redirect_url )
-
-
-# ------------------------------------------------------------------------------
-# Importable Devices
-# ------------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Devices with importable hosts in Zabbix
+# --------------------------------------------------------------------------
 
 
 class ImportableDeviceListView(generic.ObjectListView):
@@ -1056,9 +973,9 @@ class ImportableDeviceListView(generic.ObjectListView):
         return super().get( request, *args, **kwargs )
 
 
-# ------------------------------------------------------------------------------
-# Importable VMs
-# ------------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# VMs with importable hosts in Zabbix
+# --------------------------------------------------------------------------
 
 
 class ImportableVMListView(generic.ObjectListView):
@@ -1142,12 +1059,643 @@ class ImportableVMListView(generic.ObjectListView):
 
 
 # ------------------------------------------------------------------------------
-# Interfaces
+# NetBox Ony Devices
 # ------------------------------------------------------------------------------
 
-#
-# Device Agent
-#
+
+class NetBoxOnlyDevicesView(generic.ObjectListView):
+    """
+    View that lists NetBox devices which are not yet represented in Zabbix.
+    For each device, we also precompute and cache which DeviceMapping
+    applies (per interface type: Agent or SNMP). This avoids N+1 queries
+    when rendering the table.
+    """
+
+    table = tables.NetBoxOnlyDevicesTable
+    filterset = filtersets.NetBoxOnlyDevicesFilterSet
+    template_name = "netbox_zabbix/netbox_only_devices.html"
+
+
+    def build_device_mapping_cache(self, queryset):
+
+        # Load all mappings + M2M fields at once
+        all_mappings = ( models.DeviceMapping.objects.prefetch_related("sites", "roles", "platforms") )
+
+        # Turn mappings into dictionaries so that all filtering can be done
+        # in Python instead of repetaded database queries.
+        # Each dict contains the mapping object itself and its filter sets.
+        mappings = []
+        for m in all_mappings:
+            mappings.append({
+                "obj":            m,
+                "default":        m.default,
+                "interface_type": m.interface_type,
+                "sites":          set( m.sites.values_list( "id", flat=True ) ),
+                "roles":          set( m.roles.values_list( "id", flat=True ) ),
+                "platforms":      set( m.platforms.values_list( "id", flat=True ) ),
+            })
+    
+
+        # Build a lookup cache of (device.id, interface_type) -> mapping
+        #
+        # Otherwise, when rendering the table, a to call
+        # `DeviceMapping.get_matching_filter()` is required per device * per interface type,
+        # which means hundreds/thousands of DB queries.
+        #
+        # Instead, we compute everything once here, in-memory, in O(#devices × #mappings),
+        # and table rendering just does a dictionary lookup.
+        #
+        cache = {}
+        for device in queryset:
+            device_site = device.site_id
+            device_role = device.role_id
+            device_platform = device.platform_id
+    
+            for interface_type in [ models.InterfaceTypeChoices.Agent, models.InterfaceTypeChoices.SNMP, ]:
+                mapping = self._find_best_mapping( device_site, device_role, device_platform, interface_type, mappings )
+                cache[(device.pk, interface_type)] = mapping
+    
+        return cache
+
+    def get_queryset(self, request):
+
+        """
+        Build the base queryset for devices, and precompute a mapping cache
+        so table rendering can look up the correct DeviceMapping for each
+        device without hitting the database repeatedly.
+        """
+        
+        # Get all devices that do NOT already exist in Zabbix
+        zabbix_hostnames = z.get_cached_zabbix_hostnames()
+        
+        if config.get_exclude_custom_field_enabled():
+            custom_field_name = config.get_exclude_custom_field_name()
+            filter_kwargs = { f"custom_field_data__{custom_field_name}": True }
+            queryset = (
+                Device.objects
+                .exclude( name__in=zabbix_hostnames )
+                .exclude( **filter_kwargs ) 
+                .select_related( "site", "role", "platform" )
+                .prefetch_related( "tags", "zcfg" )
+            )
+        else:
+            queryset = (
+                Device.objects
+                .exclude( name__in=zabbix_hostnames )
+                .select_related( "site", "role", "platform" )
+                .prefetch_related( "tags", "zcfg" )
+            )
+
+        # Build the mapping cache
+        self.device_mapping_cache = self.build_device_mapping_cache(queryset)
+
+        return queryset
+
+    def get_table(self, queryset, request, has_bulk_actions):
+        # Let NetBox build the table first
+        table = super().get_table( queryset, request, has_bulk_actions )
+    
+        # Now attach the cache
+        table.device_mapping_cache = getattr(self, "device_mapping_cache", {})
+    
+        return table
+
+    def _find_best_mapping(self, site_id, role_id, platform_id, intf_type, mappings):
+        """
+        Given a device (represented by its site/role/platform IDs) and an interface type,
+        find the most appropriate DeviceMapping from the preloaded list.
+        """
+
+        # Filter candidates - none default mappings that either explicitly match
+        # the interface type or are 'Any'.
+        candidates = [
+            m for m in mappings
+            if not m["default"] and (
+                m["interface_type"] == intf_type or m["interface_type"] == models.InterfaceTypeChoices.Any
+            )
+        ]
+
+        # Keep only those that match this device
+        def matches(m):
+            site_ok = not m["sites"] or site_id in m["sites"]
+            role_ok = not m["roles"] or role_id in m["roles"]
+            platform_ok = not m["platforms"] or platform_id in m["platforms"]
+            return site_ok and role_ok and platform_ok
+
+        matches_filtered = [ m for m in candidates if matches( m ) ]
+
+        # Pick the *most specific* match.
+        # Specificity = a mapping that sets more filters (sites, roles, platforms).
+        if matches_filtered:
+            matches_filtered.sort(
+                key=lambda m: ( bool( m["sites"] ), bool( m["roles"] ), bool( m["platforms"] ) ),
+                reverse=True
+            )
+            return matches_filtered[0]["obj"]
+
+        # If no matches, fall back to the default mapping.
+        for m in mappings:
+            if m["default"]:
+                return m["obj"]
+
+        return None
+    
+    def get_extra_context(self, request, instance=None):
+        """
+        Pass the view instance itself to the template context, so the table
+        can access `view.device_mapping_cache` when rendering columns.
+        """
+        return {"view": self}
+    
+    def post(self, request, *args, **kwargs):
+
+        if '_validate_quick_add' in request.POST:
+            
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = Device.objects.filter( pk__in=selected_ids )
+            
+            for device in queryset:
+                try:
+                    validate_quick_add( device )
+                    messages.success( request, f"{device.name} is valid" )
+                except Exception as e:
+                    messages.error( request, f"{str( e )}" )
+
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+        
+        if '_quick_add_agent' in request.POST:
+
+            # Add a check to make sure there are any selected hosts, print a warning if not.
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = Device.objects.filter( pk__in=selected_ids )
+
+            success_counter = 0
+            max_success_messages = config.get_max_success_notifications()
+
+            for device in queryset:
+                try:
+                    validate_quick_add( device )
+                    job = jobs.ProvisionAgent.run_job( object=device, request=request )
+                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
+                    if success_counter < max_success_messages:
+                        messages.success( request, message )
+                        success_counter += 1
+
+                except Exception as e:
+                    msg = f"Failed to create job for {request.user} to quick add agent to '{device.name}' {str( e )}"
+                    messages.error( request, msg )
+                    logger.error( msg )
+
+            if len( queryset ) > max_success_messages:
+                suppressed = len(queryset) - max_success_messages
+                messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+
+        if '_quick_add_snmpv3' in request.POST:
+        
+            # Add a check to make sure there are any selected hosts, print a warning if not.
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = Device.objects.filter( pk__in=selected_ids )
+
+            success_counter = 0
+            max_success_messages = config.get_max_success_notifications()
+
+            for device in queryset:
+                try:
+                    validate_quick_add( device )
+                    job = jobs.ProvisionSNMPv3.run_job( object=device, request=request )
+                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {device.name}' )
+                    if success_counter < max_success_messages:
+                        messages.success( request, message )
+                        success_counter += 1
+
+                except Exception as e:
+                    msg = f"Failed to create job for {request.user} to quick add snmpv3 to '{device}' {str( e )}"
+                    messages.error( request, msg )
+                    logger.error( msg )
+
+            if len( queryset ) > max_success_messages:
+                suppressed = len(queryset) - max_success_messages
+                messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
+
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+
+
+# ------------------------------------------------------------------------------
+# NetBox Ony VMs
+# ------------------------------------------------------------------------------
+
+
+class NetBoxOnlyVMsView(generic.ObjectListView):
+    """
+    View that lists NetBox VMs which are not yet represented in Zabbix.
+    For each VM, we also precompute and cache which VMMapping
+    applies (per interface type: Agent or SNMP). This avoids N+1 queries
+    when rendering the table.
+    """
+
+    table = tables.NetBoxOnlyVMsTable
+    filterset = filtersets.NetBoxOnlyVMsFilterSet
+    template_name = "netbox_zabbix/netbox_only_vms.html"
+    
+    
+    def build_vm_mapping_cache(self, queryset):
+    
+        # Load all mappings + M2M fields at once
+        all_mappings = ( models.VMMapping.objects.prefetch_related("sites", "roles", "platforms") )
+    
+        # Turn mappings into dictionaries so that all filtering can be done
+        # in Python instead of repetaded database queries.
+        # Each dict contains the mapping object itself and its filter sets.
+        mappings = []
+        for m in all_mappings:
+            mappings.append({
+                "obj":            m,
+                "default":        m.default,
+                "interface_type": m.interface_type,
+                "sites":          set( m.sites.values_list( "id", flat=True ) ),
+                "roles":          set( m.roles.values_list( "id", flat=True ) ),
+                "platforms":      set (m.platforms.values_list( "id", flat=True ) ),
+            })
+    
+    
+        # Build a lookup cache of (virtual_machine.id, interface_type) -> mapping
+        #
+        # Otherwise, when rendering the table, a to call
+        # `VMMapping.get_matching_filter()` is required per device * per interface type,
+        # which means hundreds/thousands of DB queries.
+        #
+        # Instead, we compute everything once here, in-memory, in O(#VMs × #mappings),
+        # and table rendering just does a dictionary lookup.
+        #
+        cache = {}
+        for vm in queryset:
+            vm_site = vm.site_id
+            vm_role = vm.role_id
+            vm_platform = vm.platform_id
+    
+            for interface_type in [ models.InterfaceTypeChoices.Agent, models.InterfaceTypeChoices.SNMP, ]:
+                mapping = self._find_best_mapping( vm_site, vm_role, vm_platform, interface_type, mappings )
+                cache[(vm.pk, interface_type)] = mapping
+    
+        return cache
+    
+    def get_queryset(self, request):
+    
+        """
+        Build the base queryset for VMs, and precompute a mapping cache
+        so table rendering can look up the correct VMMapping for each
+        VM without hitting the database repeatedly.
+        """
+        
+        # Get all devices that do NOT already exist in Zabbix
+        zabbix_hostnames = z.get_cached_zabbix_hostnames()
+        
+        if config.get_exclude_custom_field_enabled():
+            custom_field_name = config.get_exclude_custom_field_name()
+            filter_kwargs = { f"custom_field_data__{custom_field_name}": True }
+            queryset = (
+                VirtualMachine.objects
+                .exclude( name__in=zabbix_hostnames )
+                .exclude( **filter_kwargs ) 
+                .select_related( "site", "role", "platform" )
+                .prefetch_related( "tags", "zcfg" )
+            )
+        else:
+            queryset = (
+                VirtualMachine.objects
+                .exclude( name__in=zabbix_hostnames )
+                .select_related( "site", "role", "platform" )
+                .prefetch_related( "tags", "zcfg" )
+            )
+    
+        # Build the mapping cache
+        self.vm_mapping_cache = self.build_vm_mapping_cache(queryset)
+    
+        return queryset
+    
+    def get_table(self, queryset, request, has_bulk_actions):
+        # Let NetBox build the table first
+        table = super().get_table( queryset, request, has_bulk_actions )
+    
+        # Now attach the cache
+        table.vm_mapping_cache = getattr(self, "vm_mapping_cache", {})
+    
+        return table
+    
+    def _find_best_mapping(self, site_id, role_id, platform_id, intf_type, mappings):
+        """
+        Given a device (represented by its site/role/platform IDs) and an interface type,
+        find the most appropriate DeviceMapping from the preloaded list.
+        """
+    
+        # Filter candidates - none default mappings that either explicitly match
+        # the interface type or are 'Any'.
+        candidates = [
+            m for m in mappings
+            if not m["default"] and (
+                m["interface_type"] == intf_type or m["interface_type"] == models.InterfaceTypeChoices.Any
+            )
+        ]
+    
+        # Keep only those that match this device
+        def matches(m):
+            site_ok = not m["sites"] or site_id in m["sites"]
+            role_ok = not m["roles"] or role_id in m["roles"]
+            platform_ok = not m["platforms"] or platform_id in m["platforms"]
+            return site_ok and role_ok and platform_ok
+    
+        matches_filtered = [ m for m in candidates if matches( m ) ]
+    
+        # Pick the *most specific* match.
+        # Specificity = a mapping that sets more filters (sites, roles, platforms).
+        if matches_filtered:
+            matches_filtered.sort(
+                key=lambda m: ( bool( m["sites"] ), bool( m["roles"] ), bool( m["platforms"] ) ),
+                reverse=True
+            )
+            return matches_filtered[0]["obj"]
+    
+        # If no matches, fall back to the default mapping.
+        for m in mappings:
+            if m["default"]:
+                return m["obj"]
+    
+        return None
+    
+    def get_extra_context(self, request, instance=None):
+        """
+        Pass the view instance itself to the template context, so the table
+        can access `view.vm_mapping_cache` when rendering columns.
+        """
+        return {"view": self}
+    
+    def post(self, request, *args, **kwargs):
+    
+        if '_validate_quick_add' in request.POST:
+            
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = VirtualMachine.objects.filter( pk__in=selected_ids )
+            
+            for virtual_machine in queryset:
+                try:
+                    validate_quick_add( virtual_machine )
+                    messages.success( request, f"{virtual_machine.name} is valid" )
+                except Exception as e:
+                    messages.error( request, f"{str( e )}" )
+    
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+        
+        if '_quick_add_agent' in request.POST:
+    
+            # Add a check to make sure there are any selected hosts, print a warning if not.
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = VirtualMachine.objects.filter( pk__in=selected_ids )
+    
+            success_counter = 0
+            max_success_messages = config.get_max_success_notifications()
+    
+            for virtual_machine in queryset:
+                try:
+                    validate_quick_add( virtual_machine )
+                    job = jobs.ProvisionAgent.run_job( object=virtual_machine, request=request )
+                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {virtual_machine.name}' )
+                    if success_counter < max_success_messages:
+                        messages.success( request, message )
+                        success_counter += 1
+    
+                except Exception as e:
+                    msg = f"Failed to create job for {request.user} to quick add agent to '{virtual_machine.name}' {str( e )}"
+                    messages.error( request, msg )
+                    logger.error( msg )
+
+            if len( queryset ) > max_success_messages:
+                suppressed = len(queryset) - max_success_messages
+                messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+    
+        if '_quick_add_snmpv3' in request.POST:
+        
+            # Add a check to make sure there are any selected hosts, print a warning if not.
+            selected_ids = request.POST.getlist( 'pk' )
+            queryset = VirtualMachine.objects.filter( pk__in=selected_ids )
+    
+            success_counter = 0
+            max_success_messages = config.get_max_success_notifications()
+    
+            for virtual_machine in queryset:
+                try:
+                    validate_quick_add( virtual_machine )
+                    job = jobs.ProvisionSNMPv3.run_job( object=virtual_machine, request=request )
+                    message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {virtual_machine.name}' )
+                    if success_counter < max_success_messages:
+                        messages.success( request, message )
+                        success_counter += 1
+    
+                except Exception as e:
+                    msg = f"Failed to create job for {request.user} to quick add snmpv3 to '{virtual_machine.name}' {str( e )}"
+                    messages.error( request, msg )
+                    logger.error( msg )
+    
+            if len( queryset ) > max_success_messages:
+                suppressed = len(queryset) - max_success_messages
+                messages.info(request, f"Queued {suppressed} more job{'s' if suppressed != 1 else ''} without notifications." )
+    
+            return redirect( request.POST.get( 'return_url' ) or request.path )
+
+
+
+# ------------------------------------------------------------------------------
+# Zabbix Only Hosts
+# ------------------------------------------------------------------------------
+
+
+class ZabbixOnlyHostsView(GenericTemplateView):
+    template_name = 'netbox_zabbix/zabbixonlyhosts.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data( **kwargs )
+
+        error_occurred = False
+        try:            
+            data = z.get_zabbix_only_hostnames()
+            web_address = config.get_zabbix_web_address()
+
+        except config.ZabbixConfigNotFound as e:
+            messages.error(self.request, str(e))
+            error_occurred = True
+
+        except Exception as e:
+            messages.error(self.request, f"Failed to fetch data from Zabbix: {str(e)}")
+            error_occurred = True
+        
+        if error_occurred:
+            empty_table = tables.ZabbixOnlyHostTable([], orderable=False)
+            RequestConfig(self.request).configure(empty_table)
+            context['table'] = empty_table
+            return context
+        
+        table = tables.ZabbixOnlyHostTable( data, orderable=False )
+        RequestConfig(
+            self.request, {
+                'paginator_class': EnhancedPaginator,
+                'per_page': get_paginate_count( self.request ),
+            }
+        ).configure( table )
+        
+        try:
+            web_address = config.get_zabbix_web_address()
+        except Exception as e:
+            raise e
+        
+        context.update({
+            'table': table,
+            'web_address': web_address,
+        })
+        return context
+
+
+# ------------------------------------------------------------------------------
+# Devices Quick Add
+# ------------------------------------------------------------------------------
+
+
+def device_validate_quick_add(request):
+    redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
+
+    if request.method == 'GET':
+        device_id = request.GET.get( "device_id" )
+        device = Device.objects.filter( pk=device_id ).first()
+
+        if not device:
+            messages.error( request, f"No Device with id {device_id} found" )
+
+        else:
+            try:
+                validate_quick_add( device )
+                messages.success( request, f"{device.name} is valid" )
+            except Exception as e:
+                messages.error( request, str( e ) )
+
+    return redirect( redirect_url )
+
+
+def device_quick_add_agent(request):
+    redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
+
+    if request.method == 'GET':
+        device_id = request.GET.get( "device_id" )
+        device = Device.objects.filter( pk=device_id ).first()
+
+        if not device:
+            messages.error( request, f"No Device with id {device_id} found" )
+
+        else:
+            try:
+                validate_quick_add( device )
+                job = jobs.ProvisionAgent.run_job( object=device, request=request )
+                message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {device.name}' )
+                messages.success( request, message )
+            except Exception as e:
+                messages.error( request, str( e ) )
+
+    return redirect( redirect_url )
+
+
+def device_quick_add_snmpv3(request):
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+
+    if request.method == 'GET':
+        device_id = request.GET.get( "device_id" )
+        device = Device.objects.filter( pk=device_id ).first()
+
+        if not device:
+            messages.error( request, f"No Device with id {device_id} found" )
+        
+        else:
+            try:
+                validate_quick_add( device )
+                job = jobs.ProvisionSNMPv3.run_job( object=device, reques=request )
+                message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {device.name}' )
+                messages.success( request, message )
+            except Exception as e:
+                messages.error( request, str( e ) )
+
+    return redirect( redirect_url )    
+
+
+# ------------------------------------------------------------------------------
+# VMs Quick Add
+# ------------------------------------------------------------------------------
+
+
+def vm_validate_quick_add(request):
+    redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
+    if request.method == 'GET':
+        virtual_machine_id = request.GET.get( "virtual_machine_id" )
+        vm = VirtualMachine.objects.filter( pk=virtual_machine_id ).first()
+
+        if not vm:
+            messages.error( request, f"No VM with id {virtual_machine_id} found" )
+        
+        else:
+            try:
+                validate_quick_add( vm )
+                messages.success( request, f"{vm.name} is valid" )
+            except Exception as e:
+                messages.error( request, str( e ) )
+
+    return redirect( redirect_url )
+
+
+def vm_quick_add_agent(request):
+    redirect_url = request.GET.get( "return_url ") or request.META.get( "HTTP_REFERER", "/" )
+
+    if request.method == 'GET':
+        virtual_machine_id = request.GET.get( "virtual_machine_id" )
+        vm = VirtualMachine.objects.filter( pk=virtual_machine_id ).first()
+
+        if not vm:
+            messages.error( request, f"No VM with id {virtual_machine_id} found" )
+        
+        else:
+            try:
+                validate_quick_add( vm )
+                job = jobs.ProvisionAgent.run_job( object=vm, request=request )
+                message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add agent for {vm.name}' )
+                messages.success( request, message )
+            except Exception as e:
+                messages.error( request, str( e ) )
+
+    return redirect( redirect_url )
+
+
+def vm_quick_add_snmpv3(request):
+    redirect_url = request.GET.get("return_url") or request.META.get("HTTP_REFERER", "/")
+
+    if request.method == 'GET':
+        virtual_machine_id = request.GET.get( "virtual_machine_id" )
+        vm = VirtualMachine.objects.filter( pk=virtual_machine_id ).first()
+
+        if not vm:
+            messages.error( request, f"No VM with id {virtual_machine_id} found" )
+        
+        else:
+            try:
+                validate_quick_add( vm )
+                job = jobs.ProvisionSNMPv3.run_job( object=vm, reques=request )
+                message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to add SNMPv3 for {vm.name}' )
+                messages.success( request, message )
+            except Exception as e:
+                messages.error( request, str( e ) )
+
+    return redirect( redirect_url )    
+
+
+# ------------------------------------------------------------------------------
+# Device Agent Interface
+# ------------------------------------------------------------------------------
+
 
 class DeviceAgentInterfaceView(generic.ObjectView):
     queryset = models.DeviceAgentInterface.objects.all()
@@ -1192,6 +1740,7 @@ class DeviceAgentInterfaceDeleteView(generic.ObjectDeleteView):
         # If safe, proceed with normal deletion
         return super().post(request, *args, **kwargs)
 
+
 class DeviceAgentInterfaceBulkDeleteView(generic.BulkDeleteView):
     queryset = models.DeviceAgentInterface.objects.all()
     table = tables.DeviceAgentInterfaceTable
@@ -1200,9 +1749,10 @@ class DeviceAgentInterfaceBulkDeleteView(generic.BulkDeleteView):
             return reverse('plugins:netbox_zabbix:deviceagentinterface_list')
 
 
-#
-# Device SNMPv3
-#
+# --------------------------------------------------------------------------
+# Device SNMPv3 Interface
+# --------------------------------------------------------------------------
+
 
 class DeviceSNMPv3InterfaceView(generic.ObjectView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
@@ -1219,7 +1769,7 @@ class DeviceSNMPv3InterfaceEditView(generic.ObjectEditView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
     form = forms.DeviceSNMPv3InterfaceForm
     template_name = 'netbox_zabbix/device_snmpv3_interface_edit.html'
-    
+
 
 class DeviceSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.DeviceSNMPv3Interface.objects.all()
@@ -1257,9 +1807,10 @@ class DeviceSNMPv3InterfaceBulkDeleteView(generic.BulkDeleteView):
             return reverse('plugins:netbox_zabbix:devicesnmpv3interface_list')
 
 
-#
-# VM Agent
-#
+# --------------------------------------------------------------------------
+# VM Agent Interface
+# --------------------------------------------------------------------------
+
 
 class VMAgentInterfaceView(generic.ObjectView):
     queryset = models.VMAgentInterface.objects.all()
@@ -1281,9 +1832,11 @@ class VMAgentInterfaceEditView(generic.ObjectEditView):
 class VMAgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.VMAgentInterface.objects.all()
 
-#
-# VM SNMPv3
-#
+
+# --------------------------------------------------------------------------
+# Device SNMPv3 Interface
+# --------------------------------------------------------------------------
+
 
 class VMSNMPv3InterfaceView(generic.ObjectView):
     queryset = models.VMSNMPv3Interface.objects.all()
@@ -1300,190 +1853,10 @@ class VMSNMPv3InterfaceEditView(generic.ObjectEditView):
     queryset = models.VMSNMPv3Interface.objects.all()
     form = forms.VMSNMPv3InterfaceForm
     template_name = 'netbox_zabbix/vm_snmpv3_interface_edit.html'
-    
+
 
 class VMSNMPv3InterfaceDeleteView(generic.ObjectDeleteView):
     queryset = models.VMSNMPv3Interface.objects.all()
-
-
-# ------------------------------------------------------------------------------
-# Tag Mapping
-# ------------------------------------------------------------------------------
-
-
-class TagMappingView(generic.ObjectView):
-    queryset = models.TagMapping.objects.all()
-
-
-class TagMappingListView(generic.ObjectListView):
-    queryset = models.TagMapping.objects.all()
-    table = tables.TagMappingTable
-    template_name = 'netbox_zabbix/tag_mapping_list.html'
-
-
-class TagMappingEditView(generic.ObjectEditView):
-    queryset = models.TagMapping.objects.all()
-    form = forms.TagMappingForm
-    template_name = 'netbox_zabbix/tag_mapping_edit.html'
-
-
-class TagMappingDeleteView(generic.ObjectDeleteView):
-    queryset = models.TagMapping.objects.all()
-
-
-# ------------------------------------------------------------------------------
-# Inventory Mapping
-# ------------------------------------------------------------------------------
-
-
-class InventoryMappingView(generic.ObjectView):
-    queryset = models.InventoryMapping.objects.all()
-
-
-class InventoryMappingListView(generic.ObjectListView):
-    queryset = models.InventoryMapping.objects.all()
-    table = tables.InventoryMappingTable
-    template_name = 'netbox_zabbix/inv_mapping_list.html'
-
-
-class InventoryMappingEditView(generic.ObjectEditView):
-    queryset = models.InventoryMapping.objects.all()
-    form = forms.InventoryMappingForm
-    template_name = 'netbox_zabbix/inv_mapping_edit.html'
-
-
-class InventoryMappingDeleteView(generic.ObjectDeleteView):
-    queryset = models.InventoryMapping.objects.all()
-
-
-# ------------------------------------------------------------------------------
-# Device Mapping
-# ------------------------------------------------------------------------------
-
-
-def count_matching_devices_for_mapping(obj):
-    return obj.get_matching_devices().count()
-
-
-@register_model_view(models.DeviceMapping, 'devices')
-class DeviceMappingDevicesView(generic.ObjectView):
-    queryset = models.DeviceMapping.objects.all()
-    template_name = 'netbox_zabbix/device_mapping_devices.html'
-    tab = ViewTab( label="Matching Devices",
-                   badge=lambda obj: count_matching_devices_for_mapping( obj ),
-                   weight=500 )
-    
-    def get_extra_context(self, request, instance):
-        queryset = instance.get_matching_devices()
-        table = tables.MatchingDeviceMappingTable( queryset )
-        RequestConfig( request,
-            {
-                "paginator_class": EnhancedPaginator,
-                "per_page": get_paginate_count(request),
-            }
-         ).configure( table )
-            
-        return {
-            "table": table,
-        }
-
-
-class DeviceMappingView(generic.ObjectView):
-    queryset = models.DeviceMapping.objects.all()
-    template_name = 'netbox_zabbix/device_mapping.html'
-    tab = ViewTab( label="Matching Devices",
-                  badge=lambda obj: obj.count(),
-                  weight=500 )
-    
-    def get_extra_context(self, request, instance):
-        devices = instance.get_matching_devices()
-        return {
-            "related_devices": [
-                {
-                    "queryset": devices,
-                    "label": "Devices",
-                    "count": devices.count()
-                }
-            ]
-        }
-
-
-class DeviceMappingListView(generic.ObjectListView):
-    queryset = models.DeviceMapping.objects.all()
-    table = tables.DeviceMappingTable
-    template_name = 'netbox_zabbix/device_mapping_list.html'
-
-
-class DeviceMappingEditView(generic.ObjectEditView):
-    queryset = models.DeviceMapping.objects.all()
-    form = forms.DeviceMappingForm
-    template_name = 'netbox_zabbix/device_mapping_edit.html'
-
-
-class DeviceMappingDeleteView(generic.ObjectDeleteView):
-    queryset = models.DeviceMapping.objects.all()
-
-    def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:devicemapping_list')
-
-    def post(self, request, *args, **kwargs):
-        obj = self.get_object( **kwargs )
-    
-        if obj.default:
-            messages.error( request, "You cannot delete the default mapping." )
-            return redirect('plugins:netbox_zabbix:devicemapping_list' )
-    
-        return super().post( request, *args, **kwargs )
-
-
-class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
-    queryset = models.DeviceMapping.objects.all()
-    filterset_class = filtersets.DeviceMappingFilterSet
-    table = tables.DeviceMappingTable
-
-    def post(self, request, *args, **kwargs):
-        # Determine which objects are being deleted
-        selected_pks = request.POST.getlist( 'pk' )
-        mappings = models.Mapping.objects.filter( pk__in=selected_pks )
-    
-        # Check if any default mappings are included
-        default_mappings = mappings.filter( default=True )
-        if default_mappings.exists():
-            names = ", ".join( [m.name for m in default_mappings] )
-            messages.error( request, f"Cannot delete default mapping(s): {names}" )
-            return redirect('plugins:netbox_zabbix:devicemapping_list' )
-    
-        # No default mappings selected, proceed with normal deletion
-        return super().post(request, *args, **kwargs)
-    
-
-    def get_return_url(self, request, obj=None):
-            return reverse('plugins:netbox_zabbix:devicemapping_list')
-
-
-# ------------------------------------------------------------------------------
-# VM Mapping
-# ------------------------------------------------------------------------------
-
-
-class VMMappingView(generic.ObjectView):
-    queryset = models.VMMapping.objects.all()
-
-
-class VMMappingListView(generic.ObjectListView):
-    queryset = models.VMMapping.objects.all()
-    table = tables.VMMappingTable
-    template_name = 'netbox_zabbix/vm_mapping_list.html'
-
-
-class VMMappingEditView(generic.ObjectEditView):
-    queryset = models.VMMapping.objects.all()
-    form = forms.VMMappingForm
-    template_name = 'netbox_zabbix/vm_mapping_edit.html'
-
-
-class VMMappingDeleteView(generic.ObjectDeleteView):
-    queryset = models.VMMapping.objects.all()
 
 
 # ------------------------------------------------------------------------------
@@ -1537,6 +1910,7 @@ class EventLogBulkDeleteView(generic.BulkDeleteView):
 # ------------------------------------------------------------------------------
 # Device Tab for Zabbix Details
 # ------------------------------------------------------------------------------
+
 
 @register_model_view(Device, name="Zabbix", path="zabbix")
 class ZabbixDeviceTabView(generic.ObjectView):
@@ -1603,41 +1977,40 @@ class DeviceZabbixConfigDiffTabView(generic.ObjectView):
         return { "configurations": instance.get_sync_diff() }
 
 
-
-
 # ------------------------------------------------------------------------------
 # VM Tab for Zabbix Details
 # ------------------------------------------------------------------------------
 
-#@register_model_view(Device, name="Zabbix", path="zabbix")
-#class VMDeviceTabView(generic.ObjectView):
-#    queryset = models.VMZabbixConfig.objects.all()
-#    tab = ViewTab(
-#        label="Zabbix",
-#        hide_if_empty=True,
-#        badge=lambda virtual_machine: str( len( z.get_problems( virtual_machine.name ) ) )  if models.VMZabbixConfig.objects.filter( virtual_machine=virtual_machine ).exists() else 0
-#    )
-#
-#    def get(self, request, pk):
-#        virtual_machine = get_object_or_404( VirtualMachine, pk=pk )
-#        config = models.VMZabbixConfig.objects.filter( virtual_machine=virtual_machine ).first()
-#
-#        problems = []
-#        table = None
-#        if config:
-#            problems = z.get_problems( virtual_machine.name )
-#            table = tables.ZabbixProblemTable( problems )
-#
-#        return render(
-#            request,
-#            "netbox_zabbix/additional_vm_tab.html",
-#            context={
-#                "tab": self.tab,
-#                "object": virtual_machine,
-#                "config": config,
-#                "table": table,
-#            },
-#        )
+
+@register_model_view(VirtualMachine, name="Zabbix", path="zabbix")
+class VMDeviceTabView(generic.ObjectView):
+    queryset = models.VMZabbixConfig.objects.all()
+    tab = ViewTab(
+        label="Zabbix",
+        hide_if_empty=True,
+        badge=lambda virtual_machine: str( len( z.get_problems( virtual_machine.name ) ) )  if models.VMZabbixConfig.objects.filter( virtual_machine=virtual_machine ).exists() else 0
+    )
+
+    def get(self, request, pk):
+        virtual_machine = get_object_or_404( VirtualMachine, pk=pk )
+        config = models.VMZabbixConfig.objects.filter( virtual_machine=virtual_machine ).first()
+
+        problems = []
+        table = None
+        if config:
+            problems = z.get_problems( virtual_machine.name )
+            table = tables.ZabbixProblemTable( problems )
+
+        return render(
+            request,
+            "netbox_zabbix/additional_vm_tab.html",
+            context={
+                "tab": self.tab,
+                "object": virtual_machine,
+                "config": config,
+                "table": table,
+            },
+        )
 
 
 # ------------------------------------------------------------------------------
@@ -1657,6 +2030,7 @@ class VMZabbixConfigJobsTabView(generic.ObjectView):
         table = JobTable( queryset )
         return { "table": table }
 
+
 # ------------------------------------------------------------------------------
 # VM Tab for Zabbix Diff
 # ------------------------------------------------------------------------------
@@ -1670,8 +2044,6 @@ class VMZabbixConfigDiffTabView(generic.ObjectView):
 
     def get_extra_context(self, request, instance):
         return { "configurations": instance.get_sync_diff() }
-
-
 
 
 # end

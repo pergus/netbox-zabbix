@@ -56,6 +56,10 @@ menu = PluginMenu(
                     link_text="Device Mappings", 
                     link="plugins:netbox_zabbix:devicemapping_list",
                 ),
+                PluginMenuItem( 
+                    link_text="VM Mappings",
+                    link="plugins:netbox_zabbix:vmmapping_list",
+                ),
             ),
         ),
         ( "Devices",
@@ -102,7 +106,7 @@ menu = PluginMenu(
         ( "Virtual Machines",
             (
                 PluginMenuItem( 
-                    link_text="VM Configurations", 
+                    link_text="Virtual Machine Configurations", 
                     link="plugins:netbox_zabbix:vmzabbixconfig_list",
                     buttons=( 
                         PluginMenuButton( "plugins:netbox_zabbix:vmzabbixconfig_add", "Add", "mdi mdi-plus-thick" ),
@@ -133,11 +137,11 @@ menu = PluginMenu(
                     link_text="Importable Virtual Machines", 
                     link="plugins:netbox_zabbix:importablevm_list",
                 ),
-#        
-#                PluginMenuItem( 
-#                    link_text="NetBox Only Devices",
-#                    link="plugins:netbox_zabbix:netboxonlydevices", 
-#                ),
+        
+                PluginMenuItem( 
+                    link_text="NetBox Only Virtual Machines",
+                    link="plugins:netbox_zabbix:netboxonlyvms", 
+                ),
             )
         ),
         ( "Configurations",

@@ -84,11 +84,12 @@
                         </tr>
                         {% endif %}
                         
+                        {% if object.signal_id != "None" %}
                         <tr>
                             <th>Signal ID</th>
                             <td>{{ object.signal_id}}</td>
                         </tr>
-
+                        {% endif %}
 
                         {% if object.message  != "" %}
                         <tr>

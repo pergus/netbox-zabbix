@@ -290,7 +290,7 @@ class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
 
 
 # ------------------------------------------------------------------------------
-# Hostgroups
+# Host Groups
 # ------------------------------------------------------------------------------
 
 
@@ -299,519 +299,6 @@ class HostGroupForm(NetBoxModelForm):
         model = models.HostGroup
         fields = [ 'name', 'groupid', "marked_for_deletion" ]
 
-
-# ------------------------------------------------------------------------------
-# NetBox Only Devices
-# ------------------------------------------------------------------------------
-
-
-class NetBoxOnlyDevicesFilterForm(DeviceFilterForm):
-#    host_groups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-#    templates    = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
-#    proxy        = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
-#    proxy_group  = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
-#
-#    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'host_groups', 'templates', 'proxy', 'prox_ygroup', name='Zabbix' ), )
-    fieldsets = DeviceFilterForm.fieldsets
-
-
-# ------------------------------------------------------------------------------
-# NetBox Only VMs
-# ------------------------------------------------------------------------------
-
-#class NetBoxOnlyVMsFilterForm(VirtualMachineFilterForm):
-#    host_groups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
-#    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
-#    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
-#    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
-#
-#    fieldsets = VirtualMachineFilterForm.fieldsets + ( FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
-
-
-# ------------------------------------------------------------------------------
-# Zabbix Configurations
-# ------------------------------------------------------------------------------
-
-
-class DeviceZabbixConfigForm(NetBoxModelForm):
-    device = forms.ModelChoiceField( queryset=Device.objects.all(), 
-                                    label='Device', 
-                                    help_text='Select the NetBox Device to link this Zabbix host to.' )
-
-    class Meta:
-        model = models.DeviceZabbixConfig
-        fields = ( 'name', 'device', 'status', 'monitored_by', 'templates', 'proxy', 
-                  'proxy_group', 'host_groups', 'description' )
-
-    def __init__(self, *args, **kwargs):
-        instance = kwargs.get( 'instance', None )
-    
-        super().__init__( *args, **kwargs )
-
-        # Add specific device 
-        if self.initial.get( 'device_id' ):
-            specific_device_id = self.initial.get( 'device_id' )
-            self.fields['device'].queryset = Device.objects.filter( pk=specific_device_id )
-            self.initial['device'] = specific_device_id
-
-            # Default name
-            try:
-                device = Device.objects.get( pk=specific_device_id )
-                self.initial['name'] = f"z-{device.name}"
-            except Device.DoesNotExist:
-                pass
-
-            return
-
-        # Exclude already used devices from the queryset
-        if not instance or not instance.pk:  
-            # Creating a new DeviceZabbixConfig
-            used_device_ids = models.DeviceZabbixConfig.objects.values_list( 'device_id', flat=True )
-            self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
-
-        else:  
-            # Editing an existing DeviceZabbixConfig
-            used_device_ids = models.DeviceZabbixConfig.objects.exclude( id=instance.id ).values_list( 'device_id', flat=True )
-            self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
-            # Don't allow to change the associated device. 
-            # If a user need to change it they have to delete the zabbix configuration
-            self.fields['device'].disabled = True 
-
-
-    def clean(self):
-        super().clean() 
-    
-        templates = self.cleaned_data.get( "templates" )
-    
-        template_ids = [ t.templateid for t in templates ]
-    
-        device_config = self.instance
-        if device_config and device_config.pk:
-            
-            has_agent = device_config.has_agent_interface
-            has_snmp  = device_config.has_snmpv3_interface
-
-            if has_agent and has_snmp:
-                interface_type = models.InterfaceTypeChoices.Any
-            elif has_agent:
-                interface_type = models.InterfaceTypeChoices.Agent
-            elif has_snmp:
-                interface_type = models.InterfaceTypeChoices.SNMP
-            else:
-                interface_type = models.InterfaceTypeChoices.Any
-
-            # Validate templates for selected interface
-            try:
-                validate_templates_and_interface( template_ids, interface_type )
-            except Exception as e:
-                raise ValidationError( str( e ) )
-        else:
-            # Only validate templates if the Zabbix configuration doesn't have
-            # any interfaces. This happens if a user creates a Zabbix configuration
-            # by hand, since the interfaces are added later.
-            try:
-                validate_templates( template_ids )
-            except Exception as e:
-                raise ValidationError( str( e ) )
-            
-        # Check monitored by
-        monitored_by = self.cleaned_data.get( "monitored_by" )
-
-        if monitored_by == models.MonitoredByChoices.Proxy:
-            if not self.cleaned_data.get( "proxy" ):
-                raise ValidationError( "A proxy name is requried" )
-
-        if monitored_by == models.MonitoredByChoices.ProxyGroup:
-            if not self.cleaned_data.get( "proxy_group" ):
-                raise ValidationError( "A proxy group name is requried" )
-        
-
-        return self.cleaned_data
-
-
-class DeviceZabbixConfigFilterForm(NetBoxModelFilterSetForm):
-    model = models.DeviceZabbixConfig
-
-    status       = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
-    templates    = forms.ModelMultipleChoiceField( label = "Templates",    queryset = models.Template.objects.all(),   required = False )
-    proxies      = forms.ModelMultipleChoiceField( label = "Proxies",      queryset = models.Proxy.objects.all(),      required = False )
-    proxy_groups = forms.ModelMultipleChoiceField( label = "Proxy Groups", queryset = models.ProxyGroup.objects.all(), required = False )
-    host_groups  = forms.ModelMultipleChoiceField( label = "Host Groups",  queryset = models.HostGroup.objects.all(),  required = False )
-
-    hostid    = forms.ChoiceField( label = "Zabbix Host ID", required = False )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-         # Set hostid choices dynamically on instantiation
-        hostids = models.DeviceZabbixConfig.objects.order_by( 'hostid' ).distinct( 'hostid' ).values_list( 'hostid', flat=True )
-        choices = [("", "---------")] + [(zid, zid) for zid in hostids if zid is not None]
-        self.fields["hostid"].choices = choices
-
-
-class VMZabbixConfigForm(NetBoxModelForm):
-    virtual_machine = forms.ModelChoiceField( queryset=VirtualMachine.objects.all(), label='Virtual Machine', help_text='Select the NetBox Virtual Machine to link this Zabbix host to.' )
-
-    class Meta:
-        model = models.VMZabbixConfig
-        fields = ('virtual_machine', 'status', 'monitored_by', 'templates', 'proxy', 
-                  'proxy_group', 'host_groups', 'description')
-
-    def __init__(self, *args, **kwargs):
-        instance = kwargs.get( 'instance', None )
-    
-        super().__init__( *args, **kwargs )
-
-
-        # Add specific virtual machine 
-        if self.initial.get( 'vm_id' ):
-            specific_vm_id = self.initial.get( 'vm_id' )
-            self.fields['virtual_machine'].queryset = VirtualMachine.objects.filter( pk=specific_vm_id )
-            self.initial['virtual_machine'] = specific_vm_id
-
-            # Default name
-            try:
-                vm = VirtualMachine.objects.get( pk=specific_vm_id )
-                self.initial['name'] = f"z-{vm.name}"
-            except VirtualMachine.DoesNotExist:
-                pass
-            
-            return
-        
-        
-        # Exclude already used virtual machine from the queryset
-        if not instance or not instance.pk:  
-            # Creating a new VMZabbixConfig
-            used_vms_ids = models.VMZabbixConfig.objects.values_list( 'virtual_machine_id', flat=True )
-            self.fields['virtual_machine'].queryset = VirtualMachine.objects.exclude( id__in=used_vms_ids )
-        else:  
-            # Editing an existing VMZabbixConfig
-            used_vms_ids = models.VMZabbixConfig.objects.exclude( id=instance.id ).values_list( 'virtual_machine_id', flat=True )
-            self.fields['virtual_machine'].queryset = VirtualMachine.objects.exclude( id__in=used_vms_ids )
-            # Don't allow to change the associated virtual machine. 
-            # If a user need to change it they have to delete the zabbix configuration
-            self.fields['virtual_machine'].disabled = True 
-
-
-class VMZabbixConfigFilterForm(NetBoxModelFilterSetForm):
-    model = models.ZabbixConfig
-
-    status       = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
-    templates    = forms.ModelMultipleChoiceField( label = "Templates",    queryset = models.Template.objects.all(),   required = False )
-    proxies      = forms.ModelMultipleChoiceField( label = "Proxies",      queryset = models.Proxy.objects.all(),      required = False )
-    proxy_groups = forms.ModelMultipleChoiceField( label = "Proxy Groups", queryset = models.ProxyGroup.objects.all(), required = False )
-    host_groups  = forms.ModelMultipleChoiceField( label = "Host Groups",  queryset = models.HostGroup.objects.all(),  required = False )
-    
-    hostid    = forms.ChoiceField( label = "Zabbix Host ID", required = False )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-         # Set hostid choices dynamically on instantiation
-        hostids = models.VMZabbixConfig.objects.order_by( 'hostid' ).distinct( 'hostid' ).values_list( 'hostid', flat=True )
-        choices = [("", "---------")] + [(zid, zid) for zid in hostids if zid is not None]
-        self.fields["hostid"].choices = choices
-
-
-# ------------------------------------------------------------------------------
-# Interfaces
-# ------------------------------------------------------------------------------
-
-
-class DeviceAgentInterfaceForm(NetBoxModelForm):
-    class Meta:
-        model = models.DeviceAgentInterface
-        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 'available', 'useip', 'useip', 'main', 'port' )
-
-    name = forms.CharField( max_length=255, required=True )
-    available = forms.ChoiceField( choices=models.AvailableChoices )
-    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
-    main = forms.ChoiceField( choices=models.MainChoices )
-    port = forms.IntegerField( required=True )
-
-    # TODO: Rename this field to something more descriptive
-    zcfg = DynamicModelChoiceField( 
-        label="Device Zabbix Config",
-        queryset=models.DeviceZabbixConfig.objects.all(),
-        required=True,
-    )
-
-    interface = DynamicModelChoiceField( 
-        label="Device Interface",
-        queryset = models.AvailableDeviceInterface.objects.all(),
-        query_params={"device_id": "$zcfg"},
-        required=True,
-    )
-
-    ip_address = DynamicModelChoiceField(
-        label="IP Address",
-        queryset=IPAddress.objects.all(),
-        query_params={ "interface_id": "$interface" },
-        required=True,
-    )
-
-    dns_name = forms.CharField(
-           label="DNS Name",
-           max_length=255,
-           required=False,
-           disabled=True,
-           widget=forms.TextInput( attrs={'data-field': 'dns_name'} )
-    )
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__( *args, **kwargs )
-
-        if self.initial.get( 'device_zabbix_config_id' ):
-            specific_device_zabbix_config_id = self.initial.get( 'device_zabbix_config_id' )
-            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_zabbix_config_id )
-            self.fields['zcfg'].queryset = queryset
-            self.initial['zcfg'] = specific_device_zabbix_config_id
-            self.initial['name'] = f"{queryset[0].name}-agent"
-            
-            # Initialize the default Agent interface settings from the Config
-            self.initial['port'] = config.get_agent_port()
-            
-        # Set the initial value of the calculated DNS name if editing an existing instance
-        if self.instance.pk:
-            self.fields['dns_name'].initial = self.instance.resolved_dns_name
-
-    def clean(self):
-        super().clean()
-        zcfg = self.cleaned_data.get( "zcfg" )
-        if not zcfg:
-            raise ValidationError( "No Device Zabbix Config selected." )
-
-        # Validate DNS name
-        ip_address = self.cleaned_data.get( "ip_address" )
-        if not ip_address.dns_name:
-            raise ValidationError( "The IP address require a DNS name" )
-
-        if not getattr( zcfg, "hostid", None ):
-            raise ValidationError(
-                f"Cannot create or update an agent interface for '{zcfg.name}': "
-                "the configuration must be associated with a Zabbix host ID."
-            )
-
-
-class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
-    class Meta:
-        model = models.DeviceSNMPv3Interface
-        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 
-                   'available', 'useip', 'useip', 'main', 'port',
-                   'max_repetitions',
-                   'contextname',
-                   'securityname',
-                   'securitylevel',
-                   'authprotocol',
-                   'authpassphrase',
-                   'privprotocol',
-                   'privpassphrase',
-                   'bulk' )
-
-    zcfg = DynamicModelChoiceField( 
-           label="Device Zabbix Config",
-           queryset=models.DeviceZabbixConfig.objects.all(),
-           required=True,
-           help_text="The NetBox Zabbix Config that the interface is associated with."
-       )
-    
-    interface = DynamicModelChoiceField( 
-        label="Device Interface",
-        queryset = models.AvailableDeviceInterface.objects.all(),
-        query_params={"device_id": "$zcfg"},
-        required=True,
-        help_text="The NetBox Device Interface that the interface is associated with."
-    )
-    
-    ip_address = DynamicModelChoiceField(
-        label="IP Address",
-        queryset=IPAddress.objects.all(),
-        query_params={ "interface_id": "$interface" },    
-        required=True,
-        help_text="The NetBox IP address of the interface."
-    )
-    
-    dns_name = forms.CharField(
-           label="DNS Name",
-           max_length=255,
-           required=False,
-           disabled=True,
-           widget=forms.TextInput(attrs={'data-field': 'dns_name'}),
-           help_text="The NetBox DNS name for the interface."
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__( *args, **kwargs )
-
-        if self.initial.get( 'device_zabbix_config_id' ):
-            specific_device_zabbix_confighost_id = self.initial.get( 'device_zabbix_config_id' )
-            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_zabbix_confighost_id )
-            self.fields['zcfg'].queryset = queryset
-            self.initial['zcfg'] = specific_device_zabbix_confighost_id
-            self.initial['name'] = f"{queryset[0].name}-snmpv3"
-
-            # Initialize the default SNMPv3 interface settings from the Config
-            self.initial['port']            = config.get_snmpv3_port()
-            self.initial['bulk']            = config.get_snmpv3_bulk()
-            self.initial['max_repetitions'] = config.get_snmpv3_max_repetitions()
-            self.initial['contextname']     = config.get_snmpv3_contextname()
-            self.initial['securityname']    = config.get_snmpv3_securityname()
-            self.initial['securitylevel']   = config.get_snmpv3_securitylevel()
-            self.initial['authprotocol']    = config.get_snmpv3_authprotocol()
-            self.initial['authpassphrase']  = config.get_snmpv3_authpassphrase()
-            self.initial['privprotocol']    = config.get_snmpv3_privprotocol()
-            self.initial['privpassphrase']  = config.get_snmpv3_privpassphrase()
-            
-
-        # If editing an existing instance the user cannot change the 'zcfg'.
-        if self.instance.pk:
-            self.fields['zcfg'].disabled = True
-            # Set the initial value of the calculated DNS name
-            self.fields['dns_name'].initial = self.instance.resolved_dns_name
-    
-    def clean(self):
-        super().clean()
-        zcfg = self.cleaned_data.get( "zcfg" )
-        if not zcfg:
-            raise ValidationError( "No Device Zabbix Config selected." )
-    
-        if not getattr( zcfg, "hostid", None ):
-            raise ValidationError(
-                f"Cannot create or update an snmpv3 interface for '{zcfg.name}': "
-                "the configuration must be associated with a Zabbix host ID."
-            )
-
-
-class VMAgentInterfaceForm(NetBoxModelForm):
-    class Meta:
-        model = models.DeviceAgentInterface
-        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 'available', 'useip', 'useip', 'main', 'port' )
-
-    name = forms.CharField( max_length=255, required=True )
-    available = forms.ChoiceField( choices=models.AvailableChoices )
-    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
-    main = forms.ChoiceField( choices=models.MainChoices )
-    port = forms.IntegerField( required=True )
-
-    zcfg = DynamicModelChoiceField( 
-        label="VM Zabbix Config",
-        queryset=models.VMZabbixConfig.objects.all(),
-        required=True,
-    )
-
-    interface = DynamicModelChoiceField( 
-        label="VM Interface",
-        queryset = models.AvailableVMInterface.objects.all(),
-        query_params={"virtual_machine_id": "$zcfg"},
-        required=True,
-    )
-
-    ip_address = DynamicModelChoiceField(
-        label="IP Address",
-        queryset=IPAddress.objects.all(),
-        query_params={ "vminterface_id": "$interface" },
-        required=True,
-    )
-
-    dns_name = forms.CharField(
-           label="DNS Name",
-           max_length=255,
-           required=False,
-           disabled=True,
-           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
-    )
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        if self.initial.get('vm_zabbix_config_id'):
-            specific_vm_zabbix_config_id = self.initial.get( 'vm_zabbix_config_id' )
-            queryset = models.VMZabbixConfig.objects.filter( pk=specific_vm_zabbix_config_id )
-            self.fields['zcfg'].queryset = queryset
-            self.initial['zcfg'] = specific_vm_zabbix_config_id
-            self.initial['name'] = f"{queryset[0].name}-agent"
-
-            # Initialize the default Agent interface settings from the Config
-            self.initial['port'] = config.get_agent_port()
-            
-        # Set the initial value of the calculated DNS name if editing an existing instance
-        if self.instance.pk:
-            self.fields['dns_name'].initial = self.instance.resolved_dns_name
-
-
-class VMSNMPv3InterfaceForm(NetBoxModelForm):
-    class Meta:
-        model = models.VMSNMPv3Interface
-        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 
-                   'available', 'useip', 'useip', 'main', 'port',
-                   'max_repetitions',
-                   'contextname',
-                   'securityname',
-                   'securitylevel',
-                   'authprotocol',
-                   'authpassphrase',
-                   'privprotocol',
-                   'privpassphrase',
-                   'bulk' )
-
-    name = forms.CharField( max_length=255, required=True )
-    available = forms.ChoiceField( choices=models.AvailableChoices )
-    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
-    main = forms.ChoiceField( choices=models.MainChoices )
-    port = forms.IntegerField( required=True )
-
-    max_repetitions = forms.IntegerField( label="Max Repetition Count", initial=10 )
-    contextname     = forms.CharField( label="Context Name", max_length=255 )
-    securityname    = forms.CharField( max_length=255, label="Security Name" )
-    securitylevel   = forms.ChoiceField( label="Security Level", choices=models.SNMPSecurityLevelChoices, initial=models.SNMPSecurityLevelChoices.authPriv )
-    authprotocol    = forms.ChoiceField( label="Authentication Protocol", choices=models.SNMPAuthProtocolChoices, initial=models.SNMPAuthProtocolChoices.SHA1 )
-    authpassphrase  = forms.CharField( max_length=255, label="Authentication Passphrase", initial="{$SNMPV3_AUTHPASS}" )
-    privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )
-    privpassphrase  = forms.CharField( max_length=255, label="Privacy Passphrase", initial="{$SNMPV3_PRIVPASS}" )
-    bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
-    
-    zcfg = DynamicModelChoiceField( 
-           label="VM Zabbix Config",      
-           queryset=models.VMZabbixConfig.objects.all(),
-           required=True,
-       )
-    
-    interface = DynamicModelChoiceField( 
-        label="VM Interface",
-        queryset = models.AvailableVMInterface.objects.all(),
-        query_params={"vitual_machine_id": "$zcfg"},
-        required=True,
-    )
-    
-    ip_address = DynamicModelChoiceField(
-        label="IP Address",
-        queryset=IPAddress.objects.all(),
-        query_params={ "vminterface_id": "$interface" },
-        required=True,
-    )
-    
-    dns_name = forms.CharField(
-           label="DNS Name",
-           max_length=255,
-           required=False,
-           disabled=True,
-           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
-        if self.initial.get('vm_zabbix_config_id'):
-            specific_vm_zabbix_config_id = self.initial.get( 'vm_zabbix_config_id' )
-            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_vm_zabbix_config_id )
-            self.fields['zcfg'].queryset = queryset
-            self.initial['zcfg'] = specific_vm_zabbix_config_id
-            self.initial['name'] = f"{queryset[0].name}-snmpv3"
-        
-        # Set the initial value of the calculated DNS name if editing an existing instance
-        if self.instance.pk:
-            self.fields['dns_name'].initial = self.instance.resolved_dns_name
 
 
 # ------------------------------------------------------------------------------
@@ -981,7 +468,7 @@ class InventoryMappingForm(NetBoxModelForm):
 
 class DeviceMappingForm(NetBoxModelForm):
     fieldsets = (
-        FieldSet(  'name', 'description', 'default', name="General" ),
+        FieldSet( 'name', 'description', 'default', name="General" ),
         FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', 'interface_type', name="Settings" ),
         FieldSet( 'sites', 'roles', 'platforms', name="Filters")
     )
@@ -1128,20 +615,681 @@ class DeviceMappingForm(NetBoxModelForm):
 
 
 class VMMappingForm(NetBoxModelForm):
+    fieldsets = (
+        FieldSet( 'name', 'description', 'default', name="General" ),
+        FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', 'interface_type', name="Settings" ),
+        FieldSet( 'sites', 'roles', 'platforms', name="Filters")
+    )
+    
     class Meta:
         model = models.VMMapping
-        fields = [ 'name', 'description', 'default', 
-                  'host_groups', 'templates', 'proxy', 'proxy_group', 'platforms', 'interface_type', 
-                  'sites', 'roles', 'platforms' ]
+        fields = '__all__' 
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+       
+        # Are we creating the very first/default mapping?
+        fist_mapping = models.VMMapping.objects.filter( default=True ).exists()
+        
+        if not fist_mapping or self.instance.default:
+            # First mapping ever: it must be default
+            self.initial['default'] = True
+            self.fields['default'].disabled = True 
+    
+            # force interface_type to Any
+            self.initial['interface_type'] = models.InterfaceTypeChoices.Any
+            self.fields['interface_type'].disabled = True
+    
+            # remove all filter controls
+            for field in ('sites', 'roles', 'platforms'):
+                self.fields.pop( field, None )
+            
+            # prune the empty "Filters" FieldSet so it won't render at all
+            self.fieldsets = [
+                fs for fs in self.fieldsets
+                if fs.name != 'Filters'
+            ]
+        else:
+            # A default exists already: drop the 'default' field entirely
+            self.fields.pop( 'default', None )
+
+
 
     def clean(self):
         super().clean()
-        sites = self.cleaned_data['sites']
-        roles = self.cleaned_data['roles']
-        platforms = self.cleaned_data['platforms']
+
+        default = self.cleaned_data.get( 'default' )
+        interface_type = self.cleaned_data.get( 'interface_type' )
+        
+        sites = self.cleaned_data.get( 'sites' )
+        roles = self.cleaned_data.get( 'roles' )
+        platforms = self.cleaned_data.get( 'platforms' )
+    
+        if default:
+            # The default entry must not restrict on site/role/platform
+            if sites and sites.exists() or roles and roles.exists() or platforms and platforms.exists():
+                raise forms.ValidationError( "Default mapping cannot define sites, roles, or platforms." )
+            if interface_type != models.InterfaceTypeChoices.Any:
+                raise forms.ValidationError( "Default mapping must use interface_type = 'any'." )
+        else:
+            # Non-default mappings must restrict on at least one of sites/roles/platforms
+            if not (sites.exists() or roles.exists() or platforms.exists()):
+                raise forms.ValidationError( "At least one of sites, roles, or platforms must be set for non-default mappings." )
+
+        # Validate templates
+        templates = self.cleaned_data.get( "templates", [] )
+        if not templates:
+            raise ValidationError( "At least one template must be selected." )
+        
+        template_ids = [ t.templateid for t in templates ]
+        
+        try:
+            validate_templates_and_interface( template_ids, interface_type )
+        except Exception as e:
+            raise ValidationError( str( e ) )
+        
+        # Ensure there is exactly one default in the database (excluding current instance if updating)
+        if default:
+            qs = models.VMMapping.objects.filter( default=True )
+            if self.instance.pk:
+                qs = qs.exclude( pk=self.instance.pk )
+            if qs.exists():
+                raise forms.ValidationError( "There can only be one default mapping." )
+            return
+
+        # Check for conflicting filters
+        # Fallback filter must have all filters blank
+        if default:
+            if sites.exists() or roles.exists() or platforms.exists():
+                raise ValidationError("Fallback filter cannot have any filter fields set.")
+        else:
+            # Check for overlap with other filters (excluding fallback and self)
+            others = models.VMMapping.objects.exclude( pk=self.instance.pk ).filter( default=False )
+            for other in others:
+                if self._overlaps_with( other ):
+                    raise ValidationError( f"Filter overlaps with existing filter: {other.name}" )
+
+
+    def _overlaps_with(self, other):
+        """
+        Returns True if this mapping and 'other' have the same specificity and overlap.
+        Allows subset/superset relationships (i.e., more specific mappings are allowed).
+        """
+        # Count how many filter fields are set for each mapping
+        def count_fields(mapping):
+            return sum(
+                1 for field in ['sites', 'roles', 'platforms']
+                if (self.cleaned_data.get( field ) if mapping is self else getattr( mapping, field ).exists())
+            )
+    
+        self_fields = count_fields( self )
+        other_fields = count_fields( other )
+    
+        # Only check for overlap if specificity is the same
+        if self_fields != other_fields:
+            return False
+
+        # If the interface type differ, then there can not be any filter overlap
+        self_interface_type = self.cleaned_data.get( 'interface_type' )
+        other_interface_type = other.interface_type
+        
+        if self_interface_type != other_interface_type:
+            return False
+
+        # Now check for actual overlap
+        for field in ['sites', 'roles', 'platforms']:
+            current = self.cleaned_data.get( field )
+            other_qs = getattr( other, field ).all()
+            current_ids = set( current.values_list( 'pk', flat=True ) ) if current else set()
+            other_ids   = set( other_qs.values_list( 'pk', flat=True ) ) if other_qs else set()
+
+            # If both are set and have no intersection, no overlap
+            if current_ids and other_ids and not current_ids & other_ids:
+                return False
+            # If either is empty, that's "all", so always overlap for this field
+        return True  # Overlaps in all applicable fields
+
+
+    def delete(self, *args, **kwargs):
+        if self.default:
+            raise ValidationError( "The default device mapping cannot be deleted." )
+        super().delete(*args, **kwargs)
+
+
+# ------------------------------------------------------------------------------
+# Device Zabbix Configurations
+# ------------------------------------------------------------------------------
+
+
+class DeviceZabbixConfigForm(NetBoxModelForm):
+    device = forms.ModelChoiceField( queryset=Device.objects.all(), 
+                                    label='Device', 
+                                    help_text='Select the NetBox Device to link this Zabbix host to.' )
+
+    class Meta:
+        model = models.DeviceZabbixConfig
+        fields = ( 'name', 'device', 'status', 'monitored_by', 'templates', 'proxy', 
+                  'proxy_group', 'host_groups', 'description' )
+
+    def __init__(self, *args, **kwargs):
+        instance = kwargs.get( 'instance', None )
+    
+        super().__init__( *args, **kwargs )
+
+        # Add specific device 
+        if self.initial.get( 'device_id' ):
+            specific_device_id = self.initial.get( 'device_id' )
+            self.fields['device'].queryset = Device.objects.filter( pk=specific_device_id )
+            self.initial['device'] = specific_device_id
+
+            # Default name
+            try:
+                device = Device.objects.get( pk=specific_device_id )
+                self.initial['name'] = f"z-{device.name}"
+            except Device.DoesNotExist:
+                pass
+
+            return
+
+        # Exclude already used devices from the queryset
+        if not instance or not instance.pk:  
+            # Creating a new DeviceZabbixConfig
+            used_device_ids = models.DeviceZabbixConfig.objects.values_list( 'device_id', flat=True )
+            self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
+
+        else:  
+            # Editing an existing DeviceZabbixConfig
+            used_device_ids = models.DeviceZabbixConfig.objects.exclude( id=instance.id ).values_list( 'device_id', flat=True )
+            self.fields['device'].queryset = Device.objects.exclude( id__in=used_device_ids )
+            # Don't allow to change the associated device. 
+            # If a user need to change it they have to delete the zabbix configuration
+            self.fields['device'].disabled = True 
+
+
+    def clean(self):
+        super().clean() 
+    
+        templates = self.cleaned_data.get( "templates" )
+    
+        template_ids = [ t.templateid for t in templates ]
+    
+        device_config = self.instance
+        if device_config and device_config.pk:
             
-        if not (sites or roles or platforms):
-            raise forms.ValidationError( "At least one of sites, roles or platforms must be set for mapping." )
+            has_agent = device_config.has_agent_interface
+            has_snmp  = device_config.has_snmpv3_interface
+
+            if has_agent and has_snmp:
+                interface_type = models.InterfaceTypeChoices.Any
+            elif has_agent:
+                interface_type = models.InterfaceTypeChoices.Agent
+            elif has_snmp:
+                interface_type = models.InterfaceTypeChoices.SNMP
+            else:
+                interface_type = models.InterfaceTypeChoices.Any
+
+            # Validate templates for selected interface
+            try:
+                validate_templates_and_interface( template_ids, interface_type )
+            except Exception as e:
+                raise ValidationError( str( e ) )
+        else:
+            # Only validate templates if the Zabbix configuration doesn't have
+            # any interfaces. This happens if a user creates a Zabbix configuration
+            # by hand, since the interfaces are added later.
+            try:
+                validate_templates( template_ids )
+            except Exception as e:
+                raise ValidationError( str( e ) )
+            
+        # Check monitored by
+        monitored_by = self.cleaned_data.get( "monitored_by" )
+
+        if monitored_by == models.MonitoredByChoices.Proxy:
+            if not self.cleaned_data.get( "proxy" ):
+                raise ValidationError( "A proxy name is requried" )
+
+        if monitored_by == models.MonitoredByChoices.ProxyGroup:
+            if not self.cleaned_data.get( "proxy_group" ):
+                raise ValidationError( "A proxy group name is requried" )
+        
+
+        return self.cleaned_data
+
+
+class DeviceZabbixConfigFilterForm(NetBoxModelFilterSetForm):
+    model = models.DeviceZabbixConfig
+
+    status       = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
+    templates    = forms.ModelMultipleChoiceField( label = "Templates",    queryset = models.Template.objects.all(),   required = False )
+    proxies      = forms.ModelMultipleChoiceField( label = "Proxies",      queryset = models.Proxy.objects.all(),      required = False )
+    proxy_groups = forms.ModelMultipleChoiceField( label = "Proxy Groups", queryset = models.ProxyGroup.objects.all(), required = False )
+    host_groups  = forms.ModelMultipleChoiceField( label = "Host Groups",  queryset = models.HostGroup.objects.all(),  required = False )
+
+    hostid    = forms.ChoiceField( label = "Zabbix Host ID", required = False )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+         # Set hostid choices dynamically on instantiation
+        hostids = models.DeviceZabbixConfig.objects.order_by( 'hostid' ).distinct( 'hostid' ).values_list( 'hostid', flat=True )
+        choices = [("", "---------")] + [(zid, zid) for zid in hostids if zid is not None]
+        self.fields["hostid"].choices = choices
+
+
+# ------------------------------------------------------------------------------
+# VM Zabbix Configurations
+# ------------------------------------------------------------------------------
+
+
+class VMZabbixConfigForm(NetBoxModelForm):
+    virtual_machine = forms.ModelChoiceField( queryset=VirtualMachine.objects.all(), label='Virtual Machine', help_text='Select the NetBox Virtual Machine to link this Zabbix host to.' )
+
+    class Meta:
+        model = models.VMZabbixConfig
+        fields = ('virtual_machine', 'status', 'monitored_by', 'templates', 'proxy', 
+                  'proxy_group', 'host_groups', 'description')
+
+    def __init__(self, *args, **kwargs):
+        instance = kwargs.get( 'instance', None )
+    
+        super().__init__( *args, **kwargs )
+
+
+        # Add specific virtual machine 
+        if self.initial.get( 'vm_id' ):
+            specific_vm_id = self.initial.get( 'vm_id' )
+            self.fields['virtual_machine'].queryset = VirtualMachine.objects.filter( pk=specific_vm_id )
+            self.initial['virtual_machine'] = specific_vm_id
+
+            # Default name
+            try:
+                vm = VirtualMachine.objects.get( pk=specific_vm_id )
+                self.initial['name'] = f"z-{vm.name}"
+            except VirtualMachine.DoesNotExist:
+                pass
+            
+            return
+        
+        
+        # Exclude already used virtual machine from the queryset
+        if not instance or not instance.pk:  
+            # Creating a new VMZabbixConfig
+            used_vms_ids = models.VMZabbixConfig.objects.values_list( 'virtual_machine_id', flat=True )
+            self.fields['virtual_machine'].queryset = VirtualMachine.objects.exclude( id__in=used_vms_ids )
+        else:  
+            # Editing an existing VMZabbixConfig
+            used_vms_ids = models.VMZabbixConfig.objects.exclude( id=instance.id ).values_list( 'virtual_machine_id', flat=True )
+            self.fields['virtual_machine'].queryset = VirtualMachine.objects.exclude( id__in=used_vms_ids )
+            # Don't allow to change the associated virtual machine. 
+            # If a user need to change it they have to delete the zabbix configuration
+            self.fields['virtual_machine'].disabled = True 
+
+
+class VMZabbixConfigFilterForm(NetBoxModelFilterSetForm):
+    model = models.ZabbixConfig
+
+    status       = forms.ChoiceField( label = "Status", choices = [ ("", "---------")] + models.StatusChoices.choices, required = False )
+    templates    = forms.ModelMultipleChoiceField( label = "Templates",    queryset = models.Template.objects.all(),   required = False )
+    proxies      = forms.ModelMultipleChoiceField( label = "Proxies",      queryset = models.Proxy.objects.all(),      required = False )
+    proxy_groups = forms.ModelMultipleChoiceField( label = "Proxy Groups", queryset = models.ProxyGroup.objects.all(), required = False )
+    host_groups  = forms.ModelMultipleChoiceField( label = "Host Groups",  queryset = models.HostGroup.objects.all(),  required = False )
+    
+    hostid    = forms.ChoiceField( label = "Zabbix Host ID", required = False )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+         # Set hostid choices dynamically on instantiation
+        hostids = models.VMZabbixConfig.objects.order_by( 'hostid' ).distinct( 'hostid' ).values_list( 'hostid', flat=True )
+        choices = [("", "---------")] + [(zid, zid) for zid in hostids if zid is not None]
+        self.fields["hostid"].choices = choices
+
+
+# ------------------------------------------------------------------------------
+# NetBox Only Devices
+# ------------------------------------------------------------------------------
+
+
+class NetBoxOnlyDevicesFilterForm(DeviceFilterForm):
+#    host_groups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+#    templates    = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+#    proxy        = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+#    proxy_group  = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
+#
+#    fieldsets = DeviceFilterForm.fieldsets + ( FieldSet( 'host_groups', 'templates', 'proxy', 'prox_ygroup', name='Zabbix' ), )
+    fieldsets = DeviceFilterForm.fieldsets
+
+
+# ------------------------------------------------------------------------------
+# NetBox Only VMs
+# ------------------------------------------------------------------------------
+
+#class NetBoxOnlyVMsFilterForm(VirtualMachineFilterForm):
+#    host_groups  = forms.ModelMultipleChoiceField( queryset=models.HostGroupMapping.objects.all(), required=False, label="Host Groups" )
+#    templates   = forms.ModelMultipleChoiceField( queryset=models.TemplateMapping.objects.all(), required=False, label="Templates" )
+#    proxy       = forms.ModelChoiceField( queryset=models.ProxyMapping.objects.all(), required=False, label="Proxy" )
+#    proxy_group = forms.ModelChoiceField( queryset=models.ProxyGroupMapping.objects.all(), required=False, label="Proxy Group" )
+#
+#    fieldsets = VirtualMachineFilterForm.fieldsets + ( FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', name='Zabbix' ), )
+
+
+
+# ------------------------------------------------------------------------------
+# Device Agent Interface
+# ------------------------------------------------------------------------------
+
+
+class DeviceAgentInterfaceForm(NetBoxModelForm):
+    class Meta:
+        model = models.DeviceAgentInterface
+        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 'available', 'useip', 'useip', 'main', 'port' )
+
+    name = forms.CharField( max_length=255, required=True )
+    available = forms.ChoiceField( choices=models.AvailableChoices )
+    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
+    main = forms.ChoiceField( choices=models.MainChoices )
+    port = forms.IntegerField( required=True )
+
+    # TODO: Rename this field to something more descriptive
+    zcfg = DynamicModelChoiceField( 
+        label="Device Zabbix Config",
+        queryset=models.DeviceZabbixConfig.objects.all(),
+        required=True,
+    )
+
+    interface = DynamicModelChoiceField( 
+        label="Device Interface",
+        queryset = models.AvailableDeviceInterface.objects.all(),
+        query_params={"device_id": "$zcfg"},
+        required=True,
+    )
+
+    ip_address = DynamicModelChoiceField(
+        label="IP Address",
+        queryset=IPAddress.objects.all(),
+        query_params={ "interface_id": "$interface" },
+        required=True,
+    )
+
+    dns_name = forms.CharField(
+           label="DNS Name",
+           max_length=255,
+           required=False,
+           disabled=True,
+           widget=forms.TextInput( attrs={'data-field': 'dns_name'} )
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__( *args, **kwargs )
+
+        if self.initial.get( 'device_zabbix_config_id' ):
+            specific_device_zabbix_config_id = self.initial.get( 'device_zabbix_config_id' )
+            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_zabbix_config_id )
+            self.fields['zcfg'].queryset = queryset
+            self.initial['zcfg'] = specific_device_zabbix_config_id
+            self.initial['name'] = f"{queryset[0].name}-agent"
+            
+            # Initialize the default Agent interface settings from the Config
+            self.initial['port'] = config.get_agent_port()
+            
+        # Set the initial value of the calculated DNS name if editing an existing instance
+        if self.instance.pk:
+            self.fields['dns_name'].initial = self.instance.resolved_dns_name
+
+    def clean(self):
+        super().clean()
+        zcfg = self.cleaned_data.get( "zcfg" )
+        if not zcfg:
+            raise ValidationError( "No Device Zabbix Config selected." )
+
+        # Validate DNS name
+        ip_address = self.cleaned_data.get( "ip_address" )
+        if not ip_address.dns_name:
+            raise ValidationError( "The IP address require a DNS name" )
+
+        if not getattr( zcfg, "hostid", None ):
+            raise ValidationError(
+                f"Cannot create or update an agent interface for '{zcfg.name}': "
+                "the configuration must be associated with a Zabbix host ID."
+            )
+
+
+# ------------------------------------------------------------------------------
+# Device SNMPv3 Interface
+# ------------------------------------------------------------------------------
+
+
+class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
+    class Meta:
+        model = models.DeviceSNMPv3Interface
+        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 
+                   'available', 'useip', 'useip', 'main', 'port',
+                   'max_repetitions',
+                   'contextname',
+                   'securityname',
+                   'securitylevel',
+                   'authprotocol',
+                   'authpassphrase',
+                   'privprotocol',
+                   'privpassphrase',
+                   'bulk' )
+
+    zcfg = DynamicModelChoiceField( 
+           label="Device Zabbix Config",
+           queryset=models.DeviceZabbixConfig.objects.all(),
+           required=True,
+           help_text="The NetBox Zabbix Config that the interface is associated with."
+       )
+    
+    interface = DynamicModelChoiceField( 
+        label="Device Interface",
+        queryset = models.AvailableDeviceInterface.objects.all(),
+        query_params={"device_id": "$zcfg"},
+        required=True,
+        help_text="The NetBox Device Interface that the interface is associated with."
+    )
+    
+    ip_address = DynamicModelChoiceField(
+        label="IP Address",
+        queryset=IPAddress.objects.all(),
+        query_params={ "interface_id": "$interface" },    
+        required=True,
+        help_text="The NetBox IP address of the interface."
+    )
+    
+    dns_name = forms.CharField(
+           label="DNS Name",
+           max_length=255,
+           required=False,
+           disabled=True,
+           widget=forms.TextInput(attrs={'data-field': 'dns_name'}),
+           help_text="The NetBox DNS name for the interface."
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__( *args, **kwargs )
+
+        if self.initial.get( 'device_zabbix_config_id' ):
+            specific_device_zabbix_confighost_id = self.initial.get( 'device_zabbix_config_id' )
+            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_device_zabbix_confighost_id )
+            self.fields['zcfg'].queryset = queryset
+            self.initial['zcfg'] = specific_device_zabbix_confighost_id
+            self.initial['name'] = f"{queryset[0].name}-snmpv3"
+
+            # Initialize the default SNMPv3 interface settings from the Config
+            self.initial['port']            = config.get_snmpv3_port()
+            self.initial['bulk']            = config.get_snmpv3_bulk()
+            self.initial['max_repetitions'] = config.get_snmpv3_max_repetitions()
+            self.initial['contextname']     = config.get_snmpv3_contextname()
+            self.initial['securityname']    = config.get_snmpv3_securityname()
+            self.initial['securitylevel']   = config.get_snmpv3_securitylevel()
+            self.initial['authprotocol']    = config.get_snmpv3_authprotocol()
+            self.initial['authpassphrase']  = config.get_snmpv3_authpassphrase()
+            self.initial['privprotocol']    = config.get_snmpv3_privprotocol()
+            self.initial['privpassphrase']  = config.get_snmpv3_privpassphrase()
+            
+
+        # If editing an existing instance the user cannot change the 'zcfg'.
+        if self.instance.pk:
+            self.fields['zcfg'].disabled = True
+            # Set the initial value of the calculated DNS name
+            self.fields['dns_name'].initial = self.instance.resolved_dns_name
+    
+    def clean(self):
+        super().clean()
+        zcfg = self.cleaned_data.get( "zcfg" )
+        if not zcfg:
+            raise ValidationError( "No Device Zabbix Config selected." )
+    
+        if not getattr( zcfg, "hostid", None ):
+            raise ValidationError(
+                f"Cannot create or update an snmpv3 interface for '{zcfg.name}': "
+                "the configuration must be associated with a Zabbix host ID."
+            )
+
+
+# ------------------------------------------------------------------------------
+# VM Agent Interface
+# ------------------------------------------------------------------------------
+
+
+class VMAgentInterfaceForm(NetBoxModelForm):
+    class Meta:
+        model = models.DeviceAgentInterface
+        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 'available', 'useip', 'useip', 'main', 'port' )
+
+    name = forms.CharField( max_length=255, required=True )
+    available = forms.ChoiceField( choices=models.AvailableChoices )
+    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
+    main = forms.ChoiceField( choices=models.MainChoices )
+    port = forms.IntegerField( required=True )
+
+    zcfg = DynamicModelChoiceField( 
+        label="VM Zabbix Config",
+        queryset=models.VMZabbixConfig.objects.all(),
+        required=True,
+    )
+
+    interface = DynamicModelChoiceField( 
+        label="VM Interface",
+        queryset = models.AvailableVMInterface.objects.all(),
+        query_params={"virtual_machine_id": "$zcfg"},
+        required=True,
+    )
+
+    ip_address = DynamicModelChoiceField(
+        label="IP Address",
+        queryset=IPAddress.objects.all(),
+        query_params={ "vminterface_id": "$interface" },
+        required=True,
+    )
+
+    dns_name = forms.CharField(
+           label="DNS Name",
+           max_length=255,
+           required=False,
+           disabled=True,
+           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if self.initial.get('vm_zabbix_config_id'):
+            specific_vm_zabbix_config_id = self.initial.get( 'vm_zabbix_config_id' )
+            queryset = models.VMZabbixConfig.objects.filter( pk=specific_vm_zabbix_config_id )
+            self.fields['zcfg'].queryset = queryset
+            self.initial['zcfg'] = specific_vm_zabbix_config_id
+            self.initial['name'] = f"{queryset[0].name}-agent"
+
+            # Initialize the default Agent interface settings from the Config
+            self.initial['port'] = config.get_agent_port()
+            
+        # Set the initial value of the calculated DNS name if editing an existing instance
+        if self.instance.pk:
+            self.fields['dns_name'].initial = self.instance.resolved_dns_name
+
+
+# ------------------------------------------------------------------------------
+# VM SNMPv3 Interface
+# ------------------------------------------------------------------------------
+
+class VMSNMPv3InterfaceForm(NetBoxModelForm):
+    class Meta:
+        model = models.VMSNMPv3Interface
+        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 
+                   'available', 'useip', 'useip', 'main', 'port',
+                   'max_repetitions',
+                   'contextname',
+                   'securityname',
+                   'securitylevel',
+                   'authprotocol',
+                   'authpassphrase',
+                   'privprotocol',
+                   'privpassphrase',
+                   'bulk' )
+
+    name = forms.CharField( max_length=255, required=True )
+    available = forms.ChoiceField( choices=models.AvailableChoices )
+    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
+    main = forms.ChoiceField( choices=models.MainChoices )
+    port = forms.IntegerField( required=True )
+
+    max_repetitions = forms.IntegerField( label="Max Repetition Count", initial=10 )
+    contextname     = forms.CharField( label="Context Name", max_length=255 )
+    securityname    = forms.CharField( max_length=255, label="Security Name" )
+    securitylevel   = forms.ChoiceField( label="Security Level", choices=models.SNMPSecurityLevelChoices, initial=models.SNMPSecurityLevelChoices.authPriv )
+    authprotocol    = forms.ChoiceField( label="Authentication Protocol", choices=models.SNMPAuthProtocolChoices, initial=models.SNMPAuthProtocolChoices.SHA1 )
+    authpassphrase  = forms.CharField( max_length=255, label="Authentication Passphrase", initial="{$SNMPV3_AUTHPASS}" )
+    privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )
+    privpassphrase  = forms.CharField( max_length=255, label="Privacy Passphrase", initial="{$SNMPV3_PRIVPASS}" )
+    bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
+    
+    zcfg = DynamicModelChoiceField( 
+           label="VM Zabbix Config",      
+           queryset=models.VMZabbixConfig.objects.all(),
+           required=True,
+       )
+    
+    interface = DynamicModelChoiceField( 
+        label="VM Interface",
+        queryset = models.AvailableVMInterface.objects.all(),
+        query_params={"vitual_machine_id": "$zcfg"},
+        required=True,
+    )
+    
+    ip_address = DynamicModelChoiceField(
+        label="IP Address",
+        queryset=IPAddress.objects.all(),
+        query_params={ "vminterface_id": "$interface" },
+        required=True,
+    )
+    
+    dns_name = forms.CharField(
+           label="DNS Name",
+           max_length=255,
+           required=False,
+           disabled=True,
+           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+        if self.initial.get('vm_zabbix_config_id'):
+            specific_vm_zabbix_config_id = self.initial.get( 'vm_zabbix_config_id' )
+            queryset = models.DeviceZabbixConfig.objects.filter( pk=specific_vm_zabbix_config_id )
+            self.fields['zcfg'].queryset = queryset
+            self.initial['zcfg'] = specific_vm_zabbix_config_id
+            self.initial['name'] = f"{queryset[0].name}-snmpv3"
+        
+        # Set the initial value of the calculated DNS name if editing an existing instance
+        if self.instance.pk:
+            self.fields['dns_name'].initial = self.instance.resolved_dns_name
+
 
 
 # end
