@@ -697,8 +697,8 @@ class VMMappingView(generic.ObjectView):
     queryset = models.VMMapping.objects.all()
     template_name = 'netbox_zabbix/vm_mapping.html'
     tab = ViewTab( label="Matching VMs",
-                  badge=lambda obj: obj.count(),
-                  weight=500 )
+                   badge=lambda obj: obj.count(),
+                   weight=500 )
     
     def get_extra_context(self, request, instance):
         vms = instance.get_matching_virtual_machines()
