@@ -67,7 +67,7 @@ Add a view that lists all inconsistent devm/hosts.
 
 ### Todo/Bugs
 
-[DONE] Rename 'zabbix_config_model' in jobs to 'config_model'.
+* Go over the code and see if I have missed anything when implementing VMs.
 
 * Add a menu item for listing devices/vms out of sync with Zabbix.
 
@@ -89,7 +89,7 @@ Add a view that lists all inconsistent devm/hosts.
   when displaying the data just in case we need the full data...dunno.
 
 
-* Since I rewrote a lot of code yesterday, run over all tests.
+* Since I rewrote a lot of code, run over all tests.
   Is it possible to automat the tests? Maybe but the UI has to be tested as well.
 
 * Should the system issue a warning when a template is removed while it is 
@@ -100,12 +100,12 @@ Add a view that lists all inconsistent devm/hosts.
   been removed from Zabbix, it no longer exists anyway.
   Also, it is ok for a host in Zabbix not have any templates.
 
-* When the implementation works for Devices, implement the corresponding code
-  for Virual Machines.
+* Clean up the templates.
 
-* After implementing VMs - I think that a lot of the code can be reused/simplified.
+* I think that a lot of the code can be reused/simplified.
   I think we could have only one class for Zabbix Config and a class for each
-  interface type.
+  interface type (using linked_object).
+
 
 * Should NetBox be the source for proxies/proxy group and groups?
   And Zabbix should only be the source for Templates?
@@ -132,6 +132,12 @@ Add a view that lists all inconsistent devm/hosts.
 
 * Implement maintenance mode.
 
+
+[DONE] Rename 'zabbix_config_model' in jobs to 'config_model'.
+
+
+[DONE] When the implementation works for Devices, implement the corresponding code
+  for Virual Machines.
 
 [DONE] Replace checks for interfaces in forms? with calls to has_agent_interface & has_snmpv3_interface.
 
