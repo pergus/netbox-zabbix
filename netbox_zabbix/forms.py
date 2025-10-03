@@ -887,7 +887,9 @@ class DeviceZabbixConfigFilterForm(NetBoxModelFilterSetForm):
 
 
 class VMZabbixConfigForm(NetBoxModelForm):
-    virtual_machine = forms.ModelChoiceField( queryset=VirtualMachine.objects.all(), label='Virtual Machine', help_text='Select the NetBox Virtual Machine to link this Zabbix host to.' )
+    virtual_machine = forms.ModelChoiceField( queryset=VirtualMachine.objects.all(), 
+                                              label='Virtual Machine', 
+                                              help_text='Select the NetBox Virtual Machine to link this Zabbix host to.' )
 
     class Meta:
         model = models.VMZabbixConfig

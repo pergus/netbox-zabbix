@@ -278,8 +278,8 @@ class VMMappingTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         model = models.VMMapping
-        fields = ( "name", "host_groups", "templates", "proxy", "proxy_group", "sites", "roles", "platforms", "default", "description" )
-        default_columns = ( "name", "host_groups", "templates", "proxy", "proxy_group", "default" ) 
+        fields = ( "name", "interface_type", "host_groups", "templates", "proxy", "proxy_group", "sites", "roles", "platforms", "default", "description" )
+        default_columns = ( "name", "interface_type", "host_groups", "templates", "proxy", "proxy_group", "default" ) 
 
 
 class MatchingVMMappingTable(NetBoxTable):
@@ -738,9 +738,7 @@ class NetBoxOnlyVMsTable(VirtualMachineTable):
     def render_zabbix_config(self, record):
         # Prefetching zabbix configs will reduce DB hits
         return mark_safe( "✔" ) if hasattr( record, 'zcfg' ) and record.zcfg else mark_safe( "✘" )
-    
-    
-    
+
 
 # ------------------------------------------------------------------------------
 # Zabbix Only Hosts

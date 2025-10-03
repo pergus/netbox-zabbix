@@ -44,8 +44,6 @@ from netbox_zabbix.models import (
     DeviceAgentInterface,
     DeviceSNMPv3Interface,
     InterfaceTypeChoices,
-#    VMAgentInterface,
-#    VMSNMPv3Interface,
     DeviceMapping,
     VMMapping,
     Template,

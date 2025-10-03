@@ -67,6 +67,10 @@ Add a view that lists all inconsistent devm/hosts.
 
 ### Todo/Bugs
 
+
+* Implement filtering where applicable.
+
+
 * Go over the code and see if I have missed anything when implementing VMs.
 
 * Add a menu item for listing devices/vms out of sync with Zabbix.
