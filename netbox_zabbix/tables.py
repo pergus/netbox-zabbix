@@ -117,7 +117,7 @@ class ConfigTable(NetBoxTable):
 
 
 class TemplateTable(NetBoxTable):
-    name = tables.Column( linkify=True )
+    name       = tables.Column( linkify=True )
     host_count = columns.LinkedCountColumn( 
          viewname='plugins:netbox_zabbix:zabbixconfig_list',
          url_params={'templates': 'pk'},
@@ -128,7 +128,7 @@ class TemplateTable(NetBoxTable):
     parents = columns.ManyToManyColumn( linkify_item=True, accessor="parents", verbose_name="Parents")
     
     class Meta(NetBoxTable.Meta):
-        model = models.Template
+        model  = models.Template
         fields = (
             "name",
             "templateid",
@@ -160,8 +160,8 @@ class ProxyTable(NetBoxTable):
     name = tables.Column( linkify=True )
         
     class Meta(NetBoxTable.Meta):
-        model = models.Proxy
-        fields = ("name", "proxyid", "proxy_groupid", "last_synced", "marked_for_deletion"  )
+        model           = models.Proxy
+        fields          = ("name", "proxyid", "proxy_groupid", "last_synced", "marked_for_deletion"  )
         default_columns = ("name", "proxyid", "proxy_groupid", "last_synced", "marked_for_deletion"  )
 
 # ------------------------------------------------------------------------------
@@ -173,8 +173,8 @@ class ProxyGroupTable(NetBoxTable):
     name = tables.Column( linkify=True )
     
     class Meta(NetBoxTable.Meta):
-        model = models.ProxyGroup
-        fields = ("name", "proxy_groupid", "last_synced", "marked_for_deletion"  )
+        model           = models.ProxyGroup
+        fields          = ("name", "proxy_groupid", "last_synced", "marked_for_deletion"  )
         default_columns = ("name", "proxy_groupid", "last_synced", "marked_for_deletion"  )
 
 
@@ -198,7 +198,7 @@ class HostGroupTable(NetBoxTable):
 
 
 class TagMappingTable(NetBoxTable):
-    object_type = tables.Column( verbose_name="Object Type", linkify=True )
+    object_type    = tables.Column( verbose_name="Object Type", linkify=True )
     enabled_fields = tables.Column( verbose_name="Enabled Fields", orderable=False )
 
     class Meta(NetBoxTable.Meta):
@@ -221,7 +221,7 @@ class TagMappingTable(NetBoxTable):
 
 
 class InventoryMappingTable(NetBoxTable):
-    object_type = tables.Column( verbose_name="Object Type", linkify=True )
+    object_type    = tables.Column( verbose_name="Object Type", linkify=True )
     enabled_fields = tables.Column( verbose_name="Enabled Fields", orderable=False )
 
     class Meta(NetBoxTable.Meta):
@@ -299,10 +299,10 @@ class BaseMatchingMappingTable(NetBoxTable):
     Abstract base class for MatchingDeviceMappingTable and MatchingVMMappingTable.
     Provides shared columns, Zabbix config rendering, and Meta configuration.
     """
-    name = tables.Column( linkify=True )
-    site = tables.Column( linkify=True )
-    role = tables.Column( linkify=True )
-    platform = tables.Column( linkify=True )
+    name          = tables.Column( linkify=True )
+    site          = tables.Column( linkify=True )
+    role          = tables.Column( linkify=True )
+    platform      = tables.Column( linkify=True )
     zabbix_config = tables.BooleanColumn(
         accessor="zabbix_config",
         verbose_name="Zabbix Config",
@@ -355,10 +355,10 @@ class MatchingVMMappingTable(BaseMatchingMappingTable):
     """
     Matching table for VirtualMachine model with Zabbix config and tags.
     """
-    tags = columns.TagColumn(url_name="virtualization:virtualmachine_list")
+    tags = columns.TagColumn( url_name="virtualization:virtualmachine_list" )
 
     class Meta(BaseMatchingMappingTable.Meta):
-        model = VirtualMachine
+        model  = VirtualMachine
         fields = BaseMatchingMappingTable.Meta.fields + ( "tags", )
 
     def has_zabbix_config(self, record):
@@ -388,9 +388,9 @@ class BaseZabbixConfigTable(NetBoxTable):
 
     class Meta(NetBoxTable.Meta):
         abstract = True
-        fields = ('name', 'sync', 'status', 'monitored_by', 
-                  'hostid', 'templates', 'proxy', 'proxy_group', 
-                  'host_groups', 'description')
+        fields   = ('name', 'sync', 'status', 'monitored_by', 
+                    'hostid', 'templates', 'proxy', 'proxy_group', 
+                    'host_groups', 'description')
         default_columns = ('name', 'sync', 'status', 'monitored_by', 
                            'templates', 'proxy', 'proxy_group', 'host_groups')
 
@@ -417,7 +417,7 @@ class DeviceZabbixConfigTable(BaseZabbixConfigTable):
     device = tables.Column( accessor='device', verbose_name='Device', linkify=True )
 
     class Meta(BaseZabbixConfigTable.Meta):
-        model = models.DeviceZabbixConfig
+        model  = models.DeviceZabbixConfig
         fields = ('device', ) + BaseZabbixConfigTable.Meta.fields
         default_columns = ('device', ) + BaseZabbixConfigTable.Meta.default_columns
 
@@ -434,7 +434,7 @@ class VMZabbixConfigTable(BaseZabbixConfigTable):
     virtual_machine = tables.Column(accessor='virtual_machine', verbose_name='VM', linkify=True)
 
     class Meta(BaseZabbixConfigTable.Meta):
-        model = models.VMZabbixConfig
+        model  = models.VMZabbixConfig
         fields = ('virtual_machine', ) + BaseZabbixConfigTable.Meta.fields
         default_columns = ('virtual_machine', ) + BaseZabbixConfigTable.Meta.default_columns
 
@@ -464,8 +464,8 @@ class ZabbixConfigActionsColumn(ActionsColumn):
 
 
 class ZabbixConfigTable(NetBoxTable):
-    name = tables.Column( accessor='name', verbose_name='Host Name', linkify=True )
-    type = tables.Column( empty_values=(), verbose_name='Type', order_by=('device__name', 'virtual_machine__name') )
+    name   = tables.Column( accessor='name', verbose_name='Host Name', linkify=True )
+    type   = tables.Column( empty_values=(), verbose_name='Type', order_by=('device__name', 'virtual_machine__name') )
     hostid = tables.Column( verbose_name='Zabbix Host ID' )
     status = tables.Column()
     object = tables.Column( empty_values=(), verbose_name='NetBox Object', order_by=('device__name', 'virtual_machine__name') )
@@ -473,7 +473,7 @@ class ZabbixConfigTable(NetBoxTable):
     actions = ZabbixConfigActionsColumn()
      
     class Meta(NetBoxTable.Meta):
-        model = models.ZabbixConfig
+        model  = models.ZabbixConfig
         fields = ('name', 'object', 'status', 'type', 'hostid', 'status', 'templates' )
         default_columns = ('name', 'object', 'status', 'templates', 'type' )
 
@@ -504,13 +504,13 @@ class BaseImportableTable(NetBoxTable):
     Abstract base table for importable Zabbix hosts.
     Handles shared columns, validation logic, and reason tracking.
     """
-    name = tables.Column(linkify=True)
-    valid = tables.BooleanColumn(accessor='valid', verbose_name="Valid", orderable=False)
-    reason = tables.Column(empty_values=(), verbose_name="Invalid Reason", orderable=False)
+    name   = tables.Column( linkify=True )
+    valid  = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
+    reason = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
 
     class Meta(NetBoxTable.Meta):
         abstract = True
-        fields = ("name", "site", "status", "role", "valid", "reason")
+        fields   = ("name", "site", "status", "role", "valid", "reason")
         default_columns = ("name", "site", "status", "valid", "reason")
 
     def __init__(self, *args, **kwargs):
@@ -795,9 +795,9 @@ class DeviceAgentInterfaceTable(BaseInterfaceTable):
     Table for Device Agent interfaces.
     """
     class Meta(BaseInterfaceTable.Meta):
-        model = models.DeviceAgentInterface
+        model   = models.DeviceAgentInterface
         actions = ("bulk_edit", "bulk_delete", "edit", "delete")
-        fields = BaseInterfaceTable.Meta.fields + ("hostid", "interfaceid", "available", "useip", "main", "port")
+        fields  = BaseInterfaceTable.Meta.fields + ("hostid", "interfaceid", "available", "useip", "main", "port")
         default_columns = BaseInterfaceTable.Meta.default_columns + ("port", "useip", "main")
 
 
@@ -810,7 +810,7 @@ class DeviceSNMPv3InterfaceTable(BaseInterfaceTable):
     Table for Device SNMPv3 interfaces.
     """
     class Meta(BaseInterfaceTable.Meta):
-        model = models.DeviceSNMPv3Interface
+        model  = models.DeviceSNMPv3Interface
         fields = BaseInterfaceTable.Meta.fields + (
             "hostid", "interfaceid", "available", "useip", "main", "port",
             "max_repetitions", "contextname", "securityname", "securitylevel",
@@ -828,7 +828,7 @@ class VMAgentInterfaceTable(BaseInterfaceTable):
     Table for VM Agent interfaces.
     """
     class Meta(BaseInterfaceTable.Meta):
-        model = models.VMAgentInterface
+        model  = models.VMAgentInterface
         fields = BaseInterfaceTable.Meta.fields + ("hostid", "interfaceid", "available", "useip", "main", "port")
         default_columns = BaseInterfaceTable.Meta.default_columns + ("port", "useip", "main")
 
@@ -869,7 +869,7 @@ class EventLogTable(NetBoxTable):
     created    = tables.DateTimeColumn( format="Y-m-d H:i:s" )
 
     class Meta(NetBoxTable.Meta):
-        model = models.EventLog
+        model  = models.EventLog
         fields = ( 'name', 'job', 'job_status', 'created', 'message', 
                    'exception', 'data', 'pre_data', 'post_data')
         default_columns = ( 'name', 'job', 'job_status', 'created', 'message' )
@@ -928,7 +928,7 @@ class DeviceZabbixTasksTable(JobTable):
     actions = []
 
     class Meta(NetBoxTable.Meta):
-        model = Job
+        model  = Job
         fields = ("id", "name", "status", "user", "started", "completed")
 
     def get_actions(self, record):
