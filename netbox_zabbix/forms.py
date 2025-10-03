@@ -814,18 +814,21 @@ class DeviceZabbixConfigForm(NetBoxModelForm):
     
         template_ids = [ t.templateid for t in templates ]
     
-        device_config = self.instance
-        if device_config and device_config.pk:
+        config = self.instance
+        if config and config.pk:
             
-            has_agent = device_config.has_agent_interface
-            has_snmp  = device_config.has_snmpv3_interface
+            has_agent = config.has_agent_interface
+            has_snmp  = config.has_snmpv3_interface
 
             if has_agent and has_snmp:
                 interface_type = models.InterfaceTypeChoices.Any
+
             elif has_agent:
                 interface_type = models.InterfaceTypeChoices.Agent
+
             elif has_snmp:
                 interface_type = models.InterfaceTypeChoices.SNMP
+                
             else:
                 interface_type = models.InterfaceTypeChoices.Any
 
@@ -896,7 +899,6 @@ class VMZabbixConfigForm(NetBoxModelForm):
     
         super().__init__( *args, **kwargs )
 
-
         # Add specific virtual machine 
         if self.initial.get( 'vm_id' ):
             specific_vm_id = self.initial.get( 'vm_id' )
@@ -926,6 +928,60 @@ class VMZabbixConfigForm(NetBoxModelForm):
             # If a user need to change it they have to delete the zabbix configuration
             self.fields['virtual_machine'].disabled = True 
 
+
+    def clean(self):
+        super().clean() 
+    
+        templates = self.cleaned_data.get( "templates" )
+    
+        template_ids = [ t.templateid for t in templates ]
+    
+        config = self.instance
+        if config and config.pk:
+            
+            has_agent = config.has_agent_interface
+            has_snmp  = config.has_snmpv3_interface
+    
+            if has_agent and has_snmp:
+                interface_type = models.InterfaceTypeChoices.Any
+
+            elif has_agent:
+                interface_type = models.InterfaceTypeChoices.Agent
+
+            elif has_snmp:
+                interface_type = models.InterfaceTypeChoices.SNMP
+
+            else:
+                interface_type = models.InterfaceTypeChoices.Any
+    
+            # Validate templates for selected interface
+            try:
+                validate_templates_and_interface( template_ids, interface_type )
+            except Exception as e:
+                raise ValidationError( str( e ) )
+        else:
+            # Only validate templates if the Zabbix configuration doesn't have
+            # any interfaces. This happens if a user creates a Zabbix configuration
+            # by hand, since the interfaces are added later.
+            try:
+                validate_templates( template_ids )
+            except Exception as e:
+                raise ValidationError( str( e ) )
+            
+        # Check monitored by
+        monitored_by = self.cleaned_data.get( "monitored_by" )
+    
+        if monitored_by == models.MonitoredByChoices.Proxy:
+            if not self.cleaned_data.get( "proxy" ):
+                raise ValidationError( "A proxy name is requried" )
+    
+        if monitored_by == models.MonitoredByChoices.ProxyGroup:
+            if not self.cleaned_data.get( "proxy_group" ):
+                raise ValidationError( "A proxy group name is requried" )
+        
+    
+        return self.cleaned_data
+    
 
 class VMZabbixConfigFilterForm(NetBoxModelFilterSetForm):
     model = models.ZabbixConfig
@@ -984,7 +1040,8 @@ class NetBoxOnlyDevicesFilterForm(DeviceFilterForm):
 class DeviceAgentInterfaceForm(NetBoxModelForm):
     class Meta:
         model = models.DeviceAgentInterface
-        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 'available', 'useip', 'useip', 'main', 'port' )
+        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 
+                   'available', 'useip', 'main', 'port' )
 
     name = forms.CharField( max_length=255, required=True )
     available = forms.ChoiceField( choices=models.AvailableChoices )
@@ -992,7 +1049,6 @@ class DeviceAgentInterfaceForm(NetBoxModelForm):
     main = forms.ChoiceField( choices=models.MainChoices )
     port = forms.IntegerField( required=True )
 
-    # TODO: Rename this field to something more descriptive
     zcfg = DynamicModelChoiceField( 
         label="Device Zabbix Config",
         queryset=models.DeviceZabbixConfig.objects.all(),
@@ -1065,7 +1121,7 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
     class Meta:
         model = models.DeviceSNMPv3Interface
         fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 
-                   'available', 'useip', 'useip', 'main', 'port',
+                   'available', 'useip', 'main', 'port',
                    'max_repetitions',
                    'contextname',
                    'securityname',
@@ -1158,7 +1214,8 @@ class DeviceSNMPv3InterfaceForm(NetBoxModelForm):
 class VMAgentInterfaceForm(NetBoxModelForm):
     class Meta:
         model = models.DeviceAgentInterface
-        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 'available', 'useip', 'useip', 'main', 'port' )
+        fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 
+                   'available', 'useip', 'main', 'port' )
 
     name = forms.CharField( max_length=255, required=True )
     available = forms.ChoiceField( choices=models.AvailableChoices )
@@ -1211,16 +1268,34 @@ class VMAgentInterfaceForm(NetBoxModelForm):
         if self.instance.pk:
             self.fields['dns_name'].initial = self.instance.resolved_dns_name
 
+    def clean(self):
+        super().clean()
+        zcfg = self.cleaned_data.get( "zcfg" )
+        if not zcfg:
+            raise ValidationError( "No VM Zabbix Config selected." )
+    
+        # Validate DNS name
+        ip_address = self.cleaned_data.get( "ip_address" )
+        if not ip_address.dns_name:
+            raise ValidationError( "The IP address require a DNS name" )
+    
+        if not getattr( zcfg, "hostid", None ):
+            raise ValidationError(
+                f"Cannot create or update an agent interface for '{zcfg.name}': "
+                "the configuration must be associated with a Zabbix host ID."
+            )
+
 
 # ------------------------------------------------------------------------------
 # VM SNMPv3 Interface
 # ------------------------------------------------------------------------------
 
+
 class VMSNMPv3InterfaceForm(NetBoxModelForm):
     class Meta:
         model = models.VMSNMPv3Interface
         fields = ( 'name', 'zcfg', 'interface', 'ip_address', 'dns_name', 
-                   'available', 'useip', 'useip', 'main', 'port',
+                   'available', 'useip', 'main', 'port',
                    'max_repetitions',
                    'contextname',
                    'securityname',
@@ -1230,27 +1305,12 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
                    'privprotocol',
                    'privpassphrase',
                    'bulk' )
-
-    name = forms.CharField( max_length=255, required=True )
-    available = forms.ChoiceField( choices=models.AvailableChoices )
-    useip = forms.ChoiceField( label="Connect using", choices=models.UseIPChoices )
-    main = forms.ChoiceField( choices=models.MainChoices )
-    port = forms.IntegerField( required=True )
-
-    max_repetitions = forms.IntegerField( label="Max Repetition Count", initial=10 )
-    contextname     = forms.CharField( label="Context Name", max_length=255 )
-    securityname    = forms.CharField( max_length=255, label="Security Name" )
-    securitylevel   = forms.ChoiceField( label="Security Level", choices=models.SNMPSecurityLevelChoices, initial=models.SNMPSecurityLevelChoices.authPriv )
-    authprotocol    = forms.ChoiceField( label="Authentication Protocol", choices=models.SNMPAuthProtocolChoices, initial=models.SNMPAuthProtocolChoices.SHA1 )
-    authpassphrase  = forms.CharField( max_length=255, label="Authentication Passphrase", initial="{$SNMPV3_AUTHPASS}" )
-    privprotocol    = forms.ChoiceField( label="Privacy Protocol", choices=models.SNMPPrivProtocolChoices, initial=models.SNMPPrivProtocolChoices.AES128 )
-    privpassphrase  = forms.CharField( max_length=255, label="Privacy Passphrase", initial="{$SNMPV3_PRIVPASS}" )
-    bulk            = forms.ChoiceField( label="Bulk", choices=models.SNMPBulkChoices, initial=models.SNMPBulkChoices.YES )
     
     zcfg = DynamicModelChoiceField( 
-           label="VM Zabbix Config",      
+           label="VM Zabbix Config",
            queryset=models.VMZabbixConfig.objects.all(),
            required=True,
+           help_text="The NetBox Zabbix Config that the interface is associated with."
        )
     
     interface = DynamicModelChoiceField( 
@@ -1258,6 +1318,7 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
         queryset = models.AvailableVMInterface.objects.all(),
         query_params={"vitual_machine_id": "$zcfg"},
         required=True,
+        help_text="The NetBox VM Interface that the interface is associated with."
     )
     
     ip_address = DynamicModelChoiceField(
@@ -1265,6 +1326,7 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
         queryset=IPAddress.objects.all(),
         query_params={ "vminterface_id": "$interface" },
         required=True,
+        help_text="The NetBox IP address of the interface."
     )
     
     dns_name = forms.CharField(
@@ -1272,7 +1334,8 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
            max_length=255,
            required=False,
            disabled=True,
-           widget=forms.TextInput(attrs={'data-field': 'dns_name'})
+           widget=forms.TextInput(attrs={'data-field': 'dns_name'}),
+           help_text="The NetBox DNS name for the interface."
     )
 
     def __init__(self, *args, **kwargs):
@@ -1285,11 +1348,37 @@ class VMSNMPv3InterfaceForm(NetBoxModelForm):
             self.fields['zcfg'].queryset = queryset
             self.initial['zcfg'] = specific_vm_zabbix_config_id
             self.initial['name'] = f"{queryset[0].name}-snmpv3"
-        
-        # Set the initial value of the calculated DNS name if editing an existing instance
+
+            # Initialize the default SNMPv3 interface settings from the Config
+            self.initial['port']            = config.get_snmpv3_port()
+            self.initial['bulk']            = config.get_snmpv3_bulk()
+            self.initial['max_repetitions'] = config.get_snmpv3_max_repetitions()
+            self.initial['contextname']     = config.get_snmpv3_contextname()
+            self.initial['securityname']    = config.get_snmpv3_securityname()
+            self.initial['securitylevel']   = config.get_snmpv3_securitylevel()
+            self.initial['authprotocol']    = config.get_snmpv3_authprotocol()
+            self.initial['authpassphrase']  = config.get_snmpv3_authpassphrase()
+            self.initial['privprotocol']    = config.get_snmpv3_privprotocol()
+            self.initial['privpassphrase']  = config.get_snmpv3_privpassphrase()
+            
+            
+
+        # If editing an existing instance the user cannot change the 'zcfg'.
         if self.instance.pk:
+            self.fields['zcfg'].disabled = True
+            # Set the initial value of the calculated DNS name
             self.fields['dns_name'].initial = self.instance.resolved_dns_name
 
-
+    def clean(self):
+        super().clean()
+        zcfg = self.cleaned_data.get( "zcfg" )
+        if not zcfg:
+            raise ValidationError( "No VM Zabbix Config selected." )
+    
+        if not getattr( zcfg, "hostid", None ):
+            raise ValidationError(
+                f"Cannot create or update an snmpv3 interface for '{zcfg.name}': "
+                "the configuration must be associated with a Zabbix host ID."
+            )
 
 # end
