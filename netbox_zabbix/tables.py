@@ -569,76 +569,7 @@ class ImportableVMTable(BaseImportableTable):
 
 
 # ------------------------------------------------------------------------------
-# Base NetBox Only Hosts Table
-# ------------------------------------------------------------------------------
-
-class BaseNetBoxOnlyTable(NetBoxTable):
-    """
-    Abstract base table for NetBox-only devices or VMs for Zabbix integration.
-    Handles shared columns, validation, mapping renderers, and actions.
-    """
-    name     = tables.Column( linkify=True )
-    site     = tables.Column( linkify=True )
-    role     = tables.Column( linkify=True )
-    platform = tables.Column( linkify=True )
-
-    zabbix_config       = tables.Column( verbose_name='Zabbix Configuration', empty_values=(), orderable=False )
-    agent_mapping_name  = tables.Column( verbose_name='Agent Mapping', empty_values=(), orderable=False )
-    snmpv3_mapping_name = tables.Column( verbose_name='SNMPv3 Mapping', empty_values=(), orderable=False )
-
-    valid   = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
-    reason  = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
-    tags    = TagColumn( url_name='dcim:device_list' )  # subclasses will override url_name
-    actions = ActionsColumn( extra_buttons=[] )
-
-    class Meta(NetBoxTable.Meta):
-        abstract = True
-        fields = ("name", "zabbix_config", "site", "role", "platform",
-                  "agent_mapping_name", "snmpv3_mapping_name", "valid",
-                  "reason", "tags")
-        default_columns = fields
-
-    def __init__(self, *args, mapping_cache=None, **kwargs):
-        super().__init__( *args, **kwargs )
-        self.reasons = {}
-        self.mapping_cache = mapping_cache or {}
-
-    def render_valid(self, record):
-        if config.get_auto_validate_quick_add():
-            try:
-                validate_quick_add( record )
-                return mark_safe("✔")
-            except Exception as e:
-                self.reasons[record] = e
-                return mark_safe("✘")
-        return mark_safe("-")
-
-    def render_reason(self, record):
-        if config.get_auto_validate_quick_add():
-            return self.reasons.get(record, "")
-        return ""
-
-    def render_actions(self, record, extra_buttons=""):
-        return ActionsColumn( extra_buttons=extra_buttons ).render( record, self )
-
-    def render_agent_mapping_name(self, record, interface_type=models.InterfaceTypeChoices.Agent):
-        mapping = self.mapping_cache.get( (record.pk, interface_type) )
-        if not mapping:
-            view = self.context.get( "view" )
-            mapping = getattr( view, "mapping_cache", {}).get( (record.pk, interface_type) )
-        if not mapping:
-            return "—"
-        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
-
-    def render_snmpv3_mapping_name(self, record):
-        return self.render_agent_mapping_name( record, interface_type=models.InterfaceTypeChoices.SNMP )
-
-    def render_zabbix_config(self, record):
-        return mark_safe( "✔" ) if hasattr( record, 'zcfg' ) and record.zcfg else mark_safe( "✘" )
-
-
-# ------------------------------------------------------------------------------
-# NetBox Only Devices Table
+# NetBox Only Devices
 # ------------------------------------------------------------------------------
 
 
@@ -660,7 +591,7 @@ EXTRA_DEVICE_ADD_ACTIONS = """
             Validate
             </a>
         </li>
-    
+
         <li>
             <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_agent' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
             <i class="mdi mdi-flash-auto""></i>
@@ -678,21 +609,95 @@ EXTRA_DEVICE_ADD_ACTIONS = """
 
 """
 
-class NetBoxOnlyDevicesTable(BaseNetBoxOnlyTable):
-    """
-    Table for NetBox-only Devices with Zabbix integration and quick-add actions.
-    """
-    tags = TagColumn( url_name='dcim:device_list' )
+class NetBoxOnlyDevicesTable(DeviceTable):
+    name     = tables.Column( linkify=True )
+    site     = tables.Column( linkify=True )
+    role     = tables.Column( linkify=True )
+    platform = tables.Column( linkify=True )
 
-    class Meta(BaseNetBoxOnlyTable.Meta):
-        model = models.Device
+    zabbix_config        = tables.Column( verbose_name='Zabbix Configuration', empty_values=(), orderable=False )
+    agent_mapping_name   = tables.Column( verbose_name='Agent Mapping',        empty_values=(), orderable=False )
+    snmpv3_mapping_name  = tables.Column( verbose_name='SNMPv3 Mapping',       empty_values=(), orderable=False )
+
+    valid   = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
+    reason  = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
+    tags    = TagColumn( url_name='dcim:device_list' )
+    actions = ActionsColumn( extra_buttons=[] )
+
+    class Meta(DeviceTable.Meta):
+        model = Device
+        fields = ("name", "zabbix_config", "site", "role", "platform", 
+                  "agent_mapping_name", "snmpv3_mapping_name", "valid", 
+                  "reason", "tags")
+        default_columns = fields
+
+
+    def __init__(self, *args, request=None, device_mapping_cache=None, **kwargs):
+            super().__init__( *args, **kwargs )
+            self.reasons = {}
+            self.device_mapping_cache = device_mapping_cache or {}
+
+
+    def render_valid(self, record):
+        if config.get_auto_validate_quick_add():
+            try:
+                validate_quick_add( record )
+                return mark_safe("✔")
+            except Exception as e:
+                self.reasons[record] = e
+                return mark_safe("✘")
+        else:
+            return mark_safe("-")
+
+
+    def render_reason(self, record):
+        if config.get_auto_validate_quick_add():
+            return self.reasons[record] if record in self.reasons else ""
+        return ""
+
 
     def render_actions(self, record):
-        return super().render_actions( record, extra_buttons=EXTRA_DEVICE_ADD_ACTIONS )
+        return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
+
+
+    def render_agent_mapping_name(self, record):
+        mapping = self.device_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.Agent) )
+
+        # fallback to view.context if you want backward compatibility
+        if not mapping:
+            view = self.context.get( "view" )
+            mapping = getattr( view, "device_mapping_cache", {}).get(
+                (record.pk, models.InterfaceTypeChoices.Agent)
+            )
+
+        if not mapping:
+            return "—"
+
+        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
+
+
+    def render_snmpv3_mapping_name(self, record):
+        mapping = self.device_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.SNMP) )
+
+        if not mapping:
+            view = self.context.get( "view" )
+            mapping = getattr( view, "device_mapping_cache", {}).get(
+                (record.pk, models.InterfaceTypeChoices.SNMP)
+            )
+
+        if not mapping:
+            return "—"
+
+        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
+
+
+    def render_zabbix_config(self, record):
+        # Prefetching zabbix configs will reduce DB hits
+        return mark_safe( "✔" ) if hasattr( record, 'zcfg' ) and record.zcfg else mark_safe( "✘" )
 
 
 # ------------------------------------------------------------------------------
-# NetBox Only VMs Table
+# NetBox Only VMs
 # ------------------------------------------------------------------------------
 
 
@@ -714,7 +719,7 @@ EXTRA_VM_ADD_ACTIONS = """
             Validate
             </a>
         </li>
-    
+
         <li>
             <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:vm_quick_add_agent' %}?virtual_machine_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlyvms'%}" class="btn btn-sm btn-info">
             <i class="mdi mdi-flash-auto""></i>
@@ -732,18 +737,91 @@ EXTRA_VM_ADD_ACTIONS = """
 
 """
 
+class NetBoxOnlyVMsTable(VirtualMachineTable):
+    name     = tables.Column( linkify=True )
+    site     = tables.Column( linkify=True )
+    role     = tables.Column( linkify=True )
+    platform = tables.Column( linkify=True )
 
-class NetBoxOnlyVMsTable(BaseNetBoxOnlyTable):
-    """
-    Table for NetBox-only VMs with Zabbix integration and quick-add actions.
-    """
-    tags = TagColumn( url_name='virtualization:virtualmachine_list' )
+    zabbix_config        = tables.Column( verbose_name='Zabbix Configuration', empty_values=(), orderable=False )
+    agent_mapping_name   = tables.Column( verbose_name='Agent Mapping',        empty_values=(), orderable=False )
+    snmpv3_mapping_name  = tables.Column( verbose_name='SNMPv3 Mapping',       empty_values=(), orderable=False )
 
-    class Meta(BaseNetBoxOnlyTable.Meta):
-        model = models.VirtualMachine
+    valid   = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
+    reason  = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
+    tags    = TagColumn( url_name='virtualization:virtualmachine_list' )
+    actions = ActionsColumn( extra_buttons=[] )
+
+    class Meta(VirtualMachineTable.Meta):
+        model = VirtualMachine
+        fields = ("name", "zabbix_config", "site", "role", "platform", 
+                  "agent_mapping_name", "snmpv3_mapping_name", "valid", 
+                  "reason", "tags")
+        default_columns = fields
+
+
+    def __init__(self, *args, request=None, vm_mapping_cache=None, **kwargs):
+            super().__init__( *args, **kwargs )
+            self.reasons = {}
+            self.vm_mapping_cache = vm_mapping_cache or {}
+
+
+    def render_valid(self, record):
+        if config.get_auto_validate_quick_add():
+            try:
+                validate_quick_add( record )
+                return mark_safe("✔")
+            except Exception as e:
+                self.reasons[record] = e
+                return mark_safe("✘")
+        else:
+            return mark_safe("-")
+
+
+    def render_reason(self, record):
+        if config.get_auto_validate_quick_add():
+            return self.reasons[record] if record in self.reasons else ""
+        return ""
+
 
     def render_actions(self, record):
-        return super().render_actions( record, extra_buttons=EXTRA_VM_ADD_ACTIONS )
+        return columns.ActionsColumn( extra_buttons=EXTRA_VM_ADD_ACTIONS ).render( record, self )
+
+
+    def render_agent_mapping_name(self, record):
+        mapping = self.vm_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.Agent) )
+
+        # fallback to view.context if you want backward compatibility
+        if not mapping:
+            view = self.context.get( "view" )
+            mapping = getattr(view, "vm_mapping_cache", {}).get(
+                (record.pk, models.InterfaceTypeChoices.Agent)
+            )
+
+        if not mapping:
+            return "—"
+
+        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
+
+
+    def render_snmpv3_mapping_name(self, record):
+        mapping = self.vm_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.SNMP) )
+
+        if not mapping:
+            view = self.context.get( "view" )
+            mapping = getattr( view, "vm_mapping_cache", {}).get(
+                (record.pk, models.InterfaceTypeChoices.SNMP)
+            )
+
+        if not mapping:
+            return "—"
+
+        return mark_safe(f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>')
+
+
+    def render_zabbix_config(self, record):
+        # Prefetching zabbix configs will reduce DB hits
+        return mark_safe( "✔" ) if hasattr( record, 'zcfg' ) and record.zcfg else mark_safe( "✘" )
 
 
 # ------------------------------------------------------------------------------
