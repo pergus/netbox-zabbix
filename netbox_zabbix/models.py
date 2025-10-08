@@ -1068,16 +1068,16 @@ class BaseAgentInterface(HostInterface):
 
     def clean(self):
         super().clean()
-    
+
         interface = self.interface
         ip_address = self.ip_address
-    
+
         # Validate interface/IP match
         if ip_address and interface:
             if ip_address.assigned_object != interface:
                 raise ValidationError({ "ip_address": "The selected IP address is not assigned to the selected interface." })
-    
-            
+
+
     def save(self, *args, **kwargs):
         self.full_clean()
 
@@ -1165,6 +1165,17 @@ class BaseSNMPv3Interface(HostInterface):
         else:
             return self.ip_address
 
+
+    def clean(self):
+        super().clean()
+
+        interface = self.interface
+        ip_address = self.ip_address
+
+        # Validate interface/IP match
+        if ip_address and interface:
+            if ip_address.assigned_object != interface:
+                raise ValidationError({ "ip_address": "The selected IP address is not assigned to the selected interface." })
 
     def save(self, *args, **kwargs):
         self.full_clean()
