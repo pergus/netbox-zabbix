@@ -952,6 +952,7 @@ def import_zabbix_config(ctx: ImportContext):
     config             = ctx.config_model( **{instance_type: ctx.model_instance} )
     config.hostid      = int( ctx.zabbix_host["hostid"] )
     config.status      = StatusChoices.DISABLED if int( ctx.zabbix_host.get( "status", 0 ) ) else StatusChoices.ENABLED
+    config.managed_by  = int( ctx.zabbix_host.get( "managed_by", "0" ) )
     config.description = ctx.zabbix_host.get( "description", "" )
 
 
