@@ -9,6 +9,7 @@ from django.db import transaction
 from django.db.models.signals import pre_delete, post_delete, pre_save, post_save
 from django.dispatch import receiver
 from django.contrib import messages
+from dajngo.http import HttpRequest
 from core.models import ObjectChange
 from dcim.models import Device, Interface
 from virtualization.models  import VirtualMachine, VMInterface
@@ -611,8 +612,11 @@ def delete_ip_address(sender, instance: IPAddress,  **kwargs):
     config = getattr( devm, "zcfg", None )
 
     if config:
-        logger.warning( "[%s] Zabbix configuration for '%s' may be out of sync due to IP %s deletion.", signal_id, config.devm_name(), ip.address )
-        messages.error( get_current_request(), f"Zabbix configuration for '{config.devm_name()}' may be out of sync." )
+        msg = f"Zabbix configuration for '{config.devm_name()}' may be out of sync due to IP {ip.address} deletion."
+        logger.warning("[%s] %s", signal_id, msg)
+        request = get_current_request()
+        if isinstance(request, HttpRequest):
+            messages.error(request, msg)
 
 
 # ------------------------------------------------------------------------------
