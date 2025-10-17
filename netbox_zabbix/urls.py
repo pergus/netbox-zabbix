@@ -113,7 +113,7 @@ urlpatterns = (
 
     path( 'tag/mappings/',                    views.TagMappingListView.as_view(),   name='tagmapping_list' ),
     path( 'tag/mappings/add/',                views.TagMappingEditView.as_view(),   name='tagmapping_add' ),
-    path( 'tag/mapping/<int:pk>/',            views.TagMappingView.as_view(),       name='tagmapping' ),
+    path( 'tag/mappings/<int:pk>/',           views.TagMappingView.as_view(),       name='tagmapping' ),
     path( 'tag/mappings/<int:pk>/edit/',      views.TagMappingEditView.as_view(),   name='tagmapping_edit' ),
     path( 'tag/mappings/<int:pk>/delete/',    views.TagMappingDeleteView.as_view(), name='tagmapping_delete' ),
     path( 'tag/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),        name='tagmapping_changelog', kwargs={'model': models.TagMapping} ),
@@ -125,7 +125,7 @@ urlpatterns = (
 
     path( 'inventory/mappings/',                    views.InventoryMappingListView.as_view(),   name='inventorymapping_list' ),
     path( 'inventory/mappings/add/',                views.InventoryMappingEditView.as_view(),   name='inventorymapping_add' ),
-    path( 'inventory/mapping/<int:pk>/',            views.InventoryMappingView.as_view(),       name='inventorymapping' ),
+    path( 'inventory/mappings/<int:pk>/',           views.InventoryMappingView.as_view(),       name='inventorymapping' ),
     path( 'inventory/mappings/<int:pk>/edit/',      views.InventoryMappingEditView.as_view(),   name='inventorymapping_edit' ),
     path( 'inventory/mappings/<int:pk>/delete/',    views.InventoryMappingDeleteView.as_view(), name='inventorymapping_delete' ),
     path( 'inventory/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),              name='inventorymapping_changelog', kwargs={'model': models.InventoryMapping}  ),
@@ -137,7 +137,7 @@ urlpatterns = (
 
     path( 'device/mappings/',                    views.DeviceMappingListView.as_view(),       name='devicemapping_list' ),
     path( 'device/mappings/add/',                views.DeviceMappingEditView.as_view(),       name='devicemapping_add' ),
-    path( 'device/mapping/<int:pk>/',            views.DeviceMappingView.as_view(),           name='devicemapping' ),
+    path( 'device/mappings/<int:pk>/',           views.DeviceMappingView.as_view(),           name='devicemapping' ),
     path( 'device/mappings/<int:pk>/edit/',      views.DeviceMappingEditView.as_view(),       name='devicemapping_edit' ),
     path( 'device/mappings/<int:pk>/delete/',    views.DeviceMappingDeleteView.as_view(),     name='devicemapping_delete' ),
     path( 'device/mappings/delete/',             views.DeviceMappingBulkDeleteView.as_view(), name='devicemapping_bulk_delete' ),
@@ -151,7 +151,7 @@ urlpatterns = (
 
     path( 'virtual-machines/mappings/',                    views.VMMappingListView.as_view(),       name='vmmapping_list' ),
     path( 'virtual-machines/mappings/add/',                views.VMMappingEditView.as_view(),       name='vmmapping_add' ),
-    path( 'virtual-machines/mapping/<int:pk>/',            views.VMMappingView.as_view(),           name='vmmapping' ),
+    path( 'virtual-machines/mappings/<int:pk>/',           views.VMMappingView.as_view(),           name='vmmapping' ),
     path( 'virtual-machines/mappings/<int:pk>/edit/',      views.VMMappingEditView.as_view(),       name='vmmapping_edit' ),
     path( 'virtual-machines/mappings/<int:pk>/delete/',    views.VMMappingDeleteView.as_view(),     name='vmmapping_delete' ),
     path( 'virtual-machines/mappings/delete/',             views.VMMappingBulkDeleteView.as_view(), name='vmmapping_bulk_delete' ),
