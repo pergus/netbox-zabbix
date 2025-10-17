@@ -588,10 +588,7 @@ class DeviceMappingDevicesView(generic.ObjectView):
 class DeviceMappingView(generic.ObjectView):
     queryset      = models.DeviceMapping.objects.all()
     template_name = 'netbox_zabbix/device_mapping.html'
-    tab           = ViewTab( label="Matching Devices",
-                             badge=lambda obj: obj.count(),
-                             weight=500 )
-    
+
     def get_extra_context(self, request, instance):
         devices = instance.get_matching_devices()
         return {
@@ -693,10 +690,7 @@ class VMMappingVMsView(generic.ObjectView):
 class VMMappingView(generic.ObjectView):
     queryset      = models.VMMapping.objects.all()
     template_name = 'netbox_zabbix/vm_mapping.html'
-    tab           = ViewTab( label="Matching VMs",
-                             badge=lambda obj: obj.count(),
-                             weight=500 )
-    
+
     def get_extra_context(self, request, instance):
         vms = instance.get_matching_virtual_machines()
 
