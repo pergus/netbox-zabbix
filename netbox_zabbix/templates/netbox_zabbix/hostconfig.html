@@ -4,35 +4,17 @@
 {% load i18n %}
 {% load tab_utils %}
 
+
+
 {% block extra_controls %}
-<div class="dropdown">
-    <button id="add-components" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown"
-        aria-expanded="false">
-        <i class="mdi mdi-plus-thick" aria-hidden="true"></i> Add Interface
-    </button>
-    <ul class="dropdown-menu" aria-labeled-by="add-components">
-        <li><a class="dropdown-item"
-                href="{% url 'plugins:netbox_zabbix:vmagentinterface_add' %}?vm_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:vmzabbixconfig' object.id %}">
-                Agent Interface
-            </a>
-        </li>
-        <li><a class="dropdown-item"
-                href="{% url 'plugins:netbox_zabbix:vmsnmpv3interface_add' %}?vm_zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:vmzabbixconfig' object.id %}">
-                SNMPv3 Interface
-            </a>
-        </li>
-
-    </ul>
-</div>
-
 <div>
-    <a href="{% url 'plugins:netbox_zabbix:sync_with_zabbix' %}?model=vm&zabbix_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:vmzabbixconfig' object.id %}"
+    <a href="{% url 'plugins:netbox_zabbix:sync_with_zabbix' %}?host_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:hostconfig' object.id %}"
         class="btn btn-primary">
         <i class="mdi mdi-sync"></i> Sync With Zabbix
     </a>
 </div>
-
 {% endblock %}
+
 
 
 {% block tabs %}
@@ -53,7 +35,7 @@
 <div class="row">
     <div class="col col-md-12">
         <div class="card">
-            <h5 class="card-header">VM Zabbix Config</h5>
+            <h5 class="card-header">Zabbix Config</h5>
             <div class="card-body">
                 <table class="table table-hover attr-table">
                     <tr>
@@ -62,12 +44,19 @@
                     </tr>
 
                     <tr>
-                        <th scope="row">Virtual Machine</th>
+                        <th scope="row">Linked Object</th>
                         <td>
-                            <a href="{{ object.virtual_machine.get_absolute_url }}">{{ object.virtual_machine.name }}</a>
+                            <a href="{{ object.assigned_object.get_absolute_url }}">{{ object.assigned_object.name }}</a>
                         </td>
                     </tr>
                     
+                    <tr>
+                        <th scope="row">Host in Zabbix</th>
+                        <td>
+                            <a href="{{ web_address }}/zabbix.php?action=host.edit&hostid={{ object.hostid }}">{{ object.assigned_object.name }}</a>
+                        </td>
+                    </tr>
+
                     <tr>
                         <th scope="row">In Sync with Zabbix</th>
                         <td> {{ object.get_sync_icon|safe }} </td>
@@ -78,18 +67,18 @@
                         <th scope="row">Zabbix Host ID</th>
                         <td>{{ object.hostid }}</td>
                     </tr>
-
+                    
                     <tr>
                         <th scope="row">Status</th>
                         <td>{{ object.get_status_display }}</td>
                     </tr>
-
+                    
+                    
                     <tr>
                         <th scope="row">Monitored By</th>
                         <td>{{ object.get_monitored_by_display }}</td>
                     </tr>
-
-
+                    
                     <tr>
                         <th scope="row">Proxy</th>
                         <td>{{ object.proxy }}</td>
@@ -108,8 +97,8 @@
                             {% endfor %}
                         </td>
                     </tr>
-
-
+                    
+                    
                     <tr>
                         <th>Templates</th>
                         <td>
@@ -125,19 +114,6 @@
     </div>
 </div>
 
-{% if object.description %}
-<div class="row">
-    <div class="col col-md-12">
-        <div class="card">
-            <h2 class="card-header">{% trans "Description" %}</h2>
-            <div class="card-body">
-                {{ object.description|markdown }}
-                <span class="text-muted">{% trans "None" %}</span>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
 
 <div class="row">
     <div class="col col-md-12">
@@ -145,33 +121,52 @@
             <h2 class="card-header">
                 Agent Interfaces
                 <div class="card-actions">
-                    <a href="{% url 'plugins:netbox_zabbix:vmagentinterface_add' %}?host={{ object.pk }}"
+                    <a href="{% url 'plugins:netbox_zabbix:agentinterface_add' %}?host_config={{ object.pk }}"
                         class="btn btn-ghost-primary btn-sm">
                         <span class="mdi mdi-plus-thick"></span> Add Agent Interface
                     </a>
                 </div>
             </h2>
-            {% htmx_table 'plugins:netbox_zabbix:vmagentinterface_list' zcfg_id=object.pk %}
+            {% htmx_table 'plugins:netbox_zabbix:agentinterface_list' host_config_id=object.pk %}
         </div>
     </div>
 </div>
 
-<div class="row mb-3">
+
+<div class="row">
     <div class="col col-md-12">
         <div class="card">
             <h2 class="card-header">
-                SNMPv3 Interfaces
+                SNMP Interfaces
                 <div class="card-actions">
-                    <a href="{% url 'plugins:netbox_zabbix:vmsnmpv3interface_add' %}?host={{ object.pk }}"
+                    <a href="{% url 'plugins:netbox_zabbix:snmpinterface_add' %}?host_config={{ object.pk }}"
                         class="btn btn-ghost-primary btn-sm">
-                        <span class="mdi mdi-plus-thick"></span> Add SNMPv3 Interface
+                        <span class="mdi mdi-plus-thick"></span> Add SNMP Interface
                     </a>
                 </div>
             </h2>
-            {% htmx_table 'plugins:netbox_zabbix:vmsnmpv3interface_list' zcfg_id=object.pk %}
+            {% htmx_table 'plugins:netbox_zabbix:snmpinterface_list' host_config_id=object.pk %}
         </div>
     </div>
 </div>
 
+
+
+{% if table.rows %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header">
+                Problems
+            </h2>
+            {% render_table table %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    {% trans "No Zabbix Problems." %}
+</div>
+{% endif %}
 
 {% endblock %}

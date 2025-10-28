@@ -1,12 +1,11 @@
 {% extends 'generic/object.html' %}
-{% load render_table from django_tables2 %}
 
 {% block content %}
 
 <div class="row">
     <div class="col col-md-12">
         <div class="card">
-            <h5 class="card-header">Zabbix Proxy Group</h5>
+            <h5 class="card-header">Proxy Group</h5>
             <div class="card-body">
                 <table class="table table-hover attr-table">
 
@@ -22,11 +21,6 @@
                         <th scope="row">Last Synced</th>
                         <td>{{ object.last_synced }}</td>
                     </tr>
-                    <tr>
-                        <th scope="row">Marked for Deletion</th>
-                        <td>{{ object.marked_for_deletion }}</td>
-                    </tr>
-
                 </table>
             </div>
         </div>

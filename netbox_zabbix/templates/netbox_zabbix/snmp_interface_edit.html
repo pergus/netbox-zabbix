@@ -1,0 +1,108 @@
+{% extends 'generic/object_edit.html' %}
+
+{% block content %}
+{{ block.super }}
+{% endblock %}
+
+
+{% block javascript %}
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        
+        const isEdit = document.querySelector('[name="is_edit_field"]').value === "True";
+        if (isEdit) {
+            return;  // Skip JS when editing an interface
+        }
+
+        const interfaceSelect = document.querySelector('[name=interface_name]');
+        const ipSelect        = document.querySelector('[name=ip_address]');
+        const dnsNameInput    = document.querySelector('[name=dns_name]');
+
+        if (!interfaceSelect || !ipSelect) {
+            console.warn("Missing interface_name or ip_address fields");
+            return;
+        }
+
+        const interfaceTS = interfaceSelect.tomselect;
+        const ipTS = ipSelect.tomselect;
+
+        interfaceTS.settings.closeAfterSelect = true;
+        ipTS.settings.closeAfterSelect = true;
+
+        /**
+         * Fetch primary interface and IP from the API
+         */
+        function fetchPrimaryData(hostConfigId, callback) {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', `/api/plugins/netbox_zabbix/unassigned-snmp-interfaces/${hostConfigId}/primary-interface/`, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    const data = JSON.parse(xhr.responseText);
+                    callback(data);
+                }
+            };
+            xhr.send();
+        }
+
+        /**
+         * Fetch DNS name for a given IP ID
+         */
+        function fetchDNS(ipId, callback) {
+            if (!ipId) {
+                if (dnsNameInput) dnsNameInput.value = '';
+                return;
+            }
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', `/api/ipam/ip-addresses/${ipId}/`, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    const data = JSON.parse(xhr.responseText);
+                    callback(data.dns_name || '');
+                }
+            };
+            xhr.send();
+        }
+
+        /**
+         * Set the primary interface and IP once options are loaded
+         */
+        function setPrimaryValues(data) {
+            if (!data.interface_id || !data.ip_address_id) return;
+
+            // Wait for interface options to load
+            interfaceTS.on('load', function () {
+                interfaceTS.setValue(data.interface_id);
+
+                // Wait for IP options to load after interface is selected
+                ipTS.on('load', function () {
+                    ipTS.setValue(data.ip_address_id);
+                    if (dnsNameInput) dnsNameInput.value = data.dns_name || '';
+                });
+
+                // Trigger IP options load
+                ipTS.setTextboxValue('');
+                ipTS.load('');
+            });
+
+            // Trigger interface options load
+            interfaceTS.setTextboxValue('');
+            interfaceTS.load('');
+        }
+
+        // Automatically update DNS when user selects another IP
+        ipTS.on('change', function (value) {
+            fetchDNS(value, function (dns) {
+                if (dnsNameInput) dnsNameInput.value = dns;
+            });
+        });
+
+        // Fetch primary interface/IP for this host config
+        const hostConfigId = document.querySelector('[name=host_config]').value;
+        if (hostConfigId) {
+            fetchPrimaryData(hostConfigId, setPrimaryValues);
+        }
+
+    });
+</script>
+{% endblock %}

@@ -3,12 +3,15 @@
 # Description:
 #
 
-from datetime import timedelta
+
 from django.db import transaction
+from django.contrib.contenttypes.models import ContentType
+
+from datetime import timedelta
 from core.choices import JobStatusChoices
 from netbox.jobs import JobRunner
 
-from netbox_zabbix.config import get_event_log_enabled
+from netbox_zabbix.settings import get_event_log_enabled
 from netbox_zabbix.logger import logger
 
 class AtomicJobRunner(JobRunner):
@@ -113,7 +116,8 @@ class AtomicJobRunner(JobRunner):
             exception = str( e )
             raise
         finally:
-            cls._log_event( name=name, job=None, result=result, exception=exception )
+            if kwargs.get("eventlog", True):
+                cls._log_event(name=name, job=None, result=result, exception=exception)
 
         return result.get( "message", str( result ) )
     

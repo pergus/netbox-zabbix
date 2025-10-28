@@ -25,9 +25,16 @@
                     </tr>
 
                     <tr>
-                        <th scope="row">Device</th>
+                        <th scope="row">Linked Object</th>
                         <td>
-                            <a href="{{ config.device.get_absolute_url }}">{{ config.device.name }}</a>
+                            <a href="{{ object.get_absolute_url }}">{{ object.name }}</a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Host in Zabbix</th>
+                        <td>
+                            <a href="{{ web_address }}/zabbix.php?action=host.edit&hostid={{ object.host_config.hostid }}">{{ object.name }}</a>
                         </td>
                     </tr>
 
@@ -77,29 +84,40 @@
     </div>
 </div>
 
-
 <div class="row">
     <div class="col col-md-12">
         <div class="card">
             <h2 class="card-header">
                 Agent Interfaces
+                <div class="card-actions">
+                    <a href="{% url 'plugins:netbox_zabbix:agentinterface_add' %}?host_config={{ config.pk }}"
+                        class="btn btn-ghost-primary btn-sm">
+                        <span class="mdi mdi-plus-thick"></span> Add Agent Interface
+                    </a>
+                </div>
             </h2>
-            {% htmx_table 'plugins:netbox_zabbix:deviceagentinterface_list' zcfg_id=config.pk %}
+            {% htmx_table 'plugins:netbox_zabbix:agentinterface_list' host_config_id=config.pk %}
         </div>
     </div>
 </div>
 
-<div class="row mb-3">
+
+<div class="row">
     <div class="col col-md-12">
         <div class="card">
             <h2 class="card-header">
-                SNMPv3 Interfaces
+                SNMP Interfaces
+                <div class="card-actions">
+                    <a href="{% url 'plugins:netbox_zabbix:snmpinterface_add' %}?host_config={{ config.pk }}"
+                        class="btn btn-ghost-primary btn-sm">
+                        <span class="mdi mdi-plus-thick"></span> Add SNMP Interface
+                    </a>
+                </div>
             </h2>
-            {% htmx_table 'plugins:netbox_zabbix:devicesnmpv3interface_list' zcfg_id=config.pk %}
+            {% htmx_table 'plugins:netbox_zabbix:snmpinterface_list' host_config_id=config.pk %}
         </div>
     </div>
 </div>
-
 
 {% if table.rows %}
 <div class="row">

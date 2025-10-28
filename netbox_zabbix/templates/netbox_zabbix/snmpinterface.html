@@ -1,0 +1,138 @@
+{% extends 'generic/object.html' %}
+{% load render_table from django_tables2 %}
+
+{% block content %}
+<div class="row">
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">SNMP Interface</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Name</th>
+                        <td>{{ object.name }}</td>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">Zabbix Host ID</th>
+                        <td>{{ object.hostid }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Zabbix Interface ID</th>
+                        <td>{{ object.interfaceid }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Available</th>
+                        <td>{{ object.get_available_display }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Use IP</th>
+                        <td>{{ object.get_useip_display }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Main</th>
+                        <td>{{ object.get_main_display }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Host Configuration</th>
+                        <td><a href="{{ object.host_config.get_absolute_url }}">{{ object.host_config.name }} </a> </td>
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">NetBox Type</th>
+                        <td>{{ object.get_type_display }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">NetBox Interface Type</th>
+                        <td>{{ object.interface_type }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">NetBox Interface ID</th>
+                        <td>{{ object.interface_id }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">NetBox Interface</th>
+                        <td><a href="{{ object.interface.get_absolute_url }}">{{ object.interface.name }}</a></td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">IP Address</th>
+                        <td><a href="{{ object.ip_address.get_absolute_url }}">{{ object.ip_address }}</a></td>
+                    </tr>
+
+
+                    <tr>
+                        <th scope="row">DNS Name</th>
+                        <td>{{ object.resolved_dns_name }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Port</th>
+                        <td>{{ object.port }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+        <div class="col col-md-6">
+            <div class="card">
+                <h5 class="card-header">SNMP Settings</h5>
+                <div class="card-body">
+                    <table class="table table-hover attr-table">
+                        <tr>
+                            <th scope="row">Version</th>
+                            <td>{{ object.version }}</td>
+                        </tr>
+        
+                        <tr>
+                            <th scope="row">Max Repetitions</th>
+                            <td>{{ object.max_repetitions }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Context Name</th>
+                            <td>{{ object.contextname }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Security Name</th>
+                            <td>{{ object.securityname }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Security Level</th>
+                            <td>{{ object.get_securitylevel_display }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Authentication Protocol</th>
+                            <td>{{ object.get_authprotocol_display }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Authentication Passphrase</th>
+                            <td>{{ object.authpassphrase }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Privacy Protocol</th>
+                            <td>{{ object.get_privprotocol_display }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Privacy Passphrase</th>
+                            <td>{{ object.privpassphrase }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Bulk</th>
+                            <td>{{ object.get_bulk_display }}</td>
+                        </tr>
+        
+                    </table>
+                </div>
+            </div>
+        </div>
+</div>
+{% endblock %}

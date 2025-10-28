@@ -9,8 +9,8 @@ from dcim.models import Device
 from virtualization.models import VirtualMachine
 from pyzabbix import ZabbixAPI
 from netbox_zabbix import models
-from netbox_zabbix.config import (
-    ZabbixConfigNotFound,
+from netbox_zabbix.settings import (
+    ZabbixSettingNotFound,
     get_max_deletions,
     get_zabbix_api_endpoint,
     get_zabbix_token,
@@ -36,7 +36,7 @@ def get_zabbix_client():
         ZabbixAPI: An authenticated Zabbix API client instance.
     
     Raises:
-        ZabbixConfigNotFound: If the configuration is missing.
+        ZabbixSettingNotFound: If the configuration is missing.
         Exception: If authentication fails or any other error occurs.
     """
     try:
@@ -91,7 +91,7 @@ def validate_zabbix_credentials_from_config():
     them by calling `validate_zabbix_api_credentials`.
     
     Raises:
-        ZabbixConfigNotFound: If configuration is missing.
+        ZabbixSettingNotFound: If configuration is missing.
         Exception: If authentication or the API call fails.
     """
     validate_zabbix_credentials( get_zabbix_api_endpoint(), get_zabbix_token() )
@@ -113,7 +113,7 @@ def get_version():
         str: The version of the Zabbix server.
     
     Raises:
-        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        ZabbixSettingNotFound: If the Zabbix configuration is missing.
         Exception: If there is an error communicating with the Zabbix API.
     """
     try:
@@ -135,7 +135,7 @@ def get_templates():
         list: A list of Zabbix templates with their names.
     
     Raises:
-        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        ZabbixSettingNotFound: If the Zabbix configuration is missing.
         Exception: If there is an error communicating with the Zabbix API.
     """
     try:
@@ -248,7 +248,7 @@ def get_proxies():
         list: A list of Zabbix proxies with their names.
     
     Raises:
-        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        ZabbixSettingNotFound: If the Zabbix configuration is missing.
         Exception: If there is an error communicating with the Zabbix API.
     """
     try:
@@ -270,7 +270,7 @@ def get_proxy_groups():
         list: A list of Zabbix proxy groups with their names.
     
     Raises:
-        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        ZabbixSettingNotFound: If the Zabbix configuration is missing.
         Exception: If there is an error communicating with the Zabbix API.
     """
     try:
@@ -292,7 +292,7 @@ def get_zabbix_hostnames():
             list: List of dictionaries representing hosts, each with a "name" key.
     
         Raises:
-            ZabbixConfigNotFound: If the Zabbix configuration is missing.
+            ZabbixSettingNotFound: If the Zabbix configuration is missing.
     
         Returns empty list on other errors while logging the error.
     """
@@ -312,11 +312,9 @@ def get_cached_zabbix_hostnames():
     hostnames = cache.get( cache_key )
     if hostnames is None:
         try:
-            logger.info( f"get all hosts from Zabbix..." )
             hostnames = {host["name"] for host in get_zabbix_hostnames()}
-            logger.info( f"got all hosts from Zabbix..." )
             cache.set( cache_key, hostnames, timeout=60 )  # Cache for 60 seconds
-        except Exception as e:
+        except Exception:
             hostnames = set()
     return hostnames
 
@@ -354,7 +352,7 @@ def get_host(hostname):
         dict: A dictionary containing the Zabbix host's details.
     
     Raises:
-        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        ZabbixSettingNotFound: If the Zabbix configuration is missing.
         Exception: If no host, multiple hosts, or an API error occurs.
     """
     try:
@@ -368,7 +366,7 @@ def get_host(hostname):
             selectInventory="extend"
         )
 
-    except ZabbixConfigNotFound as e:
+    except ZabbixSettingNotFound as e:
         raise e
     
     except Exception as e:
@@ -458,7 +456,7 @@ def get_host_by_id(hostid):
         dict: A dictionary containing the Zabbix host's details.
     
     Raises:
-        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        ZabbixSettingNotFound: If the Zabbix configuration is missing.
         Exception: If no host, multiple hosts, or an API error occurs.
     """
     try:
@@ -472,7 +470,7 @@ def get_host_by_id(hostid):
             selectInventory="extend"
         )
 
-    except ZabbixConfigNotFound as e:
+    except ZabbixSettingNotFound as e:
         raise e
     
     except Exception as e:
@@ -508,7 +506,7 @@ def get_host_by_id_with_templates(hostid):
         dict: A dictionary containing the Zabbix host's details.
     
     Raises:
-        ZabbixConfigNotFound: If the Zabbix configuration is missing.
+        ZabbixSettingNotFound: If the Zabbix configuration is missing.
         Exception: If no host, multiple hosts, or an API error occurs.
     """
 
@@ -544,7 +542,7 @@ def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item
 
     try:
         items = fetch_remote()
-    except ZabbixConfigNotFound as e:
+    except ZabbixSettingNotFound as e:
         raise
     except Exception as e:
         logger.error( f"Failed to fetch Zabbix {name}" )
@@ -584,7 +582,6 @@ def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item
         max_deletions = get_max_deletions()
 
     if len(to_delete_ids) >= max_deletions:
-        model.objects.filter( **{f"{id_field}__in": to_delete_ids} ).update( marked_for_deletion=True )
         logger.info( f"{name}s to delete: {to_delete_ids}" )
         raise RuntimeError( f"Too many deletions ({len(to_delete_ids)}), max allowed is {max_deletions}" )
 

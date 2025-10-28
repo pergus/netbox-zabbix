@@ -18,7 +18,7 @@ from netbox_zabbix import models
 class TemplateFilterSet(NetBoxModelFilterSet):
     class Meta:
         model = models.Template
-        fields = [ 'name', 'templateid', 'marked_for_deletion' ]
+        fields = [ 'name', 'templateid' ]
 
     name = django_filters.ModelMultipleChoiceFilter(
             field_name='name',
@@ -36,7 +36,7 @@ class TemplateFilterSet(NetBoxModelFilterSet):
 class ProxyFilterSet(NetBoxModelFilterSet):
     class Meta:
         model = models.Proxy
-        fields = [ 'name', 'proxyid', 'proxy_groupid', 'marked_for_deletion' ]
+        fields = [ 'name', 'proxyid', 'proxy_groupid']
 
     name = django_filters.ModelMultipleChoiceFilter(
             field_name='name',
@@ -54,7 +54,7 @@ class ProxyFilterSet(NetBoxModelFilterSet):
 class ProxyGroupFilterSet(NetBoxModelFilterSet):
     class Meta:
         model = models.ProxyGroup
-        fields = [ 'name', 'proxy_groupid', 'marked_for_deletion' ]
+        fields = [ 'name', 'proxy_groupid' ]
 
     name = django_filters.ModelMultipleChoiceFilter(
             field_name='name',
@@ -108,57 +108,9 @@ class VMMappingFilterSet(VirtualMachineFilterSet):
 
 
 # ------------------------------------------------------------------------------
-# Zabbix Configurations
+# Host Configuration
 # ------------------------------------------------------------------------------
 
-
-class DeviceZabbixConfigFilterSet(NetBoxModelFilterSet):
-    class Meta:
-        model = models.DeviceZabbixConfig
-        fields = [ 'status', 'templates']
-
-
-class VMZabbixConfigFilterSet(NetBoxModelFilterSet):
-    class Meta:
-        model = models.VMZabbixConfig
-        fields = ['status', 'templates']
-
-
-# ------------------------------------------------------------------------------
-# Interfaces
-# ------------------------------------------------------------------------------
-
-
-class DeviceAgentInterfaceFilterSet(django_filters.FilterSet):
-    zcfg_id = django_filters.NumberFilter( field_name='zcfg__id' )
-
-    class Meta:
-        model = models.DeviceAgentInterface
-        fields = ['zcfg_id']
-
-
-class DeviceSNMPv3InterfaceFilterSet(django_filters.FilterSet):
-    zcfg_id = django_filters.NumberFilter( field_name='zcfg__id' )
-
-    class Meta:
-        model = models.DeviceSNMPv3Interface
-        fields = ['zcfg_id']
-
-
-class VMAgentInterfaceFilterSet(django_filters.FilterSet):
-    zcfg_id = django_filters.NumberFilter( field_name='zcfg__id' )
-
-    class Meta:
-        model = models.VMAgentInterface
-        fields = ['zcfg_id']
-
-
-class VMSNMPv3InterfaceFilterSet(django_filters.FilterSet):
-    zcfg_id = django_filters.NumberFilter( field_name='zcfg__id' )
-
-    class Meta:
-        model = models.VMSNMPv3Interface
-        fields = ['zcfg_id']
 
 
 # ------------------------------------------------------------------------------
@@ -179,6 +131,25 @@ class NetBoxOnlyVMsFilterSet(VirtualMachineFilterSet):
     class Meta(VirtualMachineFilterSet.Meta):
         model = VirtualMachine
         fields = VirtualMachineFilterSet.Meta.fields
+
+# ------------------------------------------------------------------------------
+# LAB
+# ------------------------------------------------------------------------------
+
+class AgentInterfaceFilterSet(django_filters.FilterSet):
+    host_config_id = django_filters.NumberFilter( field_name='host_config__id' )
+
+    class Meta:
+        model = models.AgentInterface
+        fields = ['host_config_id']
+
+
+class SNMPInterfaceFilterSet(django_filters.FilterSet):
+    host_config_id = django_filters.NumberFilter( field_name='host_config__id' )
+
+    class Meta:
+        model = models.SNMPInterface
+        fields = ['host_config_id']
 
 
 # end

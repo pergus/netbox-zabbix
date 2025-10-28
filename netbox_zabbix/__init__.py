@@ -2,10 +2,12 @@
 
 __author__ = """pergus"""
 __email__ = "pergus@axis.com"
-__version__ = "0.1.0"
+__version__ = "2.0.0"
 
 
 from netbox.plugins import PluginConfig
+
+
 
 
 class ZConfiguration(PluginConfig):
@@ -58,7 +60,25 @@ class ZConfiguration(PluginConfig):
 
     def ready(self):
         super().ready()
+        
+        from django.contrib.contenttypes.models import ContentType
+        from dcim.models import Device
+        from virtualization.models import VirtualMachine
+        from netbox_zabbix.models import HostConfig
+        
+
         # Import and register signals
         from .signals import signals
+
+        def get_hostconfig(self):
+            ct = ContentType.objects.get_for_model( self )
+            return HostConfig.objects.filter( content_type=ct, object_id=self.id ).first()
+        
+
+        Device.add_to_class( "host_config", property( get_hostconfig ) )
+        VirtualMachine.add_to_class( "host_config", property(get_hostconfig) )
+        
+
+
 
 config = ZConfiguration

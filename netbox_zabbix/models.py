@@ -1,14 +1,18 @@
 # models.py
-from importlib.util import module_from_spec
+
 from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
 
 from django.db import models
 from django.urls import reverse
 
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes.fields import GenericForeignKey
+
 from utilities.choices import ChoiceSet
 
 from dcim.models import Device, DeviceRole, Interface, Platform, Site
+from ipam.models import IPAddress
 from core.models import Job
 from netbox.models import NetBoxModel
 from virtualization.models import VMInterface
@@ -26,22 +30,6 @@ from netbox_zabbix.logger import logger
 class IPAssignmentChoices(models.TextChoices):
     MANUAL = "manual", "Manual"
     PRIMARY = "primary", "Primary IPv4 Address"
-
-
-class CIDRChoices(models.TextChoices):
-    CIDR_32 = '/32', '/32 (Single IP)'
-    CIDR_30 = '/30', '/30'
-    CIDR_29 = '/29', '/29'
-    CIDR_28 = '/28', '/28'
-    CIDR_27 = '/27', '/27'
-    CIDR_26 = '/26', '/26'
-    CIDR_25 = '/25', '/25'
-    CIDR_24 = '/24', '/24 (Typical subnet)'
-    CIDR_23 = '/23', '/23'
-    CIDR_22 = '/22', '/22'
-    CIDR_21 = '/21', '/21'
-    CIDR_20 = '/20', '/20'
-    CIDR_16 = '/16', '/16 (Large subnet)'
 
 
 class MonitoredByChoices(models.IntegerChoices):
@@ -94,20 +82,14 @@ class MainChoices(models.IntegerChoices):
     YES = (1, 'Yes')
 
 
-class AvailableChoices(models.IntegerChoices):
-    UNKNOWN     = (0, 'Unknown')
-    AVAILABLE   = (1, 'Available')
-    UNAVAILABLE = (2, 'Unavailable')
-
-
 class TypeChoices(models.IntegerChoices):
     AGENT = (1, 'Agent')
     SNMP =  (2, 'SNMP')
 
 
 class SNMPVersionChoices(models.IntegerChoices):
-    SNMPv1  = (1, 'SNMPv1')
-    SNMPv2c = (2, 'SNMPv2c')
+    SNMPv1  = (1, 'SNMPv1')  # Not Implemented
+    SNMPv2c = (2, 'SNMPv2c') # Not Implemented
     SNMPv3  = (3, 'SNMPv3')
 
 
@@ -185,17 +167,17 @@ class SyncJobIntervalChoices(ChoiceSet):
 
 
 # ------------------------------------------------------------------------------
-# Configuration
+# Setting
 # ------------------------------------------------------------------------------
 
 
-class Config(NetBoxModel):
+class Setting(NetBoxModel):
     class Meta:
-        verbose_name = "Zabbix Configuration"
-        verbose_name_plural = "Zabbix Configurations"
+        verbose_name = "Setting"
+        verbose_name_plural = "Settings"
 
     # General
-    name                      = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the configuration." )
+    name                      = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the setting." )
     ip_assignment_method      = models.CharField(
         verbose_name="IP Assignment Method",
         max_length=16,
@@ -228,13 +210,6 @@ class Config(NetBoxModel):
     api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
     web_address              = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to the Zabbix web interface." )
     token                    = models.CharField( verbose_name="Token", max_length=255, help_text="Zabbix access token." )
-    default_cidr             = models.CharField(
-        verbose_name="Default CIDR",
-        max_length=4,
-        choices=CIDRChoices.choices,
-        default=CIDRChoices.CIDR_24,
-        help_text="CIDR suffix used for interface IP lookups in NetBox."
-    )
     
     connection               = models.BooleanField( verbose_name="Connection", default=False )
     last_checked_at          = models.DateTimeField( verbose_name="Last Checked At", null=True, blank=True )
@@ -323,17 +298,17 @@ class Config(NetBoxModel):
     # Agent Specific Defaults
     agent_port = models.IntegerField( verbose_name="Port", default=10050, help_text="Agent default port." )
 
-    # SNMPv3 Specific Defaults
-    snmpv3_port            = models.IntegerField( verbose_name="Port", default=161, help_text="SNMPv3 default port." )
-    snmpv3_bulk            = models.IntegerField( verbose_name="Bulk", choices=SNMPBulkChoices, default=1, help_text="Whether to use bulk SNMP requests." )
-    snmpv3_max_repetitions = models.IntegerField( verbose_name="Max Repetitions", default=10, help_text="Max repetition value for native SNMP bulk requests." )
-    snmpv3_contextname     = models.CharField( verbose_name="Context Name", max_length=255, null=True, blank=True, help_text="SNMPv3 context name." )
-    snmpv3_securityname    = models.CharField( verbose_name="Security Name", max_length=255, default="{$SNMPV3_USER}", help_text="SNMPv3 security name." )
-    snmpv3_securitylevel   = models.IntegerField( verbose_name="Security Level", choices=SNMPSecurityLevelChoices, default=SNMPSecurityLevelChoices.authPriv, help_text="SNMPv3 security level." )
-    snmpv3_authprotocol    = models.IntegerField( verbose_name="Authentication Protocol", choices=SNMPAuthProtocolChoices, default=SNMPAuthProtocolChoices.SHA1, help_text="SNMPv3 authentication protocol." )
-    snmpv3_authpassphrase  = models.CharField( verbose_name="Authentication Passphrase", max_length=255, default="{$SNMPV3_AUTHPASS}", help_text="SNMPv3 authentication passphrase." )
-    snmpv3_privprotocol    = models.IntegerField( verbose_name="Privacy Protocol", choices=SNMPPrivProtocolChoices, default=SNMPPrivProtocolChoices.AES128, help_text="SNMPv3 privacy protocol." )
-    snmpv3_privpassphrase  = models.CharField( verbose_name="Privacy Passphrase", max_length=255, default="{$SNMPV3_PRIVPASS}", help_text="SNMPv3 privacy passphrase." )
+    # SNMP Specific Defaults
+    snmp_port            = models.IntegerField( verbose_name="Port", default=161, help_text="SNMP default port." )
+    snmp_bulk            = models.IntegerField( verbose_name="Bulk", choices=SNMPBulkChoices, default=1, help_text="Whether to use bulk SNMP requests." )
+    snmp_max_repetitions = models.IntegerField( verbose_name="Max Repetitions", default=10, help_text="Max repetition value for native SNMP bulk requests." )
+    snmp_contextname     = models.CharField( verbose_name="Context Name", max_length=255, null=True, blank=True, help_text="SNMP context name." )
+    snmp_securityname    = models.CharField( verbose_name="Security Name", max_length=255, default="{$SNMPV3_USER}", help_text="SNMP security name." )
+    snmp_securitylevel   = models.IntegerField( verbose_name="Security Level", choices=SNMPSecurityLevelChoices, default=SNMPSecurityLevelChoices.authPriv, help_text="SNMP security level." )
+    snmp_authprotocol    = models.IntegerField( verbose_name="Authentication Protocol", choices=SNMPAuthProtocolChoices, default=SNMPAuthProtocolChoices.SHA1, help_text="SNMP authentication protocol." )
+    snmp_authpassphrase  = models.CharField( verbose_name="Authentication Passphrase", max_length=255, default="{$SNMPV3_AUTHPASS}", help_text="SNMP authentication passphrase." )
+    snmp_privprotocol    = models.IntegerField( verbose_name="Privacy Protocol", choices=SNMPPrivProtocolChoices, default=SNMPPrivProtocolChoices.AES128, help_text="SNMP privacy protocol." )
+    snmp_privpassphrase  = models.CharField( verbose_name="Privacy Passphrase", max_length=255, default="{$SNMPV3_PRIVPASS}", help_text="SNMP privacy passphrase." )
     
     # Tags
     default_tag = models.CharField(
@@ -343,7 +318,7 @@ class Config(NetBoxModel):
         blank=True,
         help_text="Tag applied to all hosts."
     )
-    
+
     tag_prefix = models.CharField(
         verbose_name="Tag Prefix",
         max_length=255,
@@ -351,15 +326,15 @@ class Config(NetBoxModel):
         blank=True,
         help_text="Prefix added to all tags."
     )
-    
+
     tag_name_formatting =  models.CharField( verbose_name="Tag Name Formatting", choices=TagNameFormattingChoices, default=TagNameFormattingChoices.KEEP, help_text="Tag name formatting.")
-    
+
     def __str__(self):
         return self.name
 
 
     def get_absolute_url(self):
-        return reverse("plugins:netbox_zabbix:config", args=[self.pk])
+        return reverse("plugins:netbox_zabbix:setting", args=[self.pk])
 
     
     def save(self, *args, **kwargs):
@@ -367,19 +342,18 @@ class Config(NetBoxModel):
 
 
 # ------------------------------------------------------------------------------
-# Templates
+# Template
 # ------------------------------------------------------------------------------
 
 
 class Template(NetBoxModel):
     class Meta:
-        verbose_name = "Zabbix Template"
-        verbose_name_plural = "Zabbix Templates"
+        verbose_name = "Template"
+        verbose_name_plural = "Templates"
     
-    name                = models.CharField( max_length=255 )
-    templateid          = models.CharField( max_length=255 )
-    last_synced         = models.DateTimeField( blank=True, null=True )
-    marked_for_deletion = models.BooleanField( default=False )
+    name        = models.CharField( max_length=255 )
+    templateid  = models.CharField( max_length=255 )
+    last_synced = models.DateTimeField( blank=True, null=True )
 
     # Self-referential many-to-many for template dependencies
     parents = models.ManyToManyField( "self", 
@@ -412,14 +386,13 @@ class Template(NetBoxModel):
 
 class Proxy(NetBoxModel):
     class Meta:
-        verbose_name = "Zabbix Proxy"
-        verbose_name_plural = "Zabbix Proxies"
+        verbose_name = "Proxy"
+        verbose_name_plural = "Proxies"
     
-    name                = models.CharField( verbose_name="Proxy", max_length=255, help_text="Name of the proxy." )
-    proxyid             = models.CharField( verbose_name="Proxy ID", max_length=255, help_text="Proxy ID.")
-    proxy_groupid       = models.CharField( verbose_name="Proxy Group ID", max_length=255 , help_text="Proxy Group ID.")
-    last_synced         = models.DateTimeField( blank=True, null=True )
-    marked_for_deletion = models.BooleanField( default=False )
+    name          = models.CharField( verbose_name="Proxy", max_length=255, help_text="Name of the proxy." )
+    proxyid       = models.CharField( verbose_name="Proxy ID", max_length=255, help_text="Proxy ID.")
+    proxy_groupid = models.CharField( verbose_name="Proxy Group ID", max_length=255 , help_text="Proxy Group ID.")
+    last_synced   = models.DateTimeField( blank=True, null=True )
 
     def __str__(self):
         return self.name
@@ -435,13 +408,12 @@ class Proxy(NetBoxModel):
 
 class ProxyGroup(NetBoxModel):
     class Meta:
-        verbose_name = "Zabbix Proxy Group"
-        verbose_name_plural = "Zabbix Proxy Groups"
+        verbose_name = "Proxy Group"
+        verbose_name_plural = "Proxy Groups"
     
-    name                = models.CharField( verbose_name="Proxy Group", max_length=255, help_text="Name of the proxy group." )
-    proxy_groupid       = models.CharField( verbose_name="Proxy Group ID", max_length=255, help_text="Proxy Group ID." )
-    last_synced         = models.DateTimeField( blank=True, null=True )
-    marked_for_deletion = models.BooleanField( default=False )
+    name          = models.CharField( verbose_name="Proxy Group", max_length=255, help_text="Name of the proxy group." )
+    proxy_groupid = models.CharField( verbose_name="Proxy Group ID", max_length=255, help_text="Proxy Group ID." )
+    last_synced   = models.DateTimeField( blank=True, null=True )
 
     def __str__(self):
         return self.name
@@ -451,20 +423,18 @@ class ProxyGroup(NetBoxModel):
 
 
 # ------------------------------------------------------------------------------
-# Host Groups
+# Host Group
 # ------------------------------------------------------------------------------
 
 
 class HostGroup(NetBoxModel):
     class Meta:
-        verbose_name = "Zabbix Hostgroup"
-        verbose_name_plural = "Zabbix Hostgroups"
+        verbose_name = "Hostgroup"
+        verbose_name_plural = "Hostgroups"
     
-    name                = models.CharField( max_length=255 )
-    groupid             = models.CharField( max_length=255 )
-    last_synced         = models.DateTimeField( blank=True, null=True )
-    marked_for_deletion = models.BooleanField( default=False )
-    
+    name        = models.CharField( max_length=255 )
+    groupid     = models.CharField( max_length=255 )
+    last_synced = models.DateTimeField( blank=True, null=True )
 
     def __str__(self):
         return self.name
@@ -479,13 +449,17 @@ class HostGroup(NetBoxModel):
 
 
 class TagMapping(NetBoxModel):
+    class Meta:
+        verbose_name = "Tag Mapping"
+        verbose_name_plural = "Tag Mappings"
+    
     OBJECT_TYPE_CHOICES = [
         ('device', 'Device'),
         ('virtualmachine', 'Virtual Machine'),
     ]
 
     object_type = models.CharField( max_length=20, choices=OBJECT_TYPE_CHOICES, unique=True )
-    selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix tags" )
+    selection   = models.JSONField( default=list, help_text="List of field paths to use as Zabbix tags" )
 
     def __str__(self):
         return f"Tag Mapping {self.object_type}"
@@ -500,13 +474,17 @@ class TagMapping(NetBoxModel):
 
 
 class InventoryMapping(NetBoxModel):
+    class Meta:
+        verbose_name = "Inventory Mapping"
+        verbose_name_plural = "Inventory Mappings"
+    
     OBJECT_TYPE_CHOICES = [
         ('device', 'Device'),
         ('virtualmachine', 'Virtual Machine'),
     ]
 
     object_type = models.CharField( max_length=20, choices=OBJECT_TYPE_CHOICES, unique=True )
-    selection = models.JSONField( default=list, help_text="List of field paths to use as Zabbix inventory" )
+    selection   = models.JSONField( default=list, help_text="List of field paths to use as Zabbix inventory" )
 
     def __str__(self):
         return f"Inventory Mapping {self.object_type}"
@@ -521,9 +499,9 @@ class InventoryMapping(NetBoxModel):
 
 
 class Mapping(NetBoxModel):
-    name = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the mapping." )
+    name        = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the mapping." )
     description = models.TextField( blank=True )
-    default = models.BooleanField( default=False )
+    default     = models.BooleanField( default=False )
 
     # Configuration Settings
     host_groups = models.ManyToManyField( HostGroup, help_text="Host groups used for matching hosts." )
@@ -560,6 +538,10 @@ class Mapping(NetBoxModel):
 
 
 class DeviceMapping(Mapping):
+    class Meta:
+        verbose_name = "Device Mapping"
+        verbose_name_plural = "Device Mappings"
+    
 
     @classmethod
     def get_matching_filter(cls, device, interface_type=InterfaceTypeChoices.Any):
@@ -628,7 +610,8 @@ class DeviceMapping(Mapping):
                 qs = qs.exclude( pk__in=m.get_matching_devices().values_list( 'pk', flat=True ) )
 
         return qs
-    
+
+
     def get_matching_devices(self):
         """
         Get Devices matching this mapping, excluding devices covered by more specific mappings.
@@ -696,13 +679,13 @@ class DeviceMapping(Mapping):
                 device_qs = device_qs.filter( platform_id__in=fields["platforms"] )
             device_sets[m.pk] = set( device_qs.values_list( "pk", flat=True ) )
     
-        # Step 5: Exclude all VMs covered by more specific mappings
+        # Step 5: Exclude all Devices covered by more specific mappings
         exclude_ids = set()
         for m in candidates:
             if is_more_specific(candidate_fields[m.pk], self_fields):
                 exclude_ids.update(device_sets[m.pk])
     
-        # Step 6: Compute self’s VMs
+        # Step 6: Compute self’s Device
         qs = all_devices
         if self_fields["sites"]:
             qs = qs.filter(site_id__in=self_fields["sites"])
@@ -715,7 +698,7 @@ class DeviceMapping(Mapping):
             qs = qs.exclude(pk__in=exclude_ids)
     
         return qs
-    
+
 
     def get_absolute_url(self):
         return reverse( "plugins:netbox_zabbix:devicemapping", args=[self.pk] )
@@ -727,7 +710,10 @@ class DeviceMapping(Mapping):
 
 
 class VMMapping(Mapping):
-
+    class Meta:
+        verbose_name = "Virtual Machine Mapping"
+        verbose_name_plural = "Virtual Machine Mappings"
+    
     @classmethod
     def get_matching_filter(cls, virtual_machine, interface_type=InterfaceTypeChoices.Any):
         filters = cls.objects.filter( default=False )
@@ -847,117 +833,38 @@ class VMMapping(Mapping):
 
 
 # ------------------------------------------------------------------------------
-# Zabbix Configurations
+# Host Config
 # ------------------------------------------------------------------------------
 
 
-class ZabbixConfig(NetBoxModel, JobsMixin):
+class HostConfig(NetBoxModel, JobsMixin):
     class Meta:
-        abstract = True
-
-    name         = models.CharField( max_length=200, unique=True, blank=True, null=True, help_text="Name for this Zabbix configuration." )
-    hostid       = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
-    status       = models.IntegerField( choices=StatusChoices.choices, default=StatusChoices.ENABLED, help_text="Host monitoring status." )
-    host_groups  = models.ManyToManyField( HostGroup, help_text="Assigned Host Groups." )
-    templates    = models.ManyToManyField( Template,  help_text="Assgiend Tempalates.", blank=True )
-    monitored_by = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host." )
-    proxy        = models.ForeignKey( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy." )
-    proxy_group  = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group." )
-    description  = models.TextField( blank=True, null=True, help_text="Optional description." )
-
-
-# ------------------------------------------------------------------------------
-# Device Zabbix Configurations
-# ------------------------------------------------------------------------------
-
-
-class DeviceZabbixConfig(ZabbixConfig):
-    class Meta:
-        verbose_name = "Zabbix Device Configuration"
-        verbose_name_plural = "Zabbix Device Configurations"
+        verbose_name = "Host Config"
+        verbose_name_plural = "Host Configs"
     
-    device = models.OneToOneField( to='dcim.Device', on_delete=models.CASCADE, related_name='zcfg' )
+    name            = models.CharField( max_length=200, unique=True, blank=True, null=True, help_text="Name for this host configuration." )
+    hostid          = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
+    status          = models.IntegerField( choices=StatusChoices.choices, default=StatusChoices.ENABLED, help_text="Host monitoring status." )
+    host_groups     = models.ManyToManyField( HostGroup, help_text="Assigned Host Groups." )
+    templates       = models.ManyToManyField( Template,  help_text="Assgiend Tempalates.", blank=True )
+    monitored_by    = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host." )
+    proxy           = models.ForeignKey( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy." )
+    proxy_group     = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group." )
+    description     = models.TextField( blank=True, null=True, help_text="Optional description." )
+    content_type    = models.ForeignKey( ContentType, on_delete=models.CASCADE, limit_choices_to={ "model__in": ["device", "virtualmachine"] }, related_name="host_config")
+    object_id       = models.PositiveIntegerField()
+    assigned_object = GenericForeignKey( "content_type", "object_id" )
 
-
-    @property
-    def has_agent_interface(self):
-        return self.agent_interfaces.exists()
-
-    @property
-    def has_snmpv3_interface(self):
-        return self.snmpv3_interfaces.exists()
-    
     def __str__(self):
-        return self.name
-
-    def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:devicezabbixconfig", args=[self.pk] )
-
-    def devm_name(self):
-        return self.device.name if self.device else None
-
-    def get_sync_status(self):
-        """
-        Returns a boolean indicating whether this host is in sync with Zabbix.
-        """
-        from netbox_zabbix.utils import compare_zabbix_config_with_host
-        try:
-            result = compare_zabbix_config_with_host( self )
-            return result.get( "differ", False )
-        except:
-            return False
-
-    def get_sync_diff(self):
-        from netbox_zabbix.utils import compare_zabbix_config_with_host
-        try:
-            return compare_zabbix_config_with_host( self )
-        except:
-            return {}
-
-    def get_sync_icon(self):
-        """
-        Returns a checkmark or cross for template display.
-        """
-        return mark_safe( "✘" ) if self.get_sync_status() else mark_safe( "✔" )
-
-    def save(self, *args, **kwargs):
-        # Default name if not provided
-        if not self.name and self.device:
-            self.name = f"z-{self.device.name}"
-        super().save(*args, **kwargs)
-
-
-# ------------------------------------------------------------------------------
-# VM Zabbix Configurations
-# ------------------------------------------------------------------------------
-
-
-class VMZabbixConfig(ZabbixConfig):
-    class Meta:
-        verbose_name = "Zabbix VM Configuration"
-        verbose_name_plural = "Zabbix VM Configurations"
+        return f"{self.name}"
     
-    # The Virtual Machine this Zabbix configuration is linked to.
-    # This is referred to as 'linked_object_field' in e.g. jobs.py.
-    virtual_machine = models.OneToOneField( to='virtualization.VirtualMachine', on_delete=models.CASCADE, related_name='zcfg' )
-
-
     @property
     def has_agent_interface(self):
         return self.agent_interfaces.exists()
     
     @property
-    def has_snmpv3_interface(self):
-        return self.snmpv3_interfaces.exists()
-    
-    def __str__(self):
-        return self.name
-
-    def get_absolute_url(self):
-        return reverse( "plugins:netbox_zabbix:vmzabbixconfig", args=[self.pk] )
-
-    def devm_name(self):
-        return self.virtual_machine.name if self.virtual_machine else None
+    def has_snmp_interface(self):
+        return self.snmp_interfaces.exists()
 
     def get_sync_status(self):
         """
@@ -971,6 +878,10 @@ class VMZabbixConfig(ZabbixConfig):
             return False
     
     def get_sync_diff(self):
+        """
+        Returns a json document with differences between the NetBox host and the
+        host in Zabbix.
+        """
         from netbox_zabbix.utils import compare_zabbix_config_with_host
         try:
             return compare_zabbix_config_with_host( self )
@@ -984,18 +895,18 @@ class VMZabbixConfig(ZabbixConfig):
         return mark_safe( "✘" ) if self.get_sync_status() else mark_safe( "✔" )
     
     def save(self, *args, **kwargs):
-        # Default name if not provided
-        if not self.name and self.virtual_machine:
-            self.name = f"z-{self.virtual_machine.name}"
-        super().save(*args, **kwargs)
+        # Add default name if no name is  provided
+        if not self.name and self.assigned_object:
+            self.name = f"z-{self.assigned_object.name}"
+        super().save( *args, **kwargs )
 
 
 # ------------------------------------------------------------------------------
-# Interfaces
+# Base Interface
 # ------------------------------------------------------------------------------
 
 
-class HostInterface(NetBoxModel):
+class BaseInterface(NetBoxModel):
     class Meta:
         abstract = True
     
@@ -1008,9 +919,6 @@ class HostInterface(NetBoxModel):
     # Zabbix Interface ID - This is collected from Zabbix
     interfaceid = models.IntegerField( blank=True, null=True )
 
-    # Availablility of host interface. 
-    available = models.IntegerField( verbose_name="Available", choices=AvailableChoices, default=AvailableChoices.AVAILABLE, help_text="Availability of host interface." )
-
     # Whether a connection to the monitoried 'host' should be made via IP or DNS.
     useip = models.IntegerField( verbose_name="Use IP", choices=UseIPChoices, default=UseIPChoices.IP, help_text="Whether the connection should be made via IP or DNS." )
 
@@ -1018,82 +926,80 @@ class HostInterface(NetBoxModel):
     # Only one interface of some type can be set as default on a host.
     main = models.IntegerField( verbose_name="Main Interface", choices=MainChoices, default=MainChoices.YES, help_text="Whether the interface is used as default on the host. Only one interface of some type can be set as default on a host." )
 
-
-class BaseAgentInterface(HostInterface):
-    class Meta:
-        abstract = True
-    
-    # Interface type
-    type = models.IntegerField( choices=TypeChoices, default=TypeChoices.AGENT )
-
-    # Port number used by the interface.
-    port = models.IntegerField( default=10050 )
-    
     def __str__(self):
         return f"{self.name}"
-
+    
 
     def _get_primary_ip(self):
         """
-        Return the primary IP from the zcfg's device or VM, or None.
+        Return the primary IP from the host_config, or None.
         """
-        zcfg = self.zcfg
-        if hasattr( zcfg, "device" ) and zcfg.device:
-            return zcfg.device.primary_ip4
-        
-        elif hasattr( zcfg, "virtual_machine" ) and zcfg.virtual_machine:
-            return zcfg.virtual_machine.primary_ip4
+        if self.host_config.assigned_object:
+            return self.host_config.assigned_object.primary_ip4
         return None
     
+
     @property
     def resolved_dns_name(self):
-        config = Config.objects.first()
+        setting = Setting.objects.first()
         primary_ip = self._get_primary_ip()
-        if config.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
+        if setting.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
             primary_ip = self._get_primary_ip()
             return primary_ip.dns_name if primary_ip else None
         else:
             return self.ip_address.dns_name if self.ip_address else None
-    
+
     @property
     def resolved_ip_address(self):
-        config = Config.objects.first()
+        setting = Setting.objects.first()
         primary_ip = self._get_primary_ip()
-
-        if config.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
+        if setting.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
             return self._get_primary_ip()
         else:
             return self.ip_address
-
-
+    
     def clean(self):
         super().clean()
-
-        interface = self.interface
+    
+        interface  = self.interface
         ip_address = self.ip_address
-
+    
         # Validate interface/IP match
         if ip_address and interface:
             if ip_address.assigned_object != interface:
                 raise ValidationError({ "ip_address": "The selected IP address is not assigned to the selected interface." })
 
 
-    def save(self, *args, **kwargs):
-        self.full_clean()
-
-        # Ensure only one agent interface is the the main interface.
-        if self.main == MainChoices.YES:
-            existing_mains = self.zcfg.agent_interfaces.filter( main=MainChoices.YES ).exclude( pk=self.pk )
-            if existing_mains.exists():
-                existing_mains.update( main=MainChoices.NO )
-        
-        
-        return super().save(*args, **kwargs)
+# ------------------------------------------------------------------------------
+# Agent Interface
+# ------------------------------------------------------------------------------
 
 
-class BaseSNMPv3Interface(HostInterface):
-    class Meta:
-        abstract = True
+class AgentInterface(BaseInterface):
+    host_config    = models.ForeignKey( to="HostConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
+    interface_type = models.ForeignKey( ContentType, on_delete=models.CASCADE, limit_choices_to={"model__in": ["interface", "vminterface"]} )
+    interface_id   = models.PositiveIntegerField()
+    interface      = GenericForeignKey( "interface_type", "interface_id" )
+    ip_address     = models.ForeignKey( "ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="agent_interface" )
+
+    # Interface type - The user doens't have to set this.
+    type = models.IntegerField( choices=TypeChoices, default=TypeChoices.AGENT )
+    
+    # Port number used by the interface.
+    port = models.IntegerField( default=10050, help_text="IP address used by the interface." )
+
+
+# ------------------------------------------------------------------------------
+# SNMP Interface
+# ------------------------------------------------------------------------------
+
+
+class SNMPInterface(BaseInterface):
+    host_config    = models.ForeignKey( to="HostConfig", on_delete=models.CASCADE, related_name="snmp_interfaces" )
+    interface_type = models.ForeignKey( ContentType, on_delete=models.CASCADE, limit_choices_to={"model__in": ["interface", "vminterface"]} )
+    interface_id   = models.PositiveIntegerField()
+    interface      = GenericForeignKey( "interface_type", "interface_id" )
+    ip_address     = models.ForeignKey( "ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="snmp_interface" )
 
     # Interface type - The user doens't have to set this.
     type = models.IntegerField( choices=TypeChoices, default=TypeChoices.SNMP )
@@ -1103,195 +1009,38 @@ class BaseSNMPv3Interface(HostInterface):
     
     # SNMP interface version - The user doesn't have to set this.
     version = models.IntegerField( choices=SNMPVersionChoices, default=SNMPVersionChoices.SNMPv3, blank=True, null=True )
-
+    
     # Whether to use bulk SNMP requests
     bulk = models.IntegerField( verbose_name="Bulk", choices=SNMPBulkChoices, default=1, blank=True, null=True, help_text="Whether to use bulk SNMP requests." )
-
+    
     # Max repetition value for native SNMP bulk requests
     max_repetitions = models.IntegerField( verbose_name="Max Repetitions", default=10, blank=True, null=True, help_text="Max repetition value for native SNMP bulk requests." )
-
-    # SNMPv3 context name.
-    contextname = models.CharField( verbose_name="Contex Name", max_length=255, blank=True, null=True, help_text="SNMPv3 context name." )
     
-    # SNMPv3 security name 
-    securityname = models.CharField( verbose_name="Secuity Name", max_length=255, default="{$SNMPV3_USER}", blank=True, null=True, help_text="SNMPv3 security name." )
-
-    # SNMPv3 Secuirty level
-    securitylevel = models.IntegerField( verbose_name="Security Level", choices=SNMPSecurityLevelChoices, default=SNMPSecurityLevelChoices.authPriv, blank=True, null=True, help_text="SNMPv3 security level." )
-
-    # SNMPv3 authentication protocol
-    authprotocol = models.IntegerField( verbose_name="Authentication Protocol", choices=SNMPAuthProtocolChoices, default=SNMPAuthProtocolChoices.SHA1, blank=True, null=True, help_text="SNMPv3 authentication protocol." )
-
-    # SNMPv3 authentication passphrase
-    authpassphrase = models.CharField( verbose_name="Authentication Passphrase", max_length=255, default="{$SNMPV3_AUTHPASS}", blank=True, null=True, help_text="SNMPv3 authentication passphrase." )
-
-    # SNMPv3 privacy protocol.
-    privprotocol = models.IntegerField( verbose_name="Privacy Protocol", choices=SNMPPrivProtocolChoices, default=SNMPPrivProtocolChoices.AES128, blank=True, null=True, help_text="SNMPv3 privacy protocol." )
-
-    # SNMPv3 privacy passphrase
-    privpassphrase = models.CharField( verbose_name="Privacy Passphrase", max_length=255, default="{$SNMPV3_PRIVPASS}", blank=True, null=True, help_text="SNMPv3 privacy passphrase."  )
-
-
-    def __str__(self):
-        return f"{self.name}"
-
-    def _get_primary_ip(self):
-        """
-        Return the primary IP from the zcfg's device or VM, or None.
-        """
-        zcfg = self.zcfg
-        if hasattr( zcfg, "device" ) and zcfg.device:
-            return zcfg.device.primary_ip4 or zcfg.device.primary_ip6
-        elif hasattr( zcfg, "virtual_machine" ) and zcfg.virtual_machine:
-            return zcfg.virtual_machine.primary_ip4 or zcfg.virtual_machine.primary_ip6
-        return None
-
-    @property
-    def resolved_dns_name(self):
-        config = Config.objects.first()
-        primary_ip = self._get_primary_ip()
-        if config.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
-            primary_ip = self._get_primary_ip()
-            return primary_ip.dns_name if primary_ip else None
-        else:
-            return self.ip_address.dns_name if self.ip_address else None
-
-    @property
-    def resolved_ip_address(self):
-        config = Config.objects.first()
-        primary_ip = self._get_primary_ip()
-        if config.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
-            return self._get_primary_ip()
-        else:
-            return self.ip_address
-
-
-    def clean(self):
-        super().clean()
-
-        interface = self.interface
-        ip_address = self.ip_address
-
-        # Validate interface/IP match
-        if ip_address and interface:
-            if ip_address.assigned_object != interface:
-                raise ValidationError({ "ip_address": "The selected IP address is not assigned to the selected interface." })
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-
-        # Ensure only one agent interface is the the main interface.
-        if self.main == MainChoices.YES:
-            existing_mains = self.zcfg.snmpv3_interfaces.filter( main=MainChoices.YES ).exclude( pk=self.pk )
-            if existing_mains.exists():
-                existing_mains.update( main=MainChoices.NO )
-
-        return super().save(*args, **kwargs)
-
-
-# --------------------------------------------------------------------------
-# Device Agent Interface
-# --------------------------------------------------------------------------
-
-
-class DeviceAgentInterface(BaseAgentInterface):
-    class Meta:
-        verbose_name = "Device Agent Interface"
-        verbose_name_plural = "Device Agent Interfaces"
+    # SNMP context name.
+    contextname = models.CharField( verbose_name="Contex Name", max_length=255, blank=True, null=True, help_text="SNMP context name." )
     
-    # Reference to the Zabbix configuration object for the device this interface belongs to.
-    zcfg = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
-
-    # The physical interface associated with this Agent configuration.
-    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, null=True, related_name="agent_interface" )
-
-    # IP address used by tahe interface. Can be empty if connection is made via DNS.
-    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, null=True, related_name="device_agent_interface" )
-
-    def get_absolute_url(self):
-        return reverse("plugins:netbox_zabbix:deviceagentinterface", kwargs={"pk": self.pk})
-
-
-# --------------------------------------------------------------------------
-# Device SNMPv3 Interface
-# --------------------------------------------------------------------------
-
-
-class DeviceSNMPv3Interface(BaseSNMPv3Interface):
-    class Meta:
-        verbose_name = "Device SNMPv3 Interface"
-        verbose_name_plural = "Device SNMPv3 Interfaces"
+    # SNMP security name 
+    securityname = models.CharField( verbose_name="Secuity Name", max_length=255, default="{$SNMPV3_USER}", blank=True, null=True, help_text="SNMP security name." )
     
-    # Reference to the Zabbix configuration object for the device this interface belongs to.
-    zcfg = models.ForeignKey( to="DeviceZabbixConfig", on_delete=models.CASCADE, related_name="snmpv3_interfaces" )
+    # SNMP Secuirty level
+    securitylevel = models.IntegerField( verbose_name="Security Level", choices=SNMPSecurityLevelChoices, default=SNMPSecurityLevelChoices.authPriv, blank=True, null=True, help_text="SNMP security level." )
     
-    # The physical interface associated with this SNMPv3 configuration.
-    interface = models.OneToOneField( to="dcim.Interface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
+    # SNMP authentication protocol
+    authprotocol = models.IntegerField( verbose_name="Authentication Protocol", choices=SNMPAuthProtocolChoices, default=SNMPAuthProtocolChoices.SHA1, blank=True, null=True, help_text="SNMP authentication protocol." )
     
-    # IP address used by the interface. Can be empty if connection is made via DNS.
-    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="device_snmpv3_interface" )
-
-
-# --------------------------------------------------------------------------
-# VM Agent Interface
-# --------------------------------------------------------------------------
-
-
-class VMAgentInterface(BaseAgentInterface):
-    class Meta:
-        verbose_name = "VM Agent Interface"
-        verbose_name_plural = "VM Agent Interfaces"
-
-    # Reference to the Zabbix configuration object for the virtual machine this interface belongs to.
-    zcfg = models.ForeignKey( to="VMZabbixConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
-
-    # The interface associated with this Agent configuration.
-    interface = models.OneToOneField( to="virtualization.VMInterface", on_delete=models.CASCADE, blank=True, null=True, related_name="agent_interface" )
-
-    # IP address used by tahe interface. Can be empty if connection is made via DNS.
-    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="vm_agent_interface" )
-
-
-# --------------------------------------------------------------------------
-# Device SNMPv3 Interface
-# --------------------------------------------------------------------------
-
-
-class VMSNMPv3Interface(BaseSNMPv3Interface):
-    class Meta:
-        verbose_name = "VM SNMPv3 Interface"
-        verbose_name_plural = "VM SNMPv3 Interfaces"
-
-    # Reference to the Zabbix configuration object for the virtual machine this interface belongs to.
-    zcfg = models.ForeignKey( to="VMZabbixConfig", on_delete=models.CASCADE, related_name="snmpv3_interfaces" )
-
-    # The interface associated with this SNMPv3 configuration.
-    interface = models.OneToOneField( to="virtualization.VMInterface", on_delete=models.CASCADE, related_name="snmpv3_interface" )
+    # SNMP authentication passphrase
+    authpassphrase = models.CharField( verbose_name="Authentication Passphrase", max_length=255, default="{$SNMPV3_AUTHPASS}", blank=True, null=True, help_text="SNMP authentication passphrase." )
     
-    # IP address used by the interface. Can be empty if connection is made via DNS.
-    ip_address = models.ForeignKey( to="ipam.IPAddress", on_delete=models.SET_NULL, blank=True, null=True, related_name="vm_snmpv3_interface" )
+    # SNMP privacy protocol.
+    privprotocol = models.IntegerField( verbose_name="Privacy Protocol", choices=SNMPPrivProtocolChoices, default=SNMPPrivProtocolChoices.AES128, blank=True, null=True, help_text="SNMP privacy protocol." )
+    
+    # SNMP privacy passphrase
+    privpassphrase = models.CharField( verbose_name="Privacy Passphrase", max_length=255, default="{$SNMPV3_PRIVPASS}", blank=True, null=True, help_text="SNMP privacy passphrase."  )
+
 
 
 # ------------------------------------------------------------------------------
-# Interfaces Proxy Models
-# ------------------------------------------------------------------------------
-
-# Proxy model so that it is possible to register a ViewSet.
-# The ViewSet is used to filter out interfaces that has already been assoicated
-# with a Device interface. See api/views.py for details.
-
-class AvailableDeviceInterface(Interface):
-    class Meta:
-        proxy = True
-
-
-class AvailableVMInterface(VMInterface):
-    class Meta:
-        proxy = True
-
-
-# ------------------------------------------------------------------------------
-# Event Log
+# Events
 # ------------------------------------------------------------------------------
 
 
@@ -1320,6 +1069,63 @@ class EventLog(NetBoxModel):
         if self.job:
             return self.job.get_status_color()
         return 'red'
+
+
+# ------------------------------------------------------------------------------
+# PROXY MODELS
+# ------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+# Un-assgiend Hosts
+# ------------------------------------------------------------------------------
+
+
+class UnAssignedHosts(Device):
+    class Meta:
+        proxy = True
+
+
+# ------------------------------------------------------------------------------
+# Un-assigned Agent Interfaces
+# ------------------------------------------------------------------------------
+
+
+class UnAssignedAgentInterfaces(Interface):
+    class Meta:
+        proxy = True
+
+
+# ------------------------------------------------------------------------------
+# Un-assigned SNMP Interfaces
+# ------------------------------------------------------------------------------
+
+
+class UnAssignedSNMPInterfaces(Interface):
+    class Meta:
+        proxy = True
+
+
+# ------------------------------------------------------------------------------
+# Un-assigned Host Interfaces
+# ------------------------------------------------------------------------------
+
+
+class UnAssignedHostInterfaces(Interface):
+    class Meta:
+        proxy = True
+
+
+# ------------------------------------------------------------------------------
+# Un-assigned Host IP  Addresses
+# ------------------------------------------------------------------------------
+
+
+class UnAssignedHostIPAddresses(IPAddress):
+    class Meta:
+        proxy = True
+
+
 
 
 # end

@@ -18,6 +18,8 @@ import os
 sys.path.append(os.path.dirname(__file__))
 from demo_data_config import config
 
+os.environ["DISABLE_NETBOX_ZABBIX_SIGNALS"] = "1"
+
 class Command(BaseCommand):
     help = "Create demo Devices and VMs with interface and primary IPv4"
 
@@ -25,22 +27,23 @@ class Command(BaseCommand):
     num_devices = config['num_devices']
     num_vms = config['num_vms']
 
-    dns_domain = config["dns_domain"]
-    region_code = config['region_codes']
-    sites = config['sites']
-    cluster_types = config['cluster_types']
-    cluster_groups = config['cluster_groups']
-    clusters = config['clusters']
-    prefixes = config['prefixes']
-    manufacturers = config['manufacturers']
-    device_types = config['device_types']
-    device_roles = config['device_roles']
-    platforms = config['platforms']
-    tags = config['tags']
-    linux_platform_name = config['linux_platform_name']
+    dns_domain            = config["dns_domain"]
+    region_code           = config['region_codes']
+    sites                 = config['sites']
+    cluster_types         = config['cluster_types']
+    cluster_groups        = config['cluster_groups']
+    clusters              = config['clusters']
+    prefixes              = config['prefixes']
+    manufacturers         = config['manufacturers']
+    device_types          = config['device_types']
+    device_roles          = config['device_roles']
+    platforms             = config['platforms']
+    tags                  = config['tags']
+    linux_platform_name   = config['linux_platform_name']
     windows_platform_name = config['windows_platform_name']
-    device_name_flags = config['device_name_flags']
-    vm_name_flags = config['vm_name_flags']
+    device_name_flags     = config['device_name_flags']
+    vm_name_flags         = config['vm_name_flags']
+    interface_name        = config['interface_name']
 
     def handle(self, *args, **kwargs):
         self.setup_demo_data()
@@ -249,7 +252,7 @@ class Command(BaseCommand):
 
             dev.tags.set(random.sample(tags, 2))
 
-            iface = Interface.objects.create(device=dev, name="eth0")
+            iface = Interface.objects.create(device=dev, name=f"{dev.name}-{self.interface_name}")
             ip = self.allocate_ip(hostname=name)
             iface.ip_addresses.add(ip)
             dev.primary_ip4 = ip
@@ -280,16 +283,16 @@ class Command(BaseCommand):
                     'platform': platform,
                 }
             )
-
             if not created:
                 self.stdout.write(f"VM {name} already exists, skipping.")
                 continue
 
             vm.tags.set(random.sample(tags, 2))
 
-            iface = VMInterface.objects.create(virtual_machine=vm, name="eth0")
+            iface = VMInterface.objects.create(virtual_machine=vm, name=f"{vm.name}-{self.interface_name}")
             ip = self.allocate_ip(hostname=name)
             iface.ip_addresses.add(ip)
+            vm.refresh_from_db() 
             vm.primary_ip4 = ip
             vm.save()
 

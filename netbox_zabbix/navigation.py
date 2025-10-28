@@ -9,21 +9,9 @@ menu = PluginMenu(
         ( "Admin",
             (
                 PluginMenuItem( 
-                    link_text="Configuration", 
-                    link="plugins:netbox_zabbix:config_list",
+                    link_text="Settings", 
+                    link="plugins:netbox_zabbix:setting_list",
                 ),
-            ),
-        ),
-        ( "Event Logs",
-             (
-                 PluginMenuItem( 
-                        link_text="Event Log", 
-                        link="plugins:netbox_zabbix:eventlog_list", 
-                ), 
-             )
-        ),        
-        ( "Settings",
-            (
                 PluginMenuItem( 
                     link_text="Templates", 
                     link="plugins:netbox_zabbix:template_list",
@@ -62,93 +50,31 @@ menu = PluginMenu(
                 ),
             ),
         ),
-        ( "Devices",
+        ( "Hosts",
             (
                 PluginMenuItem( 
-                    link_text="Device Configurations", 
-                    link="plugins:netbox_zabbix:devicezabbixconfig_list",
+                    link_text="Hosts", 
+                    link="plugins:netbox_zabbix:hostconfig_list",
                     buttons=( 
-                        PluginMenuButton( "plugins:netbox_zabbix:devicezabbixconfig_add", "Add", "mdi mdi-plus-thick" ),
+                        PluginMenuButton( "plugins:netbox_zabbix:hostconfig_add", "Add", "mdi mdi-plus-thick" ),
                     ),
                 ),
-
-                PluginMenuItem(
-                    link="plugins:netbox_zabbix:deviceagentinterface_list",
-                    link_text="Agent Interfaces",
-                    buttons=(
-                        PluginMenuButton(
-                            "plugins:netbox_zabbix:deviceagentinterface_add",
-                            "Add",
-                            "mdi mdi-plus-thick",
-                        ),
-                    ),
+                PluginMenuItem( 
+                    link_text="Agent Interfaces", 
+                    link="plugins:netbox_zabbix:agentinterface_list",
+                ),
+                PluginMenuItem( 
+                    link_text="SNMP Interfaces", 
+                    link="plugins:netbox_zabbix:snmpinterface_list",
                 ),
                 
                 PluginMenuItem( 
-                    link_text="SNMPv3 Interfaces", 
-                    link="plugins:netbox_zabbix:devicesnmpv3interface_list", 
-                    buttons=( 
-                        PluginMenuButton( "plugins:netbox_zabbix:devicesnmpv3interface_add", "Add", "mdi mdi-plus-thick" ), 
-                    ),
+                    link_text="Importable Hosts", 
+                    link="plugins:netbox_zabbix:importablehosts_list",
                 ),
-                
                 PluginMenuItem( 
-                    link_text="Importable Devices", 
-                    link="plugins:netbox_zabbix:importabledevice_list",
-                ),
-
-                PluginMenuItem( 
-                    link_text="NetBox Only Devices",
-                    link="plugins:netbox_zabbix:netboxonlydevices", 
-                ),
-            )
-        ),
-        ( "Virtual Machines",
-            (
-                PluginMenuItem( 
-                    link_text="Virtual Machine Configurations", 
-                    link="plugins:netbox_zabbix:vmzabbixconfig_list",
-                    buttons=( 
-                        PluginMenuButton( "plugins:netbox_zabbix:vmzabbixconfig_add", "Add", "mdi mdi-plus-thick" ),
-                    ),
-                ),
-        
-                PluginMenuItem(
-                    link="plugins:netbox_zabbix:vmagentinterface_list",
-                    link_text="Agent Interfaces",
-                    buttons=(
-                        PluginMenuButton(
-                            "plugins:netbox_zabbix:vmagentinterface_add",
-                            "Add",
-                            "mdi mdi-plus-thick",
-                        ),
-                    ),
-                ),
-                
-                PluginMenuItem( 
-                    link_text="SNMPv3 Interfaces", 
-                    link="plugins:netbox_zabbix:vmsnmpv3interface_list", 
-                    buttons=( 
-                        PluginMenuButton( "plugins:netbox_zabbix:vmsnmpv3interface_add", "Add", "mdi mdi-plus-thick" ), 
-                    ),
-                ),
-                
-                PluginMenuItem( 
-                    link_text="Importable Virtual Machines", 
-                    link="plugins:netbox_zabbix:importablevm_list",
-                ),
-        
-                PluginMenuItem( 
-                    link_text="NetBox Only Virtual Machines",
-                    link="plugins:netbox_zabbix:netboxonlyvms", 
-                ),
-            )
-        ),
-        ( "Configurations",
-            (
-                PluginMenuItem(
-                    link_text="All Configurations",
-                    link="plugins:netbox_zabbix:zabbixconfig_list",
+                    link_text="NetBox Only Hosts", 
+                    link="plugins:netbox_zabbix:netboxhosts_list",
                 ),
             ),
         ),
@@ -159,6 +85,15 @@ menu = PluginMenu(
                     link="plugins:netbox_zabbix:zabbixonlyhosts",
                 ),
             ),
-        ), 
+        ),
+        ( "Event Logs",
+             (
+                 PluginMenuItem( 
+                        link_text="Event Logs", 
+                        link="plugins:netbox_zabbix:eventlog_list", 
+                ), 
+             )
+        ),        
+        
     ]
 )

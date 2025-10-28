@@ -13,25 +13,26 @@ import os
 sys.path.append(os.path.dirname(__file__))
 from demo_data_config import config
 
+os.environ["DISABLE_NETBOX_ZABBIX_SIGNALS"] = "1"
 
 class Command(BaseCommand):
     help = "Delete all demo data created by create_demo_data command"
 
     # === Configuration: Change these lists to match your demo data naming ===
-    device_name_regex = config['device_name_regex']
-    vm_name_regex = config['vm_name_regex']
-    interface_name = config['interface_name']
+    device_name_regex   = config['device_name_regex']
+    vm_name_regex       = config['vm_name_regex']
+    interface_name      = config['interface_name']
     ip_address_prefixes = config['ip_address_prefixes']
-    tag_names = config['tags']
-    regions = list(config['region_codes'].keys())
-    sites = [site['name'] for site in config['sites']]
-    manufacturers = config['manufacturers']
-    device_roles = config['device_roles']
-    platforms = config['platforms']
-    cluster_names = [cluster['name'] for cluster in config['clusters']]
-    cluster_groups = config['cluster_groups']
-    cluster_types = [ct['name'] for ct in config['cluster_types']]
-    prefixes = config['prefixes']
+    tag_names           = config['tags']
+    regions             = list(config['region_codes'].keys())
+    sites               = [site['name'] for site in config['sites']]
+    manufacturers       = config['manufacturers']
+    device_roles        = config['device_roles']
+    platforms           = config['platforms']
+    cluster_names       = [cluster['name'] for cluster in config['clusters']]
+    cluster_groups      = config['cluster_groups']
+    cluster_types       = [ct['name'] for ct in config['cluster_types']]
+    prefixes            = config['prefixes']
 
     def handle(self, *args, **kwargs):
         self.stdout.write("Starting cleanup of demo data...")
@@ -62,11 +63,11 @@ class Command(BaseCommand):
 
     def delete_interfaces(self):
         self.delete_queryset(
-            Interface.objects.filter(name=self.interface_name, device__name__regex=self.device_name_regex),
+            Interface.objects.filter(name__endswith=f"-{self.interface_name}", device__name__regex=self.device_name_regex),
             "Device Interfaces"
         )
         self.delete_queryset(
-            VMInterface.objects.filter(name=self.interface_name, virtual_machine__name__regex=self.vm_name_regex),
+            VMInterface.objects.filter(name__endswith=f"-{self.interface_name}", virtual_machine__name__regex=self.vm_name_regex),
             "VM Interfaces"
         )
 

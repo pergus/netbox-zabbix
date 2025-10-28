@@ -1,12 +1,12 @@
 {% extends 'generic/object.html' %}
 
 
-{% block title %}{{ object.get_object_type_display }} Inventory Mapping{% endblock %}
+{% block title %}Inventory Mapping {{ object.get_object_type_display }}{% endblock %}
 
 {% block content %}
 
 <div class="row">
-    <div class="col col-12 col-xl-6">
+    <div class="col col-12 col-xl-12">
         <div class="card">
             <h2 class="card-header">{{ object.get_object_type_display }}</h2>
             <table class="table table-hover attr-table">

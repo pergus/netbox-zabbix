@@ -1,0 +1,22 @@
+{% extends 'generic/object_list.html' %}
+{% load helpers buttons %}
+
+{% block title %}Importable Hosts{% endblock %}
+
+{% block controls %}{% endblock %}
+
+{% block bulk_buttons %}
+<button type="submit" name="_import_host_from_zabbix" class="btn btn-success">
+    <i class="mdi mdi-database-import-outline"></i> Import from Zabbix
+</button>
+{% if validate_button %}
+<button type="submit" name="_validate_host" class="btn btn-success">
+    <i class="mdi mdi-database-import-outline"></i> Validate
+</button>
+{% endif %}
+{% endblock %}
+
+
+{% block content %}
+{{ block.super }}
+{% endblock %}

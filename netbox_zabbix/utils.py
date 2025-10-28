@@ -1,13 +1,13 @@
 # utils.py
 
-from math import remainder
-from netbox_zabbix import models
-from netbox_zabbix.config import get_default_tag, get_tag_prefix
-from netbox_zabbix.inventory_properties import inventory_properties
-from netbox_zabbix import zabbix as z
 import json
 
+from ipam.models import IPAddress
 
+from netbox_zabbix import models
+from netbox_zabbix.settings import get_default_tag, get_tag_prefix
+from netbox_zabbix.inventory_properties import inventory_properties
+from netbox_zabbix import zabbix as z
 from netbox_zabbix.logger import logger
 
 
@@ -156,7 +156,7 @@ def compute_interface_type(items):
         if item_type == 0:
             required.add( models.InterfaceTypeChoices.Agent )
 
-        # SNMPv3 detection (simplified: treat all SNMP agent as SNMPv3)
+        # Simplified SNMPv3 detection since we treat all SNMP agents as SNMPv3
         elif item_type == 20:
             required.add( models.InterfaceTypeChoices.SNMP )
 
@@ -387,17 +387,46 @@ def validate_templates_and_interface(templateids: list, interface_type=models.In
     return True
 
 
+def is_valid_interface(host_config, interface_type=models.InterfaceTypeChoices.Any):
+    """
+    Check whether a host interface is valid based on the associated host configuration and templates.
+
+    This function determines if the host_config contains a valid interface of the specified type
+    (agent or SNMP) according to the templates assigned to it.  
+
+    Args:
+        host_config (HostConfig): The host configuration to validate.
+        interface_type (str, optional): The type of interface to validate. Defaults to
+            models.InterfaceTypeChoices.Any.
+
+    Returns:
+        bool: True if a valid interface exists for the given type and templates, False otherwise.
+
+    Raises:
+        ValueError: If the host configuration has no templates assigned.
+        Exception: Propagates any template conflicts or interface type mismatches found during validation.
+    """
+    if not host_config.templates.exists():
+        raise ValueError(f"HostConfig '{host_config}' has no templates assigned.")
+
+    template_ids = list(host_config.templates.values_list("templateid", flat=True))
+
+    # Validate templates and interface compatibility
+    validate_templates_and_interface( template_ids, interface_type )
+    
+    return True
+
 
 # ------------------------------------------------------------------------------
 # Quick Add helper functions
 # ------------------------------------------------------------------------------
 
 
-def validate_quick_add( devm ):
-    if not devm.primary_ip4_id:
-        raise Exception( f"{devm.name} is missing the required primary IPv4 address." )
-    if not devm.primary_ip.dns_name:
-        raise Exception( f"{devm.name} is missing the required DNS name." )
+def validate_quick_add( host ):
+    if not host.primary_ip4_id:
+        raise Exception( f"{host.name} is missing Primary IPv4 address." )
+    if not host.primary_ip.dns_name:
+        raise Exception( f"{host.name} is missing DNS name." )
 
 
 # ------------------------------------------------------------------------------
@@ -641,5 +670,35 @@ def create_custom_field(name, defaults):
         logger.info( f"Created new custom field" )
     else:
         logger.info( f"Did not create new custom field" )
+
+
+# ------------------------------------------------------------------------------
+# Find IPAddress
+# ------------------------------------------------------------------------------
+
+
+def find_ip_address(address:str):
+    """
+    Search for an exact IP address in NetBox.
+    
+    This function iterates through all IPAddress objects and returns the object
+    whose IP portion matches the given address exactly, ignoring the CIDR prefix.
+    
+    Parameters:
+        address (str): The IP address to search for, e.g., "10.0.0.46".
+    
+    Returns:
+        IPAddress: The matching IPAddress object if found.
+        None: If no matching IP address exists.
+    
+    Example:
+        >>> ip = find_ip("10.0.0.46")
+        >>> print(ip)
+        10.0.0.46/24
+    """
+    for ip in IPAddress.objects.all():
+        if str( ip.address.ip ) == address:
+            return ip
+    return None
 
 # end

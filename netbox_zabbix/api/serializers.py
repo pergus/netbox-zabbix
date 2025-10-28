@@ -1,19 +1,38 @@
+# serializers.py
+
 from dcim.api.serializers import InterfaceSerializer
-from virtualization.api.serializers import VMInterfaceSerializer
 from rest_framework import serializers
 
 from netbox.api.serializers import NetBoxModelSerializer
 from netbox_zabbix import models
 
+
 # ------------------------------------------------------------------------------
-# Configuration
+# Setting
 # ------------------------------------------------------------------------------
 
 
-class ConfigSerializer(NetBoxModelSerializer):
+class SettingSerializer(NetBoxModelSerializer):
     class Meta:
-        model = models.Config
+        model = models.Setting
         fields = '__all__'
+
+    # Exclude the following fields from the API.
+    # Note: We do NOT use `exclude` here, because NetBox's internal utilities 
+    # expect `Meta.fields` to exist. If we only use `exclude`, `Meta.fields` 
+    # is undefined and API calls will crash. Instead, we include all fields 
+    # with `fields="__all__"` and hide sensitive/unwanted fields by using 
+    # serializers.HiddenField(default=None). This ensures `Meta.fields` exists 
+    # while preventing exposure of private data like internal secrets or API keys.
+    
+    token               = serializers.HiddenField( default=None )
+    tls_connect         = serializers.HiddenField( default=None )
+    tls_accept          = serializers.HiddenField( default=None )
+    tls_psk_identity    = serializers.HiddenField( default=None )
+    tls_psk             = serializers.HiddenField( default=None )
+    snmp_securityname   = serializers.HiddenField( default=None )
+    snmp_authpassphrase = serializers.HiddenField( default=None )
+    snmp_privpassphrase = serializers.HiddenField( default=None )
 
 
 # ------------------------------------------------------------------------------
@@ -59,74 +78,13 @@ class ProxyGroupSerializer(NetBoxModelSerializer):
 
 
 # ------------------------------------------------------------------------------
-# Host Groups
+# Host Group
 # ------------------------------------------------------------------------------
 
 
 class HostGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.HostGroup
-        fields = '__all__'
-
-
-# ------------------------------------------------------------------------------
-# Zabbix Configurations
-# ------------------------------------------------------------------------------
-
-
-class DeviceZabbixConfigSerializer(NetBoxModelSerializer):
-    templates = TemplateSerializer( many=True, read_only=True )
-    
-    class Meta:
-        model = models.DeviceZabbixConfig
-        fields = '__all__'
-    
-
-class VMZabbixConfigSerializer(NetBoxModelSerializer):
-    templates = TemplateSerializer( many=True, read_only=True )
-
-    class Meta:
-        model = models.VMZabbixConfig
-        fields = '__all__'
-
-# ------------------------------------------------------------------------------
-# Interfaces
-# ------------------------------------------------------------------------------
-
-
-class AvailableDeviceInterfaceSerializer(InterfaceSerializer):
-    class Meta(InterfaceSerializer.Meta):
-        model = models.AvailableDeviceInterface
-        fields = '__all__'
-
-
-class DeviceAgentInterfaceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.DeviceAgentInterface
-        fields = '__all__'
-
-
-class DeviceSNMPv3InterfaceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.DeviceSNMPv3Interface
-        fields = '__all__'
-
-
-class AvailableVMInterfaceSerializer(VMInterfaceSerializer):
-    class Meta(VMInterfaceSerializer.Meta):
-        model = models.AvailableDeviceInterface
-        fields = '__all__'
-
-
-class VMAgentInterfaceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.VMAgentInterface
-        fields = '__all__'
-
-
-class VMSNMPv3InterfaceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.VMSNMPv3Interface
         fields = '__all__'
 
 
@@ -188,6 +146,42 @@ class VMMappingSerializer(serializers.ModelSerializer):
 
 
 # ------------------------------------------------------------------------------
+# Host Config
+# ------------------------------------------------------------------------------
+
+
+class HostConfigSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.HostConfig
+        fields = '__all__'
+
+
+# ------------------------------------------------------------------------------
+# Agent Interface
+# ------------------------------------------------------------------------------
+
+
+class AgentInterfaceSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.AgentInterface
+        fields = '__all__'
+
+
+# ------------------------------------------------------------------------------
+# SNMP Interface
+# ------------------------------------------------------------------------------
+
+
+class SNMPInterfaceSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.SNMPInterface
+        fields = '__all__'
+
+
+# ------------------------------------------------------------------------------
 # Event Log
 # ------------------------------------------------------------------------------
 
@@ -197,5 +191,77 @@ class EventLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.EventLog
         fields = '__all__'
+
+
+
+# ------------------------------------------------------------------------------
+# Un-assigned Hosts
+# ------------------------------------------------------------------------------
+
+
+class UnAssignedHostsSerializer(serializers.Serializer):
+    id      = serializers.IntegerField()
+    display = serializers.SerializerMethodField()
+    
+    def get_display(self, obj):
+        return str(obj)
+
+    class Meta:
+        fields = ['id', 'display']
+
+
+# ------------------------------------------------------------------------------
+# Un-assigned Agent Interfaces
+# ------------------------------------------------------------------------------
+
+
+class UnAssignedAgentInterfacesSerializer(InterfaceSerializer):
+    class Meta(InterfaceSerializer.Meta):
+        model = models.UnAssignedAgentInterfaces
+        fields = '__all__'
+
+
+# ------------------------------------------------------------------------------
+# Un-assigned SNMP Interfaces
+# ------------------------------------------------------------------------------
+
+
+class UnAssignedSNMPInterfaceSerializer(InterfaceSerializer):
+    class Meta(InterfaceSerializer.Meta):
+        model = models.UnAssignedSNMPInterfaces
+        fields = '__all__'
+
+
+# ------------------------------------------------------------------------------
+# Un-assigned Host Interfaces
+# ------------------------------------------------------------------------------
+
+
+class UnAssignedHostInterfacesSerializer(serializers.Serializer):
+    id      = serializers.IntegerField()
+    display = serializers.SerializerMethodField()
+    
+    def get_display(self, obj):
+        return str(obj)
+
+    class Meta:
+        fields = ['id', 'display']
+
+
+# ------------------------------------------------------------------------------
+# Un-assigned Host IP  Addresses
+# ------------------------------------------------------------------------------
+
+
+class UnAssignedHostIPAddressesSerializer(serializers.Serializer):
+    id      = serializers.IntegerField()
+    display = serializers.SerializerMethodField()
+    
+    def get_display(self, obj):
+        return str(obj)
+
+    class Meta:
+        fields = ['id', 'display']
+
 
 # end

@@ -1,7 +1,6 @@
 # tables.py
 
 # Standard / Django imports
-from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.timezone import datetime
@@ -11,20 +10,17 @@ import django_tables2 as tables
 
 # NetBox imports
 from netbox.tables import NetBoxTable, columns
-from netbox.tables.columns import ActionsColumn, TagColumn
 
 # DCIM imports
 from dcim.models import Device
-from dcim.tables import DeviceTable
 
 # Virtualization imports
 from virtualization.models import VirtualMachine
-from virtualization.tables import VirtualMachineTable
 
 # netbox_zabbix imports
-from netbox_zabbix import config, jobs, models
+from netbox_zabbix import settings, jobs, models
+from netbox_zabbix.utils import validate_quick_add
 from netbox_zabbix.logger import logger
-from netbox_zabbix.utils import compare_zabbix_config_with_host, validate_quick_add
 
 # Core app imports
 from core.models import Job
@@ -32,7 +28,7 @@ from core.tables import JobTable
 
 
 # ------------------------------------------------------------------------------
-# Configuration Table
+# Setting Table
 # ------------------------------------------------------------------------------
 
 
@@ -60,9 +56,9 @@ EXTRA_CONFIG_BUTTONS = """
 </span>
 """
 
-class ConfigTable(NetBoxTable):
+class SettingTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
-        model = models.Config
+        model = models.Setting
         fields = ( 
             'name',
             'ip_assignment_method',
@@ -75,7 +71,6 @@ class ConfigTable(NetBoxTable):
             'api_endpoint',
             'web_address',
             'token',
-            'default_cidr',
             'delete_setting',
             'graveyard',
             'graveyard_suffix',
@@ -89,16 +84,16 @@ class ConfigTable(NetBoxTable):
             'tls_psk', 
             'use_ip', 
             'agent_port', 
-            'snmpv3_port', 
-            'snmpv3_bulk',
-            'snmpv3_max_repetitions',
-            'snmpv3_contextname',
-            'snmpv3_securityname',
-            'snmpv3_securitylevel',
-            'snmpv3_authprotocol',
-            'snmpv3_authpassphrase',
-            'snmpv3_privprotocol',
-            'snmpv3_privpassphrase',
+            'snmp_port', 
+            'snmp_bulk',
+            'snmp_max_repetitions',
+            'snmp_contextname',
+            'snmp_securityname',
+            'snmp_securitylevel',
+            'snmp_authprotocol',
+            'snmp_authpassphrase',
+            'snmp_privprotocol',
+            'snmp_privpassphrase',
             'default_tag', 
             'tag_prefix', 
             'tag_name_formatting',
@@ -112,14 +107,14 @@ class ConfigTable(NetBoxTable):
 
 
 # ------------------------------------------------------------------------------
-# Templates Table
+# Template Table
 # ------------------------------------------------------------------------------
 
 
 class TemplateTable(NetBoxTable):
     name       = tables.Column( linkify=True )
     host_count = columns.LinkedCountColumn( 
-         viewname='plugins:netbox_zabbix:zabbixconfig_list',
+         viewname='plugins:netbox_zabbix:hostconfig_list',
          url_params={'templates': 'pk'},
          verbose_name="Hosts" )
     
@@ -137,7 +132,6 @@ class TemplateTable(NetBoxTable):
             "parents",
             "dependencies",
             "last_synced",
-            "marked_for_deletion"
         )
 
         default_columns = (
@@ -147,7 +141,6 @@ class TemplateTable(NetBoxTable):
             "interface_type",
             "dependencies",
             "last_synced",
-            "marked_for_deletion"
         )
 
 
@@ -161,11 +154,12 @@ class ProxyTable(NetBoxTable):
         
     class Meta(NetBoxTable.Meta):
         model           = models.Proxy
-        fields          = ("name", "proxyid", "proxy_groupid", "last_synced", "marked_for_deletion"  )
-        default_columns = ("name", "proxyid", "proxy_groupid", "last_synced", "marked_for_deletion"  )
+        fields          = ("name", "proxyid", "proxy_groupid", "last_synced"  )
+        default_columns = ("name", "proxyid", "proxy_groupid", "last_synced"  )
+
 
 # ------------------------------------------------------------------------------
-# Proxy Groups Table
+# Proxy Group Table
 # ------------------------------------------------------------------------------
 
 
@@ -174,12 +168,12 @@ class ProxyGroupTable(NetBoxTable):
     
     class Meta(NetBoxTable.Meta):
         model           = models.ProxyGroup
-        fields          = ("name", "proxy_groupid", "last_synced", "marked_for_deletion"  )
-        default_columns = ("name", "proxy_groupid", "last_synced", "marked_for_deletion"  )
+        fields          = ("name", "proxy_groupid", "last_synced"  )
+        default_columns = ("name", "proxy_groupid", "last_synced"  )
 
 
 # ------------------------------------------------------------------------------
-# Host Groups Table
+# Host Group Table
 # ------------------------------------------------------------------------------
 
 
@@ -188,8 +182,8 @@ class HostGroupTable(NetBoxTable):
     
     class Meta(NetBoxTable.Meta):
         model = models.HostGroup
-        fields = ( "name", "groupid", "last_synced", "marked_for_deletion" )
-        default_columns = ( "name", "groupid"," last_synced", "marked_for_deletion"  )
+        fields = ( "name", "groupid", "last_synced" )
+        default_columns = ( "name", "groupid"," last_synced" )
 
 
 # ------------------------------------------------------------------------------
@@ -204,7 +198,7 @@ class TagMappingTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.TagMapping
         fields = ('object_type',)
-        attrs = {'class': 'table table-hover'}
+        default_columns = fields
 
     def __init__(self, *args, user=None, **kwargs):
         # Accept the user kwarg to avoid errors, even if unused
@@ -227,7 +221,6 @@ class InventoryMappingTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = models.InventoryMapping
         fields = ('object_type',)
-        attrs = {'class': 'table table-hover'}
 
     def __init__(self, *args, user=None, **kwargs):
         # Accept the user kwarg to avoid errors, even if unused
@@ -297,34 +290,30 @@ class VMMappingTable(BaseMappingTable):
 class BaseMatchingMappingTable(NetBoxTable):
     """
     Abstract base class for MatchingDeviceMappingTable and MatchingVMMappingTable.
-    Provides shared columns, Zabbix config rendering, and Meta configuration.
+    Provides shared columns, Host config rendering, and Meta configuration.
     """
-    name          = tables.Column( linkify=True )
-    site          = tables.Column( linkify=True )
-    role          = tables.Column( linkify=True )
-    platform      = tables.Column( linkify=True )
-    zabbix_config = tables.BooleanColumn(
-        accessor="zabbix_config",
-        verbose_name="Zabbix Config",
-        orderable=False,
-    )
+    name        = tables.Column( linkify=True )
+    site        = tables.Column( linkify=True )
+    role        = tables.Column( linkify=True )
+    platform    = tables.Column( linkify=True )
+    host_config = tables.BooleanColumn( accessor="host_config", verbose_name="Host Config", orderable=False )
 
     class Meta(NetBoxTable.Meta):
         abstract = True
-        fields = ("name", "zabbix_config", "site", "role", "platform")
-        default_columns = ("name", "zabbix_config", "site", "role", "platform")
+        fields = ("name", "host_config", "site", "role", "platform")
+        default_columns = ("name", "host_config", "site", "role", "platform")
 
-    def render_zabbix_config(self, record):
+    def render_host_config(self, record):
         """
         Render a checkmark or cross depending on Zabbix config existence.
         """
-        return mark_safe( "✔" ) if self.has_zabbix_config( record ) else mark_safe( "✘" )
+        return mark_safe( "✔" ) if self.has_host_config( record ) else mark_safe( "✘" )
 
-    def has_zabbix_config(self, record):
+    def has_host_config(self, record):
         """
-        Subclasses must implement the model-specific Zabbix config check.
+        Subclasses must implement the model-specific Host config check.
         """
-        raise NotImplementedError( "Subclasses must implement has_zabbix_config()" )
+        raise NotImplementedError( "Subclasses must implement has_host_config()" )
 
 
 # ------------------------------------------------------------------------------
@@ -334,7 +323,7 @@ class BaseMatchingMappingTable(NetBoxTable):
 
 class MatchingDeviceMappingTable(BaseMatchingMappingTable):
     """
-    Matching table for Device model with Zabbix config and tags.
+    Matching table for Device mapping
     """
     tags = columns.TagColumn( url_name="dcim:device_list" )
 
@@ -342,8 +331,8 @@ class MatchingDeviceMappingTable(BaseMatchingMappingTable):
         model = Device
         fields = BaseMatchingMappingTable.Meta.fields + ( "tags", )
 
-    def has_zabbix_config(self, record):
-        return models.DeviceZabbixConfig.objects.filter(device=record).exists()
+    def has_host_config(self, record):
+        return record.host_config != None
 
 
 # ------------------------------------------------------------------------------
@@ -361,467 +350,263 @@ class MatchingVMMappingTable(BaseMatchingMappingTable):
         model  = VirtualMachine
         fields = BaseMatchingMappingTable.Meta.fields + ( "tags", )
 
-    def has_zabbix_config(self, record):
-        return models.VMZabbixConfig.objects.filter( virtual_machine=record ).exists()
-
+    def has_host_config(self, record):
+        return record.host_config != None
 
 
 # ------------------------------------------------------------------------------
-# Base Zabbix Configuration Table
+# Host Config Table
 # ------------------------------------------------------------------------------
 
 
-class BaseZabbixConfigTable(NetBoxTable):
+class HostConfigTable(NetBoxTable):
+    name            = tables.Column( accessor='name', order_by='name', verbose_name='Name', linkify=True )
+    assigned_object = tables.Column( accessor='assigned_object', verbose_name='Linked Object', linkify=True, orderable=False )
+    host_type       = tables.Column( accessor="host_type", empty_values=(), verbose_name="Type", orderable=False )
+
+    class Meta(NetBoxTable.Meta):
+        model = models.HostConfig
+        fields =  ('name', 
+                   'assigned_object',
+                   'host_type',
+                   'sync',
+                   'status',
+                   'monitored_by',
+                   'hostid',
+                   'templates',
+                   'proxy',
+                   'proxy_group',
+                   'host_groups', 
+                   'description')
+        default_columns = fields
+
+    def render_host_type(self, record):
+        return mark_safe( f'{ "Device" if type( record.assigned_object ) == Device else "VirtualMachine" }' )
+
+
+# ------------------------------------------------------------------------------
+# Base Interface Table
+# ------------------------------------------------------------------------------
+
+
+class BaseInterfaceTable(NetBoxTable):
     """
-    Abstract base class for Zabbix configuration tables.
-    Provides shared columns and sync rendering logic.
+    Abstract base table for Agent and SNMP interfaces for Devices and VMs.
+    Provides shared columns like name, interface, IP address, and DNS name.
     """
-    name        = tables.Column( accessor='name', order_by='name', verbose_name='Name', linkify=True )
-    sync        = tables.BooleanColumn( accessor='sync', verbose_name="In Sync", orderable=False )
-    status      = tables.Column()
-    hostid      = tables.Column( verbose_name='Zabbix Host ID' )
-    templates   = tables.ManyToManyColumn( linkify_item=True )
-    proxy       = tables.Column( linkify=True )
-    proxy_group = tables.Column( linkify=True )
-    host_groups = tables.ManyToManyColumn( linkify_item=True )
-    description = tables.Column()
+    name                = tables.Column( linkify=True )
+    interface           = tables.Column( linkify=True )
+    resolved_ip_address = tables.Column( verbose_name="IP Address", linkify=True )
+    resolved_dns_name   = tables.Column( verbose_name="DNS Name", linkify=True )
 
     class Meta(NetBoxTable.Meta):
         abstract = True
-        fields   = ('name', 'sync', 'status', 'monitored_by', 
-                    'hostid', 'templates', 'proxy', 'proxy_group', 
-                    'host_groups', 'description')
-        default_columns = ('name', 'sync', 'status', 'monitored_by', 
-                           'templates', 'proxy', 'proxy_group', 'host_groups')
-
-    def render_sync(self, record):
-        """
-        Render ✔ if the Zabbix config is in sync, ✘ otherwise.
-        """
-        try:
-            result = compare_zabbix_config_with_host( record )
-        except Exception:
-            return mark_safe( "✘" )
-        return mark_safe( "✘" ) if result["differ"] else mark_safe( "✔" )
+        fields = ("name", "host_config", "interface", "resolved_ip_address", "resolved_dns_name")
+        default_columns = ("name", "host_config", "interface", "resolved_ip_address", "resolved_dns_name")
 
 
 # ------------------------------------------------------------------------------
-# Device Zabbix Configuration Table
+# Agent Interface Table
 # ------------------------------------------------------------------------------
 
 
-class DeviceZabbixConfigTable(BaseZabbixConfigTable):
-    """
-    Concrete table for DeviceZabbixConfig model.
-    """
-    device = tables.Column( accessor='device', verbose_name='Device', linkify=True )
-
-    class Meta(BaseZabbixConfigTable.Meta):
-        model  = models.DeviceZabbixConfig
-        fields = ('device', ) + BaseZabbixConfigTable.Meta.fields
-        default_columns = ('device', ) + BaseZabbixConfigTable.Meta.default_columns
+class AgentInterfaceTable(BaseInterfaceTable):
+    class Meta(BaseInterfaceTable.Meta):
+        model   = models.AgentInterface
+        actions = ("bulk_edit", "bulk_delete", "edit", "delete")
+        fields  = BaseInterfaceTable.Meta.fields + ("hostid", "interfaceid", "useip", "main", "port")
+        default_columns = BaseInterfaceTable.Meta.default_columns + ("port", "useip", "main")
 
 
 # ------------------------------------------------------------------------------
-# VM Zabbix Configuration Table
+# Agent Interface Table
 # ------------------------------------------------------------------------------
 
 
-class VMZabbixConfigTable(BaseZabbixConfigTable):
-    """
-    Concrete table for VMZabbixConfig model.
-    """
-    virtual_machine = tables.Column(accessor='virtual_machine', verbose_name='VM', linkify=True)
-
-    class Meta(BaseZabbixConfigTable.Meta):
-        model  = models.VMZabbixConfig
-        fields = ('virtual_machine', ) + BaseZabbixConfigTable.Meta.fields
-        default_columns = ('virtual_machine', ) + BaseZabbixConfigTable.Meta.default_columns
-
-
-# ------------------------------------------------------------------------------
-# Zabbix Configurations Table
-# ------------------------------------------------------------------------------
-
-
-class ZabbixConfigActionsColumn(ActionsColumn):
-
-    def get_actions(self, record):
-        actions = []
-    
-        if isinstance( record, models.DeviceZabbixConfig ):
-            prefix = 'devicezabbixconfig'
-        elif isinstance( record, models.VMZabbixConfig ):
-            prefix =  'vmzabbixconfig'
-        else:
-            return []
-    
-        for action in ['edit', 'delete']:
-            url = reverse( f'plugins:netbox_zabbix:{prefix}_{action}', args=[record.pk] )
-            actions.append( (action, url) )
-    
-        return actions
-
-
-class ZabbixConfigTable(NetBoxTable):
-    name   = tables.Column( accessor='name', verbose_name='Host Name', linkify=True )
-    type   = tables.Column( empty_values=(), verbose_name='Type', order_by=('device__name', 'virtual_machine__name') )
-    hostid = tables.Column( verbose_name='Zabbix Host ID' )
-    status = tables.Column()
-    object = tables.Column( empty_values=(), verbose_name='NetBox Object', order_by=('device__name', 'virtual_machine__name') )
-
-    actions = ZabbixConfigActionsColumn()
-     
-    class Meta(NetBoxTable.Meta):
-        model  = models.ZabbixConfig
-        fields = ('name', 'object', 'status', 'type', 'hostid', 'status', 'templates' )
-        default_columns = ('name', 'object', 'status', 'templates', 'type' )
-
-    def render_type(self, record):
-        return 'Device' if isinstance( record, models.ZabbixConfig ) else 'VM'
-
-
-    def render_object(self, record):
-        if isinstance( record, models.DeviceZabbixConfig ):
-            # Return the device link
-            return mark_safe( f'<a href="{record.device.get_absolute_url()}">{record.device}</a>' )
-        
-        elif isinstance( record, models.VMZabbixConfig ):
-            # Return the virtual machine link
-            return mark_safe( f'<a href="{record.virtual_machine.get_absolute_url()}">{record.virtual_machine}</a>' )
-        
-        else:
-            return mark_safe('<span class="text-muted">Unknown</span>')
+class SNMPInterfaceTable(BaseInterfaceTable):
+    class Meta(BaseInterfaceTable.Meta):
+        model   = models.SNMPInterface
+        actions = ("bulk_edit", "bulk_delete", "edit", "delete")
+        fields  = BaseInterfaceTable.Meta.fields + ("hostid", 
+                                                    "interfaceid", 
+                                                    "useip", 
+                                                    "main", 
+                                                    "port", 
+                                                    "max_repetitions",
+                                                    "contextname",
+                                                    "securityname",
+                                                    "securitylevel",
+                                                    "authprotocol",
+                                                    "authpassphrase",
+                                                    "privprotocol",
+                                                    "privpassphrase",
+                                                    "bulk")
+        default_columns = BaseInterfaceTable.Meta.default_columns + ("port", "useip", "main")
 
 
 # ------------------------------------------------------------------------------
-# Base Importable Hosts Table
+# Importable Hosts Table
 # ------------------------------------------------------------------------------
 
 
-class BaseImportableTable(NetBoxTable):
-    """
-    Abstract base table for importable Zabbix hosts.
-    Handles shared columns, validation logic, and reason tracking.
-    """
-    name   = tables.Column( linkify=True )
-    valid  = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
-    reason = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
+class ImportableHostsTable(NetBoxTable):
+    pk        = tables.Column( verbose_name=mark_safe( '<input type="checkbox" class="toggle form-check-input" title="Toggle all">'), 
+                              attrs={
+                                   "td": {"class": "w-1"},
+                                   "th": {"class": "w-1"},
+                               },
+                               orderable=False )
+    name      = tables.Column( linkify=True )
+    host_type = tables.Column( verbose_name="Type" )
+    valid     = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
+    reason    = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
+    actions   = []
+
 
     class Meta(NetBoxTable.Meta):
-        abstract = True
-        fields   = ("name", "site", "status", "role", "valid", "reason")
-        default_columns = ("name", "site", "status", "valid", "reason")
+        model = models.HostConfig
+        fields   = ("pk", "name", "host_type", "site", "status", "role", "valid", "reason")
+        default_columns = fields
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__( *args, **kwargs )
         self.reasons = {}
 
-    def render_valid(self, record):
-        """
-        Validate the record if auto-validation is enabled.
-        Returns ✔ for valid, ✘ for invalid, or - if validation is disabled.
-        """
-        if config.get_auto_validate_importables():
+
+    def get_actions(self, record):
+        return []
+
+    def render_pk(self, record):
+        return mark_safe( f'<input class="form-check-input" type="checkbox" name="pk" value="{record.pk}:{record.content_type}">' )
+
+    def _validate_record(self, record):
+        # Construct a key using the record's PK and content type.
+        # The PK alone is not reliable, as a record can be either a Device or a VM,
+        # so it is not guaranteed to be unique.
+        key = f"{record.pk}:{record.content_type}"
+        if key not in self.reasons:
             try:
-                # Run validation job without request logging
-                jobs.ValidateDeviceOrVM.run(model_instance=record)
-                return mark_safe("✔")
+                jobs.ValidateHost.run_now( instance=record )
+                self.reasons[key] = None
             except Exception as e:
-                self.reasons[record] = e
-                return mark_safe("✘")
-        else:
-            return mark_safe("-")
-
+                self.reasons[key] = e
+        return self.reasons[key]
+    
+    def render_valid(self, record):
+        if settings.get_auto_validate_quick_add():
+            return mark_safe( "✔" if self._validate_record( record ) is None else "✘" )
+        return mark_safe( "-" )
+    
     def render_reason(self, record):
-        """
-        Render the reason for an invalid record if auto-validation is enabled.
-        """
-        if config.get_auto_validate_importables():
-            return self.reasons.get(record, "")
+        if settings.get_auto_validate_quick_add():
+            reason = self._validate_record( record )
+            return reason or ""
         return ""
+    
 
 
 # ------------------------------------------------------------------------------
-# Importable Device Table
+# NetBox Only Hosts Table
 # ------------------------------------------------------------------------------
 
 
-class ImportableDeviceTable(BaseImportableTable):
+class NetBoxOnlyHostsTable(NetBoxTable):
     """
-    Table for importable Device Zabbix hosts.
+    Unified table showing both Devices and VirtualMachines
+    that are not yet represented in Zabbix.
     """
-    class Meta(BaseImportableTable.Meta):
-        model = models.Device
 
+    pk            = tables.Column( verbose_name=mark_safe( '<input type="checkbox" class="toggle form-check-input" title="Toggle all">'), 
+                              attrs={
+                                   "td": {"class": "w-1"},
+                                   "th": {"class": "w-1"},
+                               },
+                               orderable=False )
+    name          = tables.Column( linkify=True )
+    host_type     = tables.Column( verbose_name="Type" )
+    site          = tables.Column( linkify=True )
+    role          = tables.Column()
+    platform      = tables.Column()
+    agent_mapping = tables.Column( verbose_name="Agent Mapping", empty_values=(), accessor="agent_mapping" )
+    snmp_mapping  = tables.Column( verbose_name="SNMP Mapping",  empty_values=(), accessor="snmp_mapping" )
+    valid         = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
+    reason        = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
+    
+    actions = [] # Remove default actions since hosts cannot be added or edited
 
-# ------------------------------------------------------------------------------
-# Importable VM Table
-# ------------------------------------------------------------------------------
-
-
-class ImportableVMTable(BaseImportableTable):
-    """
-    Table for importable VirtualMachine Zabbix hosts.
-    """
-    class Meta(BaseImportableTable.Meta):
-        model = models.VirtualMachine
-
-
-# ------------------------------------------------------------------------------
-# NetBox Only Devices
-# ------------------------------------------------------------------------------
-
-
-EXTRA_DEVICE_ADD_ACTIONS = """
-<span class="btn-group dropdown">
-
-    <a class="btn btn-sm btn-primary" href="{% url 'plugins:netbox_zabbix:devicezabbixconfig_add' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" type="button" aria-label="Add Config">
-    <i class="mdi mdi-pen-plus"></i>
-    </a>
-
-    <a class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="padding-left: 2px" aria-expanded="false">
-        <span class="visually-hidden">Toggle Dropdown</span>
-    </a>
-
-    <ul class="dropdown-menu">
-        <li>
-            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_validate_quick_add' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
-            <i class="mdi mdi-flash-auto""></i>
-            Validate
-            </a>
-        </li>
-
-        <li>
-            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_agent' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
-            <i class="mdi mdi-flash-auto""></i>
-            Quick Add Agent
-            </a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:device_quick_add_snmpv3' %}?device_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlydevices'%}" class="btn btn-sm btn-info">
-            <i class="mdi mdi-flash""></i>
-            Qucik Add SNMPv3
-            </a>
-        </li>
-    </ul>
-</span>
-
-"""
-
-class NetBoxOnlyDevicesTable(DeviceTable):
-    name     = tables.Column( linkify=True )
-    site     = tables.Column( linkify=True )
-    role     = tables.Column( linkify=True )
-    platform = tables.Column( linkify=True )
-
-    zabbix_config        = tables.Column( verbose_name='Zabbix Configuration', empty_values=(), orderable=False )
-    agent_mapping_name   = tables.Column( verbose_name='Agent Mapping',        empty_values=(), orderable=False )
-    snmpv3_mapping_name  = tables.Column( verbose_name='SNMPv3 Mapping',       empty_values=(), orderable=False )
-
-    valid   = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
-    reason  = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
-    tags    = TagColumn( url_name='dcim:device_list' )
-    actions = ActionsColumn( extra_buttons=[] )
-
-    class Meta(DeviceTable.Meta):
-        model = Device
-        fields = ("name", "zabbix_config", "site", "role", "platform", 
-                  "agent_mapping_name", "snmpv3_mapping_name", "valid", 
-                  "reason", "tags")
+    class Meta(NetBoxTable.Meta):
+        model = models.HostConfig
+        fields = (
+            "pk",
+            "name",
+            "host_type",
+            "site",
+            "role",
+            "platform",
+            "agent_mapping",
+            "snmp_mapping",
+            "valid",
+            "reason",
+        )
         default_columns = fields
 
 
     def __init__(self, *args, request=None, device_mapping_cache=None, **kwargs):
-            super().__init__( *args, **kwargs )
-            self.reasons = {}
-            self.device_mapping_cache = device_mapping_cache or {}
+        super().__init__( *args, **kwargs )
+        self.reasons = {}
 
+    def get_actions(self, record):
+        return []
 
-    def render_valid(self, record):
-        if config.get_auto_validate_quick_add():
+    def _validate_record(self, record):
+        # Construct a key using the record's PK and content type.
+        # The PK alone is not reliable, as a record can be either a Device or a VM,
+        # so it is not guaranteed to be unique.
+        key = f"{record.pk}:{record.content_type}"
+        if key not in self.reasons:
             try:
                 validate_quick_add( record )
-                return mark_safe("✔")
+                self.reasons[key] = None
             except Exception as e:
-                self.reasons[record] = e
-                return mark_safe("✘")
-        else:
-            return mark_safe("-")
-
-
-    def render_reason(self, record):
-        if config.get_auto_validate_quick_add():
-            return self.reasons[record] if record in self.reasons else ""
-        return ""
-
-
-    def render_actions(self, record):
-        return columns.ActionsColumn( extra_buttons=EXTRA_DEVICE_ADD_ACTIONS ).render( record, self )
-
-
-    def render_agent_mapping_name(self, record):
-        mapping = self.device_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.Agent) )
-
-        # fallback to view.context if you want backward compatibility
-        if not mapping:
-            view = self.context.get( "view" )
-            mapping = getattr( view, "device_mapping_cache", {}).get(
-                (record.pk, models.InterfaceTypeChoices.Agent)
-            )
-
-        if not mapping:
-            return "—"
-
-        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
-
-
-    def render_snmpv3_mapping_name(self, record):
-        mapping = self.device_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.SNMP) )
-
-        if not mapping:
-            view = self.context.get( "view" )
-            mapping = getattr( view, "device_mapping_cache", {}).get(
-                (record.pk, models.InterfaceTypeChoices.SNMP)
-            )
-
-        if not mapping:
-            return "—"
-
-        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
-
-
-    def render_zabbix_config(self, record):
-        # Prefetching zabbix configs will reduce DB hits
-        return mark_safe( "✔" ) if hasattr( record, 'zcfg' ) and record.zcfg else mark_safe( "✘" )
-
-
-# ------------------------------------------------------------------------------
-# NetBox Only VMs
-# ------------------------------------------------------------------------------
-
-
-EXTRA_VM_ADD_ACTIONS = """
-<span class="btn-group dropdown">
-
-    <a class="btn btn-sm btn-primary" href="{% url 'plugins:netbox_zabbix:vmzabbixconfig_add' %}?virtual_machine_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlyvms'%}" type="button" aria-label="Add Config">
-    <i class="mdi mdi-pen-plus"></i>
-    </a>
-
-    <a class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" style="padding-left: 2px" aria-expanded="false">
-        <span class="visually-hidden">Toggle Dropdown</span>
-    </a>
-
-    <ul class="dropdown-menu">
-        <li>
-            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:vm_validate_quick_add' %}?virtual_machine_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlyvms'%}" class="btn btn-sm btn-info">
-            <i class="mdi mdi-flash-auto""></i>
-            Validate
-            </a>
-        </li>
-
-        <li>
-            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:vm_quick_add_agent' %}?virtual_machine_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlyvms'%}" class="btn btn-sm btn-info">
-            <i class="mdi mdi-flash-auto""></i>
-            Quick Add Agent
-            </a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:vm_quick_add_snmpv3' %}?virtual_machine_id={{ record.pk }}&return_url={% url 'plugins:netbox_zabbix:netboxonlyvms'%}" class="btn btn-sm btn-info">
-            <i class="mdi mdi-flash""></i>
-            Qucik Add SNMPv3
-            </a>
-        </li>
-    </ul>
-</span>
-
-"""
-
-class NetBoxOnlyVMsTable(VirtualMachineTable):
-    name     = tables.Column( linkify=True )
-    site     = tables.Column( linkify=True )
-    role     = tables.Column( linkify=True )
-    platform = tables.Column( linkify=True )
-
-    zabbix_config        = tables.Column( verbose_name='Zabbix Configuration', empty_values=(), orderable=False )
-    agent_mapping_name   = tables.Column( verbose_name='Agent Mapping',        empty_values=(), orderable=False )
-    snmpv3_mapping_name  = tables.Column( verbose_name='SNMPv3 Mapping',       empty_values=(), orderable=False )
-
-    valid   = tables.BooleanColumn( accessor='valid', verbose_name="Valid", orderable=False )
-    reason  = tables.Column( empty_values=(), verbose_name="Invalid Reason", orderable=False )
-    tags    = TagColumn( url_name='virtualization:virtualmachine_list' )
-    actions = ActionsColumn( extra_buttons=[] )
-
-    class Meta(VirtualMachineTable.Meta):
-        model = VirtualMachine
-        fields = ("name", "zabbix_config", "site", "role", "platform", 
-                  "agent_mapping_name", "snmpv3_mapping_name", "valid", 
-                  "reason", "tags")
-        default_columns = fields
-
-
-    def __init__(self, *args, request=None, vm_mapping_cache=None, **kwargs):
-            super().__init__( *args, **kwargs )
-            self.reasons = {}
-            self.vm_mapping_cache = vm_mapping_cache or {}
-
-
+                self.reasons[key] = e
+        return self.reasons[key]
+    
     def render_valid(self, record):
-        if config.get_auto_validate_quick_add():
-            try:
-                validate_quick_add( record )
-                return mark_safe("✔")
-            except Exception as e:
-                self.reasons[record] = e
-                return mark_safe("✘")
-        else:
-            return mark_safe("-")
-
-
+        if settings.get_auto_validate_quick_add():
+            return mark_safe( "✔" if self._validate_record( record ) is None else "✘" )
+        return mark_safe( "-" )
+    
     def render_reason(self, record):
-        if config.get_auto_validate_quick_add():
-            return self.reasons[record] if record in self.reasons else ""
+        if settings.get_auto_validate_quick_add():
+            reason = self._validate_record( record )
+            return reason or ""
         return ""
+    
+    def render_pk(self, record):
+        return mark_safe( f'<input class="form-check-input" type="checkbox" name="pk" value="{record.pk}:{record.content_type}">' )
 
-
-    def render_actions(self, record):
-        return columns.ActionsColumn( extra_buttons=EXTRA_VM_ADD_ACTIONS ).render( record, self )
-
-
-    def render_agent_mapping_name(self, record):
-        mapping = self.vm_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.Agent) )
-
-        # fallback to view.context if you want backward compatibility
-        if not mapping:
-            view = self.context.get( "view" )
-            mapping = getattr(view, "vm_mapping_cache", {}).get(
-                (record.pk, models.InterfaceTypeChoices.Agent)
-            )
-
+    def render_agent_mapping(self, record):
+        if record.host_type == "Device":
+            mapping = self.device_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.Agent) )
+            
+        else:
+            mapping = self.vm_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.Agent) )
+        
         if not mapping:
             return "—"
-
+        
         return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
 
-
-    def render_snmpv3_mapping_name(self, record):
-        mapping = self.vm_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.SNMP) )
-
-        if not mapping:
-            view = self.context.get( "view" )
-            mapping = getattr( view, "vm_mapping_cache", {}).get(
-                (record.pk, models.InterfaceTypeChoices.SNMP)
-            )
+    def render_snmp_mapping(self, record):
+        if record.host_type == "Device":
+            mapping = self.device_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.SNMP) )
+        else:
+            mapping = self.vm_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.SNMP) )
 
         if not mapping:
-            return "—"
-
-        return mark_safe(f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>')
-
-
-    def render_zabbix_config(self, record):
-        # Prefetching zabbix configs will reduce DB hits
-        return mark_safe( "✔" ) if hasattr( record, 'zcfg' ) and record.zcfg else mark_safe( "✘" )
+            return "-"
+        
+        return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
 
 
 # ------------------------------------------------------------------------------
@@ -840,94 +625,6 @@ class ZabbixOnlyHostTable(tables.Table):
     class Meta:
         attrs = {'class': 'table table-hover panel-table'}
         fields = ('name', 'hostid')
-
-
-# ------------------------------------------------------------------------------
-# Base Interface Table
-# ------------------------------------------------------------------------------
-
-
-class BaseInterfaceTable(NetBoxTable):
-    """
-    Abstract base table for Agent and SNMPv3 interfaces for Devices and VMs.
-    Provides shared columns like name, interface, IP address, and DNS name.
-    """
-    name                = tables.Column( linkify=True )
-    interface           = tables.Column( linkify=True )
-    resolved_ip_address = tables.Column( verbose_name="IP Address", linkify=True )
-    resolved_dns_name   = tables.Column( verbose_name="DNS Name", linkify=True )
-
-    class Meta(NetBoxTable.Meta):
-        abstract = True
-        fields = ("name", "zcfg", "interface", "resolved_ip_address", "resolved_dns_name")
-        default_columns = ("name", "zcfg", "interface", "resolved_ip_address", "resolved_dns_name")
-
-
-# ------------------------------------------------------------------------------
-# Device Agent Interface Table
-# ------------------------------------------------------------------------------
-
-
-class DeviceAgentInterfaceTable(BaseInterfaceTable):
-    """
-    Table for Device Agent interfaces.
-    """
-    class Meta(BaseInterfaceTable.Meta):
-        model   = models.DeviceAgentInterface
-        actions = ("bulk_edit", "bulk_delete", "edit", "delete")
-        fields  = BaseInterfaceTable.Meta.fields + ("hostid", "interfaceid", "available", "useip", "main", "port")
-        default_columns = BaseInterfaceTable.Meta.default_columns + ("port", "useip", "main")
-
-
-# ------------------------------------------------------------------------------
-# Device SNMPv3 Interface Table
-# ------------------------------------------------------------------------------
-
-class DeviceSNMPv3InterfaceTable(BaseInterfaceTable):
-    """
-    Table for Device SNMPv3 interfaces.
-    """
-    class Meta(BaseInterfaceTable.Meta):
-        model  = models.DeviceSNMPv3Interface
-        fields = BaseInterfaceTable.Meta.fields + (
-            "hostid", "interfaceid", "available", "useip", "main", "port",
-            "max_repetitions", "contextname", "securityname", "securitylevel",
-            "authprotocol", "authpassphrase", "privprotocol", "privpassphrase", "bulk"
-        )
-        default_columns = BaseInterfaceTable.Meta.default_columns + ("port", "useip", "main")
-
-
-# ------------------------------------------------------------------------------
-# VM Agent Interface Table
-# ------------------------------------------------------------------------------
-
-class VMAgentInterfaceTable(BaseInterfaceTable):
-    """
-    Table for VM Agent interfaces.
-    """
-    class Meta(BaseInterfaceTable.Meta):
-        model  = models.VMAgentInterface
-        fields = BaseInterfaceTable.Meta.fields + ("hostid", "interfaceid", "available", "useip", "main", "port")
-        default_columns = BaseInterfaceTable.Meta.default_columns + ("port", "useip", "main")
-
-
-# ------------------------------------------------------------------------------
-# VM SNMPv3 Interface Table
-# ------------------------------------------------------------------------------
-
-class VMSNMPv3InterfaceTable(BaseInterfaceTable):
-    """
-    Table for VM SNMPv3 interfaces.
-    """
-    class Meta(BaseInterfaceTable.Meta):
-        model = models.VMSNMPv3Interface
-        fields = BaseInterfaceTable.Meta.fields + (
-            "hostid", "interfaceid", "available", "useip", "main", "port",
-            "snmp_max_repetitions", "snmp_contextname", "snmp_securityname",
-            "snmp_securitylevel", "snmp_authprotocol", "snmp_authpassphrase",
-            "snmp_privprotocol", "snmp_privpassphrase", "snmp_bulk"
-        )
-        default_columns = BaseInterfaceTable.Meta.default_columns + ("port", "useip", "main")
 
 
 # ------------------------------------------------------------------------------
@@ -995,22 +692,6 @@ class ZabbixProblemTable(tables.Table):
         except Exception:
             return value
 
-
-
-# ------------------------------------------------------------------------------
-# Device Zabbix Tasks Table
-# ------------------------------------------------------------------------------
-
-
-class DeviceZabbixTasksTable(JobTable):
-    actions = []
-
-    class Meta(NetBoxTable.Meta):
-        model  = Job
-        fields = ("id", "name", "status", "user", "started", "completed")
-
-    def get_actions(self, record):
-            return []
 
 
 # end

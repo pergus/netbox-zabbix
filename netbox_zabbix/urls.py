@@ -4,24 +4,21 @@ from netbox.views.generic import ObjectChangeLogView
 
 from netbox_zabbix import models, views
 
-
-from core.views import JobView
-
 app_name = 'netbox_zabbix' 
 
 
 urlpatterns = (
 
     # --------------------------------------------------------------------------
-    # Configuration
+    # Setting
     # --------------------------------------------------------------------------
 
-    path( 'configs/',                    views.ConfigListView.as_view(),   name='config_list' ),
-    path( 'configs/add/',                views.ConfigEditView.as_view(),   name='config_add' ),
-    path( 'configs/<int:pk>/',           views.ConfigView.as_view(),       name='config' ),
-    path( 'configs/<int:pk>/edit/',      views.ConfigEditView.as_view(),   name='config_edit' ),
-    path( 'configs/<int:pk>/delete/',    views.ConfigDeleteView.as_view(), name='config_delete' ),
-    path( 'configs/<int:pk>/changelog/', ObjectChangeLogView.as_view(),    name='config_changelog', kwargs={'model': models.Config}, ),
+    path( 'settings/',                    views.SettingListView.as_view(),   name='setting_list' ),
+    path( 'settings/add/',                views.SettingEditView.as_view(),   name='setting_add' ),
+    path( 'settings/<int:pk>/',           views.SettingView.as_view(),       name='setting' ),
+    path( 'settings/<int:pk>/edit/',      views.SettingEditView.as_view(),   name='setting_edit' ),
+    path( 'settings/<int:pk>/delete/',    views.SettingDeleteView.as_view(), name='setting_delete' ),
+    path( 'settings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),     name='setting_changelog', kwargs={'model': models.Setting}, ),
 
 
     # --------------------------------------------------------------------------
@@ -52,7 +49,7 @@ urlpatterns = (
     # --------------------------------------------------------------------------
     # Templates
     # --------------------------------------------------------------------------
-    
+
     path( 'templates/',                   views.TemplateListView.as_view(),       name='template_list' ),
     path( 'templates/add/',               views.TemplateEditView.as_view(),       name='template_add' ),
     path( 'templates/<int:pk>/',          views.TemplateView.as_view(),           name='template' ),
@@ -60,14 +57,12 @@ urlpatterns = (
     path( 'templates/<int:pk>/delete/',   views.TemplateDeleteView.as_view(),     name='template_delete' ),
     path( 'templates/delete/',            views.TemplateBulkDeleteView.as_view(), name='template_bulk_delete' ),
     path( 'templates/<int:pk>/changelog', ObjectChangeLogView.as_view(),          name='template_changelog', kwargs={'model': models.Template} ),
-    path( 'templates/review-deletions/',  views.templates_review_deletions,       name='templates_review_deletions' ), 
-    path( 'templates/confirm-deletions/', views.templates_confirm_deletions,      name='templates_confirm_deletions' ),
-    
-    
+
+
     # --------------------------------------------------------------------------
     # Proxy
     # --------------------------------------------------------------------------
-    
+
     path( 'proxies/',                   views.ProxyListView.as_view(),       name='proxy_list' ),
     path( 'proxies/add/',               views.ProxyEditView.as_view(),       name='proxy_add' ),
     path( 'proxies/<int:pk>/',          views.ProxyView.as_view(),           name='proxy' ),
@@ -75,12 +70,10 @@ urlpatterns = (
     path( 'proxies/<int:pk>/delete/',   views.ProxyDeleteView.as_view(),     name='proxy_delete' ),
     path( 'proxies/delete/',            views.ProxyBulkDeleteView.as_view(), name='proxy_bulk_delete' ),
     path( 'proxies/<int:pk>/changelog', ObjectChangeLogView.as_view(),       name='proxy_changelog', kwargs={'model': models.Proxy} ),
-    path( 'proxies/review-deletions/',  views.proxies_review_deletions,      name='proxies_review_deletions' ), 
-    path( 'proxies/confirm-deletions/', views.proxies_confirm_deletions,     name='proxies_confirm_deletions' ),
-    
-    
+
+
     # --------------------------------------------------------------------------
-    # Proxy Groups
+    # Proxy Group
     # --------------------------------------------------------------------------
     
     path( 'proxy-groups/',                   views.ProxyGroupListView.as_view(),       name='proxygroup_list' ),
@@ -90,14 +83,12 @@ urlpatterns = (
     path( 'proxy-groups/<int:pk>/delete/',   views.ProxyGroupDeleteView.as_view(),     name='proxygroup_delete' ),
     path( 'proxy-groups/delete/',            views.ProxyGroupBulkDeleteView.as_view(), name='proxygroup_bulk_delete' ),
     path( 'proxy-groups/<int:pk>/changelog', ObjectChangeLogView.as_view(),            name='proxygroup_changelog', kwargs={'model': models.ProxyGroup} ),
-    path( 'proxy-groups/review-deletions/',  views.proxy_groups_review_deletions,      name='proxygroups_review_deletions' ), 
-    path( 'proxy-groups/confirm-deletions/', views.proxy_groups_confirm_deletions,     name='proxygroups_confirm_deletions' ),
-    
-    
+
+
     # --------------------------------------------------------------------------
-    # Host Groups
+    # Host Group
     # --------------------------------------------------------------------------
-    
+
     path( 'host-groups/',                    views.HostGroupListView.as_view(),       name='hostgroup_list' ),
     path( 'host-groups/add/',                views.HostGroupEditView.as_view(),       name='hostgroup_add' ),
     path( 'host-groups/<int:pk>/',           views.HostGroupView.as_view(),           name='hostgroup' ),
@@ -113,7 +104,7 @@ urlpatterns = (
 
     path( 'tag/mappings/',                    views.TagMappingListView.as_view(),   name='tagmapping_list' ),
     path( 'tag/mappings/add/',                views.TagMappingEditView.as_view(),   name='tagmapping_add' ),
-    path( 'tag/mappings/<int:pk>/',           views.TagMappingView.as_view(),       name='tagmapping' ),
+    path( 'tag/mappings/<int:pk>/',            views.TagMappingView.as_view(),      name='tagmapping' ),
     path( 'tag/mappings/<int:pk>/edit/',      views.TagMappingEditView.as_view(),   name='tagmapping_edit' ),
     path( 'tag/mappings/<int:pk>/delete/',    views.TagMappingDeleteView.as_view(), name='tagmapping_delete' ),
     path( 'tag/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),        name='tagmapping_changelog', kwargs={'model': models.TagMapping} ),
@@ -160,71 +151,58 @@ urlpatterns = (
 
 
     # --------------------------------------------------------------------------
-    # Device Zabbix Configurations
+    # Host Config
     # --------------------------------------------------------------------------
 
-    path( 'devices/zabbix-config/',                    views.DeviceZabbixConfigListView.as_view(),       name='devicezabbixconfig_list' ),
-    path( 'devices/zabbix-config/add/',                views.DeviceZabbixConfigEditView.as_view(),       name='devicezabbixconfig_add' ),
-    path( 'devices/zabbix-config/<int:pk>/',           views.DeviceZabbixConfigView.as_view(),           name='devicezabbixconfig' ),
-    path( 'devices/zabbix-config/<int:pk>/edit/',      views.DeviceZabbixConfigEditView.as_view(),       name='devicezabbixconfig_edit' ),
-    path( 'devices/zabbix-config/<int:pk>/delete/',    views.DeviceZabbixConfigDeleteView.as_view(),     name='devicezabbixconfig_delete' ),
-    path( 'devices/zabbix-config/delete/',             views.DeviceZabbixConfigBulkDeleteView.as_view(), name='devicezabbixconfig_bulk_delete' ),
-    path( 'devices/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                    name='devicezabbixconfig_changelog', kwargs={'model': models.DeviceZabbixConfig} ),
-    path( 'devices/zabbix-config/<int:pk>/jobs',       views.DeviceZabbixConfigJobsTabView.as_view(),    name='devicezabbixconfig_jobs' ),
-    path( 'devices/zabbix-config/<int:pk>/difference', views.DeviceZabbixConfigDiffTabView.as_view(),    name='devicezabbixconfig_difference'),
-
-
-    # --------------------------------------------------------------------------
-    # VM Zabbix Configurations
-    # --------------------------------------------------------------------------
-
-    path( 'virtual-machines/zabbix-config/',                    views.VMZabbixConfigListView.as_view(),       name='vmzabbixconfig_list' ),
-    path( 'virtual-machines/zabbix-config/add/',                views.VMZabbixConfigEditView.as_view(),       name='vmzabbixconfig_add' ),
-    path( 'virtual-machines/zabbix-config/<int:pk>/',           views.VMZabbixConfigView.as_view(),           name='vmzabbixconfig' ),
-    path( 'virtual-machines/zabbix-config/<int:pk>/edit/',      views.VMZabbixConfigEditView.as_view(),       name='vmzabbixconfig_edit' ),
-    path( 'virtual-machines/zabbix-config/<int:pk>/delete/',    views.VMZabbixConfigDeleteView.as_view(),     name='vmzabbixconfig_delete' ),
-    path( 'virtual-machines/zabbix-config/delete/',             views.VMZabbixConfigBulkDeleteView.as_view(), name='vmzabbixconfig_bulk_delete' ),
-    path( 'virtual-machines/zabbix-config/<int:pk>/jobs',       views.VMZabbixConfigJobsTabView.as_view(),    name='vmzabbixconfig_jobs' ),
-    path( 'virtual-machines/zabbix-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                name='vmzabbixconfig_changelog', kwargs={'model': models.VMZabbixConfig} ),
-    path( 'virtual-machiens/zabbix-config/<int:pk>/difference', views.VMZabbixConfigDiffTabView.as_view(),    name='vmzabbixconfig_difference'),
-
-
-    # ------------------------------------------------------------------------------
-    # Device & VM Zabbix Configurations (Combined)
-    # ------------------------------------------------------------------------------
-    
-    path( 'zabbix/configs/',                     views.ZabbixConfigListView.as_view(),   name='zabbixconfig_list' ),
-    path( 'zabbix/configs/edit/<int:pk>/',       views.ZabbixConfigEditView.as_view(),   name='zabbixconfig_edit' ),
-    path( 'zabbix/configs/delete/<int:pk>/',     views.ZabbixConfigDeleteView.as_view(), name='zabbixconfig_delete' ),
-    path( 'zabbix/configs/<int:pk>/changelog/',  ObjectChangeLogView.as_view(),          name='zabbixconfig_changelog', kwargs={'model': models.ZabbixConfig} ),
+    path( 'host-config/',                    views.HostConfigListView.as_view(),       name='hostconfig_list' ),
+    path( 'host-config/add/',                views.HostConfigEditView.as_view(),       name='hostconfig_add' ),
+    path( 'host-config/<int:pk>/',           views.HostConfigView.as_view(),           name='hostconfig' ),
+    path( 'host-config/<int:pk>/edit/',      views.HostConfigEditView.as_view(),       name='hostconfig_edit' ),
+    path( 'host-config/<int:pk>/delete/',    views.HostConfigDeleteView.as_view(),     name='hostconfig_delete' ),
+    path( 'host-config/delete/',             views.HostConfigBulkDeleteView.as_view(), name='hostconfig_bulk_delete' ),
+    path( 'host-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),            name='hostconfig_changelog', kwargs={'model': models.HostConfig} ),
+    path( 'host-config/<int:pk>/jobs',       views.HostConfigJobsTabView.as_view(),    name='hostconfig_jobs' ),
+    path( 'host-config/<int:pk>/difference', views.HostConfigDiffTabView.as_view(),    name='hostconfig_difference' ),
 
 
     # --------------------------------------------------------------------------
-    # Devices with importable hosts in Zabbix
+    # Agent Interface
     # --------------------------------------------------------------------------
 
-    path( 'zabbix/importable-devices/', views.ImportableDeviceListView.as_view(), name='importabledevice_list' ),
-
-
-    # --------------------------------------------------------------------------
-    # VMs with importable hosts in Zabbix
-    # --------------------------------------------------------------------------
-
-    path( 'zabbix/importable-vms/',     views.ImportableVMListView.as_view(),     name='importablevm_list' ),
-
-
-    # --------------------------------------------------------------------------
-    # NetBox Only Devices
-    # --------------------------------------------------------------------------
-
-    path( 'zabbix/netbox-only-devices/', views.NetBoxOnlyDevicesView.as_view(), name='netboxonlydevices' ),
+    path( 'agent-interface/',                    views.AgentInterfaceListView.as_view(),       name='agentinterface_list' ),
+    path( 'agent-interface/add/',                views.AgentInterfaceEditView.as_view(),       name='agentinterface_add' ),
+    path( 'agent-interface/<int:pk>/',           views.AgentInterfaceView.as_view(),           name='agentinterface' ),
+    path( 'agent-interface/<int:pk>/edit/',      views.AgentInterfaceEditView.as_view(),       name='agentinterface_edit' ),
+    path( 'agent-interface/<int:pk>/delete/',    views.AgentInterfaceDeleteView.as_view(),     name='agentinterface_delete' ),
+    path( 'agent-interface/delete/',             views.AgentInterfaceBulkDeleteView.as_view(), name='agentinterface_bulk_delete' ),
+    path( 'agent-interface/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                name='agentinterface_changelog', kwargs={'model': models.AgentInterface} ),
 
 
     # --------------------------------------------------------------------------
-    # NetBox Only VMs
+    # SNMP Interface
     # --------------------------------------------------------------------------
-    
-    path( 'zabbix/netbox-only-vms/', views.NetBoxOnlyVMsView.as_view(), name='netboxonlyvms' ),
+
+    path( 'snmp-interface/',                     views.SNMPInterfaceListView.as_view(),        name='snmpinterface_list' ),
+    path( 'snmp-interface/add/',                 views.SNMPInterfaceEditView.as_view(),        name='snmpinterface_add' ),
+    path( 'snmp-interface/<int:pk>/',            views.SNMPInterfaceView.as_view(),            name='snmpinterface' ),
+    path( 'snmp-interface/<int:pk>/edit/',       views.SNMPInterfaceEditView.as_view(),        name='snmpinterface_edit' ),
+    path( 'snmp-interface/<int:pk>/delete/',     views.SNMPInterfaceDeleteView.as_view(),      name='snmpinterface_delete' ),
+    path( 'snmp-interface/delete/',              views.SNMPInterfaceBulkDeleteView.as_view(),  name='snmpinterface_bulk_delete' ),
+    path( 'snmp-interface/<int:pk>/changelog/',  ObjectChangeLogView.as_view(),                name='snmpinterface_changelog', kwargs={'model': models.SNMPInterface} ),
+
+
+    # --------------------------------------------------------------------------
+    # Importable Hosts
+    # --------------------------------------------------------------------------
+
+    path( 'importable-hosts/', views.ImportableHostsListView.as_view(), name='importablehosts_list' ),
+
+
+    # --------------------------------------------------------------------------
+    # NetBox Only Hosts
+    # --------------------------------------------------------------------------
+
+    path( 'netbox/netbox-only-hosts/', views.NetBoxOnlyHostsView.as_view(), name='netboxhosts_list' ),
 
 
     # --------------------------------------------------------------------------
@@ -232,75 +210,6 @@ urlpatterns = (
     # --------------------------------------------------------------------------
 
     path( 'zabbix/zabbix-only-hosts/', views.ZabbixOnlyHostsView.as_view(), name='zabbixonlyhosts' ),
-
-
-    # --------------------------------------------------------------------------
-    # Devices Quick Add
-    # --------------------------------------------------------------------------
-
-    path( 'devices/zabbix-config/validate-quick-add/',  views.device_validate_quick_add, name='device_validate_quick_add' ),
-    path( 'devices/zabbix-config/quick-add-agent/',     views.device_quick_add_agent,    name='device_quick_add_agent' ),
-    path( 'devices/zabbix-config/quick-add-snmpv3/',    views.device_quick_add_snmpv3,   name='device_quick_add_snmpv3' ),
-
-
-
-    # --------------------------------------------------------------------------
-    # VMs Quick Add
-    # --------------------------------------------------------------------------
-    
-    path( 'virtual-machines/zabbix-config/validate-quick-add/',  views.vm_validate_quick_add, name='vm_validate_quick_add' ),
-    path( 'virtual-machines/zabbix-config/quick-add-agent/',     views.vm_quick_add_agent,    name='vm_quick_add_agent' ),
-    path( 'virtual-machines/zabbix-config/quick-add-snmpv3/',    views.vm_quick_add_snmpv3,   name='vm_quick_add_snmpv3' ),
-    
-
-    # --------------------------------------------------------------------------
-    # Device Agent Interface
-    # --------------------------------------------------------------------------
-
-    path( 'interfaces/device-agents/',                    views.DeviceAgentInterfaceListView.as_view(),       name='deviceagentinterface_list' ),
-    path( 'interfaces/device-agents/add/',                views.DeviceAgentInterfaceEditView.as_view(),       name='deviceagentinterface_add' ),
-    path( 'interfaces/device-agents/<int:pk>/',           views.DeviceAgentInterfaceView.as_view(),           name='deviceagentinterface' ),
-    path( 'interfaces/device-agents/<int:pk>/edit/',      views.DeviceAgentInterfaceEditView.as_view(),       name='deviceagentinterface_edit' ),
-    path( 'interfaces/device-agents/<int:pk>/delete/',    views.DeviceAgentInterfaceDeleteView.as_view(),     name='deviceagentinterface_delete' ),
-    path( 'interfaces/device-agents/delete/',             views.DeviceAgentInterfaceBulkDeleteView.as_view(), name='deviceagentinterface_bulk_delete' ),
-    path( 'interfaces/device-agents/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                      name='deviceagentinterface_changelog', kwargs={'model': models.DeviceAgentInterface} ),
-
-
-    # --------------------------------------------------------------------------
-    # Device SNMPv3 Interface
-    # --------------------------------------------------------------------------
-
-    path( 'interfaces/device-snmpv3/',                    views.DeviceSNMPv3InterfaceListView.as_view(),       name='devicesnmpv3interface_list' ),
-    path( 'interfaces/device-snmpv3/add/',                views.DeviceSNMPv3InterfaceEditView.as_view(),       name='devicesnmpv3interface_add' ),
-    path( 'interfaces/device-snmpv3/<int:pk>/',           views.DeviceSNMPv3InterfaceView.as_view(),           name='devicesnmpv3interface' ),
-    path( 'interfaces/device-snmpv3/<int:pk>/edit/',      views.DeviceSNMPv3InterfaceEditView.as_view(),       name='devicesnmpv3interface_edit' ),
-    path( 'interfaces/device-snmpv3/<int:pk>/delete/',    views.DeviceSNMPv3InterfaceDeleteView.as_view(),     name='devicesnmpv3interface_delete' ),
-    path( 'interfaces/device-snmpv3/delete/',             views.DeviceSNMPv3InterfaceBulkDeleteView.as_view(), name='devicesnmpv3interface_bulk_delete' ),
-    path( 'interfaces/device-snmpv3/<int:pk>/changelog/', ObjectChangeLogView.as_view(),                       name='devicesnmpv3interface_changelog', kwargs={'model': models.DeviceSNMPv3Interface} ),
-
-
-    # --------------------------------------------------------------------------
-    # VM Agent Interface
-    # --------------------------------------------------------------------------
-
-    path( 'interfaces/vm-agents/',                    views.VMAgentInterfaceListView.as_view(),   name='vmagentinterface_list' ),
-    path( 'interfaces/vm-agents/add/',                views.VMAgentInterfaceEditView.as_view(),   name='vmagentinterface_add' ),
-    path( 'interfaces/vm-agents/<int:pk>/',           views.VMAgentInterfaceView.as_view(),       name='vmagentinterface' ),
-    path( 'interfaces/vm-agents/<int:pk>/edit/',      views.VMAgentInterfaceEditView.as_view(),   name='vmagentinterface_edit' ),
-    path( 'interfaces/vm-agents/<int:pk>/delete/',    views.VMAgentInterfaceDeleteView.as_view(), name='vmagentinterface_delete' ),
-    path( 'interfaces/vm-agents/<int:pk>/changelog/', ObjectChangeLogView.as_view(),              name='vmagentinterface_changelog', kwargs={'model': models.VMAgentInterface} ),
-
-
-    # --------------------------------------------------------------------------
-    # Device SNMPv3 Interface
-    # --------------------------------------------------------------------------
-
-    path( 'interfaces/vm-snmpv3/',                    views.VMSNMPv3InterfaceListView.as_view(),   name='vmsnmpv3interface_list' ),
-    path( 'interfaces/vm-snmpv3/add/',                views.VMSNMPv3InterfaceEditView.as_view(),   name='vmsnmpv3interface_add' ),
-    path( 'interfaces/vm-snmpv3/<int:pk>/',           views.VMSNMPv3InterfaceView.as_view(),       name='vmsnmpv3interface' ),
-    path( 'interfaces/vm-snmpv3/<int:pk>/edit/',      views.VMSNMPv3InterfaceEditView.as_view(),   name='vmsnmpv3interface_edit' ),
-    path( 'interfaces/vm-snmpv3/<int:pk>/delete/',    views.VMSNMPv3InterfaceDeleteView.as_view(), name='vmsnmpv3interface_delete' ),
-    path( 'interfaces/vm-snmpv3/<int:pk>/changelog/', ObjectChangeLogView.as_view(),               name='vmsnmpv3interface_changelog', kwargs={'model': models.VMSNMPv3Interface} ),
 
 
     # --------------------------------------------------------------------------
@@ -314,5 +223,6 @@ urlpatterns = (
     path( 'events/<int:pk>/delete',    views.EventLogDeleteView.as_view(),     name='eventlog_delete' ),
     path( 'events/delete/',            views.EventLogBulkDeleteView.as_view(), name='eventlog_bulk_delete' ),
     path( 'events/<int:pk>/changelog', ObjectChangeLogView.as_view(),          name='eventlog_changelog', kwargs={'model': models.EventLog} ),
+
 
  ) 
