@@ -5,7 +5,6 @@
 
 
 from django.db import transaction
-from django.contrib.contenttypes.models import ContentType
 
 from datetime import timedelta
 from core.choices import JobStatusChoices

@@ -36,7 +36,9 @@ import os
 import logging
 
 logger = logging.getLogger("netbox.plugins.netbox_zabbix")
-logger.setLevel( logging.DEBUG )
+
+
+# Thread-local storage to track deletion state per thread
 
 _deletion_context = threading.local()
 
@@ -121,11 +123,15 @@ def needs_zabbix_ip_reassignment(interface: Interface | VMInterface):
         logger.warning( "Skipping Zabbix IP reassignment: no parent Device/VM found for interface id=%s", interface.id )
         return False
 
+
     # Ensure the interface has a Zabbix config interface
-    zabbix_iface = getattr(interface, "agent_interface", None) or \
-                   getattr(interface, "snmp_interface", None)
+    snmp_iface   = SNMPInterface.objects.filter( interface_id=interface.id ).first()
+    agent_iface  = AgentInterface.objects.filter( interface_id=interface.id ).first()
+    
+    zabbix_iface = agent_iface or snmp_iface
+    
     if not zabbix_iface:
-        logger.warning( "Skipping Zabbix IP reassignment: interface id=%s has no Zabbix config interface", interface.id )
+        logger.warning( "Skipping Zabbix IP reassignment: interface id=%s is not associated with a Zabbix interface", interface.id )
         return False
 
     # Check candidate primary IP
@@ -164,8 +170,12 @@ def assign_primary_ip_to_zabbix_interface(interface: Interface | VMInterface) ->
         return False
 
     # Ensure the interface has a Zabbix config interface
-    zabbix_iface = getattr( interface, "agent_interface", None ) or \
-                   getattr( interface, "snmp_interface", None )
+    snmp_iface   = SNMPInterface.objects.filter( interface_id=interface.id ).first()
+    agent_iface  = AgentInterface.objects.filter( interface_id=interface.id ).first()
+    
+    zabbix_iface = agent_iface or snmp_iface
+    
+    
     if not zabbix_iface:
         logger.warning( "Cannot reassign Zabbix IP: interface id=%s has no Zabbix config interface", interface.id )
         return False
@@ -537,11 +547,11 @@ def create_or_update_ip_address(sender, instance, created, **kwargs):
    # Get the assigned interface
    iface = getattr( ip, "assigned_object", None )
    if not iface:
-       logger.info( "[%s] iP %s (pk=%s) has no assigned object, skipping Zabbix update.", signal_id, ip.address, ip.pk )
+       logger.info( "[%s] IP %s (pk=%s) has no assigned interface, skipping Zabbix update.", signal_id, ip.address, ip.pk )
        return
    
    if not isinstance( iface, (Interface, VMInterface) ):
-       logger.info( "[%s] assigned object for IP %s (pk=%s) is not an Interface/VMInterface, skipping Zabbix update.", signal_id, ip.address, ip.pk )
+       logger.info( "[%s] assigned interface for IP %s (pk=%s) is not an Interface/VMInterface, skipping Zabbix update.", signal_id, ip.address, ip.pk )
        return
 
    dev_or_vm = getattr( iface, "device", None ) or getattr( iface, "virtual_machine", None )

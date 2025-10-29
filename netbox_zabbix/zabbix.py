@@ -315,7 +315,8 @@ def get_cached_zabbix_hostnames():
             hostnames = {host["name"] for host in get_zabbix_hostnames()}
             cache.set( cache_key, hostnames, timeout=60 )  # Cache for 60 seconds
         except Exception:
-            hostnames = set()
+            raise
+            #hostnames = set()
     return hostnames
 
 

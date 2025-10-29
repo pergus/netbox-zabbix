@@ -788,7 +788,10 @@ class HostConfigView(generic.ObjectView):
         web_address = settings.get_zabbix_web_address()
         problems = []
         table = None
-        problems = z.get_problems( instance.assigned_object.name )
+        try:
+            problems = z.get_problems( instance.assigned_object.name )
+        except:
+            pass
         table = tables.ZabbixProblemTable( problems )
         return { "web_address":  web_address, "table": table }
 
@@ -906,9 +909,8 @@ class ImportableHostsListView(generic.ObjectListView):
             zabbix_hostnames = z.get_cached_zabbix_hostnames()
         except Exception as e:
             messages.error( request, f"Error fetching hostnames from Zabbix: {e}" )
-            # TODO: What should be returned on error?
-            return None
-    
+            zabbix_hostnames = []
+
         device_ct = ContentType.objects.get_for_model( Device )
         devices   = ( Device.objects.filter( name__in=zabbix_hostnames ).exclude( 
                       id__in= HostConfig.objects.filter( content_type=device_ct ).values_list( "object_id", flat=True ) ) )
@@ -1011,8 +1013,7 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
             zabbix_hostnames = z.get_cached_zabbix_hostnames()
         except Exception as e:
             messages.error( request, f"Error fetching hostnames from Zabbix: {e}" )
-            # TODO: What should be returned on error?
-            return None
+            zabbix_hostnames = []
 
         device_ct = ContentType.objects.get_for_model( Device )
         devices = (
