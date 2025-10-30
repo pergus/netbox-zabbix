@@ -1,0 +1,56 @@
+{% extends 'generic/object.html' %}
+{% load buttons %}
+{% load custom_links %}
+{% load helpers %}
+{% load perms %}
+{% load plugins %}
+{% load tabs %}
+{% load i18n %}
+{% load tab_utils %}
+{% load render_table from django_tables2 %}
+
+
+{% block extra_controls %}
+<div>
+    <a href="{% url 'plugins:netbox_zabbix:sync_with_zabbix' %}?host_config_id={{object.id}}&return_url={% url 'plugins:netbox_zabbix:hostconfig' object.id %}"
+        class="btn btn-primary">
+        <i class="mdi mdi-sync"></i> Sync With Zabbix
+    </a>
+</div>
+{% endblock %}
+
+
+
+{% block tabs %}
+<ul class="nav nav-tabs" role="presentation">
+    {# Primary overview tab #}
+    <li class="nav-item">
+        <a class="nav-link{% if not tab %} active{% endif %}" href="{{ object.get_absolute_url }}">
+            {{ object|meta:"verbose_name"|bettertitle }}
+        </a>
+    </li>
+    {# Include tabs for registered model views except for jobs #}
+    {% model_view_tabs_exlude_jobs object %}
+</ul>
+{% endblock tabs %}
+
+
+{% block content %}
+{% if table.rows %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header">
+                Problems
+            </h2>
+            {% render_table table %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    {% trans "No Zabbix Problems." %}
+</div>
+{% endif %}
+
+{% endblock %}

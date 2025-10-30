@@ -8,13 +8,15 @@ from netbox_zabbix import models
 from netbox_zabbix.settings import get_default_tag, get_tag_prefix
 from netbox_zabbix.inventory_properties import inventory_properties
 from netbox_zabbix import zabbix as z
+
 from netbox_zabbix.logger import logger
+
 
 
 
 # ------------------------------------------------------------------------------
 # Build payload helpers
-#
+# ------------------------------------------------------------------------------
 
 
 def resolve_field_path(obj, path):
@@ -133,7 +135,7 @@ def get_zabbix_tags_for_object(obj):
 
 # ------------------------------------------------------------------------------
 # Template helper functions
-#
+# ------------------------------------------------------------------------------
 
 
 def compute_interface_type(items):
@@ -679,26 +681,54 @@ def create_custom_field(name, defaults):
 
 def find_ip_address(address:str):
     """
-    Search for an exact IP address in NetBox.
+    Search for an IP address in NetBox that starts with the given address.
     
-    This function iterates through all IPAddress objects and returns the object
-    whose IP portion matches the given address exactly, ignoring the CIDR prefix.
+    This function ensures the input address ends with a forward slash ("/") and then
+    searches NetBox for IPAddress objects whose address field starts with the given value.
+    For example, providing "10.0.0.46" will match "10.0.0.46/24".
     
     Parameters:
-        address (str): The IP address to search for, e.g., "10.0.0.46".
+        address (str): The IP address (without CIDR) to search for, e.g., "10.0.0.46".
     
     Returns:
-        IPAddress: The matching IPAddress object if found.
-        None: If no matching IP address exists.
+        QuerySet: A Django QuerySet of matching IPAddress objects.
+                  (May be empty if no matches are found.)
     
     Example:
-        >>> ip = find_ip("10.0.0.46")
+        >>> ip = find_ip_address("10.0.0.46")
         >>> print(ip)
-        10.0.0.46/24
+        <QuerySet [<IPAddress: 10.0.0.46/24>]>
     """
-    for ip in IPAddress.objects.all():
-        if str( ip.address.ip ) == address:
-            return ip
-    return None
+
+    if not address.endswith("/"):
+        address += "/"
+
+    return IPAddress.objects.filter( address__startswith=address )
+
+
+# ------------------------------------------------------------------------------
+# Interfaces
+# ------------------------------------------------------------------------------
+
+
+def can_delete_interface(interface):
+    logger.info( "**************** can_delete_interface ****************" )
+
+    try:
+        hostid      = interface.host_config.hostid
+        interfaceid = interface.interfaceid
+
+        # Check if there are templates that need to be deleted before we can delete the interface.
+        if not z.can_remove_interface( hostid, interfaceid ):
+            logger.info( "FALSE" )
+            return False
+
+    except Exception as e:
+        # Default to False if Zabbix isn't responding.
+        return False
+    logger.info( "TRUE" )
+    return True
+
+
 
 # end

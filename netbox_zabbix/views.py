@@ -44,7 +44,7 @@ from netbox_zabbix.models import (
     EventLog,
 )
 
-from netbox_zabbix.utils import validate_quick_add
+from netbox_zabbix.utils import validate_quick_add, can_delete_interface
 from netbox_zabbix.logger import logger
 
 
@@ -846,6 +846,15 @@ class AgentInterfaceEditView(generic.ObjectEditView):
 class AgentInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = AgentInterface.objects.all()
 
+    def post(self, request, *args, **kwargs):
+        interface = self.get_object( pk=kwargs.get( "pk" ) )
+    
+        if can_delete_interface( interface ):
+            return super().post( request, *args, **kwargs )
+        else:
+            messages.error( request, f"Interface {interface.name} is linked to one or more items in Zabbix. Unable to delete interface." )
+            return redirect( request.POST.get( 'return_url' ) or interface.host_config.get_absolute_url() )
+
 
 class AgentInterfaceBulkDeleteView(generic.BulkDeleteView):
     queryset = AgentInterface.objects.all()
@@ -853,7 +862,18 @@ class AgentInterfaceBulkDeleteView(generic.BulkDeleteView):
 
     def get_return_url(self, request, obj=None):
         return reverse( 'plugins:netbox_zabbix:agentinterface_list' )
-
+    
+    def post(self, request, *args, **kwargs):
+        # Get the list of interfaces to be deleted
+        interfaces = self.get_queryset( request ).filter( pk__in=request.POST.getlist( 'pk' ) )
+    
+        for interface in interfaces:
+            if not can_delete_interface(interface ):
+                messages.error( request, f"Interface {interface.name} is linked to one or more items in Zabbix. Unable to delete interface." )
+                return redirect( self.get_return_url( request ) )
+    
+        # If all checks pass, proceed with normal bulk deletion
+        return super().post( request, *args, **kwargs )
 
 # --------------------------------------------------------------------------
 # SNMP Interface
@@ -869,7 +889,7 @@ class SNMPInterfaceListView(generic.ObjectListView):
     table         = tables.SNMPInterfaceTable
     filterset     = filtersets.SNMPInterfaceFilterSet
     template_name = 'netbox_zabbix/snmp_interface_list.html'
-    
+
 
 class SNMPInterfaceEditView(generic.ObjectEditView):
     queryset      = SNMPInterface.objects.all()
@@ -880,6 +900,16 @@ class SNMPInterfaceEditView(generic.ObjectEditView):
 class SNMPInterfaceDeleteView(generic.ObjectDeleteView):
     queryset = SNMPInterface.objects.all()
 
+    def post(self, request, *args, **kwargs):
+        interface = self.get_object( pk=kwargs.get( "pk" ) )
+    
+        if can_delete_interface( interface ):
+            return super().post( request, *args, **kwargs )
+        else:
+            messages.error( request, f"Interface {interface.name} is linked to one or more items in Zabbix. Unable to delete interface." )
+            return redirect( request.POST.get( 'return_url' ) or interface.host_config.get_absolute_url() )
+
+
 
 class SNMPInterfaceBulkDeleteView(generic.BulkDeleteView):
     queryset = SNMPInterface.objects.all()
@@ -888,6 +918,19 @@ class SNMPInterfaceBulkDeleteView(generic.BulkDeleteView):
     def get_return_url(self, request, obj=None):
         return reverse( 'plugins:netbox_zabbix:snmpinterface_list' )
 
+
+    def post(self, request, *args, **kwargs):
+        # Get the list of interfaces to be deleted
+        interfaces = self.get_queryset( request ).filter( pk__in=request.POST.getlist( 'pk' ) )
+    
+        for interface in interfaces:
+            if not can_delete_interface(interface ):
+                messages.error( request, f"Interface {interface.name} is linked to one or more items in Zabbix. Unable to delete interface." )
+                return redirect( self.get_return_url( request ) )
+    
+        # If all checks pass, proceed with normal bulk deletion
+        return super().post( request, *args, **kwargs )
+    
 
 # --------------------------------------------------------------------------
 # Importable Hosts
@@ -1289,6 +1332,14 @@ class EventLogEditView(generic.ObjectView):
 class EventLogDeleteView(generic.ObjectDeleteView):
     queryset = EventLog.objects.all()
 
+    def post(self, request, *args, **kwargs):
+        interface = self.get_object( pk=kwargs.get( "pk" ) )
+    
+        if can_delete_interface(interface, request):
+            return super().post( request, *args, **kwargs )
+        else:
+            return redirect( request.POST.get( 'return_url' ) or interface.host_config.get_absolute_url() )
+    
 
 class EventLogBulkDeleteView(generic.BulkDeleteView):
     queryset = EventLog.objects.all()
@@ -1296,6 +1347,46 @@ class EventLogBulkDeleteView(generic.BulkDeleteView):
 
     def get_return_url(self, request, obj=None):
         return reverse('plugins:netbox_zabbix:eventlog_list')
+
+    def post(self, request, *args, **kwargs):
+        # Get the list of interfaces to be deleted
+        interfaces = self.get_queryset( request ).filter( pk__in=request.POST.getlist( 'pk' ) )
+    
+        for interface in interfaces:
+            if not can_delete_interface(interface, request):
+                return redirect( self.get_return_url( request ) )
+    
+        # If all checks pass, proceed with normal bulk deletion
+        return super().post( request, *args, **kwargs )
+
+
+
+# ------------------------------------------------------------------------------
+# Host Config Tab for Zabbix Problems
+# ------------------------------------------------------------------------------
+
+
+@register_model_view(HostConfig, name='problems')
+class HostConfigProblemsTabView(generic.ObjectView):
+    queryset      = HostConfig.objects.all()
+    tab           = ViewTab( label="Zabbix Problems", badge=lambda instance: len( z.get_problems( instance.assigned_object.name ) ) )
+    template_name = 'netbox_zabbix/host_config_zabbix_problems_tab.html'
+
+    def get_extra_context(self, request, instance):
+        queryset = instance.jobs.all()
+        table    = JobTable( queryset )
+        return { "table": table }
+    
+    def get_extra_context(self, request, instance):
+        super().get_extra_context( request, instance )
+        problems = []
+        table = None
+        try:
+            problems = z.get_problems( instance.assigned_object.name )
+        except:
+            pass
+        table = tables.ZabbixProblemTable( problems )
+        return { "table": table }
 
 
 # ------------------------------------------------------------------------------

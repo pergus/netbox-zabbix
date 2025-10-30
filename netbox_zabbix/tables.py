@@ -19,12 +19,9 @@ from virtualization.models import VirtualMachine
 
 # netbox_zabbix imports
 from netbox_zabbix import settings, jobs, models
-from netbox_zabbix.utils import validate_quick_add
+from netbox_zabbix.utils import validate_quick_add, can_delete_interface
 from netbox_zabbix.logger import logger
 
-# Core app imports
-from core.models import Job
-from core.tables import JobTable
 
 
 # ------------------------------------------------------------------------------
@@ -395,15 +392,24 @@ class BaseInterfaceTable(NetBoxTable):
     Provides shared columns like name, interface, IP address, and DNS name.
     """
     name                = tables.Column( linkify=True )
-    interface           = tables.Column( linkify=True )
-    resolved_ip_address = tables.Column( verbose_name="IP Address", linkify=True )
-    resolved_dns_name   = tables.Column( verbose_name="DNS Name", linkify=True )
+    host_config         = tables.Column( linkify=True )
+    interface           = tables.Column( order_by='name', linkify=True, orderable=True )
+    resolved_ip_address = tables.Column( accessor='ip_address', verbose_name="IP Address", linkify=True )
+    resolved_dns_name   = tables.Column( accessor='ip_address.dns_name', verbose_name="DNS Name", linkify=True )
+    removable           = tables.BooleanColumn( accessor="removable", verbose_name="Removable", orderable=False )
+    
 
     class Meta(NetBoxTable.Meta):
         abstract = True
-        fields = ("name", "host_config", "interface", "resolved_ip_address", "resolved_dns_name")
-        default_columns = ("name", "host_config", "interface", "resolved_ip_address", "resolved_dns_name")
+        fields = ("name", "host_config", "interface", "resolved_ip_address", "resolved_dns_name", "removable")
+        default_columns = ("name", "host_config", "interface", "resolved_ip_address", "resolved_dns_name", "removable" )
 
+    def render_removable(self, record):
+        """
+        Render a checkmark or cross depending on Zabbix config existence.
+        """
+        return mark_safe( "✔" ) if can_delete_interface( record ) else mark_safe( "✘" )
+    
 
 # ------------------------------------------------------------------------------
 # Agent Interface Table

@@ -154,15 +154,16 @@ urlpatterns = (
     # Host Config
     # --------------------------------------------------------------------------
 
-    path( 'host-config/',                    views.HostConfigListView.as_view(),       name='hostconfig_list' ),
-    path( 'host-config/add/',                views.HostConfigEditView.as_view(),       name='hostconfig_add' ),
-    path( 'host-config/<int:pk>/',           views.HostConfigView.as_view(),           name='hostconfig' ),
-    path( 'host-config/<int:pk>/edit/',      views.HostConfigEditView.as_view(),       name='hostconfig_edit' ),
-    path( 'host-config/<int:pk>/delete/',    views.HostConfigDeleteView.as_view(),     name='hostconfig_delete' ),
-    path( 'host-config/delete/',             views.HostConfigBulkDeleteView.as_view(), name='hostconfig_bulk_delete' ),
-    path( 'host-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),            name='hostconfig_changelog', kwargs={'model': models.HostConfig} ),
-    path( 'host-config/<int:pk>/jobs',       views.HostConfigJobsTabView.as_view(),    name='hostconfig_jobs' ),
-    path( 'host-config/<int:pk>/difference', views.HostConfigDiffTabView.as_view(),    name='hostconfig_difference' ),
+    path( 'host-config/',                    views.HostConfigListView.as_view(),        name='hostconfig_list' ),
+    path( 'host-config/add/',                views.HostConfigEditView.as_view(),        name='hostconfig_add' ),
+    path( 'host-config/<int:pk>/',           views.HostConfigView.as_view(),            name='hostconfig' ),
+    path( 'host-config/<int:pk>/edit/',      views.HostConfigEditView.as_view(),        name='hostconfig_edit' ),
+    path( 'host-config/<int:pk>/delete/',    views.HostConfigDeleteView.as_view(),      name='hostconfig_delete' ),
+    path( 'host-config/delete/',             views.HostConfigBulkDeleteView.as_view(),  name='hostconfig_bulk_delete' ),
+    path( 'host-config/<int:pk>/changelog/', ObjectChangeLogView.as_view(),             name='hostconfig_changelog', kwargs={'model': models.HostConfig} ),
+    path( 'host-config/<int:pk>/problems',   views.HostConfigProblemsTabView.as_view(), name='hostconfig_problems' ),
+    path( 'host-config/<int:pk>/jobs',       views.HostConfigJobsTabView.as_view(),     name='hostconfig_jobs' ),
+    path( 'host-config/<int:pk>/difference', views.HostConfigDiffTabView.as_view(),     name='hostconfig_difference' ),
 
 
     # --------------------------------------------------------------------------

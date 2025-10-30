@@ -989,6 +989,17 @@ class AgentInterface(BaseInterface):
     port = models.IntegerField( default=10050, help_text="IP address used by the interface." )
 
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+
+        # Ensure that only one agent interface at a time is the the main interface.
+        if self.main == MainChoices.YES:
+            existing_mains = self.host_config.agent_interfaces.filter( main=MainChoices.YES ).exclude( pk=self.pk )
+            if existing_mains.exists():
+                existing_mains.update( main=MainChoices.NO )
+
+        return super().save(*args, **kwargs)
+
 # ------------------------------------------------------------------------------
 # SNMP Interface
 # ------------------------------------------------------------------------------
@@ -1038,6 +1049,17 @@ class SNMPInterface(BaseInterface):
     privpassphrase = models.CharField( verbose_name="Privacy Passphrase", max_length=255, default="{$SNMPV3_PRIVPASS}", blank=True, null=True, help_text="SNMP privacy passphrase."  )
 
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+    
+        # Ensure that only one SNMP interface at a time is the the main interface.
+        if self.main == MainChoices.YES:
+            existing_mains = self.host_config.agent_interfaces.filter( main=MainChoices.YES ).exclude( pk=self.pk )
+            if existing_mains.exists():
+                existing_mains.update( main=MainChoices.NO )
+    
+        return super().save(*args, **kwargs)
+    
 
 # ------------------------------------------------------------------------------
 # Events

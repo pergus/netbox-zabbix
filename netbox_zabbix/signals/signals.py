@@ -464,7 +464,7 @@ def handle_interface_post_delete(sender, instance, **kwargs):
    logger.debug( "[%s] received: pk=%s", signal_id, instance.pk )
    
 
-   host_config = getattr( instance, "hoshost_t_config", None)
+   host_config = getattr( instance, "host_config", None)
    if host_config is None:
        logger.error( "[%s] interface pk=%s has no Zabbix configuration associated with it", signal_id, instance.pk )
        return
@@ -499,6 +499,12 @@ def handle_interface_post_delete(sender, instance, **kwargs):
            logger.info( "[%s] promoted fallback %s interface %s (pk=%s) to main for '%s'", signal_id, interface_type, fallback.name, fallback.pk, host_config.name )
        else:
            logger.warning( "[%s] no fallback %s interface available to promote for '%s'", signal_id, interface_type, host_config.name )
+           if host_config:
+               msg = f"Zabbix configuration for '{host_config.name}' may be out of sync due to interface {instance.name} deletion."
+               logger.warning("[%s] %s", signal_id, msg)
+               request = get_current_request()
+               if isinstance(request, HttpRequest):
+                   messages.error(request, msg)
    else:
        logger.debug( "[%s] deleted interface was not main; no promotion needed.", signal_id )
 
