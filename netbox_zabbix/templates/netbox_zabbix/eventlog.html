@@ -83,6 +83,13 @@
                             <td>{% badge object.job.get_status_display object.job.get_status_color %}</td>
                         </tr>
                         {% endif %}
+
+                        {% if created_by %}
+                        <tr>
+                            <th>Created By</th>
+                            <td>{{ created_by }}</td>
+                        </tr>
+                        {% endif %}
                         
                         {% if object.signal_id != "None" %}
                         <tr>

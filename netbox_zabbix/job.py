@@ -129,13 +129,13 @@ class AtomicJobRunner(JobRunner):
         # Ensure result is a dictionary
         result = result or {}
         payload = {
-            "name":      name,
-            "job":       job,
-            "signal_id": signal_id,
-            "message":   result.get( "message", str( result ) if not exception else "" ),
-            "data":      data      if data      else result.get( "data" ),
-            "pre_data":  pre_data  if pre_data  else result.get( "pre_data" ),
-            "post_data": post_data if post_data else result.get( "post_data" ),
+            "name":       name,
+            "job":        job,
+            "signal_id":  signal_id,
+            "message":    result.get( "message", str( result ) if not exception else "" ),
+            "data":       data      if data      else result.get( "data" ),
+            "pre_data":   pre_data  if pre_data  else result.get( "pre_data" ),
+            "post_data":  post_data if post_data else result.get( "post_data" ),
         }
 
         if exception:

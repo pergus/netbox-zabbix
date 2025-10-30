@@ -17,6 +17,7 @@ from django_tables2 import RequestConfig
 
 # NetBox imports
 from core.tables.jobs import JobTable
+from users.models import User
 from dcim.models import Device
 from netbox.views import generic
 from utilities.paginator import EnhancedPaginator, get_paginate_count
@@ -843,7 +844,7 @@ class AgentInterfaceView(generic.ObjectView):
             pass
         return { "available":  available }
     
-    
+
 class AgentInterfaceListView(generic.ObjectListView):
     queryset      = AgentInterface.objects.all()
     table         = tables.AgentInterfaceTable
@@ -922,7 +923,6 @@ class SNMPInterfaceDeleteView(generic.ObjectDeleteView):
         else:
             messages.error( request, f"Interface '{interface.name}' cannot be deleted because it is linked to one or more templates in Zabbix." )
             return redirect( request.POST.get( 'return_url' ) or interface.host_config.get_absolute_url() )
-
 
 
 class SNMPInterfaceBulkDeleteView(generic.BulkDeleteView):
@@ -1331,7 +1331,16 @@ class EventLogView(generic.ObjectView):
         diff_added   = shallow_compare_dict( instance.pre_data, instance.post_data )
         diff_removed = { x: instance.pre_data.get(x) for x in diff_added } if instance.pre_data else {}
 
-        return { 'format': format, 'prev_event': prev_event, 'next_event': next_event, "diff_added": diff_added, "diff_removed": diff_removed }
+        # Get the created by user
+        created_by = None
+        if getattr( instance, "job", None ) and getattr( instance.job, "user_id", None ):
+            created_by = (
+                User.objects.filter( id=instance.job.user_id )
+                .values_list( "username", flat=True )
+                .first()
+            )
+
+        return { 'created_by': created_by, 'format': format, 'prev_event': prev_event, 'next_event': next_event, "diff_added": diff_added, "diff_removed": diff_removed }
 
 
 class EventLogListView(generic.ObjectListView):

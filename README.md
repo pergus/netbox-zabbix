@@ -35,7 +35,7 @@ Examples
 
 * Implement filtering where applicable.
 
-* Add user to the event log.
+[DONE] Add user to the event log.
 
 * Add Tags
 
