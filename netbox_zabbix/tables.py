@@ -19,7 +19,13 @@ from virtualization.models import VirtualMachine
 
 # netbox_zabbix imports
 from netbox_zabbix import settings, jobs, models
-from netbox_zabbix.utils import validate_quick_add, can_delete_interface
+from netbox_zabbix.utils import (
+    validate_quick_add, 
+    can_delete_interface, 
+    is_interface_available,
+    compare_zabbix_config_with_host
+)
+
 from netbox_zabbix.logger import logger
 
 
@@ -360,7 +366,8 @@ class HostConfigTable(NetBoxTable):
     name            = tables.Column( accessor='name', order_by='name', verbose_name='Name', linkify=True )
     assigned_object = tables.Column( accessor='assigned_object', verbose_name='Linked Object', linkify=True, orderable=False )
     host_type       = tables.Column( accessor="host_type", empty_values=(), verbose_name="Type", orderable=False )
-
+    sync            = tables.BooleanColumn( accessor='sync', verbose_name="In Sync", orderable=False )
+    
     class Meta(NetBoxTable.Meta):
         model = models.HostConfig
         fields =  ('name', 
@@ -381,6 +388,16 @@ class HostConfigTable(NetBoxTable):
         return mark_safe( f'{ "Device" if type( record.assigned_object ) == Device else "VirtualMachine" }' )
 
 
+    def render_sync(self, record):
+        """
+        Render ✔ if the Host Config is in sync with Zabbix, ✘ otherwise.
+        """
+        try:
+            result = compare_zabbix_config_with_host( record )
+        except Exception:
+            return mark_safe( "✘" )
+        return mark_safe( "✘" ) if result["differ"] else mark_safe( "✔" )
+
 # ------------------------------------------------------------------------------
 # Base Interface Table
 # ------------------------------------------------------------------------------
@@ -396,8 +413,9 @@ class BaseInterfaceTable(NetBoxTable):
     interface           = tables.Column( order_by='name', linkify=True, orderable=True )
     resolved_ip_address = tables.Column( accessor='ip_address', verbose_name="IP Address", linkify=True )
     resolved_dns_name   = tables.Column( accessor='ip_address.dns_name', verbose_name="DNS Name", linkify=True )
-    removable           = tables.BooleanColumn( accessor="removable", verbose_name="Removable", orderable=False )
-    
+    removable           = tables.BooleanColumn( accessor="removable", verbose_name="Removable", empty_values=(), orderable=False )
+    available           = tables.BooleanColumn( accessor="available", verbose_name="Available", empty_values=(), orderable=False )
+
 
     class Meta(NetBoxTable.Meta):
         abstract = True
@@ -406,9 +424,16 @@ class BaseInterfaceTable(NetBoxTable):
 
     def render_removable(self, record):
         """
-        Render a checkmark or cross depending on Zabbix config existence.
+        Render a checkmark or cross depending on if an interface can be deleted without having to delete templates.
         """
         return mark_safe( "✔" ) if can_delete_interface( record ) else mark_safe( "✘" )
+    
+
+    def render_available(self, record):
+        """
+        Render a checkmark or cross depending on the availability of the interface.
+        """
+        return mark_safe( "✔" ) if is_interface_available( record ) else mark_safe( "✘" )
     
 
 # ------------------------------------------------------------------------------

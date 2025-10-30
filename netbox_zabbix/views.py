@@ -44,7 +44,12 @@ from netbox_zabbix.models import (
     EventLog,
 )
 
-from netbox_zabbix.utils import validate_quick_add, can_delete_interface
+from netbox_zabbix.utils import (
+    validate_quick_add, 
+    can_delete_interface,
+    is_interface_available
+)
+
 from netbox_zabbix.logger import logger
 
 
@@ -829,7 +834,16 @@ class HostConfigBulkDeleteView(generic.BulkDeleteView):
 class AgentInterfaceView(generic.ObjectView):
     queryset = AgentInterface.objects.all()
 
-
+    def get_extra_context(self, request, instance):
+        super().get_extra_context( request, instance )
+        available = None
+        try:
+           available = is_interface_available( instance )
+        except:
+            pass
+        return { "available":  available }
+    
+    
 class AgentInterfaceListView(generic.ObjectListView):
     queryset      = AgentInterface.objects.all()
     table         = tables.AgentInterfaceTable
@@ -852,7 +866,7 @@ class AgentInterfaceDeleteView(generic.ObjectDeleteView):
         if can_delete_interface( interface ):
             return super().post( request, *args, **kwargs )
         else:
-            messages.error( request, f"Interface {interface.name} is linked to one or more items in Zabbix. Unable to delete interface." )
+            messages.error( request, f"Interface '{interface.name}' cannot be deleted because it is linked to one or more templates in Zabbix." )
             return redirect( request.POST.get( 'return_url' ) or interface.host_config.get_absolute_url() )
 
 
@@ -869,7 +883,7 @@ class AgentInterfaceBulkDeleteView(generic.BulkDeleteView):
     
         for interface in interfaces:
             if not can_delete_interface(interface ):
-                messages.error( request, f"Interface {interface.name} is linked to one or more items in Zabbix. Unable to delete interface." )
+                messages.error( request, f"Interface '{interface.name}' cannot be deleted because it is linked to one or more templates in Zabbix." )
                 return redirect( self.get_return_url( request ) )
     
         # If all checks pass, proceed with normal bulk deletion
@@ -906,7 +920,7 @@ class SNMPInterfaceDeleteView(generic.ObjectDeleteView):
         if can_delete_interface( interface ):
             return super().post( request, *args, **kwargs )
         else:
-            messages.error( request, f"Interface {interface.name} is linked to one or more items in Zabbix. Unable to delete interface." )
+            messages.error( request, f"Interface '{interface.name}' cannot be deleted because it is linked to one or more templates in Zabbix." )
             return redirect( request.POST.get( 'return_url' ) or interface.host_config.get_absolute_url() )
 
 
@@ -925,7 +939,7 @@ class SNMPInterfaceBulkDeleteView(generic.BulkDeleteView):
     
         for interface in interfaces:
             if not can_delete_interface(interface ):
-                messages.error( request, f"Interface {interface.name} is linked to one or more items in Zabbix. Unable to delete interface." )
+                messages.error( request, f"Interface '{interface.name}' cannot be deleted because it is linked to one or more templates in Zabbix." )
                 return redirect( self.get_return_url( request ) )
     
         # If all checks pass, proceed with normal bulk deletion

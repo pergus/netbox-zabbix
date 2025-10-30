@@ -818,11 +818,20 @@ def can_remove_interface(hostid, interfaceid):
     try:
         z = get_zabbix_client()
         items = z.item.get( hostids=[hostid], filter={'interfaceid': interfaceid} )
-        logger.info( f"hostid {hostid} interfaceid {interfaceid} len(items) => { len(items) }" )
         return True if len(items) == 0 else False
     except Exception as e:
         raise e
 
+
+def interface_availability(hostid, interfaceid):
+    try:
+        z = get_zabbix_client()
+        status = z.hostinterface.get( hostids=[hostid], filter={'interfaceid': interfaceid}, output=['available'] )[0]
+        available = int( status["available"] )
+        return True if available == 1 else False
+    except Exception as e:
+        raise e
+    
 
 # ------------------------------------------------------------------------------
 # Misc.

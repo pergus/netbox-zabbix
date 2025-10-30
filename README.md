@@ -29,72 +29,24 @@ Examples
 ### Bugs
 
 
-### Interfaces
-
-If a host in Zabbix has more than one interface of the same type e.g. Agent.
-Then the main interface can be deleted without a problem. However, if there are 
-only one interface then the templates for that interface has to be deleted
-before the interface can be deleted.
-This is the reason why the plugin cannot require that a host has a Template.
-This is also the reason why Zabbix doesn't require Templates for a host.
-
-
-## Here be Dragons!
-
-### Problem With IPs and Interfaces
-
-Delete the IP on an interface in Zabbix doesn't work unless useip is set to 0
-before removing the address. The same goes for DNS.
-
-Delete the last interface of its type in Zabbix doesn't work unless all no
-items are left that use the interface. This means that templates has to be
-deleted befor removing the interface.
-
-
-### Solution
-
-| NetBox Action     | Behaviour | State     |
-| ----------------- | ----------|---------- |
-| Delete an IPv4 address that is associated with a ZC interface. | The IP address is removed from the ZC interface. No Zabbix sync. | Inconsistent |
-| Add a new primary IPv4 address to an devm interface. |  If the devm has an interface that is associated with a ZC interface,  then add the IP address to the ZC interface. Sync with Zabbix. | Consistent |
-| Delete a devm inteface that is assoicated with a ZC interface. | The ZC interface is removed. No Zabbix sync, unless last interface then disable the host in Zabbix. | Inconstitent |
-| Add a new devm interface with primary IPv4. | Nothing | Inconsitent |
-
-To fix the inconsistency with removing interfaces the user has to add an interface by hand.
-
-Add a view that lists all inconsistent devm/hosts.
-
 
 ### Todo/Bugs
 
 
 * Implement filtering where applicable.
 
-
-* Go over the code and see if I have missed anything when implementing VMs.
-
-* Add a menu item for listing devices/vms out of sync with Zabbix.
-
-* Should virtual_machine in VMZabbixConfig and device in DeviceZabbixConfig
-  both be renamed to linked_object?
-
 * Add user to the event log.
 
-* Clean up messages in singals. Maybe change the some info to debug or remove them.
+* Add Tags
 
-* When adding a zcfg by hand there is no event for it in the event log.
-  Also, no Zabbix Host configuration is created which means that when
-  adding a new interface it fails since there is no zabbix host id.
-  I have seen this for vms but it works for devices.
+* Access control.
 
+* Add options in Setting to control how the diff between NetBox and Zabbix should
+  behave. strict/lenient?
 
 * Should the zabbix host pre-data be normalized before it is displayed or 
   when it is saved to the event/job logs? I could just normalize it
   when displaying the data just in case we need the full data...dunno.
-
-
-* Since I rewrote a lot of code, run over all tests.
-  Is it possible to automat the tests? Maybe but the UI has to be tested as well.
 
 * Should the system issue a warning when a template is removed while it is 
   still used by a default mapping? - Yes!
@@ -104,14 +56,7 @@ Add a view that lists all inconsistent devm/hosts.
   been removed from Zabbix, it no longer exists anyway.
   Also, it is ok for a host in Zabbix not have any templates.
 
-* Clean up the templates.
-
-* I think that a lot of the code can be reused/simplified.
-  I think we could have only one class for Zabbix Config and a class for each
-  interface type (using linked_object).
-
-
-* Should NetBox be the source for proxies/proxy group and groups?
+* Should NetBox be the source for proxies, proxy group and groups?
   And Zabbix should only be the source for Templates?
 
 * The date when scheduling the background job should use
@@ -131,8 +76,6 @@ Add a view that lists all inconsistent devm/hosts.
   to dump the database when running makemigrations.
 
 * Make sure the API works as expected.
-
-* Refactor the classes in jobs.py.
 
 * Implement maintenance mode.
 
@@ -245,34 +188,24 @@ The solution was to implement bulk delete.
 | Add a tab to vm and device that show the Zabbix Configuration. | Done         |
 
 
-#### Config
+#### Settings
 
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
-| Add CIDR to the config                                       | Done          |
 | Add Automatic Host Validation                                | Done          |
 | Add TLS settings                                             | Done          |
 | Add Max deletions on import                                  | Done          |
 | Add Maximum Success Notifications                            | Done          |
 | Add Background Job for Zabbix Config Sync                    | Done          |
-| Should Max deletions on import be enabled/disabled?          | Todo          |
+| Should Max deletions on import be enabled/disabled?          | Done          |
 | Add defaults for zabbix interfaces                           | Done          |
 
 
-#### NetBox Only Devices
+#### NetBox Only Hosts
 | Action                                                       | Status        |
 | ------------------------------------------------------------ | ------------- |
-| Add action button to create new Zabbix config                | Done          |
 | Add action button to quick add Agent                         | Done          |
-| Add action button to quick Add SNMPv3                        | Done          |
-
-
-#### NetBox Only VMs
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| Add action button to create new config                       | Todo          |
-| Add action button to quick add Agent                         | Todo          |
-| Add action button to quick Add SNMPv3                        | Todo          |
+| Add action button to quick Add SNMP                          | Done          |
 
 
 #### Mappings
@@ -281,7 +214,7 @@ The solution was to implement bulk delete.
 | Tag Mappings                                                 | Done          |
 | Inventory Mappings                                           | Done          |
 | Device Mappings                                              | Done          |
-| VM Mappings                                                  | Todo          |
+| VM Mappings                                                  | Done          |
 
 
 #### Event Log

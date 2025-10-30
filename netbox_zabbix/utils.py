@@ -712,23 +712,34 @@ def find_ip_address(address:str):
 
 
 def can_delete_interface(interface):
-    logger.info( "**************** can_delete_interface ****************" )
-
+    logger.info( "*** can_delete_interface ***" )
     try:
-        hostid      = interface.host_config.hostid
-        interfaceid = interface.interfaceid
+        hostid      = int( interface.host_config.hostid )
+        interfaceid = int( interface.interfaceid )
 
         # Check if there are templates that need to be deleted before we can delete the interface.
         if not z.can_remove_interface( hostid, interfaceid ):
-            logger.info( "FALSE" )
             return False
 
-    except Exception as e:
+    except:
         # Default to False if Zabbix isn't responding.
         return False
-    logger.info( "TRUE" )
     return True
 
 
+def is_interface_available(interface):    
+    try:
+        hostid      = int( interface.host_config.hostid )
+        interfaceid = int( interface.interfaceid )
+    
+        # Check if there are templates that need to be deleted before we can delete the interface.
+        if not z.interface_availability( hostid, interfaceid ):
+            return False
+    
+    except:
+        # Default to False if Zabbix isn't responding.
+        return False
+    return True
+    
 
 # end
