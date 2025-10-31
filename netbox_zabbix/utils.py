@@ -712,7 +712,6 @@ def find_ip_address(address:str):
 
 
 def can_delete_interface(interface):
-    logger.info( "*** can_delete_interface ***" )
     try:
         hostid      = int( interface.host_config.hostid )
         interfaceid = int( interface.interfaceid )

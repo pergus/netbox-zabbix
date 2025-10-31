@@ -33,6 +33,17 @@ from netbox_zabbix.models import (
     SNMPInterface,
     )
 
+from netbox_zabbix.filtersets import (
+    HostGroupFilterSet,
+    TagMappingFilterSet,
+    InventoryMappingFilterSet,
+    DeviceMappingFilterSet,
+    VMMappingFilterSet,
+    HostConfigFilterSet,
+    AgentInterfaceFilterSet,
+    SNMPInterfaceFilterSet
+)
+
 # ------------------------------------------------------------------------------
 # Setting
 # ------------------------------------------------------------------------------
@@ -114,7 +125,7 @@ class ProxyGroupViewSet(NetBoxModelViewSet):
 class HostGroupViewSet(NetBoxModelViewSet):
     queryset = HostGroup.objects.all()
     serializer_class = serializers.HostGroupSerializer
-    filterset_fields = ['groupid', 'name']
+    filterset_class = HostGroupFilterSet
 
 
 # ------------------------------------------------------------------------------
@@ -125,7 +136,7 @@ class HostGroupViewSet(NetBoxModelViewSet):
 class TagMappingViewSet(NetBoxModelViewSet):
     queryset = TagMapping.objects.all()
     serializer_class = serializers.TagMappingSerializer
-
+    filterset_class = TagMappingFilterSet
 
 # ------------------------------------------------------------------------------
 # Inventory Mapping
@@ -135,6 +146,7 @@ class TagMappingViewSet(NetBoxModelViewSet):
 class InventoryMappingViewSet(NetBoxModelViewSet):
     queryset = InventoryMapping.objects.all()
     serializer_class = serializers.InventoryMappingSerializer
+    filterset_class = InventoryMappingFilterSet
 
 
 # ------------------------------------------------------------------------------
@@ -145,7 +157,7 @@ class InventoryMappingViewSet(NetBoxModelViewSet):
 class DeviceMappingViewSet(NetBoxModelViewSet):
     queryset = DeviceMapping.objects.all()
     serializer_class = serializers.DeviceMappingSerializer
-    #filterset_class = DeviceMappingFilter
+    filterset_class  = DeviceMappingFilterSet
 
 
 # ------------------------------------------------------------------------------
@@ -156,7 +168,40 @@ class DeviceMappingViewSet(NetBoxModelViewSet):
 class VMMappingViewSet(NetBoxModelViewSet):
     queryset = VMMapping.objects.all()
     serializer_class = serializers.VMMappingSerializer
-    #filterset_class = VMMappingFilter
+    filterset_class = VMMappingFilterSet
+
+
+# ------------------------------------------------------------------------------
+# Host Config
+# ------------------------------------------------------------------------------
+
+
+class HostConfigViewSet(NetBoxModelViewSet):
+    queryset = HostConfig.objects.all()
+    serializer_class = serializers.HostConfigSerializer
+    filterset_class = HostConfigFilterSet
+
+
+# ------------------------------------------------------------------------------
+# Agent Interface
+# ------------------------------------------------------------------------------
+
+
+class AgentInterfaceViewSet(NetBoxModelViewSet):
+    queryset = AgentInterface.objects.all()
+    serializer_class = serializers.AgentInterfaceSerializer
+    filterset_class = AgentInterfaceFilterSet
+
+
+# ------------------------------------------------------------------------------
+# SNMP Interface
+# ------------------------------------------------------------------------------
+
+
+class SNMPInterfaceViewSet(NetBoxModelViewSet):
+    queryset = SNMPInterface.objects.all()
+    serializer_class = serializers.SNMPInterfaceSerializer
+    filterset_class = SNMPInterfaceFilterSet
 
 
 # ------------------------------------------------------------------------------

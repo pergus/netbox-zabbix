@@ -237,8 +237,7 @@ class TemplateForm(NetBoxModelForm):
 
 class TemplateFilterForm(NetBoxModelFilterSetForm):
     model = Template
-
-    name = forms.ModelMultipleChoiceField( queryset=Template.objects.all(), to_field_name='name', label="Name", required=False )
+    name  = forms.ModelMultipleChoiceField( queryset=Template.objects.all(), to_field_name='name', label="Name", required=False )
     templateid = forms.ChoiceField( label = "Template ID", required = False )
 
     def __init__(self, *args, **kwargs):
@@ -313,7 +312,6 @@ class HostGroupForm(NetBoxModelForm):
     class Meta:
         model = HostGroup
         fields = [ 'name', 'groupid' ]
-
 
 
 # ------------------------------------------------------------------------------

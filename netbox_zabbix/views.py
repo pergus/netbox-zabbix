@@ -179,16 +179,21 @@ class TemplateView(generic.ObjectView):
 
 
 class TemplateListView(generic.ObjectListView):
-    queryset = (
-       Template.objects
-       .annotate(
-           host_count=Count("hostconfig", distinct=True)
-       )
-    )
+    queryset       = Template.objects.all()
     filterset      = filtersets.TemplateFilterSet
     filterset_form = forms.TemplateFilterForm
     table          = tables.TemplateTable
     template_name  = "netbox_zabbix/template_list.html"
+
+    def get_queryset(self, request):
+        # Base queryset
+        qs = super().get_queryset( request )
+        
+        # Annotate for host_count (LinkedCountColumn)
+        qs = qs.annotate( host_count=Count( "hostconfig", distinct=True ) )
+
+        # Apply default ordering manually after all annotations
+        return qs.order_by( "name", "pk" )
 
 
 class TemplateEditView(generic.ObjectEditView):
@@ -411,10 +416,11 @@ class HostGroupView(generic.ObjectView):
 
 
 class HostGroupListView(generic.ObjectListView):
-    queryset = HostGroup.objects.all()
-    table    = tables.HostGroupTable
+    queryset  = HostGroup.objects.all()
+    table     = tables.HostGroupTable
+    filterset = filtersets.HostGroupFilterSet
     template_name  = "netbox_zabbix/host_group_list.html"
-    
+
 
 class HostGroupEditView(generic.ObjectEditView):
     queryset = HostGroup.objects.all()
@@ -484,9 +490,9 @@ class TagMappingView(generic.ObjectView):
 
 
 class TagMappingListView(generic.ObjectListView):
-    queryset = TagMapping.objects.all()
-    table    = tables.TagMappingTable
-
+    queryset  = TagMapping.objects.all()
+    table     = tables.TagMappingTable
+    filterset = filtersets.TagMappingFilterSet
 
 class TagMappingEditView(generic.ObjectEditView):
     queryset = TagMapping.objects.all()
@@ -507,8 +513,9 @@ class InventoryMappingView(generic.ObjectView):
 
 
 class InventoryMappingListView(generic.ObjectListView):
-    queryset      = InventoryMapping.objects.all()
-    table         = tables.InventoryMappingTable
+    queryset  = InventoryMapping.objects.all()
+    table     = tables.InventoryMappingTable
+    filterset = filtersets.InventoryMappingFilterSet
 
 
 class InventoryMappingEditView(generic.ObjectEditView):
@@ -567,9 +574,10 @@ class DeviceMappingView(generic.ObjectView):
 
 
 class DeviceMappingListView(generic.ObjectListView):
-    queryset      = DeviceMapping.objects.all()
-    table         = tables.DeviceMappingTable
-
+    queryset  = DeviceMapping.objects.all()
+    table     = tables.DeviceMappingTable
+    filterset = filtersets.DeviceMappingFilterSet
+    
 
 class DeviceMappingEditView(generic.ObjectEditView):
     queryset      = DeviceMapping.objects.all()
@@ -667,9 +675,9 @@ class VMMappingView(generic.ObjectView):
 
 
 class VMMappingListView(generic.ObjectListView):
-    queryset      = VMMapping.objects.all()
-    table         = tables.VMMappingTable
-
+    queryset  = VMMapping.objects.all()
+    table     = tables.VMMappingTable
+    filterset = filtersets.VMMappingFilterSet
 
 class VMMappingEditView(generic.ObjectEditView):
     queryset      = VMMapping.objects.all()
@@ -803,9 +811,10 @@ class HostConfigView(generic.ObjectView):
 
 
 class HostConfigListView(generic.ObjectListView):
-    queryset = HostConfig.objects.all()
-    table    = tables.HostConfigTable
-
+    queryset  = HostConfig.objects.all()
+    table     = tables.HostConfigTable
+    filterset = filtersets.HostConfigFilterSet
+    
 
 class HostConfigEditView(generic.ObjectEditView):
     queryset = HostConfig.objects.all()
@@ -890,6 +899,7 @@ class AgentInterfaceBulkDeleteView(generic.BulkDeleteView):
         # If all checks pass, proceed with normal bulk deletion
         return super().post( request, *args, **kwargs )
 
+
 # --------------------------------------------------------------------------
 # SNMP Interface
 # --------------------------------------------------------------------------
@@ -944,7 +954,7 @@ class SNMPInterfaceBulkDeleteView(generic.BulkDeleteView):
     
         # If all checks pass, proceed with normal bulk deletion
         return super().post( request, *args, **kwargs )
-    
+
 
 # --------------------------------------------------------------------------
 # Importable Hosts
@@ -962,6 +972,8 @@ class ImportableHostsListView(generic.ObjectListView):
 
 
     def get_queryset(self, request):
+        query = request.GET.get("q", "").strip().lower()
+
         try:
             zabbix_hostnames = z.get_cached_zabbix_hostnames()
         except Exception as e:
@@ -985,6 +997,17 @@ class ImportableHostsListView(generic.ObjectListView):
             v.host_type = "VirtualMachine"
         
         combined = list( chain( devices, vms ) )
+
+        if query:
+            combined = [
+                 obj for obj in combined
+                 if (
+                     query in obj.name.lower()
+                     or (obj.site and query in obj.site.name.lower())
+                     or query in obj.host_type.lower()
+                 )
+             ]
+
         return CombinedHostsQuerySet( combined, Device )
 
 
@@ -1066,6 +1089,8 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
     
 
     def get_queryset(self, request):
+        query = request.GET.get("q", "").strip().lower()
+        
         try:
             zabbix_hostnames = z.get_cached_zabbix_hostnames()
         except Exception as e:
@@ -1104,6 +1129,16 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
         self.device_mapping_cache = self.build_mapping_cache( devices, host_type="Device" )
         self.vm_mapping_cache = self.build_mapping_cache( vms, host_type="VM" )
        
+        if query:
+            combined = [
+                 obj for obj in combined
+                 if (
+                     query in obj.name.lower()
+                     or (obj.site and query in obj.site.name.lower())
+                     or query in obj.host_type.lower()
+                 )
+             ]
+        
         return CombinedHostsQuerySet( combined, Device )
 
 
@@ -1307,6 +1342,7 @@ class ZabbixOnlyHostsView(GenericTemplateView):
         return context
 
 
+
 # ------------------------------------------------------------------------------
 # Event Log
 # ------------------------------------------------------------------------------
@@ -1344,8 +1380,9 @@ class EventLogView(generic.ObjectView):
 
 
 class EventLogListView(generic.ObjectListView):
-    queryset = EventLog.objects.all()
-    table    = tables.EventLogTable
+    queryset  = EventLog.objects.all()
+    table     = tables.EventLogTable
+    filterset = filtersets.EventLogFilterSet
 
 
 class EventLogEditView(generic.ObjectView):

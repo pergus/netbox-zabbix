@@ -14,6 +14,11 @@ router.register( 'tag-mapping',                views.TagMappingViewSet )
 router.register( 'inventory-mapping',          views.InventoryMappingViewSet )
 router.register( 'device-mapping',             views.DeviceMappingViewSet )
 router.register( 'vm-mapping',                 views.VMMappingViewSet )
+
+router.register( 'host-config',                views.HostConfigViewSet )
+router.register( 'agent-interface',            views.AgentInterfaceViewSet )
+router.register( 'snmp-interface',             views.SNMPInterfaceViewSet )
+
 router.register( 'event-log',                  views.EventLogViewSet )
 
 

@@ -18,7 +18,24 @@ from dcim.models import Device
 from virtualization.models import VirtualMachine
 
 # netbox_zabbix imports
-from netbox_zabbix import settings, jobs, models
+from netbox_zabbix import settings, jobs
+from netbox_zabbix.models import (
+    InterfaceTypeChoices,
+    Setting,
+    Template,
+    Proxy,
+    ProxyGroup,
+    HostGroup,
+    TagMapping,
+    InventoryMapping,
+    DeviceMapping,
+    VMMapping,
+    HostConfig,
+    AgentInterface,
+    SNMPInterface,
+    EventLog
+)
+
 from netbox_zabbix.utils import (
     validate_quick_add, 
     can_delete_interface, 
@@ -61,7 +78,7 @@ EXTRA_CONFIG_BUTTONS = """
 
 class SettingTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
-        model = models.Setting
+        model = Setting
         fields = ( 
             'name',
             'ip_assignment_method',
@@ -115,18 +132,17 @@ class SettingTable(NetBoxTable):
 
 
 class TemplateTable(NetBoxTable):
-    name       = tables.Column( linkify=True )
+    name       = tables.Column( linkify=True, orderable=True, accessor='name' )
     host_count = columns.LinkedCountColumn( 
          viewname='plugins:netbox_zabbix:hostconfig_list',
          url_params={'templates': 'pk'},
          verbose_name="Hosts" )
     
     dependencies = columns.ManyToManyColumn( linkify_item=True, accessor="dependencies", verbose_name="Dependencies")
-
-    parents = columns.ManyToManyColumn( linkify_item=True, accessor="parents", verbose_name="Parents")
+    parents      = columns.ManyToManyColumn( linkify_item=True, accessor="parents", verbose_name="Parents")
     
     class Meta(NetBoxTable.Meta):
-        model  = models.Template
+        model  = Template
         fields = (
             "name",
             "templateid",
@@ -153,12 +169,12 @@ class TemplateTable(NetBoxTable):
 
 
 class ProxyTable(NetBoxTable):
-    name = tables.Column( linkify=True )
+    name = tables.Column( linkify=True, order_by="name", accessor="name" )
         
     class Meta(NetBoxTable.Meta):
-        model           = models.Proxy
-        fields          = ("name", "proxyid", "proxy_groupid", "last_synced"  )
-        default_columns = ("name", "proxyid", "proxy_groupid", "last_synced"  )
+        model           = Proxy
+        fields          = ( "name", "proxyid", "proxy_groupid", "last_synced"  )
+        default_columns = ( "name", "proxyid", "proxy_groupid", "last_synced"  )
 
 
 # ------------------------------------------------------------------------------
@@ -167,12 +183,12 @@ class ProxyTable(NetBoxTable):
 
 
 class ProxyGroupTable(NetBoxTable):
-    name = tables.Column( linkify=True )
+    name = tables.Column( linkify=True, order_by="name", accessor="name" )
     
     class Meta(NetBoxTable.Meta):
-        model           = models.ProxyGroup
-        fields          = ("name", "proxy_groupid", "last_synced"  )
-        default_columns = ("name", "proxy_groupid", "last_synced"  )
+        model           = ProxyGroup
+        fields          = ( "name", "proxy_groupid", "last_synced"  )
+        default_columns = ( "name", "proxy_groupid", "last_synced"  )
 
 
 # ------------------------------------------------------------------------------
@@ -184,8 +200,8 @@ class HostGroupTable(NetBoxTable):
     name = tables.Column( linkify=True, order_by="name", accessor="name" )
     
     class Meta(NetBoxTable.Meta):
-        model = models.HostGroup
-        fields = ( "name", "groupid", "last_synced" )
+        model           = HostGroup
+        fields          = ( "name", "groupid", "last_synced" )
         default_columns = ( "name", "groupid"," last_synced" )
 
 
@@ -196,20 +212,29 @@ class HostGroupTable(NetBoxTable):
 
 class TagMappingTable(NetBoxTable):
     object_type    = tables.Column( verbose_name="Object Type", linkify=True )
-    enabled_fields = tables.Column( verbose_name="Enabled Fields", orderable=False )
+    enabled_fields = tables.Column( verbose_name="Enabled Fields", empty_values=(), orderable=False )
 
     class Meta(NetBoxTable.Meta):
-        model = models.TagMapping
-        fields = ('object_type',)
+        model = TagMapping
+        fields = ('object_type', 'enabled_fields')
         default_columns = fields
 
+
     def __init__(self, *args, user=None, **kwargs):
-        # Accept the user kwarg to avoid errors, even if unused
         super().__init__( *args, **kwargs )
+
 
     def render_enabled_fields(self, record):
         enabled_names = [f['name'] for f in record.selection if f.get('enabled')]
-        return ", ".join(enabled_names) if enabled_names else "None"
+        if not enabled_names:
+            return mark_safe( '<span class="badge text-bg-primary">None</span>' )
+    
+        # Wrap each name in a badge
+        badges = " ".join(
+            f'<span class="badge text-bg-primary">{name}</span>'
+            for name in enabled_names
+        )
+        return mark_safe( badges )
 
 
 # ------------------------------------------------------------------------------
@@ -219,19 +244,26 @@ class TagMappingTable(NetBoxTable):
 
 class InventoryMappingTable(NetBoxTable):
     object_type    = tables.Column( verbose_name="Object Type", linkify=True )
-    enabled_fields = tables.Column( verbose_name="Enabled Fields", orderable=False )
+    enabled_fields = tables.Column( verbose_name="Enabled Fields", empty_values=(), orderable=False )
 
     class Meta(NetBoxTable.Meta):
-        model = models.InventoryMapping
-        fields = ('object_type',)
+        model = InventoryMapping
+        fields = ( 'object_type', 'enabled_fields' )
 
     def __init__(self, *args, user=None, **kwargs):
-        # Accept the user kwarg to avoid errors, even if unused
         super().__init__( *args, **kwargs )
 
     def render_enabled_fields(self, record):
         enabled_names = [f['name'] for f in record.selection if f.get('enabled')]
-        return ", ".join(enabled_names) if enabled_names else "None"
+        if not enabled_names:
+            return mark_safe( '<span class="badge text-bg-primary">None</span>' )
+    
+        # Wrap each name in a badge
+        badges = " ".join(
+            f'<span class="badge text-bg-primary">{name}</span>'
+            for name in enabled_names
+        )
+        return mark_safe( badges )
 
 
 # ------------------------------------------------------------------------------
@@ -269,7 +301,7 @@ class DeviceMappingTable(BaseMappingTable):
     Concrete table for DeviceMapping model.
     """
     class Meta(BaseMappingTable.Meta):
-        model = models.DeviceMapping
+        model = DeviceMapping
 
 
 # ------------------------------------------------------------------------------
@@ -282,7 +314,7 @@ class VMMappingTable(BaseMappingTable):
     Concrete table for VMMapping model.
     """
     class Meta(BaseMappingTable.Meta):
-        model = models.VMMapping
+        model = VMMapping
 
 
 # ------------------------------------------------------------------------------
@@ -369,7 +401,7 @@ class HostConfigTable(NetBoxTable):
     sync            = tables.BooleanColumn( accessor='sync', verbose_name="In Sync", orderable=False )
     
     class Meta(NetBoxTable.Meta):
-        model = models.HostConfig
+        model = HostConfig
         fields =  ('name', 
                    'assigned_object',
                    'host_type',
@@ -443,7 +475,7 @@ class BaseInterfaceTable(NetBoxTable):
 
 class AgentInterfaceTable(BaseInterfaceTable):
     class Meta(BaseInterfaceTable.Meta):
-        model   = models.AgentInterface
+        model   = AgentInterface
         actions = ("bulk_edit", "bulk_delete", "edit", "delete")
         fields  = BaseInterfaceTable.Meta.fields + ("hostid", "interfaceid", "useip", "main", "port")
         default_columns = BaseInterfaceTable.Meta.default_columns + ("port", "useip", "main")
@@ -456,7 +488,7 @@ class AgentInterfaceTable(BaseInterfaceTable):
 
 class SNMPInterfaceTable(BaseInterfaceTable):
     class Meta(BaseInterfaceTable.Meta):
-        model   = models.SNMPInterface
+        model   = SNMPInterface
         actions = ("bulk_edit", "bulk_delete", "edit", "delete")
         fields  = BaseInterfaceTable.Meta.fields + ("hostid", 
                                                     "interfaceid", 
@@ -495,7 +527,7 @@ class ImportableHostsTable(NetBoxTable):
 
 
     class Meta(NetBoxTable.Meta):
-        model = models.HostConfig
+        model = HostConfig
         fields   = ("pk", "name", "host_type", "site", "status", "role", "valid", "reason")
         default_columns = fields
 
@@ -533,7 +565,6 @@ class ImportableHostsTable(NetBoxTable):
             reason = self._validate_record( record )
             return reason or ""
         return ""
-    
 
 
 # ------------------------------------------------------------------------------
@@ -566,7 +597,7 @@ class NetBoxOnlyHostsTable(NetBoxTable):
     actions = [] # Remove default actions since hosts cannot be added or edited
 
     class Meta(NetBoxTable.Meta):
-        model = models.HostConfig
+        model = HostConfig
         fields = (
             "pk",
             "name",
@@ -618,10 +649,10 @@ class NetBoxOnlyHostsTable(NetBoxTable):
 
     def render_agent_mapping(self, record):
         if record.host_type == "Device":
-            mapping = self.device_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.Agent) )
+            mapping = self.device_mapping_cache.get( (record.pk, InterfaceTypeChoices.Agent) )
             
         else:
-            mapping = self.vm_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.Agent) )
+            mapping = self.vm_mapping_cache.get( (record.pk, InterfaceTypeChoices.Agent) )
         
         if not mapping:
             return "—"
@@ -630,9 +661,9 @@ class NetBoxOnlyHostsTable(NetBoxTable):
 
     def render_snmp_mapping(self, record):
         if record.host_type == "Device":
-            mapping = self.device_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.SNMP) )
+            mapping = self.device_mapping_cache.get( (record.pk, InterfaceTypeChoices.SNMP) )
         else:
-            mapping = self.vm_mapping_cache.get( (record.pk, models.InterfaceTypeChoices.SNMP) )
+            mapping = self.vm_mapping_cache.get( (record.pk, InterfaceTypeChoices.SNMP) )
 
         if not mapping:
             return "-"
@@ -675,7 +706,7 @@ class EventLogTable(NetBoxTable):
     created    = tables.DateTimeColumn( format="Y-m-d H:i:s" )
 
     class Meta(NetBoxTable.Meta):
-        model  = models.EventLog
+        model  = EventLog
         fields = ( 'name', 'job', 'job_status', 'created', 'message', 
                    'exception', 'data', 'pre_data', 'post_data')
         default_columns = ( 'name', 'job', 'job_status', 'created', 'message' )

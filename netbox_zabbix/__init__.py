@@ -65,7 +65,6 @@ class ZConfiguration(PluginConfig):
         from dcim.models import Device
         from virtualization.models import VirtualMachine
         from netbox_zabbix.models import HostConfig
-        
 
         # Import and register signals
         from .signals import signals

@@ -1,5 +1,6 @@
 {% extends 'generic/object.html' %}
 {% load render_table from django_tables2 %}
+{% load i18n %}
 
 
 {% block title %}Device Mapping {{object.name}}{% endblock %}
@@ -14,10 +15,6 @@
                     <tr>
                         <th scope="row">Name</th>
                         <td>{{ object.name }}</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Description</th>
-                        <td>{{ object.description }}</td>
                     </tr>
 
                     <tr>
@@ -86,6 +83,20 @@
         </div>
     </div>
 </div>
+
+
+{% if object.description %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header">{% trans "Description" %}</h2>
+            <div class="card-body">
+                {{ object.description|markdown }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 
 {% if object.sites.exists or object.roles.exists or object.platforms.exists %}
