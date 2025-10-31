@@ -3,6 +3,8 @@
 import django_filters
 from django.db.models import Q
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import CharField
+from django.db.models.functions import Cast
 
 from dcim.models import Device
 from dcim.filtersets import DeviceFilterSet
@@ -335,8 +337,6 @@ class SNMPInterfaceFilterSet(NetBoxModelFilterSet):
 # Event Log
 # ------------------------------------------------------------------------------
 
-from django.db.models import CharField
-from django.db.models.functions import Cast
 
 class EventLogFilterSet(NetBoxModelFilterSet):
     class Meta:
@@ -350,13 +350,6 @@ class EventLogFilterSet(NetBoxModelFilterSet):
             label="Name"
         )
 
-#    def search(self, queryset, name, value):
-#        if not value.strip():
-#            return queryset
-#        return queryset.filter(
-#            Q(name__icontains=value) |
-#            Q(job__job_id=value)
-#        )
     def search(self, queryset, name, value):
         if not value.strip():
             return queryset

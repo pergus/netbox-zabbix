@@ -6,7 +6,7 @@
 {% load plugins %}
 {% load tabs %}
 {% load i18n %}
-
+{% load remove_empty_strings %}
 
 
 {% block controls %}
@@ -133,7 +133,7 @@
 <div class="row">
     <div class="col col-6 col-md-6">
         <div class="card">
-            {% include 'extras/inc/configcontext_data.html' with title="Pre-Change Data" data=object.pre_data format=format copyid="pre_data" %}
+            {% include 'extras/inc/configcontext_data.html' with title="Pre-Change Data" data=object.pre_data|remove_empty_strings format=format copyid="pre_data" %}
         </div>
     </div>
     <div class="col col-6 col-md-6">

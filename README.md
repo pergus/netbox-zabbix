@@ -33,7 +33,7 @@ Examples
 ### Todo/Bugs
 
 
-* Implement filtering where applicable.
+[DONE] Implement filtering where applicable.
 
 [DONE] Add user to the event log.
 
@@ -44,7 +44,7 @@ Examples
 * Add options in Setting to control how the diff between NetBox and Zabbix should
   behave. strict/lenient?
 
-* Should the zabbix host pre-data be normalized before it is displayed or 
+[DONE] Should the zabbix host pre-data be normalized before it is displayed or 
   when it is saved to the event/job logs? I could just normalize it
   when displaying the data just in case we need the full data...dunno.
 
