@@ -13,6 +13,13 @@ from netbox_zabbix import models
 
 
 class SettingSerializer(NetBoxModelSerializer):
+    """
+    Serializer for Zabbix plugin settings.
+    
+    Hides sensitive fields (API tokens, TLS/PSK secrets, SNMP passphrases)
+    using HiddenField to prevent exposure in the API, while keeping Meta.fields defined
+    to avoid NetBox API crashes.
+    """
     class Meta:
         model = models.Setting
         fields = '__all__'
@@ -41,11 +48,23 @@ class SettingSerializer(NetBoxModelSerializer):
 
 
 class TemplateSerializer(NetBoxModelSerializer):
+    """
+    Serializer for Zabbix Templates.
+    """
     class Meta:
         model = models.Template
         fields = '__all__'
     
     def get_display(self, obj):
+        """
+        Returns a human-readable display name for the template.
+        
+        Args:
+            obj (Template): Template instance.
+        
+        Returns:
+            str: Name of the template.
+        """
         return str( obj.name )
 
 
@@ -55,11 +74,23 @@ class TemplateSerializer(NetBoxModelSerializer):
 
 
 class ProxySerializer(NetBoxModelSerializer):
+    """
+    Serializer for Zabbix Proxies.
+    """
     class Meta:
         model = models.Proxy
         fields = '__all__'
     
     def get_display(self, obj):
+        """
+        Returns a human-readable display name for the proxy.
+        
+        Args:
+            obj (Proxy): Proxy instance.
+        
+        Returns:
+            str: Name of the proxy.
+        """
         return str( obj.name )
 
 
@@ -69,11 +100,23 @@ class ProxySerializer(NetBoxModelSerializer):
 
 
 class ProxyGroupSerializer(NetBoxModelSerializer):
+    """
+    Serializer for Zabbix Proxy Groups.
+    """
     class Meta:
         model = models.ProxyGroup
         fields = '__all__'
     
     def get_display(self, obj):
+        """
+        Returns a human-readable display name for the proxy group.
+        
+        Args:
+            obj (ProxyGroup): ProxyGroup instance.
+        
+        Returns:
+            str: Name of the proxy group.
+        """
         return str( obj.name )
 
 
@@ -83,6 +126,9 @@ class ProxyGroupSerializer(NetBoxModelSerializer):
 
 
 class HostGroupSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Zabbix Host Groups.
+    """
     class Meta:
         model = models.HostGroup
         fields = '__all__'
@@ -94,6 +140,9 @@ class HostGroupSerializer(serializers.ModelSerializer):
 
 
 class TagMappingSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Tag Mappings.
+    """
     class Meta:
         model = models.TagMapping
         fields = '__all__'
@@ -104,6 +153,9 @@ class TagMappingSerializer(serializers.ModelSerializer):
 
 
 class InventoryMappingSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Inventory Mappings.
+    """
     class Meta:
         model = models.InventoryMapping
         fields = '__all__'
@@ -115,7 +167,9 @@ class InventoryMappingSerializer(serializers.ModelSerializer):
 
 
 class MappingSerializer(serializers.ModelSerializer):
-
+    """
+    Base serializer for generic Mapping models.
+    """
     class Meta:
         model = models.Mapping
         fields = '__all__'
@@ -127,7 +181,9 @@ class MappingSerializer(serializers.ModelSerializer):
 
 
 class DeviceMappingSerializer(serializers.ModelSerializer):
-
+    """
+    Serializer for Device Mapping objects.
+    """
     class Meta:
         model = models.DeviceMapping
         fields = '__all__'
@@ -139,7 +195,9 @@ class DeviceMappingSerializer(serializers.ModelSerializer):
 
 
 class VMMappingSerializer(serializers.ModelSerializer):
-
+    """
+    Serializer for Virtual Machine Mapping objects.
+    """
     class Meta:
         model = models.VMMapping
         fields = '__all__'
@@ -151,7 +209,9 @@ class VMMappingSerializer(serializers.ModelSerializer):
 
 
 class HostConfigSerializer(serializers.ModelSerializer):
-
+    """
+    Serializer for Host Config objects.
+    """
     class Meta:
         model = models.HostConfig
         fields = '__all__'
@@ -163,7 +223,9 @@ class HostConfigSerializer(serializers.ModelSerializer):
 
 
 class AgentInterfaceSerializer(serializers.ModelSerializer):
-
+    """
+    Serializer for Agent Interface objects.
+    """
     class Meta:
         model = models.AgentInterface
         fields = '__all__'
@@ -175,7 +237,9 @@ class AgentInterfaceSerializer(serializers.ModelSerializer):
 
 
 class SNMPInterfaceSerializer(serializers.ModelSerializer):
-
+    """
+    Serializer for SNMP Interface objects.
+    """
     class Meta:
         model = models.SNMPInterface
         fields = '__all__'
@@ -187,7 +251,9 @@ class SNMPInterfaceSerializer(serializers.ModelSerializer):
 
 
 class EventLogSerializer(serializers.ModelSerializer):
-
+    """
+    Serializer for Zabbix Event Logs.
+    """
     class Meta:
         model = models.EventLog
         fields = '__all__'
@@ -200,10 +266,23 @@ class EventLogSerializer(serializers.ModelSerializer):
 
 
 class UnAssignedHostsSerializer(serializers.Serializer):
+    """
+    Serializer for unassigned Device or VirtualMachine objects.
+    Provides `id` and `display` fields for selection in API responses.
+    """
     id      = serializers.IntegerField()
     display = serializers.SerializerMethodField()
     
     def get_display(self, obj):
+        """
+        Returns a human-readable display value for the unassigned object.
+        
+        Args:
+            obj: Instance of Device or VirtualMachine.
+        
+        Returns:
+            str: Display string of the object.
+        """
         return str(obj)
 
     class Meta:
@@ -216,6 +295,10 @@ class UnAssignedHostsSerializer(serializers.Serializer):
 
 
 class UnAssignedAgentInterfacesSerializer(InterfaceSerializer):
+    """
+    Serializer for unassigned Agent Interfaces.
+    Inherits from InterfaceSerializer to include interface fields.
+    """
     class Meta(InterfaceSerializer.Meta):
         model = models.UnAssignedAgentInterfaces
         fields = '__all__'
@@ -227,6 +310,10 @@ class UnAssignedAgentInterfacesSerializer(InterfaceSerializer):
 
 
 class UnAssignedSNMPInterfaceSerializer(InterfaceSerializer):
+    """
+    Serializer for unassigned SNMP Interfaces.
+    Inherits from InterfaceSerializer to include interface fields.
+    """
     class Meta(InterfaceSerializer.Meta):
         model = models.UnAssignedSNMPInterfaces
         fields = '__all__'
@@ -238,10 +325,23 @@ class UnAssignedSNMPInterfaceSerializer(InterfaceSerializer):
 
 
 class UnAssignedHostInterfacesSerializer(serializers.Serializer):
+    """
+    Serializer for unassigned Host Interfaces (Device or VM).
+    Provides `id` and `display` fields for selection in API responses.
+    """
     id      = serializers.IntegerField()
     display = serializers.SerializerMethodField()
     
     def get_display(self, obj):
+        """
+        Returns a human-readable display value for the unassigned interface.
+        
+        Args:
+            obj: Interface or VMInterface instance.
+        
+        Returns:
+            str: Display string of the interface.
+        """
         return str(obj)
 
     class Meta:
@@ -254,10 +354,23 @@ class UnAssignedHostInterfacesSerializer(serializers.Serializer):
 
 
 class UnAssignedHostIPAddressesSerializer(serializers.Serializer):
+    """
+    Serializer for unassigned IP addresses on a Host Interface or VMInterface.
+    Provides `id` and `display` fields for selection in API responses.
+    """
     id      = serializers.IntegerField()
     display = serializers.SerializerMethodField()
     
     def get_display(self, obj):
+        """
+        Returns a human-readable display value for the IP address.
+        
+        Args:
+            obj (IPAddress): IP address instance.
+        
+        Returns:
+            str: IP address string.
+        """
         return str(obj)
 
     class Meta:

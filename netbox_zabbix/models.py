@@ -1,4 +1,18 @@
 # models.py
+"""
+Models for the netbox-zabbix plugin.
+
+This module defines the database schema and associated logic for:
+- Plugin settings and configurations.
+- Templates, proxies, and host groups.
+- Tag and inventory mappings.
+- Host configurations and their interfaces (Agent/SNMP).
+- Event logging.
+- Proxy models for unassigned objects.
+
+It also defines choice enums used across models, e.g., IPAssignmentChoices,
+MonitoredByChoices, TLSConnectChoices, InterfaceTypeChoices, etc.
+"""
 
 from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
@@ -28,83 +42,194 @@ from netbox_zabbix.logger import logger
 
 
 class IPAssignmentChoices(models.TextChoices):
-    MANUAL = "manual", "Manual"
+    """
+    Choices for assigning IP addresses to host interfaces.
+    
+    Attributes:
+        MANUAL: IP assigned manually by user.
+        PRIMARY: Use host's primary IPv4 address.
+    """
+    MANUAL  = "manual", "Manual"
     PRIMARY = "primary", "Primary IPv4 Address"
 
 
 class MonitoredByChoices(models.IntegerChoices):
+    """
+    Defines the monitoring source for a host.
+    
+    Attributes:
+        ZabbixServer: Monitored directly by Zabbix server.
+        Proxy: Monitored via a Zabbix Proxy.
+        ProxyGroup: Monitored via a group of proxies.
+    """
     ZabbixServer = (0, 'Zabbix Server')
     Proxy        = (1, 'Proxy')
     ProxyGroup   = (2, 'Proxy Group')
 
 
 class TLSConnectChoices(models.IntegerChoices):
+    """
+    TLS connection options for host communication.
+    
+    Attributes:
+        NoEncryption: Do not use TLS.
+        PSK: Use pre-shared key for TLS.
+        CERTIFICATE: Use certificate-based TLS.
+    """
     NoEncryption = (1, 'No Encryption')
-    PSK = (2, 'PSK')
-    CERTIFICATE = (4, 'Certificate')
+    PSK          = (2, 'PSK')
+    CERTIFICATE  = (4, 'Certificate')
 
 
 class InventoryModeChoices(models.IntegerChoices):
+    """
+    Mode for populating inventory data.
+    
+    Attributes:
+        DISABLED: Do not populate inventory.
+        MANUAL: Populate inventory manually.
+        AUTOMATIC: Populate inventory automatically.
+    """
     DISABLED  = (-1, "Disabled")
     MANUAL    = (0, "Manual" )
     AUTOMATIC = (1, "Automatic" )
 
 
 class TagNameFormattingChoices(models.TextChoices):
+    """
+    Formatting options for Zabbix tags.
+    
+    Attributes:
+        KEEP: Keep tag names as entered.
+        UPPER: Convert tag names to uppercase.
+        LOWER: Convert tag names to lowercase.
+    """
     KEEP  = "keep",  "Keep As Entered"
     UPPER = "upper", "Convert to Uppercase"
     LOWER = "lower", "Convert to Lowercase"
 
 
 class DeleteSettingChoices(models.TextChoices):
+    """
+    Determines how hosts are deleted in Zabbix synchronization.
+    
+    Attributes:
+        SOFT: Soft delete (move to graveyard).
+        HARD: Hard delete (remove permanently).
+    """
     SOFT  = "soft", "Soft Delete"
     HARD  = "hard", "Hard Delete"
 
 
 class InterfaceTypeChoices(models.IntegerChoices):
+    """
+    Interface types for Zabbix templates and hosts.
+    
+    Attributes:
+        Any: Any interface type.
+        Agent: Zabbix agent interface.
+        SNMP: SNMP interface.
+    """
     Any   = (0, 'Any')
     Agent = (1, 'Agent')
     SNMP  = (2, 'SNMP')
 
 
 class StatusChoices(models.IntegerChoices):
+    """
+    Status of a Zabbix host.
+    
+    Attributes:
+        ENABLED: Host is enabled for monitoring.
+        DISABLED: Host is disabled for monitoring.
+    """
     ENABLED  = (0, 'Enabled')
     DISABLED = (1, 'Disabled')
 
 
 class UseIPChoices(models.IntegerChoices):
+    """
+    Determines how host interfaces connect to Zabbix.
+    
+    Attributes:
+        DNS: Use DNS name.
+        IP: Use IP address.
+    """
     DNS = (0, 'DNS Name')
-    IP = (1, 'IP Address')
+    IP  = (1, 'IP Address')
 
 
 class MainChoices(models.IntegerChoices):
-    NO = (0, 'No')
+    """
+    Indicates whether an interface is the main/default interface.
+    
+    Attributes:
+        NO: Not the main interface.
+        YES: Main interface.
+    """
+    NO  = (0, 'No')
     YES = (1, 'Yes')
 
 
 class TypeChoices(models.IntegerChoices):
+    """
+    Type of host interface.
+    
+    Attributes:
+        AGENT: Agent interface.
+        SNMP: SNMP interface.
+    """
     AGENT = (1, 'Agent')
     SNMP =  (2, 'SNMP')
 
 
 class SNMPVersionChoices(models.IntegerChoices):
+    """
+    SNMP protocol version for SNMP interfaces.
+    
+    Attributes:
+        SNMPv1:  SNMPv1  (not implemented).
+        SNMPv2c: SNMPv2c (not implemented).
+        SNMPv3:  SNMPv3.
+    """
     SNMPv1  = (1, 'SNMPv1')  # Not Implemented
     SNMPv2c = (2, 'SNMPv2c') # Not Implemented
     SNMPv3  = (3, 'SNMPv3')
 
 
 class SNMPBulkChoices(models.IntegerChoices):
+    """
+    Whether to use SNMP bulk requests.
+    
+    Attributes:
+        NO: Do not use bulk requests.
+        YES: Use bulk requests.
+    """
     NO  = (0, 'No')
     YES = (1, 'Yes')
 
 
 class SNMPSecurityLevelChoices(models.IntegerChoices):
+    """
+    SNMPv3 security level.
+    
+    Attributes:
+        noAuthNoPriv: No authentication, no privacy.
+        authNoPriv: Authentication, no privacy.
+        authPriv: Authentication with privacy.
+    """
     noAuthNoPriv = (0, 'noAuthNoPriv')
     authNoPriv   = (1, 'authNoPriv')
     authPriv     = (2, 'authPriv')
 
 
 class SNMPAuthProtocolChoices(models.IntegerChoices):
+    """
+    SNMPv3 authentication protocols.
+    
+    Attributes:
+        MD5, SHA1, SHA224, SHA256, SHA384, SHA512
+    """
     MD5    = (0, 'MD5')
     SHA1   = (1, 'SHA1')
     SHA224 = (2, 'SHA224')
@@ -114,15 +239,28 @@ class SNMPAuthProtocolChoices(models.IntegerChoices):
 
 
 class SNMPPrivProtocolChoices(models.IntegerChoices):
+    """
+    SNMPv3 privacy protocols.
+    
+    Attributes:
+        DES, AES128, AES192, AES256, AES192C, AES256C
+    """
     DES     = (0, 'DES')
     AES128  = (1, 'AES128')
     AES192  = (2, 'AES192')
     AES256  = (3, 'AES256')
-    AES192C  = (4, 'AES192C')
+    AES192C = (4, 'AES192C')
     AES256C = (5, 'AES256C')
 
 
 class SyncJobIntervalChoices(ChoiceSet):
+    """
+    Available intervals (in minutes) for Zabbix sync jobs.
+    
+    Example:
+        INTERVAL_HOURLY = 60
+        INTERVAL_DAILY = 1440
+    """
     INTERVAL_MINUTELY = 1
     INTERVAL_EVERY_5_MINUTES = 5
     INTERVAL_EVERY_15_MINUTES = 15
@@ -172,6 +310,30 @@ class SyncJobIntervalChoices(ChoiceSet):
 
 
 class Setting(NetBoxModel):
+    """
+    Stores global settings for the netbox-zabbix plugin.
+    
+    Attributes:
+        name (str): Name of the setting.
+        ip_assignment_method (str): Method to assign IPs to host interfaces.
+        event_log_enabled (bool): Whether event logging is enabled.
+        auto_validate_importables (bool): Automatically validate importable hosts.
+        auto_validate_quick_add (bool): Automatically validate hosts eligible for quick add.
+        max_deletions (int): Max deletions allowed during import.
+        max_success_notifications (int): Max success notifications per job.
+        zabbix_sync_interval (int): Interval in minutes for Zabbix sync jobs.
+        version (str): Zabbix server version.
+        api_endpoint (str): Zabbix API endpoint URL.
+        web_address (str): Zabbix web interface URL.
+        token (str): Zabbix API token.
+        delete_setting (str): Soft or hard delete behavior.
+        graveyard (str): Host group for soft-deleted hosts.
+        inventory_mode (int): Inventory population mode.
+        monitored_by (int): Monitoring method.
+        tls_connect / tls_accept (int): TLS configuration for connections.
+        agent_port / snmp_port (int): Default ports for agent and SNMP interfaces.
+        tag_prefix / tag_name_formatting: Tagging settings.
+    """
     class Meta:
         verbose_name = "Setting"
         verbose_name_plural = "Settings"
@@ -300,7 +462,7 @@ class Setting(NetBoxModel):
 
     # SNMP Specific Defaults
     snmp_port            = models.IntegerField( verbose_name="Port", default=161, help_text="SNMP default port." )
-    snmp_bulk            = models.IntegerField( verbose_name="Bulk", choices=SNMPBulkChoices, default=1, help_text="Whether to use bulk SNMP requests." )
+    snmp_bulk            = models.IntegerField( verbose_name="Bulk", choices=SNMPBulkChoices, default=SNMPBulkChoices.YES, help_text="Whether to use bulk SNMP requests." )
     snmp_max_repetitions = models.IntegerField( verbose_name="Max Repetitions", default=10, help_text="Max repetition value for native SNMP bulk requests." )
     snmp_contextname     = models.CharField( verbose_name="Context Name", max_length=255, null=True, blank=True, help_text="SNMP context name." )
     snmp_securityname    = models.CharField( verbose_name="Security Name", max_length=255, default="{$SNMPV3_USER}", help_text="SNMP security name." )
@@ -330,14 +492,39 @@ class Setting(NetBoxModel):
     tag_name_formatting =  models.CharField( verbose_name="Tag Name Formatting", choices=TagNameFormattingChoices, default=TagNameFormattingChoices.KEEP, help_text="Tag name formatting.")
 
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return self.name
 
 
     def get_absolute_url(self):
-        return reverse("plugins:netbox_zabbix:setting", args=[self.pk])
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
+        return reverse( "plugins:netbox_zabbix:setting", args=[self.pk] )
 
     
     def save(self, *args, **kwargs):
+        """
+        Save the Setting instance to the database.
+        
+        This method currently does not implement additional logic beyond
+        the standard model save behavior, but it can be overridden
+        for future pre-save or post-save processing.
+        
+        Args:
+            *args: Positional arguments passed to the model save method.
+            **kwargs: Keyword arguments passed to the model save method.
+        """
         super().save(*args, **kwargs)
 
 
@@ -347,6 +534,17 @@ class Setting(NetBoxModel):
 
 
 class Template(NetBoxModel):
+    """
+    Represents a Zabbix template.
+    
+    Attributes:
+        name (str): Template name.
+        templateid (str): Template ID from Zabbix.
+        last_synced (datetime): Last sync timestamp.
+        parents (ManyToMany): Parent templates for dependency management.
+        dependencies (ManyToMany): Trigger dependencies.
+        interface_type (int): Required interface type (Any, Agent, SNMP).
+    """
     class Meta:
         verbose_name = "Template"
         verbose_name_plural = "Templates"
@@ -372,10 +570,24 @@ class Template(NetBoxModel):
 
 
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return self.name
 
 
     def get_absolute_url(self):
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
         return reverse( "plugins:netbox_zabbix:template", args=[self.pk] )
 
 
@@ -385,6 +597,7 @@ class Template(NetBoxModel):
 
 
 class Proxy(NetBoxModel):
+    """Represents a Zabbix Proxy for host monitoring."""
     class Meta:
         verbose_name = "Proxy"
         verbose_name_plural = "Proxies"
@@ -395,9 +608,23 @@ class Proxy(NetBoxModel):
     last_synced   = models.DateTimeField( blank=True, null=True )
 
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return self.name
 
     def get_absolute_url(self):
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
         return reverse( "plugins:netbox_zabbix:proxy", args=[self.pk] )
 
 
@@ -407,6 +634,7 @@ class Proxy(NetBoxModel):
 
 
 class ProxyGroup(NetBoxModel):
+    """Represents a Zabbix Host Group."""
     class Meta:
         verbose_name = "Proxy Group"
         verbose_name_plural = "Proxy Groups"
@@ -416,9 +644,23 @@ class ProxyGroup(NetBoxModel):
     last_synced   = models.DateTimeField( blank=True, null=True )
 
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return self.name
 
     def get_absolute_url(self):
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
         return reverse( "plugins:netbox_zabbix:proxygroup", args=[self.pk] )
 
 
@@ -428,6 +670,7 @@ class ProxyGroup(NetBoxModel):
 
 
 class HostGroup(NetBoxModel):
+    """Represents a Zabbix Host Group."""
     class Meta:
         verbose_name = "Hostgroup"
         verbose_name_plural = "Hostgroups"
@@ -437,9 +680,23 @@ class HostGroup(NetBoxModel):
     last_synced = models.DateTimeField( blank=True, null=True )
 
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return self.name
 
     def get_absolute_url(self):
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
         return reverse( "plugins:netbox_zabbix:hostgroup", args=[self.pk] )
 
 
@@ -449,6 +706,13 @@ class HostGroup(NetBoxModel):
 
 
 class TagMapping(NetBoxModel):
+    """
+    Maps NetBox object fields to Zabbix tags.
+    
+    Attributes:
+        object_type (str): 'device' or 'virtualmachine'.
+        selection (list): List of field paths used as Zabbix tags.
+    """
     class Meta:
         verbose_name = "Tag Mapping"
         verbose_name_plural = "Tag Mappings"
@@ -462,9 +726,23 @@ class TagMapping(NetBoxModel):
     selection   = models.JSONField( default=list, help_text="List of field paths to use as Zabbix tags" )
 
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return f"Tag Mapping {self.object_type}"
     
     def get_absolute_url(self):
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
         return reverse( "plugins:netbox_zabbix:tagmapping", args=[self.pk] )
 
 
@@ -474,6 +752,13 @@ class TagMapping(NetBoxModel):
 
 
 class InventoryMapping(NetBoxModel):
+    """
+    Maps NetBox object fields to Zabbix inventory items.
+    
+    Attributes:
+        object_type (str): 'device' or 'virtualmachine'.
+        selection (list): List of field paths used for Zabbix inventory.
+    """
     class Meta:
         verbose_name = "Inventory Mapping"
         verbose_name_plural = "Inventory Mappings"
@@ -487,9 +772,23 @@ class InventoryMapping(NetBoxModel):
     selection   = models.JSONField( default=list, help_text="List of field paths to use as Zabbix inventory" )
 
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return f"Inventory Mapping {self.object_type}"
     
     def get_absolute_url(self):
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
         return reverse( "plugins:netbox_zabbix:inventorymapping", args=[self.pk] )
 
 
@@ -499,6 +798,18 @@ class InventoryMapping(NetBoxModel):
 
 
 class Mapping(NetBoxModel):
+    """
+    Base mapping for hosts, templates, proxies, and filters.
+    
+    Attributes:
+        name (str): Name of the mapping.
+        description (str): Optional description.
+        default (bool): Whether this mapping is the default.
+        host_groups / templates (ManyToMany): Host groups and templates to match.
+        proxy / proxy_group: Optional proxy configuration.
+        interface_type (int): Limit mapping to a specific interface type.
+        sites / roles / platforms: Filters for hosts to which this mapping applies.
+    """
     name        = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the mapping." )
     description = models.TextField( blank=True )
     default     = models.BooleanField( default=False )
@@ -518,17 +829,36 @@ class Mapping(NetBoxModel):
 
 
     def delete(self, *args, **kwargs):
+        """
+        Delete this mapping instance from the database.
+        
+        Raises:
+            ValidationError: If the mapping is marked as default, it cannot be deleted.
+        """
         if self.default == True:
             raise ValidationError( "Cannot delete default config" )
         super().delete(*args, **kwargs)
 
 
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return self.name
 
 
     def get_absolute_url(self):
-        # Return None or a placeholder URL; you could log this if needed
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
         return None
 
 
@@ -538,6 +868,13 @@ class Mapping(NetBoxModel):
 
 
 class DeviceMapping(Mapping):
+    """
+    Mapping for Device objects.
+    
+    Methods:
+        get_matching_filter(device, interface_type): Returns the most specific mapping matching a device.
+        get_matching_devices(): Returns Devices matched by this mapping, excluding devices handled by more specific mappings.
+    """
     class Meta:
         verbose_name = "Device Mapping"
         verbose_name_plural = "Device Mappings"
@@ -545,6 +882,16 @@ class DeviceMapping(Mapping):
 
     @classmethod
     def get_matching_filter(cls, device, interface_type=InterfaceTypeChoices.Any):
+        """
+        Return the most specific DeviceMapping that matches a device.
+        
+        Args:
+            device (Device): Device instance to match.
+            interface_type (int): Interface type to filter by.
+        
+        Returns:
+            DeviceMapping: Matching mapping object.
+        """
         filters = cls.objects.filter( default=False )
         matches = []
         for f in filters:
@@ -568,55 +915,24 @@ class DeviceMapping(Mapping):
         return cls.objects.get( default=True )
 
 
-    def get_matching_devices_recursive(self):
-        # Step 1: Start with all devices and apply current mapping's filters
-        qs = Device.objects.all()
-
-        if self.sites.exists():
-            qs = qs.filter( site__in=self.sites.all() )
-        if self.roles.exists():
-            qs = qs.filter( role__in=self.roles.all() )
-        if self.platforms.exists():
-            qs = qs.filter( platform__in=self.platforms.all() )
-    
-        # Step 2: Define specificity count (how many fields are filtered)
-        def count_fields(mapping):
-            return sum( [ mapping.sites.exists(), mapping.roles.exists(), mapping.platforms.exists() ] )
-    
-        my_fields = count_fields(self)
-    
-        # Step 3: Get other, more specific mappings (more filters applied)
-        more_specific_mappings = DeviceMapping.objects.exclude( pk=self.pk ).filter( default=False )
-        more_specific_mappings = [m for m in more_specific_mappings if count_fields( m ) > my_fields]
-    
-        # Step 4: A mapping is more specific if it filters at least as narrowly as self in all fields
-        def is_more_specific(more_specific, current):
-            for field in ['sites', 'roles', 'platforms']:
-                current_ids  = set( getattr( current, field ).values_list( 'pk', flat=True ) )
-                specific_ids = set( getattr( more_specific, field ).values_list( 'pk', flat=True ))
-    
-                # current matches all: allow anything in more_specific
-                if not current_ids:
-                    continue
-    
-                # more_specific must match at least everything current does
-                if not specific_ids or not current_ids.issubset( specific_ids ):
-                    return False
-            return True
-    
-        # Step 5: Exclude devices matched by more specific mappings
-        for m in more_specific_mappings:
-            if is_more_specific( m, self ):
-                qs = qs.exclude( pk__in=m.get_matching_devices().values_list( 'pk', flat=True ) )
-
-        return qs
-
-
     def get_matching_devices(self):
         """
-        Get Devices matching this mapping, excluding devices covered by more specific mappings.
+        Return queryset of Devices that match this mapping,
+        excluding devices already covered by more specific mappings.
+        
+        Returns:
+            QuerySet: Matching Device instances.
         """
         def mapping_fields(mapping):
+            """
+            Extract relevant filter fields from a mapping instance.
+            
+            Args:
+                mapping (Mapping): A mapping instance.
+            
+            Returns:
+                dict: Dictionary containing sets of IDs for 'sites', 'roles', and 'platforms'.
+            """
             return {
                 "sites":     set( mapping.sites.values_list( "pk", flat=True ) ),
                 "roles":     set( mapping.roles.values_list( "pk", flat=True ) ),
@@ -624,6 +940,15 @@ class DeviceMapping(Mapping):
             }
     
         def count_fields(fields):
+            """
+            Count the number of non-empty filter fields.
+            
+            Args:
+                fields (dict): Dictionary of filter sets (e.g., 'sites', 'roles', 'platforms').
+            
+            Returns:
+                int: Number of fields that are non-empty.
+            """
             return sum( bool( v ) for v in fields.values() )
     
         # Step 1: Precompute related IDs for this mapping (self)
@@ -647,6 +972,19 @@ class DeviceMapping(Mapping):
     
         # Step 3: Helper to compare specificity
         def is_more_specific(more_specific_fields, current_fields):
+            """
+            Determine if one mapping is more specific than another.
+            
+            A mapping is considered more specific if it has filters for
+            sites, roles, or platforms that include all of the current mapping's filters.
+            
+            Args:
+                more_specific_fields (dict): Filter sets of the candidate mapping.
+                current_fields (dict): Filter sets of the current mapping.
+            
+            Returns:
+                bool: True if candidate mapping is more specific, False otherwise.
+            """
             for field in ["sites", "roles", "platforms"]:
                 current_ids = current_fields[field]
                 specific_ids = more_specific_fields[field]
@@ -701,6 +1039,13 @@ class DeviceMapping(Mapping):
 
 
     def get_absolute_url(self):
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
         return reverse( "plugins:netbox_zabbix:devicemapping", args=[self.pk] )
 
 
@@ -710,12 +1055,29 @@ class DeviceMapping(Mapping):
 
 
 class VMMapping(Mapping):
+    """
+    Mapping for VirtualMachine objects.
+    
+    Methods:
+        get_matching_filter(virtual_machine, interface_type): Returns the most specific mapping for a VM.
+        get_matching_virtual_machines(): Returns VMs matched by this mapping, excluding those handled by more specific mappings.
+    """
     class Meta:
         verbose_name = "Virtual Machine Mapping"
         verbose_name_plural = "Virtual Machine Mappings"
     
     @classmethod
     def get_matching_filter(cls, virtual_machine, interface_type=InterfaceTypeChoices.Any):
+        """
+        Return the most specific VMMapping that matches a virtual machine.
+        
+        Args:
+            virtual_machine (VirtualMachine): VM instance to match.
+            interface_type (int): Interface type to filter by.
+        
+        Returns:
+            VMMapping: Matching mapping object.
+        """
         filters = cls.objects.filter( default=False )
         matches = []
         for f in filters:
@@ -741,10 +1103,22 @@ class VMMapping(Mapping):
 
     def get_matching_virtual_machines(self):
         """
-        Get VirtualMachines matching this mapping, excluding VMs covered by more specific mappings.
+        Return queryset of VirtualMachines that match this mapping,
+        excluding VMs covered by more specific mappings.
+        
+        Returns:
+            QuerySet: Matching VirtualMachine instances.
         """
-    
         def mapping_fields(mapping):
+            """
+            Extract relevant filter fields from a VMMapping instance.
+            
+            Args:
+                mapping (VMMapping): A VMMapping instance.
+            
+            Returns:
+                dict: Dictionary containing sets of IDs for 'sites', 'roles', and 'platforms'.
+            """
             return {
                 "sites":     set( mapping.sites.values_list( "pk", flat=True ) ),
                 "roles":     set( mapping.roles.values_list( "pk", flat=True ) ),
@@ -752,6 +1126,15 @@ class VMMapping(Mapping):
             }
     
         def count_fields(fields):
+            """
+            Count the number of non-empty filter fields for VMMapping.
+            
+            Args:
+                fields (dict): Dictionary of filter sets (e.g., 'sites', 'roles', 'platforms').
+            
+            Returns:
+                int: Number of fields that are non-empty.
+            """
             return sum( bool( v ) for v in fields.values() )
     
         # Step 1: Precompute related IDs for this mapping (self)
@@ -775,6 +1158,19 @@ class VMMapping(Mapping):
     
         # Step 3: Helper to compare specificity
         def is_more_specific(more_specific_fields, current_fields):
+            """
+            Determine if one VM mapping is more specific than another.
+            
+            A VM mapping is considered more specific if it has filters for
+            sites, roles, or platforms that include all of the current mapping's filters.
+            
+            Args:
+                more_specific_fields (dict): Filter sets of the candidate VM mapping.
+                current_fields (dict): Filter sets of the current VM mapping.
+            
+            Returns:
+                bool: True if candidate VM mapping is more specific, False otherwise.
+            """
             for field in ["sites", "roles", "platforms"]:
                 current_ids = current_fields[field]
                 specific_ids = more_specific_fields[field]
@@ -829,6 +1225,13 @@ class VMMapping(Mapping):
     
 
     def get_absolute_url(self):
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
         return reverse( "plugins:netbox_zabbix:vmmapping", args=[self.pk] )
 
 
@@ -838,10 +1241,30 @@ class VMMapping(Mapping):
 
 
 class HostConfig(NetBoxModel, JobsMixin):
+    """
+    Represents a host configuration in Zabbix.
+    
+    Attributes:
+        name (str): Host name.
+        hostid (int): Zabbix host ID.
+        status (int): Host monitoring status.
+        host_groups / templates: Assigned groups and templates.
+        monitored_by (int): Monitoring source (server, proxy, etc.).
+        proxy / proxy_group: Assigned proxies.
+        content_type / object_id: Generic relation to Device or VirtualMachine.
+    
+    Properties:
+        has_agent_interface: True if an AgentInterface exists.
+        has_snmp_interface: True if an SNMPInterface exists.
+    
+    Methods:
+        get_sync_status(): Check if the host is in sync with Zabbix.
+        get_sync_diff(): Returns differences between NetBox and Zabbix.
+    """
     class Meta:
         verbose_name = "Host Config"
         verbose_name_plural = "Host Configs"
-    
+
     name            = models.CharField( max_length=200, unique=True, blank=True, null=True, help_text="Name for this host configuration." )
     hostid          = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
     status          = models.IntegerField( choices=StatusChoices.choices, default=StatusChoices.ENABLED, help_text="Host monitoring status." )
@@ -856,19 +1279,31 @@ class HostConfig(NetBoxModel, JobsMixin):
     assigned_object = GenericForeignKey( "content_type", "object_id" )
 
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return f"{self.name}"
-    
+
     @property
     def has_agent_interface(self):
+        """Return True if this host has at least one AgentInterface assigned."""
         return self.agent_interfaces.exists()
-    
+
     @property
     def has_snmp_interface(self):
+        """Return True if this host has at least one SNMPInterface assigned."""
         return self.snmp_interfaces.exists()
 
     def get_sync_status(self):
         """
-        Returns a boolean indicating whether this host is in sync with Zabbix.
+        Check if the host is in sync with Zabbix.
+        
+        Returns:
+            bool: True if host differs from Zabbix configuration, False otherwise.
         """
         from netbox_zabbix.utils import compare_zabbix_config_with_host
         try:
@@ -876,25 +1311,31 @@ class HostConfig(NetBoxModel, JobsMixin):
             return result.get( "differ", False )
         except:
             return False
-    
+
     def get_sync_diff(self):
         """
-        Returns a json document with differences between the NetBox host and the
-        host in Zabbix.
+        Get differences between NetBox host and Zabbix host configuration.
+        
+        Returns:
+            dict: JSON-like dictionary describing differences.
         """
         from netbox_zabbix.utils import compare_zabbix_config_with_host
         try:
             return compare_zabbix_config_with_host( self )
         except:
             return {}
-    
-    def get_sync_icon(self):
-        """
-        Returns a checkmark or cross for template display.
-        """
-        return mark_safe( "✘" ) if self.get_sync_status() else mark_safe( "✔" )
-    
+
     def save(self, *args, **kwargs):
+        """
+        Save the HostConfig instance to the database.
+        
+        If no name is provided, automatically generate one using the
+        assigned object's name with a 'z-' prefix.
+        
+        Args:
+            *args: Positional arguments passed to the model save method.
+            **kwargs: Keyword arguments passed to the model save method.
+        """
         # Add default name if no name is  provided
         if not self.name and self.assigned_object:
             self.name = f"z-{self.assigned_object.name}"
@@ -907,6 +1348,15 @@ class HostConfig(NetBoxModel, JobsMixin):
 
 
 class BaseInterface(NetBoxModel):
+    """
+    Base class for Zabbix host interfaces (Agent or SNMP).
+    
+    Attributes:
+        name (str): Interface name.
+        hostid / interfaceid (int): IDs from Zabbix.
+        useip (int): Use IP or DNS for connection.
+        main (int): Whether this is the main interface.
+    """
     class Meta:
         abstract = True
     
@@ -927,12 +1377,22 @@ class BaseInterface(NetBoxModel):
     main = models.IntegerField( verbose_name="Main Interface", choices=MainChoices, default=MainChoices.YES, help_text="Whether the interface is used as default on the host. Only one interface of some type can be set as default on a host." )
 
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return f"{self.name}"
     
 
     def _get_primary_ip(self):
         """
-        Return the primary IP from the host_config, or None.
+        Return the primary IP from the host_config, or None if not available.
+        
+        Returns:
+            IPAddress or None
         """
         if self.host_config.assigned_object:
             return self.host_config.assigned_object.primary_ip4
@@ -941,6 +1401,12 @@ class BaseInterface(NetBoxModel):
 
     @property
     def resolved_dns_name(self):
+        """
+        Return DNS name for this interface based on the plugin IP assignment method.
+        
+        Returns:
+            str or None
+        """
         setting = Setting.objects.first()
         primary_ip = self._get_primary_ip()
         if setting.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
@@ -951,6 +1417,12 @@ class BaseInterface(NetBoxModel):
 
     @property
     def resolved_ip_address(self):
+        """
+        Return IP address for this interface based on the plugin IP assignment method.
+        
+        Returns:
+            IPAddress or None
+        """
         setting = Setting.objects.first()
         primary_ip = self._get_primary_ip()
         if setting.ip_assignment_method == 'primary' and primary_ip == self.ip_address:
@@ -959,6 +1431,12 @@ class BaseInterface(NetBoxModel):
             return self.ip_address
     
     def clean(self):
+        """
+        Validate that the assigned IP address matches the interface.
+        
+        Raises:
+            ValidationError: If IP does not belong to the selected interface.
+        """
         super().clean()
     
         interface  = self.interface
@@ -976,6 +1454,7 @@ class BaseInterface(NetBoxModel):
 
 
 class AgentInterface(BaseInterface):
+    """Represents an agent interface linked to a HostConfig."""
     host_config    = models.ForeignKey( to="HostConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
     interface_type = models.ForeignKey( ContentType, on_delete=models.CASCADE, limit_choices_to={"model__in": ["interface", "vminterface"]} )
     interface_id   = models.PositiveIntegerField()
@@ -990,6 +1469,12 @@ class AgentInterface(BaseInterface):
 
 
     def save(self, *args, **kwargs):
+        """
+        Ensure only one main AgentInterface exists per host_config and validate the instance.
+        
+        Raises:
+            ValidationError: If the model is invalid.
+        """
         self.full_clean()
 
         # Ensure that only one agent interface at a time is the the main interface.
@@ -1007,6 +1492,7 @@ class AgentInterface(BaseInterface):
 
 
 class SNMPInterface(BaseInterface):
+    """Represents an SNMP interface linked to a HostConfig."""
     host_config    = models.ForeignKey( to="HostConfig", on_delete=models.CASCADE, related_name="snmp_interfaces" )
     interface_type = models.ForeignKey( ContentType, on_delete=models.CASCADE, limit_choices_to={"model__in": ["interface", "vminterface"]} )
     interface_id   = models.PositiveIntegerField()
@@ -1051,6 +1537,12 @@ class SNMPInterface(BaseInterface):
 
 
     def save(self, *args, **kwargs):
+        """
+        Ensure only one main SNMPInterface exists per host_config and validate the instance.
+        
+        Raises:
+            ValidationError: If the model is invalid.
+        """
         self.full_clean()
     
         # Ensure that only one SNMP interface at a time is the the main interface.
@@ -1068,6 +1560,18 @@ class SNMPInterface(BaseInterface):
 
 
 class EventLog(NetBoxModel):
+    """
+    Logs plugin events.
+    
+    Attributes:
+        name (str): Event name.
+        job (Job): Associated job.
+        signal_id / message / exception / data / pre_data / post_data: Event details.
+        created (datetime): Timestamp.
+    
+    Methods:
+        get_job_status_color(): Returns a color code based on job status.
+    """
     name      = models.CharField( verbose_name="Name", max_length=256, help_text="Event name." )
     job       = models.ForeignKey( Job, on_delete=models.CASCADE, null=True, related_name='logs', help_text="Job reference." )
     signal_id = models.TextField( verbose_name="Signal ID", blank=True, default="", help_text="Signal ID." )
@@ -1083,12 +1587,32 @@ class EventLog(NetBoxModel):
         ordering = ['-created']
     
     def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
         return f"{self.name}"
 
     def get_absolute_url(self):
+       """
+       Return the canonical URL for this object within the plugin UI.
+       This is used for linking to the object's detail page in NetBox.
+       
+       Returns:
+           str: Absolute URL as a string. Can be None if not applicable.
+       """
        return reverse( 'plugins:netbox_zabbix:eventlog', args=[self.pk] )
 
     def get_job_status_color(self):
+        """
+        Return a color representing the status of the associated job.
+        
+        Returns:
+            str: Hex color or name (e.g., 'red').
+        """
         if self.job:
             return self.job.get_status_color()
         return 'red'
@@ -1105,6 +1629,7 @@ class EventLog(NetBoxModel):
 
 
 class UnAssignedHosts(Device):
+    """Proxy model for unassigned Device objects."""
     class Meta:
         proxy = True
 
@@ -1115,6 +1640,7 @@ class UnAssignedHosts(Device):
 
 
 class UnAssignedAgentInterfaces(Interface):
+    """Proxy model for unassigned agent interfaces."""
     class Meta:
         proxy = True
 
@@ -1125,6 +1651,7 @@ class UnAssignedAgentInterfaces(Interface):
 
 
 class UnAssignedSNMPInterfaces(Interface):
+    """Proxy model for unassigned SNMP interfaces."""
     class Meta:
         proxy = True
 
@@ -1135,6 +1662,7 @@ class UnAssignedSNMPInterfaces(Interface):
 
 
 class UnAssignedHostInterfaces(Interface):
+    """Proxy model for unassigned host interfaces."""
     class Meta:
         proxy = True
 
@@ -1145,6 +1673,7 @@ class UnAssignedHostInterfaces(Interface):
 
 
 class UnAssignedHostIPAddresses(IPAddress):
+    """Proxy model for unassigned IP addresses."""
     class Meta:
         proxy = True
 

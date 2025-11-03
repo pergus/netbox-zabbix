@@ -7,11 +7,20 @@ register = template.Library()
 
 def render_cell_v1(value):
     """
-    Render a dict or list inside a table cell.
-    Dicts are rendered vertically for compactness.
-    Lists of dicts are rendered as multiple vertical tables.
+    Render a Python dict or list as an HTML table for display in a single table cell.
+    
+    Behavior:
+        - Dict: rendered as a vertical table (key/value pairs stacked vertically).
+        - List of dicts: each dict rendered as its own vertical table.
+        - Primitive values: rendered as plain text.
+    
+    Args:
+        value (dict | list | str | any): The object to render. Strings are
+            attempted to be parsed as JSON first.
+    
+    Returns:
+        str: Safe HTML string representing the table or value.
     """
-
     if isinstance( value, str ):
         try:
             value = json.loads( value )
@@ -36,10 +45,20 @@ def render_cell_v1(value):
 
 def render_cell(value):
     """
-    Render a dict or list inside a table cell.
-    - Single dict: vertical table
-    - List of dicts: merge all dicts into one vertical table
-    - List of primitives: vertical table
+    Render a Python dict or list as a compact HTML table.
+    
+    Behavior:
+        - Single dict: vertical table.
+        - List of dicts: merge all dicts into a single vertical table.
+        - List of primitives: vertical table of values.
+        - Primitive values: rendered as plain text.
+    
+    Args:
+        value (dict | list | str | any): The object to render. Strings are
+            attempted to be parsed as JSON first.
+    
+    Returns:
+        str: Safe HTML string representing the table or value.
     """
     if isinstance(value, str):
         try:
@@ -78,9 +97,21 @@ def render_cell(value):
 @register.filter(name="config_to_table")
 def config_to_table(value):
     """
-    Render a list of dicts or a dict as an HTML table with compact nested dicts.
+    Django template filter to render a dict or list of dicts as an HTML table.
+    
+    Handles nested structures:
+        - A single dict is converted to a one-row table.
+        - A list of dicts is rendered as a table with a column for each key.
+        - Nested dicts or lists inside cells are rendered compactly using `render_cell`.
+        - Lists of primitives are displayed as single-column tables.
+    
+    Args:
+        value (dict | list | str | any): The object to render. Strings are
+            attempted to be parsed as JSON first.
+    
+    Returns:
+        str: Safe HTML string containing a full table.
     """
-
     if isinstance( value, str ):
         try:
             value = json.loads( value )

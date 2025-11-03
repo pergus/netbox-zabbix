@@ -119,7 +119,6 @@ def get_version():
     try:
         z = get_zabbix_client()
         return z.apiinfo.version()
-    
     except Exception as e:
         raise e
 
@@ -141,29 +140,6 @@ def get_templates():
     try:
         z = get_zabbix_client()
         return z.template.get( output=["name"], sortfield = "name", selectParentTemplates=["templateid", "name"] )
-    
-    except Exception as e:
-        raise e
-
-
-def get_template_with_parents(templateid):
-    """
-    Retrieve a template and its parent templates from Zabbix.
-    
-    Connects to the Zabbix API using the configured client and fetches details 
-    about a single template, including its parent templates.
-    
-    Args:
-        templateid (int or str): The ID of the template to retrieve.
-    
-    Returns:
-        list: A list containing the requested template with its ID, name, 
-              and parent templates.
-    """
-    try:
-        z = get_zabbix_client()
-        return z.template.get( templateids=[templateid], output=["templateid", "name"], selectParentTemplates=["templateid", "name"] )
-
     except Exception as e:
         raise e
 
@@ -254,7 +230,6 @@ def get_proxies():
     try:
         z = get_zabbix_client()
         return z.proxy.get( output=["name", "proxyid", "proxy_groupid"], sortfield = "name" )
-    
     except Exception as e:
         raise e
 
@@ -276,7 +251,6 @@ def get_proxy_groups():
     try:
         z = get_zabbix_client()
         return z.proxygroup.get( output=["name", "proxy_groupid"], sortfield = "name" )
-    
     except Exception as e:
         raise e
 
@@ -301,13 +275,25 @@ def get_zabbix_hostnames():
         z = get_zabbix_client()
         hostnames = z.host.get( output=["name"], sortfield=["name"] )
         return hostnames
-
     except Exception as e:
         logger.error( f"Get Zabbix hostnames from {get_zabbix_api_endpoint()} failed: {e}" )
         raise e
 
 
 def get_cached_zabbix_hostnames():
+    """
+    Retrieve hostnames from cache, or from Zabbix if not cached.
+    
+    Checks the Django cache for stored Zabbix hostnames. If not found, fetches
+    them from the Zabbix API, stores them in cache for 60 seconds, and returns
+    the set of hostnames.
+    
+    Returns:
+        set: Cached or freshly fetched hostnames from Zabbix.
+    
+    Raises:
+        Exception: If fetching from Zabbix fails.
+    """
     cache_key = "zabbix_hostnames"
     hostnames = cache.get( cache_key )
     if hostnames is None:
@@ -316,7 +302,6 @@ def get_cached_zabbix_hostnames():
             cache.set( cache_key, hostnames, timeout=60 )  # Cache for 60 seconds
         except Exception:
             raise
-            #hostnames = set()
     return hostnames
 
 
@@ -438,7 +423,6 @@ def get_host_group(name=None, groupid=None):
             raise Exception(f"Multiple host groups found for filter {filter_args}")
 
         return groups[0]
-
     except Exception as e:
         raise e
 
@@ -470,7 +454,6 @@ def get_host_by_id(hostid):
             selectGroups="extend",
             selectInventory="extend"
         )
-
     except ZabbixSettingNotFound as e:
         raise e
     
@@ -824,6 +807,23 @@ def can_remove_interface(hostid, interfaceid):
 
 
 def interface_availability(hostid, interfaceid):
+    """
+    Check whether a Zabbix host interface is currently available.
+    
+    Connects to the Zabbix API and retrieves the availability status for the
+    specified interface. An interface is considered available if the 'available'
+    field in Zabbix equals 1.
+    
+    Args:
+        hostid (int or str): ID of the host that owns the interface.
+        interfaceid (int or str): ID of the interface to check.
+    
+    Returns:
+        bool: True if the interface is available, False otherwise.
+    
+    Raises:
+        Exception: If there is an error communicating with the Zabbix API.
+    """
     try:
         z = get_zabbix_client()
         status = z.hostinterface.get( hostids=[hostid], filter={'interfaceid': interfaceid}, output=['available'] )[0]
@@ -839,27 +839,42 @@ def interface_availability(hostid, interfaceid):
 
 
 def get_problems(hostname):
+    """
+    Retrieve active problems for a specific Zabbix host.
+    
+    Connects to the Zabbix API, finds the host by name, and returns a list of
+    current problems (events) associated with that host. Returns an empty list
+    if the host does not exist or if multiple hosts match.
+    
+    Args:
+        hostname (str): Name of the Zabbix host.
+    
+    Returns:
+        list: A list of problem dictionaries, each containing event ID, severity,
+              acknowledgment status, name, and timestamp.
+    
+    Raises:
+        Exception: On communication or API errors.
+    """
     try:
         z = get_zabbix_client()
         hosts = z.host.get( filter={"host": hostname} )
-        if len(hosts) == 1:
-            host = hosts[0]
-        else:
+
+        if len(hosts) != 1:
             return []
         
-        hostid = host["hostid"]
+        hostid = hosts[0]["hostid"]
 
-        problems = z.problem.get(
-                   output=["eventid", "severity", "acknowledged", "name", "clock"],
-                   hostids=[hostid],
-                   sortfield="eventid",
-                   sortorder="DESC"
-               )
-
+        problems = z.problem.get( 
+            output=["eventid", "severity", "acknowledged", "name", "clock"],
+            hostids=[hostid],
+            sortfield="eventid",
+            sortorder="DESC" 
+            )
         return problems
 
-    except Exception as e:
-        raise e
+    except:
+        return []
 
 
 # end

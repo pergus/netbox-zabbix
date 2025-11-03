@@ -75,7 +75,16 @@ SIGNAL_TYPE_CODES = {
 
 def get_signal_id(sender, signal_name: str) -> str:
     """
-    Build a short identifier for a signal, e.g. [DZC-PS].
+    Generate a short identifier for a model signal.
+    
+    Example: Device post_save => 'DEV-PS'
+    
+    Args:
+        sender (Model): Django model class sending the signal.
+        signal_name (str): Signal type (e.g., 'post_save', 'pre_delete').
+    
+    Returns:
+        str: Short identifier string.
     """
     model_code = SIGNAL_CODES.get(sender, sender.__name__[:3].upper())
     signal_code = SIGNAL_TYPE_CODES.get(signal_name, signal_name.upper())
@@ -85,13 +94,19 @@ def get_signal_id(sender, signal_name: str) -> str:
 def get_current_request():
     """
     Return the current NetBox HTTP request stored in thread-local context.
+    
+    Returns:
+        HttpRequest | None: Current request object if available.
     """
     return current_request.get()
 
 
 def get_current_request_id():
     """
-    Return the current request's id if available, otherwise None.
+    Return the current HTTP request's id.
+    
+    Returns:
+        int | None: Request id or None if unavailable.
     """
     req = current_request.get()
     return getattr( req, "id", None ) if req else None
@@ -99,7 +114,13 @@ def get_current_request_id():
 
 def get_latest_change_user(pk: int):
     """
-    Return the User associated with the most recent ObjectChange for the given pk.
+    Retrieve the user associated with the most recent ObjectChange for a given object.
+    
+    Args:
+        pk (int): Primary key of the object.
+    
+    Returns:
+        User | None: User who made the latest change, or None if not found.
     """
     change = ObjectChange.objects.filter( changed_object_id=pk ).order_by( "-time" ).first()
     return change.user if change and change.user else None
@@ -107,14 +128,19 @@ def get_latest_change_user(pk: int):
 
 def needs_zabbix_ip_reassignment(interface: Interface | VMInterface):
     """
-    Determine if a Zabbix interface should be reassigned to the Device/VM's primary IP.
+    Determine whether a Zabbix interface should be reassigned to the parent object's
+    primary IPv4 address.
     
-    Reassignment is needed when:
-        * No IP is assigned, OR
-        * The current IP differs from the Device/VM's primary IPv4, OR
-        * The primary IP lacks a DNS name.
+    Reassignment is required if:
+        * No IP is currently assigned, or
+        * Current IP differs from the parent object's primary IPv4, or
+        * Primary IP lacks a DNS name.
     
-    Returns True if reassignment is required, False otherwise.
+    Args:
+        interface (Interface | VMInterface): Interface to check.
+    
+    Returns:
+        bool: True if reassignment is required, False otherwise.
     """
 
     # Determine parent Device/VM
@@ -152,14 +178,13 @@ def needs_zabbix_ip_reassignment(interface: Interface | VMInterface):
 
 def assign_primary_ip_to_zabbix_interface(interface: Interface | VMInterface) -> bool:
     """
-    Attempt to reassign the Zabbix interface IP to the parent Device/VM's primary IPv4.
-
-    The reassignment is performed only if:
-      * The primary IPv4 exists,
-      * It belongs to the same interface,
-      * It has a DNS name.
+    Reassign the Zabbix interface's IP to the parent object's primary IPv4 if eligible.
     
-    Returns True if an IP was successfully re-associated, False otherwise.
+    Args:
+        interface (Interface | VMInterface): Interface to reassign.
+    
+    Returns:
+        bool: True if reassignment succeeded, False otherwise.
     """
     logger.debug( "Starting primary IP reassignment check for interface id=%s", interface.id )
 
@@ -207,9 +232,14 @@ def assign_primary_ip_to_zabbix_interface(interface: Interface | VMInterface) ->
 
 def has_primary_ipv4_changed(device):
     """
-    Check whether a Device's primary IPv4 address has changed in the database.
+    Check if a Device's primary IPv4 has changed.
+    
+    Args:
+        device (Device): Device instance to check.
+    
+    Returns:
+        bool: True if the primary IP has changed, False otherwise.
     """
-
     if not device.pk:
         logger.debug( "Skipping primary IPv4 change check: device '%s' has no primary key.", getattr(device, "name", "<unnamed>") )
         return False
@@ -224,9 +254,14 @@ def has_primary_ipv4_changed(device):
 
 def has_object_name_changed(obj):
     """
-    Check whether a Device or VirtualMachine's name has changed in the database.
+    Check if a Device or VirtualMachine's name has changed.
+    
+    Args:
+        obj (Device | VirtualMachine): Object to check.
+    
+    Returns:
+        Tuple[bool, str]: (changed, old_name)
     """
-
     if not obj.pk:
         logger.debug( "Skipping name change check: object has no primary key." )
         return False
@@ -242,6 +277,15 @@ def has_object_name_changed(obj):
 
 
 def is_config_being_deleted(config_pk: int) -> bool:
+    """
+    Check if a HostConfig is currently being deleted (thread-local context).
+    
+    Args:
+        config_pk (int): HostConfig primary key.
+    
+    Returns:
+        bool: True if the config is being deleted.
+    """
     return ( hasattr(_deletion_context, "configs_being_deleted") and config_pk in _deletion_context.configs_being_deleted )
 
 # ------------------------------------------------------------------------------
@@ -252,11 +296,15 @@ def is_config_being_deleted(config_pk: int) -> bool:
 @receiver(pre_save, sender=Setting)
 def reschedule_zabbix_sync_job(sender, instance: Setting, **kwargs):
     """
-    Reschedule the Zabbix import system job when the sync interval changes.
+    Reschedule the Zabbix import system job if the sync interval changes.
     
-    Triggered before saving a Setting object to detect interval modifications.
+    Triggered before saving a Setting object.
+    
+    Args:
+        sender (Model): Setting model class.
+        instance (Setting): Instance being saved.
+        **kwargs: Additional signal arguments.
     """
-    
     if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
         return  # skip logic silently
     
@@ -290,7 +338,13 @@ def reschedule_zabbix_sync_job(sender, instance: Setting, **kwargs):
 @receiver(post_save, sender=HostConfig)
 def create_or_update_host_config(sender, instance, created: bool, **kwargs):
     """
-    Create or update a Zabbix host when the Host Config is saved.
+    Create or update a Zabbix host after a HostConfig is saved.
+    
+    Args:
+        sender (Model): HostConfig model class.
+        instance (HostConfig): Instance being saved.
+        created (bool): True if instance was newly created.
+        **kwargs: Additional signal arguments.
     """
     if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
         return  # skip logic silently
@@ -335,7 +389,12 @@ def create_or_update_host_config(sender, instance, created: bool, **kwargs):
 @receiver(pre_delete, sender=HostConfig)
 def delete_host_config(sender, instance, **kwargs):
     """
-    Delete the associated Zabbix host before removing a host configuration in NetBox.
+    Delete the corresponding Zabbix host before a HostConfig is deleted.
+    
+    Args:
+        sender (Model): HostConfig model class.
+        instance (HostConfig): Instance being deleted.
+        **kwargs: Additional signal arguments.
     """
     if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
         return  # skip logic silently
@@ -369,21 +428,18 @@ def delete_host_config(sender, instance, **kwargs):
 @receiver(post_delete, sender=HostConfig)
 def unmark_config(sender, instance, **kwargs):
     """
-    Signal receiver that unmarks a HostConfig object after it has been deleted.
+    Cleanup deletion tracking for a HostConfig after deletion.
     
     This function listens for the Django `post_delete` signal on the `HostConfig` model.
     When triggered, it removes the deleted object's primary key from the thread-local
     `_deletion_context.configs_being_deleted` set to ensure cleanup of any temporary
     deletion tracking state.
     
-    Environment Variable:
-        DISABLE_NETBOX_ZABBIX_SIGNALS (str): 
-            If set to "1", the function exits early and no cleanup occurs.
     
     Args:
-        sender (Model): The model class (`HostConfig`) that sent the signal.
-        instance (HostConfig): The specific instance of `HostConfig` that was deleted.
-        **kwargs: Additional keyword arguments provided by the signal.
+        sender (Model): HostConfig model class.
+        instance (HostConfig): Instance that was deleted.
+        **kwargs: Additional signal arguments.
     """
     if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
         return  # skip logic silently
@@ -400,7 +456,15 @@ def unmark_config(sender, instance, **kwargs):
 @receiver(post_save, sender=AgentInterface)
 @receiver(post_save, sender=SNMPInterface)
 def create_or_update_zabbix_interface(sender, instance, created: bool, **kwargs):
-
+    """
+    Create or update a Zabbix interface when an Agent or SNMP Interface is saved.
+    
+    Args:
+        sender (Model): AgentInterface or SNMPInterface class.
+        instance (AgentInterface | SNMPInterface): Instance being saved.
+        created (bool): True if instance was newly created.
+        **kwargs: Additional signal arguments.
+    """
     if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
         return  # skip logic silently
     
@@ -453,8 +517,14 @@ def create_or_update_zabbix_interface(sender, instance, created: bool, **kwargs)
 def handle_interface_post_delete(sender, instance, **kwargs):
    """
    Handle post-delete actions for Agent/SNMP interfaces:
-     1. Promote a fallback interface to main if the deleted one was main.
-     2. Schedule Zabbix host update to reflect interface deletion.
+   
+       1. Promote fallback interface to main if the deleted interface was main.
+       2. Schedule Zabbix host update to reflect interface deletion.
+   
+   Args:
+       sender (Model): AgentInterface or SNMPInterface class.
+       instance (AgentInterface | SNMPInterface): Instance being deleted.
+       **kwargs: Additional signal arguments.
    """
    if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
        return  # skip logic silently
@@ -538,9 +608,14 @@ def handle_interface_post_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=IPAddress)
 def create_or_update_ip_address(sender, instance, created, **kwargs):
    """
-   Handle creation or update of an IPAddress.
+   Handle creation or update of an IPAddress and update Zabbix host accordingly.
+   
+   Args:
+       sender (Model): IPAddress model class.
+       instance (IPAddress): IPAddress instance.
+       created (bool): True if instance was newly created.
+       **kwargs: Additional signal arguments.
    """
-
    if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
        return  # skip logic silently
    
@@ -603,9 +678,13 @@ def create_or_update_ip_address(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=IPAddress)
 def delete_ip_address(sender, instance: IPAddress,  **kwargs):
    """
-   Handle deletion of an IPAddress.
-   This function only present a warning in the UI that the host configuration
-   in NetBox may be out of sync with Zabbix.
+   Handle deletion of an IPAddress. Logs a warning if a Zabbix configuration
+   may be out of sync.
+   
+   Args:
+       sender (Model): IPAddress model class.
+       instance (IPAddress): Instance being deleted.
+       **kwargs: Additional signal arguments.
    """
    if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
        return  # skip logic silently
@@ -644,8 +723,12 @@ def delete_ip_address(sender, instance: IPAddress,  **kwargs):
 @receiver(pre_save, sender=VirtualMachine)
 def update_device_or_vm(sender, instance, **kwargs):
    """
-   Trigger Zabbix host updates when the name or primary IPv4 changes for
-   a Device or VirtualMachine changes.
+   Trigger Zabbix host updates if a Device or VirtualMachine's name or primary IPv4 changes.
+   
+   Args:
+       sender (Model): Device or VirtualMachine class.
+       instance (Device | VirtualMachine): Instance being saved.
+       **kwargs: Additional signal arguments.
    """
 
    if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":

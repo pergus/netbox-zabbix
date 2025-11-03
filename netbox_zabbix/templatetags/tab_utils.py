@@ -14,6 +14,35 @@ register = template.Library()
 # This code is copied from NetBox
 @register.inclusion_tag('tabs/model_view_tabs.html', takes_context=True)
 def model_view_tabs_exlude_jobs(context, instance):
+    """
+    Render the tabs for a NetBox model view, excluding the "Jobs" tab.
+    
+    This template tag is used to dynamically generate the navigation tabs for a
+    given model instance in the NetBox UI, while skipping tabs related to Jobs.
+    
+    Steps performed:
+        1. Retrieves all registered views for the model from NetBox's registry.
+        2. Checks user permissions for each tab.
+        3. Excludes any tab labeled "Jobs".
+        4. Renders attributes for each tab (label, badge, weight).
+        5. Computes the URL for the tab using Django reverse.
+        6. Marks the tab as active if it matches the current context.
+        7. Sorts tabs by weight before returning.
+    
+    Args:
+        context (dict): The template context containing at least the request object.
+        instance (Model): A Django model instance for which to render the tabs.
+    
+    Returns:
+        dict: A dictionary with a single key 'tabs', containing a list of
+              dictionaries for each tab. Each tab dictionary contains:
+                  - name (str): The view name.
+                  - url (str): The URL for the tab.
+                  - label (str): The display label.
+                  - badge (str | None): Optional badge for the tab.
+                  - weight (int): Tab ordering weight.
+                  - is_active (bool): Whether this tab is currently active.
+    """
     app_label = instance._meta.app_label
     model_name = instance._meta.model_name
     user = context['request'].user

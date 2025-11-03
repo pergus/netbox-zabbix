@@ -78,6 +78,12 @@ PLUGIN_SETTINGS = plugin_settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 # a FilterForm.
 
 class SettingForm(NetBoxModelForm):
+    """
+    Form for editing Zabbix plugin settings.
+    
+    Ensures only one instance exists, validates TLS/PSK, API connection, deletion settings,
+    and handles creation of a custom exclusion field.
+    """
     fieldsets = (
         FieldSet( 'name',
                   'ip_assignment_method',
@@ -132,6 +138,11 @@ class SettingForm(NetBoxModelForm):
         fields = '__all__'
 
     def __init__(self, *args, **kwargs):
+            """
+            Initialize form with default initial values for new instance.
+            
+            Hides 'tags' field and sets default API/web endpoints if creating a new setting.
+            """
             super().__init__( *args, **kwargs )
     
             zhost = "localhost"
@@ -156,6 +167,15 @@ class SettingForm(NetBoxModelForm):
 
 
     def clean(self):
+        """
+        Validate form fields and enforce plugin constraints.
+        
+        Checks max deletions, TLS PSK requirements, API connection,
+        soft delete settings, and uniqueness of the setting instance.
+        
+        Raises:
+            ValidationError: If any validation fails.
+        """
         super().clean()
 
         if self.errors:
@@ -230,17 +250,27 @@ class SettingForm(NetBoxModelForm):
 
 
 class TemplateForm(NetBoxModelForm):
+    """
+    Form for creating or editing Zabbix Templates.
+    """
     class Meta:
         model = Template
         fields = ( "name", "templateid", "tags" )
 
 
 class TemplateFilterForm(NetBoxModelFilterSetForm):
-    model = Template
-    name  = forms.ModelMultipleChoiceField( queryset=Template.objects.all(), to_field_name='name', label="Name", required=False )
+    """
+    Filter form for Templates by name or template ID.
+    Dynamically populates templateid choices on initialization.
+    """
+    model      = Template
+    name       = forms.ModelMultipleChoiceField( queryset=Template.objects.all(), to_field_name='name', label="Name", required=False )
     templateid = forms.ChoiceField( label = "Template ID", required = False )
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize filter choices for template IDs dynamically.
+        """
         super().__init__(*args, **kwargs)
     
          # Set templateid choices dynamically on instantiation
@@ -255,20 +285,30 @@ class TemplateFilterForm(NetBoxModelFilterSetForm):
 
 
 class ProxyForm(NetBoxModelForm):
+    """
+    Form for creating or editing Zabbix Proxies.
+    """
     class Meta:
         model = Proxy
         fields = ( "name", "proxyid", "proxy_groupid" )
 
 
 class ProxyFilterForm(NetBoxModelFilterSetForm):
-    model = Proxy
-
-    name = forms.ModelMultipleChoiceField( queryset=Proxy.objects.all(), to_field_name='name', label="Name", required=False )
-    proxyid = forms.ChoiceField( label = "Proxy ID", required = False )
+    """
+    Filter form for Proxies by name, proxy ID, or proxy group ID.
+    
+    Dynamically populates proxyid choices on initialization.
+    """
+    model         = Proxy
+    name          = forms.ModelMultipleChoiceField( queryset=Proxy.objects.all(), to_field_name='name', label="Name", required=False )
+    proxyid       = forms.ChoiceField( label = "Proxy ID", required = False )
     proxy_groupid = forms.ChoiceField( label = "Proxy Group ID", required = False )
 
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize filter choices for proxy IDs dynamically.
+        """
         super().__init__(*args, **kwargs)
     
          # Set proxyid choices dynamically on instantiation
@@ -283,18 +323,27 @@ class ProxyFilterForm(NetBoxModelFilterSetForm):
 
 
 class ProxyGroupForm(NetBoxModelForm):
+    """
+    Form for creating or editing Proxy Groups.
+    """
     class Meta:
         model = ProxyGroup
         fields = ( "name", "proxy_groupid" )
 
 
 class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
-    model = ProxyGroup
-
-    name = forms.ModelMultipleChoiceField( queryset=ProxyGroup.objects.all(), to_field_name='name', label="Name", required=False )
+    """
+    Filter form for Proxy Groups by name or group ID.
+    Dynamically populates proxy_groupid choices on initialization.
+    """
+    model         = ProxyGroup
+    name          = forms.ModelMultipleChoiceField( queryset=ProxyGroup.objects.all(), to_field_name='name', label="Name", required=False )
     proxy_groupid = forms.ChoiceField( label = "Proxy Group ID", required = False )
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize filter choices for proxy group IDs dynamically.
+        """
         super().__init__(*args, **kwargs)
 
          # Set proxyid choices dynamically on instantiation
@@ -309,6 +358,9 @@ class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
 
 
 class HostGroupForm(NetBoxModelForm):
+    """
+    Form for creating or editing Host Groups.
+    """
     class Meta:
         model = HostGroup
         fields = [ 'name', 'groupid' ]
@@ -320,6 +372,10 @@ class HostGroupForm(NetBoxModelForm):
 
 
 class TagMappingForm(NetBoxModelForm):
+    """
+    Form for creating or editing tag mappings for devices or VMs.
+    Dynamically generates BooleanFields for each tag and prevents duplicate object_type mappings.
+    """
     object_type = forms.ChoiceField( choices=TagMapping.OBJECT_TYPE_CHOICES, initial='device' )
     prefix = "gurka"
 
@@ -328,6 +384,10 @@ class TagMappingForm(NetBoxModelForm):
         fields = [ "object_type", "tags" ]
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize form with dynamic BooleanFields based on object_type and plugin settings.
+        Locks object_type if editing existing instance and prepares initial enabled states.
+        """
         super().__init__( *args, prefix=self.prefix, **kwargs )
 
         object_type = (
@@ -363,6 +423,15 @@ class TagMappingForm(NetBoxModelForm):
 
 
     def clean_object_type(self):
+        """
+        Validate that no duplicate tag mapping exists for the same object_type.
+        
+        Returns:
+            str: The cleaned object_type.
+        
+        Raises:
+            ValidationError: If a mapping for the object_type already exists.
+        """
         object_type = self.cleaned_data['object_type']
         qs = TagMapping.objects.filter( object_type=object_type )
         if self.instance.pk:
@@ -373,6 +442,15 @@ class TagMappingForm(NetBoxModelForm):
 
 
     def save(self, commit=True):
+        """
+        Save the tag mapping selection based on user input.
+        
+        Args:
+            commit (bool): Whether to commit to the database immediately.
+        
+        Returns:
+            TagMapping: The saved instance.
+        """
         # Build list of dicts with name, value, and enabled
         object_type = self.cleaned_data['object_type']
         tag_mappings = PLUGIN_SETTINGS.get( 'tag_mappings', {} ).get( object_type, [] )
@@ -398,6 +476,10 @@ class TagMappingForm(NetBoxModelForm):
 
 
 class InventoryMappingForm(NetBoxModelForm):
+    """
+    Form for creating or editing inventory mappings for devices or VMs.
+    Dynamically generates BooleanFields for each inventory property.
+    """
     object_type = forms.ChoiceField( choices=InventoryMapping.OBJECT_TYPE_CHOICES, initial='device' )
     prefix = "kullager"
 
@@ -405,7 +487,12 @@ class InventoryMappingForm(NetBoxModelForm):
         model = InventoryMapping
         fields = ["object_type", "tags" ]  # exclude 'selection' from raw rendering
 
+
     def __init__(self, *args, **kwargs):
+        """
+        Initialize form with dynamic BooleanFields based on object_type and plugin settings.
+        Locks object_type if editing existing instance and prepares initial enabled states.
+        """
         super().__init__( *args, prefix=self.prefix, **kwargs )
 
         object_type = (
@@ -442,8 +529,16 @@ class InventoryMappingForm(NetBoxModelForm):
             else:
                 logger.info( f"{invkey} is not a legal inventory property" )
 
-
     def clean_object_type(self):
+        """
+        Validate that no duplicate inventory mapping exists for the same object_type.
+        
+        Returns:
+            str: The cleaned object_type.
+        
+        Raises:
+            ValidationError: If a mapping for the object_type already exists.
+        """
         object_type = self.cleaned_data['object_type']
         qs = InventoryMapping.objects.filter( object_type=object_type )
         if self.instance.pk:
@@ -452,8 +547,16 @@ class InventoryMappingForm(NetBoxModelForm):
             raise forms.ValidationError( f"A mapping for object type '{object_type}' already exists." )
         return object_type
 
-
     def save(self, commit=True):
+        """
+        Save the inventory mapping selection based on user input.
+        
+        Args:
+            commit (bool): Whether to commit to the database immediately.
+        
+        Returns:
+            InventoryMapping: The saved instance.
+        """
         # Build list of dicts with name, inkey, paths, and enabled
         object_type = self.cleaned_data['object_type']
         inventory_mapping = PLUGIN_SETTINGS.get( 'inventory_mapping', {} ).get( object_type, [] )
@@ -480,6 +583,11 @@ class InventoryMappingForm(NetBoxModelForm):
 
 
 class DeviceMappingForm(NetBoxModelForm):
+    """
+    Form for creating or editing device mappings.
+    Handles default mapping rules, filter restrictions, template validation,
+    and prevents deletion of the default mapping.
+    """
     fieldsets = (
         FieldSet( 'name', 'description', 'default', name="General" ),
         FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', 'interface_type', name="Settings" ),
@@ -491,6 +599,13 @@ class DeviceMappingForm(NetBoxModelForm):
         fields = '__all__' 
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize the form for a new or existing device mapping.
+        
+        Sets the first mapping as default and disables fields as appropriate.
+        Removes filter fields for default mapping and prunes empty FieldSets.
+        """
+        
         super().__init__(*args, **kwargs)
     
        
@@ -519,9 +634,13 @@ class DeviceMappingForm(NetBoxModelForm):
             # A default exists already: drop the 'default' field entirely
             self.fields.pop( 'default', None )
 
-
-
     def clean(self):
+        """
+        Validate mapping filters, templates, and ensure only one default mapping exists.
+        
+        Raises:
+            ValidationError: If filters overlap, templates are missing, or default rules are violated.
+        """
         super().clean()
 
         default = self.cleaned_data.get( 'default' )
@@ -575,20 +694,37 @@ class DeviceMappingForm(NetBoxModelForm):
                 if self._overlaps_with( other ):
                     raise ValidationError( f"Filter overlaps with existing filter: {other.name}" )
 
-
     def _overlaps_with(self, other):
         """
-        Returns True if this mapping and 'other' have the same specificity and overlap.
-        Allows subset/superset relationships (i.e., more specific mappings are allowed).
+        Check if this mapping overlaps with another mapping.
+        
+        Returns:
+            bool: True if filters overlap and specificity is the same, otherwise False.
         """
         # Count how many filter fields are set for each mapping
         def count_fields(mapping):
+            """
+            Count how many filter fields (sites, roles, platforms) are set for a mapping.
+            
+            For the form instance (`self`), checks `cleaned_data`; for other mappings,
+            checks the related fields in the database.
+            
+            Args:
+                mapping (DeviceMappingForm or DeviceMapping): The mapping to evaluate.
+            
+            Returns:
+                int: The number of filter fields that are set (0–3).
+            
+            Notes:
+                - This is used to determine the "specificity" of a mapping for overlap checks.
+                - A field counts as "set" if it contains at least one value.
+            """
             return sum(
                 1 for field in ['sites', 'roles', 'platforms']
                 if (self.cleaned_data.get( field ) if mapping is self else getattr( mapping, field ).exists())
             )
     
-        self_fields = count_fields( self )
+        self_fields  = count_fields( self )
         other_fields = count_fields( other )
     
         # Only check for overlap if specificity is the same
@@ -617,6 +753,12 @@ class DeviceMappingForm(NetBoxModelForm):
 
 
     def delete(self, *args, **kwargs):
+        """
+        Prevent deletion of the default device mapping.
+        
+        Raises:
+            ValidationError: If attempting to delete the default mapping.
+        """
         if self.default:
             raise ValidationError( "The default device mapping cannot be deleted." )
         super().delete(*args, **kwargs)
@@ -628,6 +770,10 @@ class DeviceMappingForm(NetBoxModelForm):
 
 
 class VMMappingForm(NetBoxModelForm):
+    """
+    Form for creating or editing VM mappings.
+    Similar to DeviceMappingForm, but specifically for virtual machines.
+    """
     fieldsets = (
         FieldSet( 'name', 'description', 'default', name="General" ),
         FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', 'interface_type', name="Settings" ),
@@ -639,6 +785,12 @@ class VMMappingForm(NetBoxModelForm):
         fields = '__all__' 
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize the form for a new or existing VM mapping.
+        
+        Sets the first mapping as default and disables fields as appropriate.
+        Removes filter fields for default mapping and prunes empty FieldSets.
+        """
         super().__init__(*args, **kwargs)
     
        
@@ -670,6 +822,12 @@ class VMMappingForm(NetBoxModelForm):
 
 
     def clean(self):
+        """
+        Validate mapping filters, templates, and ensure only one default mapping exists.
+        
+        Raises:
+            ValidationError: If filters overlap, templates are missing, or default rules are violated.
+        """
         super().clean()
 
         default = self.cleaned_data.get( 'default' )
@@ -726,17 +884,35 @@ class VMMappingForm(NetBoxModelForm):
 
     def _overlaps_with(self, other):
         """
-        Returns True if this mapping and 'other' have the same specificity and overlap.
-        Allows subset/superset relationships (i.e., more specific mappings are allowed).
+        Check if this VM mapping overlaps with another mapping.
+        
+        Returns:
+            bool: True if filters overlap and specificity is the same, otherwise False.
         """
         # Count how many filter fields are set for each mapping
         def count_fields(mapping):
+            """
+            Count how many filter fields (sites, roles, platforms) are set for a mapping.
+            
+            For the form instance (`self`), checks `cleaned_data`; for other mappings,
+            checks the related fields in the database.
+            
+            Args:
+                mapping (DeviceMappingForm or DeviceMapping): The mapping to evaluate.
+            
+            Returns:
+                int: The number of filter fields that are set (0–3).
+            
+            Notes:
+                - This is used to determine the "specificity" of a mapping for overlap checks.
+                - A field counts as "set" if it contains at least one value.
+            """
             return sum(
                 1 for field in ['sites', 'roles', 'platforms']
                 if (self.cleaned_data.get( field ) if mapping is self else getattr( mapping, field ).exists())
             )
     
-        self_fields = count_fields( self )
+        self_fields  = count_fields( self )
         other_fields = count_fields( other )
     
         # Only check for overlap if specificity is the same
@@ -765,6 +941,12 @@ class VMMappingForm(NetBoxModelForm):
 
 
     def delete(self, *args, **kwargs):
+        """
+        Prevent deletion of the default VM mapping.
+        
+        Raises:
+            ValidationError: If attempting to delete the default mapping.
+        """
         if self.default:
             raise ValidationError( "The default device mapping cannot be deleted." )
         super().delete(*args, **kwargs)
@@ -776,6 +958,10 @@ class VMMappingForm(NetBoxModelForm):
 
 
 class HostConfigForm(NetBoxModelForm):
+    """
+    Form for configuring hosts in Zabbix.
+    Supports devices or VMs, validates monitored_by, templates, and interface availability.
+    """
     object_id = forms.IntegerField(widget=forms.HiddenInput(), required=False)
 
     class Meta:
@@ -810,6 +996,11 @@ class HostConfigForm(NetBoxModelForm):
 
 
     def __init__(self, *args, **kwargs):
+        """
+        Lock host and content_type fields when editing an existing instance.
+        
+        Pre-populates fields with assigned object to prevent reassignment.
+        """
         instance = kwargs.get( 'instance', None )
         super().__init__( *args, **kwargs )
 
@@ -831,6 +1022,12 @@ class HostConfigForm(NetBoxModelForm):
 
 
     def clean(self):
+        """
+        Validate monitored_by settings, interface type, and template compatibility.
+        
+        Raises:
+            ValidationError: If monitored_by is incomplete or templates/interfaces are invalid.
+        """
         super().clean()
 
         host         = self.cleaned_data.get( "host" )
@@ -881,13 +1078,16 @@ class HostConfigForm(NetBoxModelForm):
         return self.cleaned_data
 
 
-
 # ------------------------------------------------------------------------------
 # Base Host Interface Form
 # ------------------------------------------------------------------------------
 
 
 class BaseHostInterfaceForm(NetBoxModelForm):
+    """
+    Base form for host interfaces (Agent or SNMP).
+    Handles dynamic selection of interface and IP, DNS validation, and interface assignment.
+    """
     interface_name = DynamicModelChoiceField(
         label="Interface Name",
         queryset=UnAssignedHostInterfaces.objects.all(),
@@ -914,7 +1114,8 @@ class BaseHostInterfaceForm(NetBoxModelForm):
     
     interface_type_choice = InterfaceTypeChoices.Any  # override in subclasses
     default_name_suffix = ""                          # override in subclasses
-    snmp_defaults = {}                                # override in SNMP form if needed
+    agent_defaults = {}                               # override in Agent form
+    snmp_defaults = {}                                # override in SNMP form
 
     class Meta:
         fields = (
@@ -929,6 +1130,12 @@ class BaseHostInterfaceForm(NetBoxModelForm):
         )
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize form for creating or editing an interface.
+        
+        Pre-populates fields for existing instances, applies agent/SNMP defaults,
+        and sets is_edit_field for template usage.
+        """
         super().__init__( *args, **kwargs )
 
         # Hide host_config but still submit it so it can be saved to the DB.
@@ -968,6 +1175,11 @@ class BaseHostInterfaceForm(NetBoxModelForm):
             try:
                 host_config = HostConfig.objects.get( id=self.initial["host_config"] )
                 self.initial["name"] = f"{host_config.assigned_object.name}-{self.default_name_suffix}"
+
+                # Apply Agent defaults if any
+                for field, value in self.agent_defaults.items():
+                    self.initial[field] = value
+                
                 # Apply SNMP defaults if any
                 for field, value in self.snmp_defaults.items():
                     self.initial[field] = value
@@ -976,6 +1188,12 @@ class BaseHostInterfaceForm(NetBoxModelForm):
 
 
     def clean(self):
+        """
+        Validate DNS and interface constraints for host configuration.
+        
+        Raises:
+            ValidationError: If DNS is missing or interface is invalid.
+        """
         super().clean()
 
         # Validate DNS Name
@@ -991,6 +1209,15 @@ class BaseHostInterfaceForm(NetBoxModelForm):
             raise ValidationError( f"{str( e )}" )
 
     def save(self, commit=True):
+        """
+        Save the interface instance, populating interface type and ID.
+        
+        Args:
+            commit (bool): Whether to commit to the database immediately.
+        
+        Returns:
+            BaseHostInterface: Saved instance.
+        """
         instance = super().save( commit=False )
 
         # Populate interface_type and interface_id from the form field
@@ -1010,22 +1237,38 @@ class BaseHostInterfaceForm(NetBoxModelForm):
 
 
 class AgentInterfaceForm(BaseHostInterfaceForm):
+    """
+    Form for creating/editing Agent interfaces.
+    Sets interface_type_choice and default port for Agent interfaces.
+    """
     interface_type_choice = InterfaceTypeChoices.Agent
     default_name_suffix = "agent"
 
     class Meta(BaseHostInterfaceForm.Meta):
         model = AgentInterface
 
-
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize AgentInterfaceForm and apply default port from settings.
+        """
+        super().__init__( *args, **kwargs )
+        self.agent_defaults = {
+            "port": settings.get_agent_port()
+        }
+        
 # ------------------------------------------------------------------------------
 # SNMP Interface
 # ------------------------------------------------------------------------------
 
 
 class SNMPInterfaceForm(BaseHostInterfaceForm):
+    """
+    Form for creating/editing SNMP interfaces.
+    Sets interface_type_choice and default SNMP parameters (port, bulk, security, auth).
+    """
     interface_type_choice = InterfaceTypeChoices.SNMP
     default_name_suffix = "snmp"
-
+    
     class Meta(BaseHostInterfaceForm.Meta):
         model = SNMPInterface
         fields = BaseHostInterfaceForm.Meta.fields + (
@@ -1041,8 +1284,11 @@ class SNMPInterfaceForm(BaseHostInterfaceForm):
         )
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize SNMPInterfaceForm and apply default SNMP settings from plugin configuration.
+        """
         super().__init__( *args, **kwargs )
-        snmp_defaults = {
+        self.snmp_defaults = {
             "port":            settings.get_snmp_port(),
             "bulk":            settings.get_snmp_bulk(),
             "max_repetitions": settings.get_snmp_max_repetitions(),
@@ -1054,6 +1300,6 @@ class SNMPInterfaceForm(BaseHostInterfaceForm):
             "privprotocol":    settings.get_snmp_privprotocol(),
             "privpassphrase":  settings.get_snmp_privpassphrase(),
         }
-
+        
 
 # end

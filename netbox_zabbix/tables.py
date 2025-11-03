@@ -77,6 +77,9 @@ EXTRA_CONFIG_BUTTONS = """
 """
 
 class SettingTable(NetBoxTable):
+    """
+    Table for displaying Zabbix settings in NetBox.
+    """
     class Meta(NetBoxTable.Meta):
         model = Setting
         fields = ( 
@@ -132,6 +135,9 @@ class SettingTable(NetBoxTable):
 
 
 class TemplateTable(NetBoxTable):
+    """
+    Table for displaying Zabbix templates.
+    """
     name       = tables.Column( linkify=True, orderable=True, accessor='name' )
     host_count = columns.LinkedCountColumn( 
          viewname='plugins:netbox_zabbix:hostconfig_list',
@@ -169,6 +175,9 @@ class TemplateTable(NetBoxTable):
 
 
 class ProxyTable(NetBoxTable):
+    """
+    Table for displaying Zabbix proxies.
+    """
     name = tables.Column( linkify=True, order_by="name", accessor="name" )
         
     class Meta(NetBoxTable.Meta):
@@ -183,6 +192,9 @@ class ProxyTable(NetBoxTable):
 
 
 class ProxyGroupTable(NetBoxTable):
+    """
+    Table for displaying Zabbix proxy groups.
+    """
     name = tables.Column( linkify=True, order_by="name", accessor="name" )
     
     class Meta(NetBoxTable.Meta):
@@ -197,6 +209,9 @@ class ProxyGroupTable(NetBoxTable):
 
 
 class HostGroupTable(NetBoxTable):
+    """
+    Table for displaying Zabbix host groups.
+    """
     name = tables.Column( linkify=True, order_by="name", accessor="name" )
     
     class Meta(NetBoxTable.Meta):
@@ -211,6 +226,9 @@ class HostGroupTable(NetBoxTable):
 
 
 class TagMappingTable(NetBoxTable):
+    """
+    Table for displaying TagMapping records.
+    """
     object_type    = tables.Column( verbose_name="Object Type", linkify=True )
     enabled_fields = tables.Column( verbose_name="Enabled Fields", empty_values=(), orderable=False )
 
@@ -221,10 +239,16 @@ class TagMappingTable(NetBoxTable):
 
 
     def __init__(self, *args, user=None, **kwargs):
+        """
+        Initialize the TagMappingTable.
+        """
         super().__init__( *args, **kwargs )
 
 
     def render_enabled_fields(self, record):
+        """
+        Render enabled fields for a TagMapping record.
+        """
         enabled_names = [f['name'] for f in record.selection if f.get('enabled')]
         if not enabled_names:
             return mark_safe( '<span class="badge text-bg-primary">None</span>' )
@@ -243,6 +267,9 @@ class TagMappingTable(NetBoxTable):
 
 
 class InventoryMappingTable(NetBoxTable):
+    """
+    Table for displaying InventoryMapping records.
+    """
     object_type    = tables.Column( verbose_name="Object Type", linkify=True )
     enabled_fields = tables.Column( verbose_name="Enabled Fields", empty_values=(), orderable=False )
 
@@ -251,9 +278,15 @@ class InventoryMappingTable(NetBoxTable):
         fields = ( 'object_type', 'enabled_fields' )
 
     def __init__(self, *args, user=None, **kwargs):
+        """
+        Initialize the InventoryMappingTable.
+        """
         super().__init__( *args, **kwargs )
 
     def render_enabled_fields(self, record):
+        """
+        Render enabled fields for an InventoryMapping record.
+        """
         enabled_names = [f['name'] for f in record.selection if f.get('enabled')]
         if not enabled_names:
             return mark_safe( '<span class="badge text-bg-primary">None</span>' )
@@ -340,13 +373,14 @@ class BaseMatchingMappingTable(NetBoxTable):
 
     def render_host_config(self, record):
         """
-        Render a checkmark or cross depending on Zabbix config existence.
+        Render the host configuration status for a record.
         """
         return mark_safe( "✔" ) if self.has_host_config( record ) else mark_safe( "✘" )
 
     def has_host_config(self, record):
         """
-        Subclasses must implement the model-specific Host config check.
+        Check if the given record has a host configuration.
+        Subclasses must implement this method.
         """
         raise NotImplementedError( "Subclasses must implement has_host_config()" )
 
@@ -358,7 +392,7 @@ class BaseMatchingMappingTable(NetBoxTable):
 
 class MatchingDeviceMappingTable(BaseMatchingMappingTable):
     """
-    Matching table for Device mapping
+    Table for displaying matching Device mappings.
     """
     tags = columns.TagColumn( url_name="dcim:device_list" )
 
@@ -367,6 +401,9 @@ class MatchingDeviceMappingTable(BaseMatchingMappingTable):
         fields = BaseMatchingMappingTable.Meta.fields + ( "tags", )
 
     def has_host_config(self, record):
+        """
+        Check if the Device record has a host configuration.
+        """
         return record.host_config != None
 
 
@@ -377,7 +414,7 @@ class MatchingDeviceMappingTable(BaseMatchingMappingTable):
 
 class MatchingVMMappingTable(BaseMatchingMappingTable):
     """
-    Matching table for VirtualMachine model with Zabbix config and tags.
+    Table for displaying matching VirtualMachine mappings.
     """
     tags = columns.TagColumn( url_name="virtualization:virtualmachine_list" )
 
@@ -386,6 +423,9 @@ class MatchingVMMappingTable(BaseMatchingMappingTable):
         fields = BaseMatchingMappingTable.Meta.fields + ( "tags", )
 
     def has_host_config(self, record):
+        """
+        Check if the VM record has a host configuration.
+        """
         return record.host_config != None
 
 
@@ -395,6 +435,9 @@ class MatchingVMMappingTable(BaseMatchingMappingTable):
 
 
 class HostConfigTable(NetBoxTable):
+    """
+    Table for displaying Zabbix HostConfig objects.
+    """
     name            = tables.Column( accessor='name', order_by='name', verbose_name='Name', linkify=True )
     assigned_object = tables.Column( accessor='assigned_object', verbose_name='Linked Object', linkify=True, orderable=False )
     host_type       = tables.Column( accessor="host_type", empty_values=(), verbose_name="Type", orderable=False )
@@ -417,6 +460,9 @@ class HostConfigTable(NetBoxTable):
         default_columns = fields
 
     def render_host_type(self, record):
+        """
+        Render the type of host (Device or VirtualMachine).
+        """
         return mark_safe( f'{ "Device" if type( record.assigned_object ) == Device else "VirtualMachine" }' )
 
 
@@ -430,6 +476,7 @@ class HostConfigTable(NetBoxTable):
             return mark_safe( "✘" )
         return mark_safe( "✘" ) if result["differ"] else mark_safe( "✔" )
 
+
 # ------------------------------------------------------------------------------
 # Base Interface Table
 # ------------------------------------------------------------------------------
@@ -437,8 +484,7 @@ class HostConfigTable(NetBoxTable):
 
 class BaseInterfaceTable(NetBoxTable):
     """
-    Abstract base table for Agent and SNMP interfaces for Devices and VMs.
-    Provides shared columns like name, interface, IP address, and DNS name.
+    Abstract base table for AgentInterface and SNMPInterface.
     """
     name                = tables.Column( linkify=True )
     host_config         = tables.Column( linkify=True )
@@ -474,6 +520,9 @@ class BaseInterfaceTable(NetBoxTable):
 
 
 class AgentInterfaceTable(BaseInterfaceTable):
+    """
+    Table for displaying AgentInterface records.
+    """
     class Meta(BaseInterfaceTable.Meta):
         model   = AgentInterface
         actions = ("bulk_edit", "bulk_delete", "edit", "delete")
@@ -482,11 +531,14 @@ class AgentInterfaceTable(BaseInterfaceTable):
 
 
 # ------------------------------------------------------------------------------
-# Agent Interface Table
+# SNMP Interface Table
 # ------------------------------------------------------------------------------
 
 
 class SNMPInterfaceTable(BaseInterfaceTable):
+    """
+    Table for displaying SNMPInterface records.
+    """
     class Meta(BaseInterfaceTable.Meta):
         model   = SNMPInterface
         actions = ("bulk_edit", "bulk_delete", "edit", "delete")
@@ -513,6 +565,9 @@ class SNMPInterfaceTable(BaseInterfaceTable):
 
 
 class ImportableHostsTable(NetBoxTable):
+    """
+    Table for showing Hosts (Devices and VMs) that can be imported to Zabbix.
+    """
     pk        = tables.Column( verbose_name=mark_safe( '<input type="checkbox" class="toggle form-check-input" title="Toggle all">'), 
                               attrs={
                                    "td": {"class": "w-1"},
@@ -532,17 +587,29 @@ class ImportableHostsTable(NetBoxTable):
         default_columns = fields
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize the ImportableHostsTable.
+        """
         super().__init__( *args, **kwargs )
         self.reasons = {}
 
 
     def get_actions(self, record):
-        return []
+        """
+        Return the available actions for a record.
+        """
+        return [] # Disable all actions
 
     def render_pk(self, record):
+        """
+        Render a checkbox for selecting a record.
+        """
         return mark_safe( f'<input class="form-check-input" type="checkbox" name="pk" value="{record.pk}:{record.content_type}">' )
 
     def _validate_record(self, record):
+        """
+        Validate a HostConfig record.
+        """
         # Construct a key using the record's PK and content type.
         # The PK alone is not reliable, as a record can be either a Device or a VM,
         # so it is not guaranteed to be unique.
@@ -554,13 +621,19 @@ class ImportableHostsTable(NetBoxTable):
             except Exception as e:
                 self.reasons[key] = e
         return self.reasons[key]
-    
+
     def render_valid(self, record):
+        """
+        Render validation status of a record.
+        """
         if settings.get_auto_validate_quick_add():
             return mark_safe( "✔" if self._validate_record( record ) is None else "✘" )
         return mark_safe( "-" )
     
     def render_reason(self, record):
+        """
+        Render the reason a record is invalid.
+        """
         if settings.get_auto_validate_quick_add():
             reason = self._validate_record( record )
             return reason or ""
@@ -574,10 +647,8 @@ class ImportableHostsTable(NetBoxTable):
 
 class NetBoxOnlyHostsTable(NetBoxTable):
     """
-    Unified table showing both Devices and VirtualMachines
-    that are not yet represented in Zabbix.
+    Table for displaying Devices and VMs that exist in NetBox but not yet in Zabbix.
     """
-
     pk            = tables.Column( verbose_name=mark_safe( '<input type="checkbox" class="toggle form-check-input" title="Toggle all">'), 
                               attrs={
                                    "td": {"class": "w-1"},
@@ -614,13 +685,22 @@ class NetBoxOnlyHostsTable(NetBoxTable):
 
 
     def __init__(self, *args, request=None, device_mapping_cache=None, **kwargs):
+        """
+        Initialize the NetBoxOnlyHostsTable.
+        """
         super().__init__( *args, **kwargs )
         self.reasons = {}
 
     def get_actions(self, record):
-        return []
+        """
+        Return available actions for a record.
+        """
+        return [] # Disable all actions
 
     def _validate_record(self, record):
+        """
+        Validate a HostConfig record and store the result in the cache.
+        """
         # Construct a key using the record's PK and content type.
         # The PK alone is not reliable, as a record can be either a Device or a VM,
         # so it is not guaranteed to be unique.
@@ -634,20 +714,32 @@ class NetBoxOnlyHostsTable(NetBoxTable):
         return self.reasons[key]
     
     def render_valid(self, record):
+        """
+        Render the validation status of a HostConfig record.
+        """
         if settings.get_auto_validate_quick_add():
             return mark_safe( "✔" if self._validate_record( record ) is None else "✘" )
         return mark_safe( "-" )
     
     def render_reason(self, record):
+        """
+        Render the reason a HostConfig record is invalid.
+        """
         if settings.get_auto_validate_quick_add():
             reason = self._validate_record( record )
             return reason or ""
         return ""
     
     def render_pk(self, record):
+        """
+        Render the pk selection checkbox for a HostConfig record.
+        """
         return mark_safe( f'<input class="form-check-input" type="checkbox" name="pk" value="{record.pk}:{record.content_type}">' )
 
     def render_agent_mapping(self, record):
+        """
+        Render the Agent mapping for a Device or VM.
+        """
         if record.host_type == "Device":
             mapping = self.device_mapping_cache.get( (record.pk, InterfaceTypeChoices.Agent) )
             
@@ -660,6 +752,9 @@ class NetBoxOnlyHostsTable(NetBoxTable):
         return mark_safe( f'<a href="{mapping.get_absolute_url()}">{mapping.name}</a>' )
 
     def render_snmp_mapping(self, record):
+        """
+        Render the SNMP mapping for a Device or VM.
+        """
         if record.host_type == "Device":
             mapping = self.device_mapping_cache.get( (record.pk, InterfaceTypeChoices.SNMP) )
         else:
@@ -677,7 +772,9 @@ class NetBoxOnlyHostsTable(NetBoxTable):
 
 
 class ZabbixOnlyHostTable(tables.Table):
-
+    """
+    Table for displaying Hosts that exist only in Zabbix.
+    """
     name = tables.TemplateColumn(
         template_code='<a href="{{web_address}}/zabbix.php?action=host.edit&hostid={{ record.hostid }}">{{ record.name }}</a>',
         verbose_name="Host"
@@ -695,6 +792,9 @@ class ZabbixOnlyHostTable(tables.Table):
 
 
 class EventLogTable(NetBoxTable):
+    """
+    Table for displaying Zabbix-related EventLog entries.
+    """
     name       = tables.Column( linkify=True )
     job        = tables.Column( linkify=True )
     job_status = columns.ChoiceFieldColumn( accessor="job.status", verbose_name="Job Status" )
@@ -719,6 +819,9 @@ class EventLogTable(NetBoxTable):
 
 
 class ZabbixProblemTable(tables.Table):
+    """
+    Table for displaying Zabbix problems/events.
+    """
     eventid      = tables.Column( verbose_name="Event ID" )
     severity     = tables.Column( verbose_name="Severity" )
     name         = tables.Column( verbose_name="Problem" )
@@ -733,6 +836,9 @@ class ZabbixProblemTable(tables.Table):
     
 
     def render_severity(self, value):
+        """
+        Render the severity of a Zabbix problem as a badge.
+        """
         ZABBIX_SEVERITY = {
             "0": ("Not classified", "default"),
             "1": ("Information",    "info"),
@@ -745,9 +851,15 @@ class ZabbixProblemTable(tables.Table):
         return format_html( '<span class="badge bg-{} text-light">{}</span>', css, label )
 
     def render_acknowledged(self, value):
+        """
+        Render whether a problem has been acknowledged.
+        """
         return "Yes" if str( value ) == "1" else "No"
 
     def render_clock(self, value):
+        """
+        Render the timestamp of a problem.
+        """
         try:
             ts = datetime.fromtimestamp( int( value ) )
             return ts.strftime( "%Y-%m-%d %H:%M:%S" )

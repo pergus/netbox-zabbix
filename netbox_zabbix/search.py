@@ -16,6 +16,19 @@ from .models import (
 )
 
 class HostConfigIndex(SearchIndex):
+    """
+    Defines the search index configuration for the HostConfig model.
+    
+    This class specifies which fields of the HostConfig model are indexed
+    for NetBox's global search and how they are weighted for relevance.
+    It also defines which fields are displayed alongside each result in
+    the search UI.
+    
+    Attributes:
+        model (Model): The model being indexed (HostConfig).
+        fields (tuple): A tuple of tuples mapping field names to their search weights.
+        display_attrs (tuple): Additional fields displayed with each search result.
+    """
     model = HostConfig
     fields = (
         ('name', 100),

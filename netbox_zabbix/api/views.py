@@ -50,6 +50,10 @@ from netbox_zabbix.filtersets import (
 
 
 class SettingViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Zabbix plugin settings.
+    Provides standard CRUD operations for the Setting model.
+    """
     queryset = Setting.objects.all()
     serializer_class = serializers.SettingSerializer
 
@@ -60,6 +64,11 @@ class SettingViewSet(NetBoxModelViewSet):
 
 
 class TemplateFilter(filters.FilterSet):
+    """
+    FilterSet for Template model.
+    Allows filtering templates by name using the `q` query parameter
+    (case-insensitive, partial match).
+    """
     # The TemplateFilter class is a filter set designed to filter templates based on the name field.
     # This is required to search for template names in filter forms.
     q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Template" )
@@ -70,6 +79,11 @@ class TemplateFilter(filters.FilterSet):
 
 
 class TemplateViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Templates.
+    Supports listing, retrieving, creating, updating, and deleting Templates.
+    Filtering is available via TemplateFilter.
+    """
     queryset = Template.objects.all()
     serializer_class = serializers.TemplateSerializer
     filterset_class = TemplateFilter 
@@ -81,6 +95,10 @@ class TemplateViewSet(NetBoxModelViewSet):
 
 
 class ProxyFilter(filters.FilterSet):
+    """
+    FilterSet for Proxy model.
+    Supports searching by name using the `q` query parameter.
+    """
     # The ProxyFilter class is a filter set designed to filter proxies based on the name field.
     # This is required to search for proxy names in filter forms.
     q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxies" )
@@ -91,6 +109,10 @@ class ProxyFilter(filters.FilterSet):
 
 
 class ProxyViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Zabbix Proxies.
+    Supports standard CRUD operations and filtering by name.
+    """
     queryset = Proxy.objects.all()
     serializer_class = serializers.ProxySerializer
     filterset_class = ProxyFilter 
@@ -102,6 +124,10 @@ class ProxyViewSet(NetBoxModelViewSet):
 
 
 class ProxyGroupFilter(filters.FilterSet):
+    """
+    FilterSet for ProxyGroup model.
+    Supports searching by name using the `q` query parameter.
+    """
     # The ProxyFilter class is a filter set designed to filter proxies based on the name field.
     # This is required to search for proxy names in filter forms.
     q = filters.CharFilter( field_name="name", lookup_expr="icontains", label="Search Proxy Groups" )
@@ -112,6 +138,10 @@ class ProxyGroupFilter(filters.FilterSet):
 
 
 class ProxyGroupViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Zabbix Proxy Groups.
+    Supports standard CRUD operations and filtering by name.
+    """
     queryset = ProxyGroup.objects.all()
     serializer_class = serializers.ProxyGroupSerializer
     filterset_class = ProxyGroupFilter 
@@ -123,6 +153,11 @@ class ProxyGroupViewSet(NetBoxModelViewSet):
 
 
 class HostGroupViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Zabbix Host Groups.
+    Supports standard CRUD operations.
+    Filtering is provided via HostGroupFilterSet.
+    """
     queryset = HostGroup.objects.all()
     serializer_class = serializers.HostGroupSerializer
     filterset_class = HostGroupFilterSet
@@ -134,9 +169,15 @@ class HostGroupViewSet(NetBoxModelViewSet):
 
 
 class TagMappingViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Tag Mappings.
+    Supports standard CRUD operations.
+    Filtering is provided via TagMappingFilterSet.
+    """
     queryset = TagMapping.objects.all()
     serializer_class = serializers.TagMappingSerializer
     filterset_class = TagMappingFilterSet
+
 
 # ------------------------------------------------------------------------------
 # Inventory Mapping
@@ -144,6 +185,11 @@ class TagMappingViewSet(NetBoxModelViewSet):
 
 
 class InventoryMappingViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Inventory Mappings.
+    Supports standard CRUD operations.
+    Filtering is provided via InventoryMappingFilterSet.
+    """
     queryset = InventoryMapping.objects.all()
     serializer_class = serializers.InventoryMappingSerializer
     filterset_class = InventoryMappingFilterSet
@@ -155,6 +201,11 @@ class InventoryMappingViewSet(NetBoxModelViewSet):
 
 
 class DeviceMappingViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Device Mappings.
+    Supports standard CRUD operations.
+    Filtering is provided via DeviceMappingFilterSet.
+    """
     queryset = DeviceMapping.objects.all()
     serializer_class = serializers.DeviceMappingSerializer
     filterset_class  = DeviceMappingFilterSet
@@ -166,6 +217,11 @@ class DeviceMappingViewSet(NetBoxModelViewSet):
 
 
 class VMMappingViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Virtual Machine Mappings.
+    Supports standard CRUD operations.
+    Filtering is provided via VMMappingFilterSet.
+    """
     queryset = VMMapping.objects.all()
     serializer_class = serializers.VMMappingSerializer
     filterset_class = VMMappingFilterSet
@@ -177,6 +233,11 @@ class VMMappingViewSet(NetBoxModelViewSet):
 
 
 class HostConfigViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Host Configurations.
+    Supports standard CRUD operations.
+    Filtering is provided via HostConfigFilterSet.
+    """
     queryset = HostConfig.objects.all()
     serializer_class = serializers.HostConfigSerializer
     filterset_class = HostConfigFilterSet
@@ -188,6 +249,11 @@ class HostConfigViewSet(NetBoxModelViewSet):
 
 
 class AgentInterfaceViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing Agent Interfaces.
+    Supports standard CRUD operations.
+    Filtering is provided via AgentInterfaceFilterSet.
+    """
     queryset = AgentInterface.objects.all()
     serializer_class = serializers.AgentInterfaceSerializer
     filterset_class = AgentInterfaceFilterSet
@@ -199,6 +265,11 @@ class AgentInterfaceViewSet(NetBoxModelViewSet):
 
 
 class SNMPInterfaceViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for managing SNMP Interfaces.
+    Supports standard CRUD operations.
+    Filtering is provided via SNMPInterfaceFilterSet.
+    """
     queryset = SNMPInterface.objects.all()
     serializer_class = serializers.SNMPInterfaceSerializer
     filterset_class = SNMPInterfaceFilterSet
@@ -210,6 +281,10 @@ class SNMPInterfaceViewSet(NetBoxModelViewSet):
 
 
 class EventLogViewSet(NetBoxModelViewSet):
+    """
+    API endpoint for viewing Zabbix Event Logs.
+    Read-only: list and retrieve operations.
+    """
     queryset = EventLog.objects.all()
     serializer_class = serializers.EventLogSerializer
 
@@ -221,8 +296,8 @@ class EventLogViewSet(NetBoxModelViewSet):
 
 class UnAssignedHostsViewSet(NetBoxModelViewSet):
     """
-    API endpoint that returns Devices or VMs not already assigned
-    to a Config. Used by ConfigForm.object_id (DynamicModelChoiceField).
+    API endpoint that returns Devices or VirtualMachines not yet assigned to a HostConfig.
+    Used for dynamic model selection in forms (DynamicModelChoiceField).
     """
     queryset = Device.objects.none()
     serializer_class = serializers.UnAssignedHostsSerializer
@@ -230,7 +305,11 @@ class UnAssignedHostsViewSet(NetBoxModelViewSet):
     
     def get_queryset(self):
         """
-        Dynamically build the queryset based on the `content_type` query param.
+        Dynamically builds and returns the queryset of unassigned Devices or VirtualMachines
+        based on the `content_type` query parameter.
+        
+        Returns:
+            QuerySet: Objects of the specified model type not linked to any HostConfig.
         """
         content_type_id = self.request.query_params.get( "content_type" )
         if not content_type_id:
@@ -257,8 +336,8 @@ class UnAssignedHostsViewSet(NetBoxModelViewSet):
 
 class UnAssignedInterfacesViewSet(NetBoxModelViewSet):
     """
-    Generic viewset for unassigned interfaces (Agent or SNMP).
-    Subclass or configure `queryset` and `serializer_class` for specific interface types.
+    Base API endpoint for returning unassigned interfaces (Agent or SNMP).
+    Subclasses should set `queryset` and `serializer_class`.
     """
 
     queryset            = None         # override in subclass or instance
@@ -267,8 +346,15 @@ class UnAssignedInterfacesViewSet(NetBoxModelViewSet):
     @action(detail=True, methods=['get'], url_path='primary-interface')
     def primary_interface(self, request, pk=None):
         """
-        Return the primary interface + IP for a HostConfig's assigned object (Device or VirtualMachine).
-        Always returns a safe response.
+        Returns the primary interface and associated IP address for a HostConfig's assigned object.
+        Supports both Device and VirtualMachine objects.
+        
+        Args:
+            request (HttpRequest): The current HTTP request.
+            pk (int, optional): The HostConfig primary key.
+        
+        Returns:
+            Response: JSON object with `interface_id`, `ip_address_id`, and `dns_name`, or 404/500.
         """
         try:
             config = HostConfig.objects.filter(pk=pk).first()
@@ -306,6 +392,9 @@ class UnAssignedInterfacesViewSet(NetBoxModelViewSet):
 # ------------------------------------------------------------------------------
 
 class UnAssignedAgentInterfacesViewSet(UnAssignedInterfacesViewSet):
+    """
+    API endpoint for returning unassigned Agent Interfaces.
+    """
     queryset = AgentInterface.objects.all()
     serializer_class = serializers.AgentInterfaceSerializer
     interface_type_name = "Agent"
@@ -317,6 +406,9 @@ class UnAssignedAgentInterfacesViewSet(UnAssignedInterfacesViewSet):
 
 
 class UnAssignedSNMPInterfacesViewSet(UnAssignedInterfacesViewSet):
+    """
+    API endpoint for returning unassigned SNMP Interfaces.
+    """
     queryset = SNMPInterface.objects.all()
     serializer_class = serializers.SNMPInterfaceSerializer
     interface_type_name = "SNMP"
@@ -332,7 +424,6 @@ class UnAssignedHostInterfacesViewSet(NetBoxModelViewSet):
     """
     API endpoint that returns the unassigned interfaces for a Device or VirtualMachine.
     """
-
     queryset = Interface.objects.none()
     serializer_class = serializers.UnAssignedHostInterfacesSerializer
 
@@ -340,6 +431,9 @@ class UnAssignedHostInterfacesViewSet(NetBoxModelViewSet):
         """
         Returns interfaces for the assigned object (Device or VirtualMachine)
         linked to the specified HostConfig, excluding interfaces already assigned.
+        
+        Returns:
+            QuerySet: Unassigned Interface or VMInterface objects.
         """
         qs = self.queryset  # default empty queryset
 
@@ -388,11 +482,20 @@ class UnAssignedHostIPAddressesViewSet(NetBoxModelViewSet):
     """
     API endpoint that returns the IP addresses for an Interface or VMInterface.
     """
-
     queryset = IPAddress.objects.none()
     serializer_class = serializers.UnAssignedHostIPAddressesSerializer
 
     def get_queryset(self):
+        """
+        Returns IP addresses for a given interface linked to a HostConfig's assigned object.
+        
+        Query parameters:
+            config_pk (int): The HostConfig primary key.
+            interface_pk (int): The Interface or VMInterface primary key.
+        
+        Returns:
+            QuerySet: IPAddress objects associated with the interface.
+        """
         qs = self.queryset
         request = self.request
         config_pk = request.query_params.get( "config_pk" )

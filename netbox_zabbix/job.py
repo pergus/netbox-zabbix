@@ -21,7 +21,7 @@ class AtomicJobRunner(JobRunner):
         NetBox's built-in JobRunner.handle() method swallows all exceptions that
         occur during job execution. While it updates the job's status and logs
         the error, it does not re-raise the exception. This makes it impossible
-        itentify the job as failed in GUI and impossible for a user to restart
+        to itentify the job as failed in GUI and impossible for a user to restart
         the job.
     
     Solution:
@@ -46,6 +46,24 @@ class AtomicJobRunner(JobRunner):
 
     @classmethod
     def handle(cls, job, *args, **kwargs):
+        """
+        Execute the job inside a transactional block and handle exceptions.
+        
+        Args:
+            job (JobRunner): The job instance being executed.
+            *args: Positional arguments passed to the job's `run` method.
+            **kwargs: Keyword arguments passed to the job's `run` method.
+        
+        Behavior:
+            - Calls `job.start()`.
+            - Executes `cls(job).run(*args, **kwargs)` within a `transaction.atomic()` block.
+            - Updates `job.data` and terminates the job with success or failure status.
+            - Logs the event via `_log_event()`.
+            - Reschedules the job if `job.interval` is set.
+        
+        Raises:
+            Exception: Any exception raised by `run()` is re-raised after updating job status.
+        """
         cls.job = job
         result = {}
         signal_id  = str( kwargs.get( "signal_id", None ) )
@@ -104,6 +122,25 @@ class AtomicJobRunner(JobRunner):
 
     @classmethod
     def run_now(cls, *args, **kwargs):
+        """
+        Execute the job immediately in a transactional context.
+        
+        Args:
+            *args: Positional arguments for the job's `run` method.
+            **kwargs: Keyword arguments for the job's `run` method.
+                - name (str, optional): Name of the job. Defaults to `cls.name`.
+                - eventlog (bool, optional): Whether to log events. Defaults to True.
+        
+        Returns:
+            str: The message from the job's result, or the string representation of the result.
+        
+        Raises:
+            Exception: Any exception raised by `run()` is propagated.
+        
+        Notes:
+            - This method ensures that database changes are rolled back if an exception occurs.
+            - Logs the job result to EventLog if `eventlog=True`.
+        """
         name = kwargs.get( "name", cls.name )
         result = None
         exception = None
@@ -122,6 +159,24 @@ class AtomicJobRunner(JobRunner):
     
     @staticmethod
     def _log_event(name, job=None, result=None, exception=None, data=None, pre_data=None, post_data=None, signal_id=None ):
+        """
+        Log a structured job event to the EventLog model.
+        
+        Args:
+            name (str): Name of the job.
+            job (JobRunner, optional): The job instance associated with the event.
+            result (dict, optional): The result dictionary returned by the job.
+            exception (str, optional): Exception message if the job failed.
+            data (any, optional): Job-specific result data.
+            pre_data (any, optional): Data captured before job execution.
+            post_data (any, optional): Data captured after job execution.
+            signal_id (str, optional): Signal ID for correlating events.
+        
+        Behavior:
+            - Skips logging if event logging is disabled via `get_event_log_enabled()`.
+            - Ensures only allowed keys are passed to EventLog (`name`, `job`, `message`, `data`, `pre_data`, `post_data`, `exception`, `signal_id`).
+            - Creates an EventLog record with the structured payload.
+        """
         from netbox_zabbix.models import EventLog # Here to prevent circular imports
         if not get_event_log_enabled():
             return

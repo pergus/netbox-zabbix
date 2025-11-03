@@ -60,19 +60,48 @@ from netbox_zabbix.logger import logger
 
 
 class SettingView(generic.ObjectView):
+    """
+    Display a single Zabbix Setting instance.
+    
+    Provides a filtered list of fields excluding internal ones such as ID and tokens.
+    """
     queryset      = Setting.objects.all()
 
     def get_extra_context(self, request, instance):
+        """
+        Prepare additional context for the template view.
+        
+        Args:
+            request (HttpRequest): The current request object.
+            instance (Setting): The Setting instance to display.
+        
+        Returns:
+            dict: Extra context with a list of visible fields.
+        """
         excluded_fields = ['id', 'created', 'last_updated', 'custom_field_data', 'token' ]
         fields = [ ( capfirst( field.verbose_name), field.name )  for field in instance._meta.fields if field.name not in excluded_fields ]
         return {'fields': fields}
 
 
 class SettingListView(generic.ObjectListView):
+    """
+    Display a list of Zabbix Settings.
+    
+    Hides the add button if a configuration already exists.
+    """
     queryset = Setting.objects.all()
     table    = tables.SettingTable
 
     def get_extra_context(self, request):
+        """
+        Add extra context for template rendering.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            dict: Context dictionary with optional actions.
+        """
         # Hide the add button if a configuration already exists.
         context = super().get_extra_context( request )
         if Setting.objects.exists():
@@ -81,14 +110,31 @@ class SettingListView(generic.ObjectListView):
 
 
 class SettingEditView(generic.ObjectEditView):
+    """
+    Edit a Zabbix Setting instance.
+    """
     queryset = Setting.objects.all()
     form     = forms.SettingForm
 
 
 class SettingDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a Zabbix Setting instance.
+    
+    Prevents deletion with an error message.
+    """
     queryset = Setting.objects.all()
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle deletion attempt.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirects to the settings list with a message.
+        """
         obj = self.get_object( **kwargs )
     
         if obj:
@@ -104,6 +150,16 @@ class SettingDeleteView(generic.ObjectDeleteView):
 
 
 def zabbix_check_connection(request):
+    """
+    Verify connection to the Zabbix API using stored credentials.
+    Updates plugin settings with connection status and last check time.
+    
+    Args:
+        request (HttpRequest): The triggering HTTP request.
+    
+    Returns:
+        HttpResponseRedirect: Redirect back to referring page with success/error message.
+    """
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
 
     try:
@@ -134,7 +190,14 @@ def zabbix_check_connection(request):
 
 def sync_with_zabbix(request):
     """
-    View-based wrapper around sync with Zabbix
+    Sync a specific HostConfig with Zabbix.
+    Enqueues a job to update the host in Zabbix immediately.
+    
+    Args:
+        request (HttpRequest): The triggering request with host_config_id.
+    
+    Returns:
+        HttpResponseRedirect: Redirect back to referring page with success/error message.
     """
     redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
     
@@ -155,6 +218,15 @@ def sync_with_zabbix(request):
 
 
 def zabbix_import_settings(request):
+    """
+    Trigger import of all Zabbix settings (templates, proxies, etc.).
+    
+    Args:
+        request (HttpRequest): The HTTP request triggering the import.
+    
+    Returns:
+        HttpResponseRedirect: Redirect back to referring page.
+    """
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
     try:
         jobs.ImportZabbixSettings.run_now()
@@ -170,15 +242,31 @@ def zabbix_import_settings(request):
 
 
 class TemplateView(generic.ObjectView):
+    """
+    Display a single Zabbix Template object.
+    """
     queryset = Template.objects.all()
     
     def get_extra_context(self, request, instance):
+        """
+        Prepare extra context for template view.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (Template): Template instance.
+        
+        Returns:
+            dict: Extra context excluding internal fields.
+        """
         excluded_fields = ['id', 'created', 'last_updated', 'custom_field_data' ]
         fields = [ ( capfirst(field.verbose_name), field.name )  for field in instance._meta.fields if field.name not in excluded_fields ]
         return {'fields': fields}
 
 
 class TemplateListView(generic.ObjectListView):
+    """
+    Display a list of Zabbix Templates with host count annotations.
+    """
     queryset       = Template.objects.all()
     filterset      = filtersets.TemplateFilterSet
     filterset_form = forms.TemplateFilterForm
@@ -186,6 +274,15 @@ class TemplateListView(generic.ObjectListView):
     template_name  = "netbox_zabbix/template_list.html"
 
     def get_queryset(self, request):
+        """
+        Customize the queryset to include host counts and ordering.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            QuerySet: Annotated and ordered queryset.
+        """
         # Base queryset
         qs = super().get_queryset( request )
         
@@ -197,26 +294,46 @@ class TemplateListView(generic.ObjectListView):
 
 
 class TemplateEditView(generic.ObjectEditView):
+    """
+    Edit a Zabbix Template instance.
+    """
     queryset = Template.objects.all()
     form     = forms.TemplateForm
 
 
 class TemplateDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a Zabbix Template instance.
+    """
     queryset = Template.objects.all()
 
 
 class TemplateBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple Zabbix Template instances.
+    """
     queryset = Template.objects.all()
     table    = tables.TemplateTable
 
     def get_return_url(self, request, obj=None):
-            return reverse('plugins:netbox_zabbix:template_list')
+        """
+        Return URL after bulk deletion.
+        
+        Returns:
+            str: URL to template list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:template_list' )
 
 
 def run_import_templates(request=None):
     """
-    Run the Zabbix template import logic and optionally attach messages to the request.
-    Returns a tuple: (added, deleted, error)
+    Import Zabbix templates and optionally attach messages to the request.
+    
+    Args:
+        request (HttpRequest, optional): Request object for adding messages.
+    
+    Returns:
+        tuple: (added_templates, deleted_templates, error)
     """
     try:
         added, deleted = z.import_templates()
@@ -251,6 +368,15 @@ def run_import_templates(request=None):
 
 
 def import_templates(request):
+    """
+    View wrapper to import templates and redirect back.
+    
+    Args:
+        request (HttpRequest): Triggering request.
+    
+    Returns:
+        HttpResponseRedirect: Redirect to referring page.
+    """
     redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
     run_import_templates( request )
     return redirect( redirect_url )
@@ -262,36 +388,65 @@ def import_templates(request):
 
 
 class ProxyView(generic.ObjectView):
+    """
+    Display a single Zabbix Proxy object.
+    """
     queryset = Proxy.objects.all()
 
 
 class ProxyListView(generic.ObjectListView):
+    """
+    Display a list of Zabbix Proxies.
+    """
     queryset       = Proxy.objects.all()
     filterset      = filtersets.ProxyFilterSet
     filterset_form = forms.ProxyFilterForm
     table          = tables.ProxyTable
     template_name  = "netbox_zabbix/proxy_list.html"
-    
 
 
 class ProxyEditView(generic.ObjectEditView):
+    """
+    Edit a Zabbix Proxy instance.
+    """
     queryset = Proxy.objects.all()
     form     = forms.ProxyForm
 
 
 class ProxyDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a Zabbix Proxy instance.
+    """
     queryset = Proxy.objects.all()
 
 
 class ProxyBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple Zabbix Proxy instances.
+    """
     queryset = Proxy.objects.all()
     table    = tables.ProxyTable
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:proxy_list')
+        """
+        Return URL after bulk deletion.
+        
+        Returns:
+            str: URL to proxy list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:proxy_list' )
 
 
 def run_import_proxies(request=None):
+    """
+    Import Zabbix proxies and optionally attach messages to the request.
+    
+    Args:
+        request (HttpRequest, optional): Request object for messages.
+    
+    Returns:
+        tuple: (added_proxies, deleted_proxies, error)
+    """
     try:
         added, deleted = z.import_proxies()
 
@@ -325,7 +480,13 @@ def run_import_proxies(request=None):
 
 def import_proxies(request):
     """
-    View-based wrapper around import proxies.
+    View wrapper to import proxies and redirect back.
+    
+    Args:
+        request (HttpRequest): Triggering request.
+    
+    Returns:
+        HttpResponseRedirect: Redirect to referring page.
     """
     redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
     run_import_proxies( request )
@@ -338,10 +499,16 @@ def import_proxies(request):
 
 
 class ProxyGroupView(generic.ObjectView):
+    """
+    Display a single Zabbix ProxyGroup object.
+    """
     queryset = ProxyGroup.objects.all()
 
 
 class ProxyGroupListView(generic.ObjectListView):
+    """
+    Display a list of Zabbix ProxyGroups.
+    """
     queryset       = ProxyGroup.objects.all()
     filterset      = filtersets.ProxyGroupFilterSet
     filterset_form = forms.ProxyGroupFilterForm
@@ -350,23 +517,47 @@ class ProxyGroupListView(generic.ObjectListView):
     
 
 class ProxyGroupEditView(generic.ObjectEditView):
+    """
+    Edit a Zabbix ProxyGroup instance.
+    """
     queryset = ProxyGroup.objects.all()
     form     = forms.ProxyGroupForm
 
 
 class ProxyGroupDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a Zabbix ProxyGroup instance.
+    """
     queryset = ProxyGroup.objects.all()
 
 
 class ProxyGroupBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple Zabbix ProxyGroup instances.
+    """
     queryset = ProxyGroup.objects.all()
     table    = tables.ProxyGroupTable
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:proxygroup_list')
+        """
+        Return URL after bulk deletion.
+        
+        Returns:
+            str: URL to proxy group list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:proxygroup_list' )
 
 
 def run_import_proxy_groups(request=None):
+    """
+    Import Zabbix proxy groups and optionally attach messages to the request.
+    
+    Args:
+        request (HttpRequest, optional): Request object for messages.
+    
+    Returns:
+        tuple: (added_groups, deleted_groups, error)
+    """
     try:
         added, deleted = z.import_proxy_groups()
         if request is not None:
@@ -399,7 +590,13 @@ def run_import_proxy_groups(request=None):
 
 def import_proxy_groups(request):
     """
-    View-based wrapper around import proxy groups
+    View wrapper to import proxy groups and redirect back.
+    
+    Args:
+        request (HttpRequest): Triggering request.
+    
+    Returns:
+        HttpResponseRedirect: Redirect to referring page.
     """
     redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
     run_import_proxy_groups( request )
@@ -412,10 +609,16 @@ def import_proxy_groups(request):
 
 
 class HostGroupView(generic.ObjectView):
+    """
+    Display a single Zabbix HostGroup object.
+    """
     queryset = HostGroup.objects.all()
 
 
 class HostGroupListView(generic.ObjectListView):
+    """
+    Display a list of Zabbix HostGroups.
+    """
     queryset  = HostGroup.objects.all()
     table     = tables.HostGroupTable
     filterset = filtersets.HostGroupFilterSet
@@ -423,26 +626,56 @@ class HostGroupListView(generic.ObjectListView):
 
 
 class HostGroupEditView(generic.ObjectEditView):
+    """
+    Edit a Zabbix HostGroup instance.
+    """
     queryset = HostGroup.objects.all()
     form     = forms.HostGroupForm
 
 
 class HostGroupDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a Zabbix HostGroup instance.
+    """
     queryset = HostGroup.objects.all()
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:hostgroup_list')
+        """
+        Return URL after deletion.
+        
+        Returns:
+            str: URL to host group list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:hostgroup_list' )
 
 
 class HostGroupBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple Zabbix HostGroup instances.
+    """
     queryset = HostGroup.objects.all()
     table    = tables.HostGroupTable
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:hostgroup_list')
+        """
+        Return URL after deletion.
+        
+        Returns:
+            str: URL to host group list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:hostgroup_list' )
 
 
 def run_import_host_groups(request=None):
+    """
+    Import Zabbix host groups and optionally attach messages to the request.
+    
+    Args:
+        request (HttpRequest, optional): Request object for messages.
+    
+    Returns:
+        tuple: (added_hostgroups, deleted_hostgroups, error)
+    """
     try:
         added, deleted = z.import_host_groups()
 
@@ -475,6 +708,15 @@ def run_import_host_groups(request=None):
 
 
 def import_host_groups(request):
+    """
+    View wrapper to import host groups and redirect back.
+    
+    Args:
+        request (HttpRequest): Triggering request.
+    
+    Returns:
+        HttpResponseRedirect: Redirect to referring page.
+    """
     redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
     run_import_host_groups( request )
     return redirect( redirect_url )
@@ -486,20 +728,33 @@ def import_host_groups(request):
 
 
 class TagMappingView(generic.ObjectView):
+    """
+    Display a single TagMapping instance.
+    """
     queryset = TagMapping.objects.all()
 
 
 class TagMappingListView(generic.ObjectListView):
+    """
+    Display a list of TagMapping instances.
+    """
     queryset  = TagMapping.objects.all()
     table     = tables.TagMappingTable
     filterset = filtersets.TagMappingFilterSet
 
+
 class TagMappingEditView(generic.ObjectEditView):
+    """
+    Edit a TagMapping instance.
+    """
     queryset = TagMapping.objects.all()
     form     = forms.TagMappingForm
 
 
 class TagMappingDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a TagMapping instance.
+    """
     queryset = TagMapping.objects.all()
 
 
@@ -509,21 +764,33 @@ class TagMappingDeleteView(generic.ObjectDeleteView):
 
 
 class InventoryMappingView(generic.ObjectView):
+    """
+    Display a single InventoryMapping instance.
+    """
     queryset = InventoryMapping.objects.all()
 
 
 class InventoryMappingListView(generic.ObjectListView):
+    """
+    Display a list of InventoryMapping instances.
+    """
     queryset  = InventoryMapping.objects.all()
     table     = tables.InventoryMappingTable
     filterset = filtersets.InventoryMappingFilterSet
 
 
 class InventoryMappingEditView(generic.ObjectEditView):
+    """
+    Edit an InventoryMapping instance.
+    """
     queryset      = InventoryMapping.objects.all()
     form          = forms.InventoryMappingForm
 
 
 class InventoryMappingDeleteView(generic.ObjectDeleteView):
+    """
+    Delete an InventoryMapping instance.
+    """
     queryset = InventoryMapping.objects.all()
 
 
@@ -533,11 +800,23 @@ class InventoryMappingDeleteView(generic.ObjectDeleteView):
 
 
 def count_matching_devices_for_mapping(obj):
+    """
+    Count the number of devices matching a given DeviceMapping.
+    
+    Args:
+        obj (DeviceMapping): The mapping instance.
+    
+    Returns:
+        int: Number of matching devices.
+    """
     return obj.get_matching_devices().count()
 
 
 @register_model_view(DeviceMapping, 'devices')
 class DeviceMappingDevicesView(generic.ObjectView):
+    """
+    Display devices matching a DeviceMapping in a dedicated tab.
+    """
     queryset      = DeviceMapping.objects.all()
     template_name = 'netbox_zabbix/devicemapping_devices.html'
     tab           = ViewTab( label="Matching Devices",
@@ -545,6 +824,16 @@ class DeviceMappingDevicesView(generic.ObjectView):
                              weight=500 )
 
     def get_extra_context(self, request, instance):
+        """
+        Prepare extra context with matching devices.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (DeviceMapping): The mapping instance.
+        
+        Returns:
+            dict: Context with related devices list and counts.
+        """
         queryset = instance.get_matching_devices()
         table    = tables.MatchingDeviceMappingTable( queryset )
         RequestConfig( request,
@@ -558,9 +847,22 @@ class DeviceMappingDevicesView(generic.ObjectView):
 
 
 class DeviceMappingView(generic.ObjectView):
+    """
+    Display a single DeviceMapping instance with related devices.
+    """
     queryset = DeviceMapping.objects.all()
     
     def get_extra_context(self, request, instance):
+        """
+        Prepare extra context with matching devices.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (DeviceMapping): The mapping instance.
+        
+        Returns:
+            dict: Context with related devices list and counts.
+        """
         devices = instance.get_matching_devices()
         return {
             "related_devices": [
@@ -574,23 +876,48 @@ class DeviceMappingView(generic.ObjectView):
 
 
 class DeviceMappingListView(generic.ObjectListView):
+    """
+    Display a list of DeviceMapping instances.
+    """
     queryset  = DeviceMapping.objects.all()
     table     = tables.DeviceMappingTable
     filterset = filtersets.DeviceMappingFilterSet
     
 
 class DeviceMappingEditView(generic.ObjectEditView):
+    """
+    Edit a DeviceMapping instance.
+    """
     queryset      = DeviceMapping.objects.all()
     form          = forms.DeviceMappingForm
 
 
 class DeviceMappingDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a DeviceMapping instance.
+    Prevents deletion if the mapping is marked as default.
+    """
     queryset = DeviceMapping.objects.all()
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:devicemapping_list')
+        """
+        Return URL after deletion.
+        
+        Returns:
+            str: URL to device mapping list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:devicemapping_list' )
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle deletion request.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirect with error if default mapping, otherwise normal deletion.
+        """
         obj = self.get_object( **kwargs )
     
         if obj.default:
@@ -601,11 +928,24 @@ class DeviceMappingDeleteView(generic.ObjectDeleteView):
 
 
 class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple DeviceMapping instances.
+    Prevents deletion of default mappings.
+    """
     queryset        = DeviceMapping.objects.all()
     filterset_class = filtersets.DeviceMappingFilterSet
     table           = tables.DeviceMappingTable
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle bulk deletion, checking for default mappings.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirect with error if default mapping included, otherwise proceeds.
+        """
         # Determine which objects are being deleted
         selected_pks = request.POST.getlist( 'pk' )
         mappings     = Mapping.objects.filter( pk__in=selected_pks )
@@ -622,7 +962,13 @@ class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
     
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:devicemapping_list')
+        """
+        Return URL after bulk deletion.
+        
+        Returns:
+            str: URL to device mapping list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:devicemapping_list' )
 
 
 # ------------------------------------------------------------------------------
@@ -631,11 +977,23 @@ class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
 
 
 def count_matching_vms_for_mapping(obj):
+    """
+    Count the number of virtual machines matching a given VMMapping.
+    
+    Args:
+        obj (VMMapping): The mapping instance.
+    
+    Returns:
+        int: Number of matching VMs.
+    """
     return obj.get_matching_virtual_machines().count()
 
 
 @register_model_view(VMMapping, 'vms')
 class VMMappingVMsView(generic.ObjectView):
+    """
+    Display VMs matching a VMMapping in a dedicated tab.
+    """
     queryset      = VMMapping.objects.all()
     template_name = 'netbox_zabbix/vmmapping_vms.html'
     tab           = ViewTab( label="Matching VMs",
@@ -643,6 +1001,16 @@ class VMMappingVMsView(generic.ObjectView):
                              weight=500 )
     
     def get_extra_context(self, request, instance):
+        """
+        Prepare table of matching VMs for the tab view.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (VMMapping): The mapping instance.
+        
+        Returns:
+            dict: Context with the table of matching VMs.
+        """
         queryset = instance.get_matching_virtual_machines()
         table    = tables.MatchingVMMappingTable( queryset )
         RequestConfig( request,
@@ -658,9 +1026,22 @@ class VMMappingVMsView(generic.ObjectView):
 
 
 class VMMappingView(generic.ObjectView):
+    """
+    Display a single VMMapping instance with related VMs.
+    """
     queryset      = VMMapping.objects.all()
     
     def get_extra_context(self, request, instance):
+        """
+        Prepare extra context with matching VMs.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (VMMapping): The mapping instance.
+        
+        Returns:
+            dict: Context with related VMs list and counts.
+        """
         vms = instance.get_matching_virtual_machines()
 
         return {
@@ -675,37 +1056,77 @@ class VMMappingView(generic.ObjectView):
 
 
 class VMMappingListView(generic.ObjectListView):
+    """
+    Display a list of VMMapping instances.
+    """
     queryset  = VMMapping.objects.all()
     table     = tables.VMMappingTable
     filterset = filtersets.VMMappingFilterSet
 
+
 class VMMappingEditView(generic.ObjectEditView):
+    """
+    Edit a VMMapping instance.
+    """
     queryset      = VMMapping.objects.all()
     form          = forms.VMMappingForm
 
 
 class VMMappingDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a VMMapping instance.
+    
+    Prevents deletion if the mapping is marked as default.
+    """
     queryset = VMMapping.objects.all()
     
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:vmmapping_list')
+        """
+        Return URL after deletion.
+        
+        Returns:
+            str: URL to VM mapping list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:vmmapping_list' )
     
     def post(self, request, *args, **kwargs):
+        """
+        Handle deletion request.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirect with error if default mapping, otherwise normal deletion.
+        """
         obj = self.get_object( **kwargs )
     
         if obj.default:
             messages.error( request, "You cannot delete the default mapping." )
-            return redirect('plugins:netbox_zabbix:vmmapping_list' )
+            return redirect( 'plugins:netbox_zabbix:vmmapping_list' )
     
         return super().post( request, *args, **kwargs )
 
 
 class VMMappingBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple VMMapping instances.
+    Prevents deletion of default mappings.
+    """
     queryset        = VMMapping.objects.all()
     filterset_class = filtersets.VMMappingFilterSet
     table           = tables.VMMappingTable
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle bulk deletion, checking for default mappings.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirect with error if default mapping included, otherwise proceeds.
+        """
         # Determine which objects are being deleted
         selected_pks = request.POST.getlist( 'pk' )
         mappings     = Mapping.objects.filter( pk__in=selected_pks )
@@ -722,7 +1143,13 @@ class VMMappingBulkDeleteView(generic.BulkDeleteView):
     
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:vmmapping_list')
+        """
+        Return URL after bulk deletion.
+        
+        Returns:
+            str: URL to VM mapping list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:vmmapping_list' )
 
 
 # ------------------------------------------------------------------------------
@@ -732,7 +1159,17 @@ class VMMappingBulkDeleteView(generic.BulkDeleteView):
 
 def get_instance_from_ct_and_pk(content_type_id, instance_id):
     """
-    Given a content_type_id and an instance ID, return the model instance.
+    Retrieve a model instance from content_type_id and instance ID.
+    
+    Args:
+        content_type_id (int): ID of the ContentType.
+        instance_id (int): Primary key of the model instance.
+    
+    Returns:
+        Model instance corresponding to the content type and ID.
+    
+    Raises:
+        ValueError: If content type or instance does not exist.
     """
     try:
         content_type = ContentType.objects.get(id=content_type_id)
@@ -756,31 +1193,66 @@ def get_instance_from_ct_and_pk(content_type_id, instance_id):
 
 class CombinedHostsQuerySet(list):
     """
-    Minimal queryset-like wrapper for combining Device + VM objects
-    while remaining compatible with NetBox's generic ObjectListView.
+    Minimal wrapper to combine Device and VM objects into a QuerySet-like structure.
+    Compatible with NetBox ObjectListView.
     """
 
     def __init__(self, iterable, model):
+        """
+        Initialize the combined queryset.
+        
+        Args:
+            iterable (iterable): List of objects to wrap.
+            model (Model): Model class for permission checks.
+        """
         super().__init__( iterable )
         self.model = model  # e.g. Device, required for permission checks
 
     def restrict(self, user, action):
+        """
+        Mimic QuerySet restrict method (permission filtering).
+        
+        Returns:
+            CombinedHostsQuerySet: Self, permission filtering ignored.
+        """
         # Permission filtering not relevant for synthetic union view
         return self
 
     def exists(self):
-        # Mimic QuerySet.exists()
+        """
+        Mimic QuerySet.exists().
+        
+        Returns:
+            bool: True if list is not empty.
+        """
         return bool( self )
 
     def count(self):
-        # Mimic QuerySet.count()
+        """
+        Mimic QuerySet.count().
+        
+        Returns:
+            int: Number of items.
+        """
         return len( self )
 
     def all(self):
+        """
+        Mimic QuerySet.all().
+        
+        Returns:
+            CombinedHostsQuerySet: Self.
+        """        
         # For compatibility with methods expecting .all()
         return self
 
     def __getitem__(self, key):
+        """
+        Support indexing and slicing.
+        
+        Returns:
+            CombinedHostsQuerySet or single item.
+        """
         # Slicing and indexing
         result = super().__getitem__( key )
         if isinstance( key, slice ):
@@ -795,9 +1267,22 @@ class CombinedHostsQuerySet(list):
 
 
 class HostConfigView(generic.ObjectView):
+    """
+    Display a single HostConfig instance with Zabbix problems.
+    """
     queryset = HostConfig.objects.all()
 
     def get_extra_context(self, request, instance):
+        """
+        Prepare extra context including web address and Zabbix problems table.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (HostConfig): HostConfig instance.
+        
+        Returns:
+            dict: Context for template rendering.
+        """
         super().get_extra_context( request, instance )
         web_address = settings.get_zabbix_web_address()
         problems = []
@@ -811,29 +1296,53 @@ class HostConfigView(generic.ObjectView):
 
 
 class HostConfigListView(generic.ObjectListView):
+    """
+    Display a list of HostConfig instances.
+    """
     queryset  = HostConfig.objects.all()
     table     = tables.HostConfigTable
     filterset = filtersets.HostConfigFilterSet
     
 
 class HostConfigEditView(generic.ObjectEditView):
+    """
+    Edit a HostConfig instance.
+    """
     queryset = HostConfig.objects.all()
     form     = forms.HostConfigForm
 
 
 class HostConfigDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a HostConfig instance.
+    """
     queryset = HostConfig.objects.all()
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:hostconfig_list' )
+        """
+        Return URL after deletion.
+        
+        Returns:
+            str: URL to HostConfig list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:hostconfig_list' )
 
 
 class HostConfigBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple HostConfig instances.
+    """
     queryset = HostConfig.objects.all()
     table    = tables.HostConfigTable
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:hostconfig_list' )
+        """
+        Return URL after bulk deletion.
+        
+        Returns:
+            str: URL to HostConfig list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:hostconfig_list' )
 
 
 # --------------------------------------------------------------------------
@@ -842,9 +1351,22 @@ class HostConfigBulkDeleteView(generic.BulkDeleteView):
 
 
 class AgentInterfaceView(generic.ObjectView):
+    """
+    Display a single AgentInterface instance and check its availability.
+    """
     queryset = AgentInterface.objects.all()
 
     def get_extra_context(self, request, instance):
+        """
+        Add extra context with interface availability.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (AgentInterface): Instance to display.
+        
+        Returns:
+            dict: Contains 'available' status of the interface.
+        """
         super().get_extra_context( request, instance )
         available = None
         try:
@@ -852,9 +1374,12 @@ class AgentInterfaceView(generic.ObjectView):
         except:
             pass
         return { "available":  available }
-    
+
 
 class AgentInterfaceListView(generic.ObjectListView):
+    """
+    Display a list of all AgentInterface instances with table and filters.
+    """
     queryset      = AgentInterface.objects.all()
     table         = tables.AgentInterfaceTable
     filterset     = filtersets.AgentInterfaceFilterSet
@@ -862,15 +1387,30 @@ class AgentInterfaceListView(generic.ObjectListView):
 
 
 class AgentInterfaceEditView(generic.ObjectEditView):
+    """
+    Edit an existing AgentInterface instance using a form.
+    """
     queryset      = AgentInterface.objects.all()
     form          = forms.AgentInterfaceForm
     template_name = 'netbox_zabbix/agent_interface_edit.html'
 
 
 class AgentInterfaceDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a single AgentInterface instance if not linked to Zabbix templates.
+    """
     queryset = AgentInterface.objects.all()
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle deletion of an AgentInterface instance.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirects either on success or with error message if deletion is blocked.
+        """
         interface = self.get_object( pk=kwargs.get( "pk" ) )
     
         if can_delete_interface( interface ):
@@ -881,13 +1421,33 @@ class AgentInterfaceDeleteView(generic.ObjectDeleteView):
 
 
 class AgentInterfaceBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple AgentInterface instances.
+    
+    Prevents deletion of interfaces linked to Zabbix templates.
+    """
     queryset = AgentInterface.objects.all()
     table    = tables.AgentInterfaceTable
 
     def get_return_url(self, request, obj=None):
+        """
+        Return URL after bulk deletion.
+        
+        Returns:
+            str: URL to AgentInterface list view.
+        """
         return reverse( 'plugins:netbox_zabbix:agentinterface_list' )
     
     def post(self, request, *args, **kwargs):
+        """
+        Handle bulk deletion, checking that none of the interfaces are linked to Zabbix templates.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirects with error if deletion is blocked; otherwise proceeds.
+        """
         # Get the list of interfaces to be deleted
         interfaces = self.get_queryset( request ).filter( pk__in=request.POST.getlist( 'pk' ) )
     
@@ -906,10 +1466,16 @@ class AgentInterfaceBulkDeleteView(generic.BulkDeleteView):
 
 
 class SNMPInterfaceView(generic.ObjectView):
+    """
+    Display a single SNMPInterface instance.
+    """
     queryset = SNMPInterface.objects.all()
 
 
 class SNMPInterfaceListView(generic.ObjectListView):
+    """
+    List all SNMPInterface instances with table and filters.
+    """
     queryset      = SNMPInterface.objects.all()
     table         = tables.SNMPInterfaceTable
     filterset     = filtersets.SNMPInterfaceFilterSet
@@ -917,15 +1483,30 @@ class SNMPInterfaceListView(generic.ObjectListView):
 
 
 class SNMPInterfaceEditView(generic.ObjectEditView):
+    """
+    Edit an existing SNMPInterface instance using a form.
+    """
     queryset      = SNMPInterface.objects.all()
     form          = forms.SNMPInterfaceForm
     template_name = 'netbox_zabbix/snmp_interface_edit.html'
 
 
 class SNMPInterfaceDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a single SNMPInterface instance if not linked to Zabbix templates.
+    """
     queryset = SNMPInterface.objects.all()
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle deletion of an SNMPInterface instance.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirects either on success or with error message if deletion is blocked.
+        """
         interface = self.get_object( pk=kwargs.get( "pk" ) )
     
         if can_delete_interface( interface ):
@@ -936,14 +1517,33 @@ class SNMPInterfaceDeleteView(generic.ObjectDeleteView):
 
 
 class SNMPInterfaceBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple SNMPInterface instances.
+    Prevents deletion of interfaces linked to Zabbix templates.
+    """
     queryset = SNMPInterface.objects.all()
     table    = tables.SNMPInterfaceTable
 
     def get_return_url(self, request, obj=None):
+        """
+        Return URL after bulk deletion.
+        
+        Returns:
+            str: URL to SNMPInterface list view.
+        """
         return reverse( 'plugins:netbox_zabbix:snmpinterface_list' )
 
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle bulk deletion, checking that none of the interfaces are linked to Zabbix templates.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirects with error if deletion is blocked; otherwise proceeds.
+        """
         # Get the list of interfaces to be deleted
         interfaces = self.get_queryset( request ).filter( pk__in=request.POST.getlist( 'pk' ) )
     
@@ -962,16 +1562,37 @@ class SNMPInterfaceBulkDeleteView(generic.BulkDeleteView):
 
 
 class ImportableHostsListView(generic.ObjectListView):
+    """
+    Display hosts available for import from Zabbix that are not yet linked in NetBox.
+    """
     table         = tables.ImportableHostsTable
     template_name = "netbox_zabbix/importable_hosts_list.html"
 
 
     def get_extra_context(self, request):
+        """
+        Provide extra context for the template, e.g., whether to show the validate button.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            dict: Contains 'validate_button' flag.
+        """
         super().get_extra_context( request )
         return { "validate_button": not settings.get_auto_validate_importables() }
 
 
     def get_queryset(self, request):
+        """
+         Retrieve the list of importable hosts filtered by query and already existing NetBox entries.
+        
+         Args:
+             request (HttpRequest): Current request.
+        
+         Returns:
+             CombinedHostsQuerySet: Filtered list of Devices and VMs available for import.
+         """
         query = request.GET.get("q", "").strip().lower()
 
         try:
@@ -1012,7 +1633,15 @@ class ImportableHostsListView(generic.ObjectListView):
 
 
     def post( self, request, *args, **kwargs ):
-    
+        """
+        Handle actions triggered by the user on importable hosts, including validation and import jobs.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirect back to the same page or provided return_url.
+        """
         # Validate Host
         if '_validate_host' in request.POST:
 
@@ -1079,16 +1708,37 @@ class ImportableHostsListView(generic.ObjectListView):
 
 
 class NetBoxOnlyHostsView(generic.ObjectListView):
+    """
+    Display NetBox hosts that do not exist in Zabbix, with options for quick add and validation.
+    """
     table = tables.NetBoxOnlyHostsTable
     template_name = "netbox_zabbix/netbox_only_hosts_list.html"
 
 
     def get_extra_context(self, request):
+        """
+        Provide extra context for the template, e.g., whether to show the validate button.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            dict: Contains 'validate_button' flag.
+        """
         super().get_extra_context( request )
         return { "validate_button": not settings.get_auto_validate_quick_add() }
     
 
     def get_queryset(self, request):
+        """
+        Retrieve NetBox-only hosts, optionally filtered by search query.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            CombinedHostsQuerySet: List of Devices and VMs filtered by query and exclusions.
+        """
         query = request.GET.get("q", "").strip().lower()
         
         try:
@@ -1143,6 +1793,16 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
 
 
     def build_mapping_cache(self, queryset, host_type):
+        """
+        Build mapping cache for hosts based on sites, roles, and platforms.
+        
+        Args:
+            queryset (QuerySet): List of hosts (Devices or VMs).
+            host_type (str): 'Device' or 'VM'.
+        
+        Returns:
+            dict: Mapping cache keyed by (host_id, interface_type) -> mapping object.
+        """
         cache = {}
     
         if host_type == "Device":
@@ -1175,12 +1835,34 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
 
 
     def _find_best_mapping(self, site_id, role_id, platform_id, intf_type, mappings):
+        """
+        Determine the best mapping for a host based on site, role, platform, and interface type.
+        
+        Args:
+            site_id (int): Site ID of the host.
+            role_id (int): Role ID of the host.
+            platform_id (int): Platform ID of the host.
+            intf_type (str): Interface type (Agent/SNMP).
+            mappings (list): List of mapping dicts to evaluate.
+        
+        Returns:
+            Mapping: Best-matching mapping object or default if none match.
+        """
         candidates = [
             m for m in mappings
             if not m["default"] and (m["interface_type"] == intf_type or m["interface_type"] == InterfaceTypeChoices.Any)
         ]
     
         def matches(m):
+            """
+            Check if a mapping matches the host's site, role, and platform.
+            
+            Args:
+                m (dict): A mapping dictionary containing 'sites', 'roles', 'platforms' sets.
+            
+            Returns:
+                bool: True if the host matches the mapping's site, role, and platform constraints; otherwise False.
+            """
             site_ok = not m["sites"] or site_id in m["sites"]
             role_ok = not m["roles"] or role_id in m["roles"]
             platform_ok = not m["platforms"] or platform_id in m["platforms"]
@@ -1201,6 +1883,17 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
 
 
     def get_table(self, queryset, request, has_bulk_actions):
+        """
+        Attach mapping cache to table before rendering.
+        
+        Args:
+            queryset (QuerySet): Queryset to display in table.
+            request (HttpRequest): Current request.
+            has_bulk_actions (bool): Whether table supports bulk actions.
+        
+        Returns:
+            Table: Configured table with mapping caches attached.
+        """
         table = super().get_table( queryset, request, has_bulk_actions )
         table.device_mapping_cache = getattr( self, "device_mapping_cache", {} )
         table.vm_mapping_cache     = getattr( self, "vm_mapping_cache", {} )
@@ -1209,7 +1902,15 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
 
 
     def post(self, request, *args, **kwargs):
-
+        """
+        Handle validation and quick-add operations for NetBox-only hosts.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirect back to the same page or provided return_url.
+        """
         if "_validate_quick_add" in request.POST:
             selected_hosts = request.POST.getlist( 'pk' )
         
@@ -1298,9 +1999,18 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
 
 
 class ZabbixOnlyHostsView(GenericTemplateView):
+    """
+    Display hosts that exist in Zabbix but not in NetBox, including Zabbix web link.
+    """
     template_name = 'netbox_zabbix/zabbixonlyhosts.html'
 
     def get_context_data(self, **kwargs):
+        """
+        Fetch Zabbix-only hosts and provide context for template rendering.
+        
+        Returns:
+            dict: Contains 'table' of hosts and 'web_address' to Zabbix.
+        """
         context = super().get_context_data( **kwargs )
 
         error_occurred = False
@@ -1349,9 +2059,22 @@ class ZabbixOnlyHostsView(GenericTemplateView):
 
 
 class EventLogView(generic.ObjectView):
+    """
+    Display a single EventLog instance, including differences from previous state.
+    """
     queryset = EventLog.objects.all()
 
     def get_extra_context(self, request, instance):
+        """
+        Provide extra context including prev/next events, differences, and creator info.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (EventLog): EventLog instance.
+        
+        Returns:
+            dict: Context data for template rendering.
+        """
         from utilities.data import shallow_compare_dict
 
         # Find previous and next events (ordered by created)
@@ -1380,19 +2103,37 @@ class EventLogView(generic.ObjectView):
 
 
 class EventLogListView(generic.ObjectListView):
+    """
+    Display a list of EventLog entries with table and filtering.
+    """
     queryset  = EventLog.objects.all()
     table     = tables.EventLogTable
     filterset = filtersets.EventLogFilterSet
 
 
 class EventLogEditView(generic.ObjectView):
+    """
+    Display details for a single EventLog instance.
+    """
     queryset = EventLog.objects.all()
 
 
 class EventLogDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a single EventLog instance after checking deletion constraints.
+    """
     queryset = EventLog.objects.all()
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle deletion of an EventLog instance.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirect back after deletion.
+        """
         interface = self.get_object( pk=kwargs.get( "pk" ) )
     
         if can_delete_interface(interface, request):
@@ -1402,13 +2143,31 @@ class EventLogDeleteView(generic.ObjectDeleteView):
     
 
 class EventLogBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple EventLog instances with deletion constraints.
+    """
     queryset = EventLog.objects.all()
     table    = tables.EventLogTable
 
     def get_return_url(self, request, obj=None):
-        return reverse('plugins:netbox_zabbix:eventlog_list')
+        """
+        Return URL after bulk deletion.
+        
+        Returns:
+            str: URL to EventLog list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:eventlog_list' )
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle bulk deletion of EventLog instances with validation.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            HttpResponseRedirect: Redirect back after deletion.
+        """
         # Get the list of interfaces to be deleted
         interfaces = self.get_queryset( request ).filter( pk__in=request.POST.getlist( 'pk' ) )
     
@@ -1420,7 +2179,6 @@ class EventLogBulkDeleteView(generic.BulkDeleteView):
         return super().post( request, *args, **kwargs )
 
 
-
 # ------------------------------------------------------------------------------
 # Host Config Tab for Zabbix Problems
 # ------------------------------------------------------------------------------
@@ -1428,25 +2186,41 @@ class EventLogBulkDeleteView(generic.BulkDeleteView):
 
 @register_model_view(HostConfig, name='problems')
 class HostConfigProblemsTabView(generic.ObjectView):
+    """
+    Tab view to display Zabbix problems for a HostConfig.
+    """
     queryset      = HostConfig.objects.all()
     tab           = ViewTab( label="Zabbix Problems", badge=lambda instance: len( z.get_problems( instance.assigned_object.name ) ) )
     template_name = 'netbox_zabbix/host_config_zabbix_problems_tab.html'
 
+
     def get_extra_context(self, request, instance):
-        queryset = instance.jobs.all()
-        table    = JobTable( queryset )
-        return { "table": table }
-    
-    def get_extra_context(self, request, instance):
-        super().get_extra_context( request, instance )
+        """
+        Fetch all Zabbix problems for the host and provide table context.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (HostConfig): Host configuration instance.
+        
+        Returns:
+            dict: Contains 'table' of Zabbix problems.
+        """
+        # Jobs table
+        jobs_queryset = instance.jobs.all()
+        jobs_table    = JobTable(jobs_queryset)
+        
+        # Zabbix problems table
         problems = []
-        table = None
         try:
-            problems = z.get_problems( instance.assigned_object.name )
-        except:
+            problems = z.get_problems(instance.assigned_object.name)
+        except Exception:
             pass
-        table = tables.ZabbixProblemTable( problems )
-        return { "table": table }
+        problems_table = tables.ZabbixProblemTable(problems)
+        
+        return {
+            "jobs_table": jobs_table,
+            "problems_table": problems_table,
+        }
 
 
 # ------------------------------------------------------------------------------
@@ -1456,11 +2230,24 @@ class HostConfigProblemsTabView(generic.ObjectView):
 
 @register_model_view(HostConfig, name='jobs')
 class HostConfigJobsTabView(generic.ObjectView):
+    """
+    Tab view to display Zabbix problems for a HostConfig.
+    """
     queryset      = HostConfig.objects.all()
     tab           = ViewTab( label="Tasks", badge=lambda instance: instance.jobs.count() )
     template_name = 'netbox_zabbix/host_config_tasks_tab.html'
 
     def get_extra_context(self, request, instance):
+        """
+        Fetch all jobs for the host and provide table context.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (HostConfig): Host configuration instance.
+        
+        Returns:
+            dict: Contains 'table' of jobs.
+        """
         queryset = instance.jobs.all()
         table    = JobTable( queryset )
         return { "table": table }
@@ -1473,11 +2260,24 @@ class HostConfigJobsTabView(generic.ObjectView):
 
 @register_model_view(HostConfig, name='difference')
 class HostConfigDiffTabView(generic.ObjectView):
+    """
+    Tab view to display configuration differences for a HostConfig.
+    """
     queryset      = HostConfig.objects.all()
     tab           = ViewTab( label="Difference", badge=lambda instance: int( instance.get_sync_status() ), hide_if_empty=True )
     template_name = 'netbox_zabbix/host_config_difference_tab.html'
 
     def get_extra_context(self, request, instance):
+        """
+        Fetch and display sync differences for the host configuration.
+        
+        Args:
+            request (HttpRequest): Current request.
+            instance (HostConfig): Host configuration instance.
+        
+        Returns:
+            dict: Contains 'configurations' showing differences.
+        """
         return { "configurations": instance.get_sync_diff() }
 
 
@@ -1489,6 +2289,9 @@ class HostConfigDiffTabView(generic.ObjectView):
 
 @register_model_view(Device, name="Zabbix", path="zabbix")
 class ZabbixDeviceTabView(generic.ObjectView):
+    """
+    Device tab displaying Zabbix problems for a Device.
+    """
     queryset = HostConfig.objects.all()
     tab = ViewTab(
         label="Zabbix",
@@ -1502,6 +2305,16 @@ class ZabbixDeviceTabView(generic.ObjectView):
 
 
     def get(self, request, pk):
+        """
+        Render device-specific Zabbix problems table.
+        
+        Args:
+            request (HttpRequest): Current request.
+            pk (int): Device primary key.
+        
+        Returns:
+            HttpResponse: Rendered template with Zabbix problems.
+        """
         device = get_object_or_404( Device, pk=pk )
         config = HostConfig.objects.filter(
             content_type=ContentType.objects.get_for_model( Device ),
@@ -1511,7 +2324,10 @@ class ZabbixDeviceTabView(generic.ObjectView):
         table = None
 
         if config:
-            problems = z.get_problems( device.name )
+            try:
+                problems = z.get_problems( device.name )
+            except:
+                problems = []
             table = tables.ZabbixProblemTable( problems )
 
         return render(
@@ -1527,7 +2343,6 @@ class ZabbixDeviceTabView(generic.ObjectView):
         )
 
 
-
 # ------------------------------------------------------------------------------
 # VM Tab for Zabbix Details
 # ------------------------------------------------------------------------------
@@ -1535,6 +2350,9 @@ class ZabbixDeviceTabView(generic.ObjectView):
 
 @register_model_view(VirtualMachine, name="Zabbix", path="zabbix")
 class VMVirtualMachineTabView(generic.ObjectView):
+    """
+    VM tab displaying Zabbix problems for a VirtualMachine.
+    """
     queryset = HostConfig.objects.all()
     tab = ViewTab(
         label="Zabbix",
@@ -1547,6 +2365,16 @@ class VMVirtualMachineTabView(generic.ObjectView):
     )
 
     def get(self, request, pk):
+        """
+        Render VM-specific Zabbix problems table.
+        
+        Args:
+            request (HttpRequest): Current request.
+            pk (int): VM primary key.
+        
+        Returns:
+            HttpResponse: Rendered template with Zabbix problems.
+        """
         vm = get_object_or_404( VirtualMachine, pk=pk )
         config = HostConfig.objects.filter(
             content_type=ContentType.objects.get_for_model( VirtualMachine ),
@@ -1556,7 +2384,10 @@ class VMVirtualMachineTabView(generic.ObjectView):
         table = None
 
         if config:
-            problems = z.get_problems( vm.name )
+            try:
+                problems = z.get_problems( vm.name )
+            except:
+                problems = []
             table = tables.ZabbixProblemTable( problems )
 
         return render(
@@ -1570,7 +2401,6 @@ class VMVirtualMachineTabView(generic.ObjectView):
                 "web_address": settings.get_zabbix_web_address(),
             },
         )
-
 
 
 # end

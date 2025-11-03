@@ -34,6 +34,9 @@ from netbox_zabbix.models import (
 
 
 class TemplateFilterSet(NetBoxModelFilterSet):
+    """
+    Filter set for Zabbix templates.
+    """
     class Meta:
         model = Template
         fields = [ 'name', 'templateid' ]
@@ -46,6 +49,9 @@ class TemplateFilterSet(NetBoxModelFilterSet):
         )
 
     def search(self, queryset, name, value):
+        """
+        Perform a case-insensitive search on template name or interface type.
+        """
         if not value.strip():
             return queryset
         return queryset.filter(
@@ -60,6 +66,9 @@ class TemplateFilterSet(NetBoxModelFilterSet):
 
 
 class ProxyFilterSet(NetBoxModelFilterSet):
+    """
+    Filter set for Zabbix proxies.
+    """
     class Meta:
         model = Proxy
         fields = [ 'name', 'proxyid', 'proxy_groupid']
@@ -72,6 +81,9 @@ class ProxyFilterSet(NetBoxModelFilterSet):
         )
 
     def search(self, queryset, name, value):
+        """
+        Perform a case-insensitive search on proxy names.
+        """
         if not value.strip():
             return queryset
         return queryset.filter(
@@ -85,6 +97,9 @@ class ProxyFilterSet(NetBoxModelFilterSet):
 
 
 class ProxyGroupFilterSet(NetBoxModelFilterSet):
+    """
+    Filter set for Zabbix proxy groups.
+    """
     class Meta:
         model = ProxyGroup
         fields = [ 'name', 'proxy_groupid' ]
@@ -97,6 +112,9 @@ class ProxyGroupFilterSet(NetBoxModelFilterSet):
         )
 
     def search(self, queryset, name, value):
+        """
+        Perform a case-insensitive search on proxy group names.
+        """
         if not value.strip():
             return queryset
         return queryset.filter(
@@ -110,6 +128,9 @@ class ProxyGroupFilterSet(NetBoxModelFilterSet):
 
 
 class HostGroupFilterSet(NetBoxModelFilterSet):
+    """
+    Filter set for Zabbix host groups.
+    """
     class Meta:
         model = HostGroup
         fields = [ 'name' ]
@@ -122,6 +143,9 @@ class HostGroupFilterSet(NetBoxModelFilterSet):
         )
 
     def search(self, queryset, name, value):
+        """
+        Perform a case-insensitive search on host group names.
+        """
         if not value.strip():
             return queryset
         return queryset.filter(
@@ -135,6 +159,9 @@ class HostGroupFilterSet(NetBoxModelFilterSet):
 
 
 class TagMappingFilterSet(NetBoxModelFilterSet):
+    """
+    Filter set for tag mappings.
+    """
     class Meta:
         model = TagMapping
         fields = [ 'object_type' ]
@@ -147,6 +174,9 @@ class TagMappingFilterSet(NetBoxModelFilterSet):
         )
 
     def search(self, queryset, name, value):
+        """
+        Perform a case-insensitive search on object type names.
+        """
         if not value.strip():
             return queryset
         return queryset.filter(
@@ -160,6 +190,9 @@ class TagMappingFilterSet(NetBoxModelFilterSet):
 
 
 class InventoryMappingFilterSet(NetBoxModelFilterSet):
+    """
+    Filter set for inventory mappings.
+    """
     class Meta:
         model = InventoryMapping
         fields = [ 'object_type' ]
@@ -172,6 +205,9 @@ class InventoryMappingFilterSet(NetBoxModelFilterSet):
         )
 
     def search(self, queryset, name, value):
+        """
+        Perform a case-insensitive search on inventory mapping object types.
+        """
         if not value.strip():
             return queryset
         return queryset.filter(
@@ -186,11 +222,17 @@ class InventoryMappingFilterSet(NetBoxModelFilterSet):
 
 
 class DeviceMappingFilterSet(DeviceFilterSet):
+    """
+    Extended device filter set that adds Zabbix-specific search support.
+    """
     class Meta(DeviceFilterSet.Meta):
         model  = Device
         fields = DeviceFilterSet.Meta.fields
 
     def search(self, queryset, name, value):
+        """
+        Perform a comprehensive search on devices and related Zabbix fields.
+        """
         value = value.strip().lower()
         if not value:
             return queryset
@@ -220,11 +262,17 @@ class DeviceMappingFilterSet(DeviceFilterSet):
 # ------------------------------------------------------------------------------
 
 class VMMappingFilterSet(VirtualMachineFilterSet):
+    """
+    Extended virtual machine filter set with Zabbix-specific search functionality.
+    """
     class Meta(VirtualMachineFilterSet.Meta):
         model  = VirtualMachine
         fields = VirtualMachineFilterSet.Meta.fields
 
     def search(self, queryset, name, value):
+        """
+        Perform a comprehensive search on virtual machines and related Zabbix data.
+        """
         value = value.strip().lower()
         if not value:
             return queryset
@@ -255,6 +303,9 @@ class VMMappingFilterSet(VirtualMachineFilterSet):
 
 
 class HostConfigFilterSet(NetBoxModelFilterSet):
+    """
+    Filter set for Zabbix host configurations.
+    """
     class Meta:
         model = HostConfig
         fields = (
@@ -262,6 +313,10 @@ class HostConfigFilterSet(NetBoxModelFilterSet):
         )
 
     def search(self, queryset, name, value):
+        """
+        Perform a search on host configurations by name, description, 
+                or related content type name.
+        """
         value = value.strip()
         if not value:
             return queryset
@@ -284,6 +339,9 @@ class HostConfigFilterSet(NetBoxModelFilterSet):
 
 
 class AgentInterfaceFilterSet(NetBoxModelFilterSet):
+    """
+    Filter set for Zabbix agent interfaces.
+    """
     host_config_id = django_filters.NumberFilter( field_name='host_config__id' )
 
     class Meta:
@@ -291,6 +349,9 @@ class AgentInterfaceFilterSet(NetBoxModelFilterSet):
         fields = ['host_config_id']
 
     def search(self, queryset, name, value):
+        """
+        Perform a case-insensitive search on agent interface names or resolved DNS names.
+        """
         value = value.strip().lower()
         if not value:
             return queryset
@@ -305,12 +366,16 @@ class AgentInterfaceFilterSet(NetBoxModelFilterSet):
         ]
         return queryset.model.objects.filter(pk__in=[obj.pk for obj in filtered])
 
+
 # ------------------------------------------------------------------------------
 # SNMP Interface
 # ------------------------------------------------------------------------------
 
 
 class SNMPInterfaceFilterSet(NetBoxModelFilterSet):
+    """
+    Filter set for SNMP interfaces.
+    """
     host_config_id = django_filters.NumberFilter( field_name='host_config__id' )
 
     class Meta:
@@ -318,6 +383,9 @@ class SNMPInterfaceFilterSet(NetBoxModelFilterSet):
         fields = ['host_config_id']
     
     def search(self, queryset, name, value):
+        """
+        Perform a case-insensitive search on SNMP interface names or resolved DNS names.
+        """
         value = value.strip().lower()
         if not value:
             return queryset
@@ -339,6 +407,9 @@ class SNMPInterfaceFilterSet(NetBoxModelFilterSet):
 
 
 class EventLogFilterSet(NetBoxModelFilterSet):
+    """
+    Filter set for Zabbix event logs.
+    """
     class Meta:
         model = EventLog
         fields = [ 'name' ]
@@ -351,6 +422,9 @@ class EventLogFilterSet(NetBoxModelFilterSet):
         )
 
     def search(self, queryset, name, value):
+        """
+        Perform a case-insensitive search on event logs by name, job details, or message text.
+        """
         if not value.strip():
             return queryset
     

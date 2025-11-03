@@ -1,17 +1,17 @@
 # utils.py
 
 import json
+from django.contrib.contenttypes.models import ContentType
+from extras.models import CustomField
+from dcim.models import Device
+from virtualization.models import VirtualMachine
 
 from ipam.models import IPAddress
-
 from netbox_zabbix import models
 from netbox_zabbix.settings import get_default_tag, get_tag_prefix
 from netbox_zabbix.inventory_properties import inventory_properties
 from netbox_zabbix import zabbix as z
-
 from netbox_zabbix.logger import logger
-
-
 
 
 # ------------------------------------------------------------------------------
@@ -21,7 +21,14 @@ from netbox_zabbix.logger import logger
 
 def resolve_field_path(obj, path):
     """
-    Resolve a dotted attribute path from an object (e.g., 'site.name', 'tags').
+    Resolve a dotted attribute path on an object.
+    
+    Args:
+        obj: Any Python object (e.g., a Django model instance).
+        path (str): Dotted attribute path, e.g., "site.name" or "tags".
+    
+    Returns:
+        Any: Value of the attribute, a list if `all()` exists, or None if missing.
     """
     try:
         for part in path.split( '.' ):
@@ -37,6 +44,18 @@ def resolve_field_path(obj, path):
 
 
 def get_zabbix_inventory_for_object(obj):
+    """
+    Generate a Zabbix inventory dictionary for a Device or VirtualMachine.
+    
+    Args:
+        obj: Device or VirtualMachine instance.
+    
+    Returns:
+        dict: Keys are inventory property names, values are string representations.
+    
+    Raises:
+        ValueError: If the object type is unsupported.
+    """
     if obj._meta.model_name == 'device':
         object_type = 'device'
     elif obj._meta.model_name == 'virtualmachine':
@@ -74,8 +93,16 @@ def get_zabbix_inventory_for_object(obj):
 
 def get_zabbix_tags_for_object(obj):
     """
-    Given a Device or VirtualMachine object, return a list of Zabbix tag dicts:
-    e.g., [ {'tag': 'Site', 'value': 'Lund'}, {'tag': 'core', 'value': 'core'} ]
+    Generate a list of Zabbix tag dictionaries for a Device or VirtualMachine.
+    
+    Args:
+        obj: Device or VirtualMachine instance.
+    
+    Returns:
+        list[dict]: Each dict has "tag" and "value" keys.
+    
+    Raises:
+        ValueError: If the object type is unsupported.
     """
     if obj._meta.model_name == 'device':
         object_type = 'device'
@@ -140,12 +167,15 @@ def get_zabbix_tags_for_object(obj):
 
 def compute_interface_type(items):
     """
-    Determine the interface type from a list of Zabbix items.
-    Only considers Agent (0,7) and SNMPv3 (20) items.
-
+    Determine the Zabbix interface type based on item types.
+    
+    Agent types (0) → Agent
+    SNMPv3 types (20) → SNMP
+    Mixed or empty → Any
+    
     Args:
-        items (list[dict]): List of item dictionaries with at least 'type'.
-
+        items (list[dict]): List of Zabbix item dictionaries.
+    
     Returns:
         InterfaceTypeChoices: Agent, SNMP, or Any
     """
@@ -174,7 +204,14 @@ def compute_interface_type(items):
 
 def collect_template_ids(template, visited=None):
     """
-    Recursively collect this template and all its parents (from DB, not Zabbix).
+    Recursively collect template IDs including all parent templates.
+    
+    Args:
+        template: Template instance.
+        visited (set, optional): IDs already visited.
+    
+    Returns:
+        set[int]: Set of template IDs including parents.
     """
     if visited is None:
         visited = set()
@@ -190,18 +227,30 @@ def collect_template_ids(template, visited=None):
 
 def get_template_dependencies(templateid):
     """
-    Return a set of template IDs that the given template depends on via triggers.
-    Excludes the template itself.
+    Retrieve Zabbix template IDs that the given template depends on.
+    
+    Args:
+        templateid (int): Zabbix template ID.
+    
+    Returns:
+        list[int]: List of dependent template IDs, excluding the input template.
     """
 
     # Fetch triggers for the template, including their dependencies
-    triggers = z.get_triggers( [ templateid ] )
+    try:
+        triggers = z.get_triggers( [ templateid ] )
+    except:
+        raise
 
     deps = []
     for trig in triggers:
         for dep in trig.get( "dependencies", [] ):
             dep_triggerid = dep["triggerid"]
-            dep_trigger = z.get_trigger( dep_triggerid )[0]
+
+            try:
+                dep_trigger = z.get_trigger( dep_triggerid )[0]
+            except:
+                raise
 
             for host in dep_trigger.get("hosts", []):
                 dep_templateid = host["hostid"]
@@ -211,13 +260,21 @@ def get_template_dependencies(templateid):
     return deps
 
 
-# This function is called by import template to add the interface type for
-# each template in the database.
 def populate_templates_with_interface_type():
-
+    """
+    Populate all Template objects with their computed interface type
+    based on associated Zabbix items.
+    """
+    # This function is called by import template to add the interface type for
+    # each template in the database.
+    
     # Fetch ALL items for ALL templates in one call
     all_template_ids = list( models.Template.objects.values_list( "templateid", flat=True ) )
-    all_items = z.get_item_types( all_template_ids )
+
+    try:
+        all_items = z.get_item_types( all_template_ids )
+    except:
+        raise
 
     # Group items by templateid
     items_by_template = {}
@@ -239,10 +296,15 @@ def populate_templates_with_interface_type():
         template.interface_type = compute_interface_type( items )
         template.save()
 
-# This function is called by import template to add dependencies for
-# each template in the database.
-def populate_templates_with_dependencies():
 
+def populate_templates_with_dependencies():
+    """
+    Populate all Template objects with dependencies based on triggers
+    retrieved from Zabbix.
+    """
+    # This function is called by import template to add dependencies for
+    # each template in the database.
+    
     for template in models.Template.objects.all():
         try:
             # Get dependent template IDs from triggers
@@ -260,10 +322,14 @@ def populate_templates_with_dependencies():
 
 def validate_templates(templateids: list):
     """
-    Validate if templates can be combined without conflicts or missing dependencies.
-
-    - Conflicts: two selected templates (or their parents) include the same template.
-    - Missing dependencies: any dependency (direct or recursive) not in the selection.
+    Validate that selected templates can be combined without conflicts
+    and all dependencies are included.
+    
+    Args:
+        templateids (list[int]): List of template IDs to validate.
+    
+    Returns:
+        bool: True if valid, raises Exception otherwise.
     """
 
     seen = {}
@@ -320,7 +386,14 @@ def validate_templates(templateids: list):
 
 def validate_template_interface(templateids: list, interface_type):
     """
-    Validate if all templates are compatible with the given interface type.
+    Validate that templates are compatible with a specified interface type.
+    
+    Args:
+        templateids (list[int]): List of template IDs.
+        interface_type (InterfaceTypeChoices): Interface type to validate.
+    
+    Returns:
+        bool: True if all templates are compatible, raises Exception otherwise.
     """
 
     template_objects = models.Template.objects.filter( templateid__in=templateids )
@@ -381,8 +454,14 @@ def validate_template_interface(templateids: list, interface_type):
 
 def validate_templates_and_interface(templateids: list, interface_type=models.InterfaceTypeChoices.Any):
     """
-    Validate if a selection of templates can be combined without conflict,
-    and if they are valid for the given interface type.
+    Validate template combination and interface compatibility.
+    
+    Args:
+        templateids (list[int]): Template IDs to validate.
+        interface_type (InterfaceTypeChoices, optional): Target interface type.
+    
+    Returns:
+        bool: True if valid, raises Exception otherwise.
     """
     validate_templates( templateids )
     validate_template_interface( templateids, interface_type )
@@ -391,27 +470,22 @@ def validate_templates_and_interface(templateids: list, interface_type=models.In
 
 def is_valid_interface(host_config, interface_type=models.InterfaceTypeChoices.Any):
     """
-    Check whether a host interface is valid based on the associated host configuration and templates.
-
-    This function determines if the host_config contains a valid interface of the specified type
-    (agent or SNMP) according to the templates assigned to it.  
-
+    Check if a host has a valid interface compatible with assigned templates.
+    
     Args:
-        host_config (HostConfig): The host configuration to validate.
-        interface_type (str, optional): The type of interface to validate. Defaults to
-            models.InterfaceTypeChoices.Any.
-
+        host_config: HostConfig instance.
+        interface_type (InterfaceTypeChoices, optional): Interface type to validate.
+    
     Returns:
-        bool: True if a valid interface exists for the given type and templates, False otherwise.
-
+        bool: True if a valid interface exists.
+    
     Raises:
-        ValueError: If the host configuration has no templates assigned.
-        Exception: Propagates any template conflicts or interface type mismatches found during validation.
+        ValueError: If no templates are assigned.
     """
     if not host_config.templates.exists():
-        raise ValueError(f"HostConfig '{host_config}' has no templates assigned.")
+        raise ValueError( f"HostConfig '{host_config}' has no templates assigned." )
 
-    template_ids = list(host_config.templates.values_list("templateid", flat=True))
+    template_ids = list( host_config.templates.values_list( "templateid", flat=True ) )
 
     # Validate templates and interface compatibility
     validate_templates_and_interface( template_ids, interface_type )
@@ -425,6 +499,15 @@ def is_valid_interface(host_config, interface_type=models.InterfaceTypeChoices.A
 
 
 def validate_quick_add( host ):
+    """
+    Validate a host before performing a Quick Add operation.
+    
+    Args:
+        host: Device or VM instance.
+    
+    Raises:
+        Exception: If primary IP or DNS name is missing.
+    """
     if not host.primary_ip4_id:
         raise Exception( f"{host.name} is missing Primary IPv4 address." )
     if not host.primary_ip.dns_name:
@@ -439,10 +522,12 @@ def validate_quick_add( host ):
 def compare_json(obj_a, obj_b):
     """
     Recursively compare two JSON-compatible objects.
-
-    Returns (a_diff, b_diff):
-      - a_diff: what is different in obj_a relative to obj_b
-      - b_diff: what is different in obj_b relative to obj_a
+    
+    Args:
+        obj_a, obj_b: Dictionaries, lists, or primitive types.
+    
+    Returns:
+        tuple: (a_diff, b_diff) showing differences from each perspective.
     """
 
     # Case 1: both are dicts
@@ -491,45 +576,16 @@ def compare_json(obj_a, obj_b):
     return ( obj_a if obj_a != obj_b else None, obj_b if obj_a != obj_b else None )
 
 
-def rewrite_tags(host_dict):
-    """
-    Rewrite the tags in a host dictionary to be a list of single-key dicts,
-    where the original 'tag' becomes the key and 'value' becomes the value.
-
-    Args:
-        host_dict (dict): The host dictionary containing 'tags' key.
-
-    Returns:
-        dict: The same host dictionary with rewritten 'tags'.
-    """
-
-
-    if "tags" in host_dict and isinstance( host_dict["tags"], list ):
-        new_tags = [ { t["tag"]: t.get("value", "") } for t in host_dict["tags"] if "tag" in t ]
-        host_dict["tags"] = new_tags
-    return host_dict
-
-
-def convert_single_obj_array_to_sorted_strings(arr):
-    """
-    Convert a list of single-key dicts to a sorted list of their values as strings.
-
-    Example:
-    [ {"groupid": "7"}, {"groupid": "75"} ] -> [ "7", "75" ]
-    """
-    # Extract the single value from each dict
-    values = [list(item.values())[0] for item in arr if isinstance(item, dict) and len(item) == 1]
-    # Sort the list as strings
-    return sorted(values)
-
-
 def normalize_host(zabbix_host, payload_template):
     """
-    Normalize a Zabbix host dict to match the structure of a payload template.
-
-    - Recursively matches nested dicts.
-    - Preserves all lists in order.
-    - Missing keys get default empty values from template.
+    Normalize a Zabbix host to match a payload template structure.
+    
+    Args:
+        zabbix_host (dict): Zabbix host dictionary.
+        payload_template (dict): Template structure dictionary.
+    
+    Returns:
+        dict: Normalized host dictionary.
     """
     normalized = {}
 
@@ -564,20 +620,17 @@ def normalize_host(zabbix_host, payload_template):
 
 def preprocess_host(host, template):
     """
-    Normalize a host dictionary (payload or Zabbix) and rewrite its structure 
-    for comparison.
-
-    Steps:
-    1. Normalize host to match template structure.
-    2. Rewrite tags to { "tag": "value" } format.
-    3. Convert 'groups' and 'templates' to sorted lists of strings.
+    Preprocess a host dictionary for comparison:
+    - Normalize structure
+    - Rewrite tags as {tag: value}
+    - Convert groups/templates to sorted string lists
     
     Args:
-        host (dict): The host dictionary (NetBox payload or Zabbix host).
-        template (dict): Template dictionary to guide normalization.
+        host (dict): Host dictionary.
+        template (dict): Template dictionary.
     
     Returns:
-        dict: Preprocessed host ready for comparison.
+        dict: Preprocessed host ready for JSON comparison.
     """
     # Step 1: Normalize host
     normalized = normalize_host( host, template )
@@ -600,7 +653,19 @@ def preprocess_host(host, template):
 
 
 def compare_zabbix_config_with_host(zabbix_config):
-
+    """
+    Compare a NetBox host configuration with its Zabbix counterpart.
+    
+    Args:
+        zabbix_config: DeviceZabbixConfig instance.
+    
+    Returns:
+        dict: {
+            "differ": bool,
+            "netbox": dict of differences,
+            "zabbix": dict of differences
+        }
+    """
     retval = { "differ": False, "netbox": {}, "zabbix": {} }
 
     from netbox_zabbix.jobs import build_payload
@@ -629,8 +694,13 @@ def compare_zabbix_config_with_host(zabbix_config):
 
 def cli_compare_config(name="dk-ece003w"):
     """
-    Function used to test compare configuration from the cli.
-    Do not call this function!
+    DO NOT CALL THIS FUNCTION
+    CLI test function to compare configuration for a host by name.
+    
+    Args:
+        name (str, optional): Device name. Defaults to "dk-ece003w".
+    
+    Prints JSON differences.
 
     # Before using new_compare()
     import netbox_zabbix.utils
@@ -655,12 +725,15 @@ def cli_compare_config(name="dk-ece003w"):
 # Custom Fields
 # ------------------------------------------------------------------------------
 
-from django.contrib.contenttypes.models import ContentType
-from extras.models import CustomField
-from dcim.models import Device
-from virtualization.models import VirtualMachine
 
 def create_custom_field(name, defaults):
+    """
+    Create a custom field for Device and VirtualMachine if it doesn't exist.
+    
+    Args:
+        name (str): Custom field name.
+        defaults (dict): Field attributes such as type, label, etc.
+    """
     device_ct = ContentType.objects.get_for_model( Device )
     vm_ct     = ContentType.objects.get_for_model( VirtualMachine )
     
@@ -681,23 +754,13 @@ def create_custom_field(name, defaults):
 
 def find_ip_address(address:str):
     """
-    Search for an IP address in NetBox that starts with the given address.
+    Find IPAddress objects in NetBox starting with a given address.
     
-    This function ensures the input address ends with a forward slash ("/") and then
-    searches NetBox for IPAddress objects whose address field starts with the given value.
-    For example, providing "10.0.0.46" will match "10.0.0.46/24".
-    
-    Parameters:
-        address (str): The IP address (without CIDR) to search for, e.g., "10.0.0.46".
+    Args:
+        address (str): IPv4 or IPv6 address without CIDR, e.g., "10.0.0.46".
     
     Returns:
-        QuerySet: A Django QuerySet of matching IPAddress objects.
-                  (May be empty if no matches are found.)
-    
-    Example:
-        >>> ip = find_ip_address("10.0.0.46")
-        >>> print(ip)
-        <QuerySet [<IPAddress: 10.0.0.46/24>]>
+        QuerySet[IPAddress]: Matching IP addresses (may be empty).
     """
 
     if not address.endswith("/"):
@@ -712,6 +775,15 @@ def find_ip_address(address:str):
 
 
 def can_delete_interface(interface):
+    """
+    Check if a Zabbix interface can be deleted.
+    
+    Args:
+        interface: Host interface instance.
+    
+    Returns:
+        bool: True if deletion is allowed, False otherwise.
+    """
     try:
         hostid      = int( interface.host_config.hostid )
         interfaceid = int( interface.interfaceid )
@@ -726,7 +798,16 @@ def can_delete_interface(interface):
     return True
 
 
-def is_interface_available(interface):    
+def is_interface_available(interface):
+    """
+    Check if a Zabbix interface is available.
+    
+    Args:
+        interface: Host interface instance.
+    
+    Returns:
+        bool: True if available, False otherwise.
+    """
     try:
         hostid      = int( interface.host_config.hostid )
         interfaceid = int( interface.interfaceid )
