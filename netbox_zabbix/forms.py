@@ -1025,18 +1025,6 @@ class AgentInterfaceForm(BaseHostInterfaceForm):
 class SNMPInterfaceForm(BaseHostInterfaceForm):
     interface_type_choice = InterfaceTypeChoices.SNMP
     default_name_suffix = "snmp"
-    snmp_defaults = {
-        "port": settings.get_snmp_port(),
-        "bulk": settings.get_snmp_bulk(),
-        "max_repetitions": settings.get_snmp_max_repetitions(),
-        "contextname": settings.get_snmp_contextname(),
-        "securityname": settings.get_snmp_securityname(),
-        "securitylevel": settings.get_snmp_securitylevel(),
-        "authprotocol": settings.get_snmp_authprotocol(),
-        "authpassphrase": settings.get_snmp_authpassphrase(),
-        "privprotocol": settings.get_snmp_privprotocol(),
-        "privpassphrase": settings.get_snmp_privpassphrase(),
-    }
 
     class Meta(BaseHostInterfaceForm.Meta):
         model = SNMPInterface
@@ -1051,6 +1039,21 @@ class SNMPInterfaceForm(BaseHostInterfaceForm):
             "privpassphrase",
             "bulk",
         )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__( *args, **kwargs )
+        snmp_defaults = {
+            "port":            settings.get_snmp_port(),
+            "bulk":            settings.get_snmp_bulk(),
+            "max_repetitions": settings.get_snmp_max_repetitions(),
+            "contextname":     settings.get_snmp_contextname(),
+            "securityname":    settings.get_snmp_securityname(),
+            "securitylevel":   settings.get_snmp_securitylevel(),
+            "authprotocol":    settings.get_snmp_authprotocol(),
+            "authpassphrase":  settings.get_snmp_authpassphrase(),
+            "privprotocol":    settings.get_snmp_privprotocol(),
+            "privpassphrase":  settings.get_snmp_privpassphrase(),
+        }
 
 
 # end
