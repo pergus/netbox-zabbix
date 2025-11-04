@@ -16,6 +16,7 @@ __email__ = "pergus@axis.com"
 __version__ = "2.0.0"
 
 
+# NetBox imports
 from netbox.plugins import PluginConfig
 
 class ZConfiguration(PluginConfig):

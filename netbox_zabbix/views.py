@@ -1,7 +1,29 @@
-# views.py
+"""
+NetBox Zabbix Plugin — Views
+
+This module defines all Django class-based and function-based views for the
+NetBox Zabbix integration plugin. It handles UI presentation and business logic
+for managing Zabbix-related models such as Settings, Templates, Proxies,
+Mappings, Interfaces, and Host Configurations.
+
+The views extend NetBox’s generic view framework for consistency and leverage
+Django’s built-in request handling. Most views use standard NetBox mixins like
+ObjectView, ObjectListView, ObjectEditView, and ObjectDeleteView.
+
+Structure:
+- Setting views: Manage Zabbix connection configuration.
+- Template, Proxy, and Group views: CRUD for Zabbix metadata.
+- Mapping views: Manage relationships between NetBox and Zabbix objects.
+- Interface views: Manage SNMP/Agent interface mappings.
+- HostConfig and EventLog views: Display and synchronize host data and logs.
+"""
 
 # Standard library imports
+from itertools import chain
+
+# Django imports
 from django.contrib import messages
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Count
 from django.shortcuts import redirect, render, get_object_or_404
 from django.template.defaultfilters import capfirst, pluralize
@@ -9,8 +31,6 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.views.generic import TemplateView as GenericTemplateView
-from django.contrib.contenttypes.models import ContentType
-from itertools import chain
 
 # Third-party imports
 from django_tables2 import RequestConfig
@@ -24,9 +44,8 @@ from utilities.paginator import EnhancedPaginator, get_paginate_count
 from utilities.views import ViewTab, register_model_view
 from virtualization.models import VirtualMachine
 
-# Plugin imports
+# NetBox Zabbix plugin imports
 from netbox_zabbix import settings, filtersets, forms, jobs, tables, zabbix as z
-
 from netbox_zabbix.models import (
     InterfaceTypeChoices,
     Setting,
@@ -44,13 +63,11 @@ from netbox_zabbix.models import (
     SNMPInterface,
     EventLog,
 )
-
 from netbox_zabbix.utils import (
     validate_quick_add, 
     can_delete_interface,
-    is_interface_available
+    is_interface_available,
 )
-
 from netbox_zabbix.logger import logger
 
 
@@ -165,7 +182,7 @@ def zabbix_check_connection(request):
     try:
         z.validate_zabbix_credentials_from_config()
         settings.set_version( z.get_version() )
-        settings.set_connection( True )
+        settings.set_connection( status=True )
         settings.set_last_checked( timezone.now() )
         messages.success( request, "Connection to Zabbix succeeded" )
 
@@ -177,7 +194,7 @@ def zabbix_check_connection(request):
         error_msg = f"Failed to connect to {settings.get_zabbix_api_endpoint()}: {e}"
         logger.error( error_msg )
         messages.error( request, error_msg )
-        settings.set_connection( False )
+        settings.set_connection( status=False )
         settings.set_last_checked( timezone.now() )
 
     return redirect( redirect_url )
@@ -1644,9 +1661,6 @@ class ImportableHostsListView(generic.ObjectListView):
         """
         # Validate Host
         if '_validate_host' in request.POST:
-
-            logger.info( f"request {request.__dict__}" )
-
             selected_hosts = request.POST.getlist( 'pk' )
 
             if not selected_hosts:
@@ -1961,7 +1975,6 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
 
 
         if "_quick_add_snmp" in request.POST:
-            logger.info( "\n\n _quick_add_snmp \n\n" )
             selected_hosts = request.POST.getlist( 'pk' )
             success_counter = 0
             max_success_messages = settings.get_max_success_notifications()

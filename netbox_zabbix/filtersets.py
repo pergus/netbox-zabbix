@@ -1,19 +1,33 @@
-# filterset.py
+"""
+NetBox Zabbix Plugin — FilterSets
 
-import django_filters
+This module defines the Django filter sets used by the NetBox Zabbix plugin.
+FilterSets provide advanced filtering capabilities for models such as templates,
+proxies, host groups, interfaces, and event logs. They integrate with NetBox's
+filtering framework to allow users to search, sort, and filter plugin data
+within the UI.
+"""
+
+
+# Django imports
 from django.db.models import Q
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import CharField
 from django.db.models.functions import Cast
 
+# Third-party imports
+import django_filters
+
+# NetBox imports
 from dcim.models import Device
 from dcim.filtersets import DeviceFilterSet
-
 from virtualization.models import VirtualMachine
 from virtualization.filtersets import VirtualMachineFilterSet
 from netbox.filtersets import NetBoxModelFilterSet
 
+# NetBox Zabbix plugin imports
 from netbox_zabbix.models import (
+    # Models
     InterfaceTypeChoices,
     Template,
     Proxy,

@@ -1,9 +1,18 @@
-# serializers.py
+"""
+NetBox Zabbix Plugin — API Serializers
 
-from dcim.api.serializers import InterfaceSerializer
+This module defines serializers for the NetBox Zabbix plugin's API endpoints.
+Serializers convert plugin models to and from JSON for REST API operations.
+"""
+
+# Third-party imports
 from rest_framework import serializers
 
+# NetBox imports
+from dcim.api.serializers import InterfaceSerializer
 from netbox.api.serializers import NetBoxModelSerializer
+
+# NetBox Zabbix plugin imports
 from netbox_zabbix import models
 
 

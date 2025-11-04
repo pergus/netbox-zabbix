@@ -1,5 +1,15 @@
-# inventory_properties.py
+"""
+NetBox Zabbix Plugin — Inventory Property Keys
 
+This module defines the set of valid Zabbix inventory property keys that can
+be used when building inventory data for devices or virtual machines. These
+keys correspond to standard Zabbix inventory fields and are used to validate
+and map attributes from NetBox objects to Zabbix.
+
+Only properties listed here are considered legal and will be included in the
+inventory payload sent to Zabbix.
+"""
+# Valid inventory property keys
 inventory_properties = [
     "alias",
     "asset_tag",

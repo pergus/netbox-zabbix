@@ -1,4 +1,12 @@
-# api/views.py
+"""
+NetBox Zabbix Plugin — API Views
+
+This module provides the REST API endpoints for the NetBox Zabbix plugin.
+It defines viewsets for Zabbix-related models, including settings, templates,
+proxies, host groups, mappings, and event logs. Each viewset integrates with
+Django REST Framework and NetBox's API framework, supporting standard CRUD
+operations as well as filtering and custom actions.
+"""
 
 # Django imports
 from django.contrib.contenttypes.models import ContentType
@@ -8,7 +16,7 @@ from django_filters import rest_framework as filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-# NetBox core imports
+# NetBox imports
 from dcim.models import Device, Interface
 from ipam.models import IPAddress
 from virtualization.models import VirtualMachine, VMInterface
@@ -16,8 +24,8 @@ from netbox.api.viewsets import NetBoxModelViewSet
 
 # NetBox Zabbix plugin imports
 from netbox_zabbix.api import serializers
-from netbox_zabbix.logger import logger
 from netbox_zabbix.models import (
+    # Models
     Setting,
     Template,
     Proxy,
@@ -43,6 +51,8 @@ from netbox_zabbix.filtersets import (
     AgentInterfaceFilterSet,
     SNMPInterfaceFilterSet
 )
+from netbox_zabbix.logger import logger
+
 
 # ------------------------------------------------------------------------------
 # Setting
@@ -324,8 +334,6 @@ class UnAssignedHostsViewSet(NetBoxModelViewSet):
         
         # Return objects that are not yet assigned
         qs =  model.objects.exclude( id__in=used_ids )
-        logger.info( f" {qs[0].name}" )
-        logger.info( f" UnAssingedHostsViewSet qs {qs}" )
         return qs
 
 
@@ -467,7 +475,6 @@ class UnAssignedHostInterfacesViewSet(NetBoxModelViewSet):
 
 
         except Exception as e:
-            logger.error( f"UnAssignedHostInterfacesViewSet: error { str( e )}" )
             qs = qs.none()
 
         return qs

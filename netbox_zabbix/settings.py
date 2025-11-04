@@ -1,5 +1,12 @@
-# config.py
+"""
+NetBox Zabbix Plugin — Configuration Utilities
 
+This module provides helpers for retrieving and managing the Zabbix
+Settings object stored in the database. It also defines related
+custom exceptions and provides safe accessors for plugin code.
+"""
+
+# NetBox Zabbix plugin imports
 from netbox_zabbix.models import Setting
 from netbox_zabbix.logger import logger
 from netbox_zabbix.models import (
@@ -107,7 +114,7 @@ def safe_setting(default=None):
             s = get_settings_safe()
             if s is None:
                 return default
-            return func(s)
+            return func( s, *args, **kwargs )
         return wrapper
     return decorator
 
@@ -215,7 +222,7 @@ def get_zabbix_token(s):
     return s.token
 
 
-@safe_setting()
+@safe_setting( "" )
 def set_version( s, version ):
     """
     Update the stored Zabbix version in the configuration.
@@ -231,7 +238,7 @@ def set_version( s, version ):
     s.save()
 
 
-@safe_setting()
+@safe_setting( False )
 def set_connection( s, status ):
     """
     Update the connection status in the configuration.
@@ -247,7 +254,7 @@ def set_connection( s, status ):
     s.save()
 
 
-@safe_setting()
+@safe_setting( None )
 def set_last_checked( s, timestamp ):
     """
     Update the timestamp for the last successful configuration check.

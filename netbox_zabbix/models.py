@@ -1,38 +1,34 @@
 # models.py
 """
-Models for the netbox-zabbix plugin.
+NetBox Zabbix Plugin — Models
 
-This module defines the database schema and associated logic for:
-- Plugin settings and configurations.
-- Templates, proxies, and host groups.
-- Tag and inventory mappings.
-- Host configurations and their interfaces (Agent/SNMP).
-- Event logging.
-- Proxy models for unassigned objects.
+This module defines the data models used by the Zabbix plugin.
+It includes configuration models, host mappings, templates, proxies,
+and related inventory objects.
 
-It also defines choice enums used across models, e.g., IPAssignmentChoices,
-MonitoredByChoices, TLSConnectChoices, InterfaceTypeChoices, etc.
+Models extend NetBox's core models and integrate with the
+content type framework where needed.
 """
 
+# Django imports
 from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
-
 from django.db import models
 from django.urls import reverse
-
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 
-from utilities.choices import ChoiceSet
 
+# NetBox imports
 from dcim.models import Device, DeviceRole, Interface, Platform, Site
 from ipam.models import IPAddress
 from core.models import Job
 from netbox.models import NetBoxModel
-from virtualization.models import VMInterface
 from netbox.models import JobsMixin
 from virtualization.models.virtualmachines import VirtualMachine
+from utilities.choices import ChoiceSet
 
+# NetBox Zabbix plugin imports
 from netbox_zabbix.logger import logger
 
 

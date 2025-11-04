@@ -1,6 +1,20 @@
-# navigation.py
+"""
+NetBox Zabbix Plugin — Navigation Menu
+
+This module defines the top-level navigation menu for the Zabbix plugin
+in NetBox. Menu items are grouped logically under "Admin" and other
+categories can be added as needed.
+
+The menu uses NetBox's PluginMenu, PluginMenuItem, and PluginMenuButton
+to integrate plugin functionality into the NetBox UI.
+"""
+
+# NetBox Plugin imports
 from netbox.plugins import PluginMenu, PluginMenuItem, PluginMenuButton
 
+# ------------------------------------------------------------------------------
+# Plugin navigation menu
+# ------------------------------------------------------------------------------
 
 menu = PluginMenu(
     label = "Zabbix",

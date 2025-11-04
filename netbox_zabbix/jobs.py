@@ -1,40 +1,49 @@
-# jobs.py
-#
-# NOTE: Background jobs in NetBox are executed via RQ, which serializes
-# (possibly "pickles") only the arguments passed to the job. Model instances
-# cannot safely be passed directly, because their state may become stale
-# or they may fail to serialize correctly.
-# 
-# To work around this, we pass the model's primary key (`id`) as job arguments. 
-# The actual model instance is re-fetched from the database inside the job using
-# `Model.objects.get( id=config_id )`. 
-# 
-# This ensures that the job always operates on a fresh, fully hydrated
-# instance, and avoids any issues with pickling complex Django objects.
-#
-# A temporary, in-memory flag (_skip_signal) is attached to some model instances
-# to signal that all connected Django signals should be ignored for a specific
-# save operation. The flag is never written to the database and exists only for
-# the lifetime of the Python object. Other requests, threads, and future saves
-# are unaffected, so normal signal processing resumes immediately after this
-# save completes.
+"""
+NetBox Zabbix Plugin — Jobs Utilities
 
+This module defines helper classes and functions for jobs that synchronize 
+NetBox objects with Zabbix. It includes exception classes, interface normalization, 
+and common routines used by Zabbix job runners.
 
+N.B: 
+Background jobs in NetBox are executed via RQ, which serializes
+(possibly "pickles") only the arguments passed to the job. Model instances
+cannot safely be passed directly, because their state may become stale
+or they may fail to serialize correctly.
+
+To work around this, we pass the model's primary key (`id`) as job arguments. 
+The actual model instance is re-fetched from the database inside the job using
+`Model.objects.get( id=config_id )`. 
+
+This ensures that the job always operates on a fresh, fully hydrated
+instance, and avoids any issues with pickling complex Django objects.
+
+A temporary, in-memory flag (_skip_signal) is attached to some model instances
+to signal that all connected Django signals should be ignored for a specific
+save operation. The flag is never written to the database and exists only for
+the lifetime of the Python object. Other requests, threads, and future saves
+are unaffected, so normal signal processing resumes immediately after this
+save completes.
+"""
+
+# Standard library imports
 from dataclasses import dataclass, field
 from typing import Callable, Any, Type, Union
+from datetime import timedelta, datetime
 
+# Third-party imports
+import netaddr
+
+# Django imports
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 
+# NetBox imports
+from core.models import Job
+from core.choices import ObjectChangeActionChoices
 from ipam.models import IPAddress
 from dcim.models import Device, Interface as DeviceInterface
 from virtualization.models import VirtualMachine, VMInterface
-
-from core.models import Job
-from datetime import timedelta, datetime
-
-
-import netaddr
 
 # NetBox Zabbix Imports
 from netbox_zabbix.job import AtomicJobRunner
@@ -58,7 +67,6 @@ from netbox_zabbix.models import (
     AgentInterface,
     SNMPInterface
 )
-
 from netbox_zabbix.settings import (
     get_inventory_mode,
     get_delete_setting,
@@ -76,13 +84,11 @@ from netbox_zabbix.settings import (
     get_snmp_privpassphrase,
     get_tag_name_formatting,
 )
-
 from netbox_zabbix.utils import ( 
     get_zabbix_tags_for_object,
     get_zabbix_inventory_for_object,
     find_ip_address
 )
-
 from netbox_zabbix.zabbix import (
     import_templates,
     import_proxies,
@@ -98,12 +104,7 @@ from netbox_zabbix.zabbix import (
     create_host_group,
     ZabbixHostNotFound
 )
-
-from core.choices import ObjectChangeActionChoices
-
 from netbox_zabbix.logger import logger
-
-
 
 
 # ------------------------------------------------------------------------------

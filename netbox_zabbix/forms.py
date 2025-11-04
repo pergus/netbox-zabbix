@@ -1,26 +1,41 @@
-# forms.py
-#
-# Description:
-#
+"""
+NetBox Zabbix Plugin — Forms
 
+This module defines the Django forms used by the NetBox Zabbix plugin. These
+forms handle validation, rendering, and data processing for Zabbix settings,
+templates, proxies, host groups, and other related models.
+
+Custom validation and helper functions are provided to ensure that Zabbix
+configuration and mappings are consistent and correctly formatted.
+"""
+
+# Standard library imports
 import re
 
+# Django imports
 from django import forms
-from django.core.exceptions import ValidationError
-from django.utils.safestring import mark_safe
-from django.utils.timezone import now
 from django.conf import settings as plugin_settings
-from django.utils.text import slugify
+from django.core.exceptions import ValidationError
 from django.forms import Select
-
+from django.utils.safestring import mark_safe
+from django.utils.text import slugify
+from django.utils.timezone import now
 from django.contrib.contenttypes.models import ContentType
-from utilities.forms.fields import ContentTypeChoiceField
 
-from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
-from utilities.forms.fields import DynamicModelChoiceField
+# NetBox imports
+from utilities.forms.fields import ContentTypeChoiceField, DynamicModelChoiceField
 from utilities.forms.rendering import FieldSet
+from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
 
+# NetBox Zabbix plugin imports
 from netbox_zabbix.models import (
+    # Choices
+    MonitoredByChoices,
+    InterfaceTypeChoices,
+    TLSConnectChoices,
+    DeleteSettingChoices,
+    InterfaceTypeChoices,
+    # Models
     Setting,
     Template,
     Proxy,
@@ -36,24 +51,15 @@ from netbox_zabbix.models import (
     UnAssignedHosts,
     UnAssignedHostInterfaces,
     UnAssignedHostIPAddresses,
-
-    MonitoredByChoices,
-    InterfaceTypeChoices,
-    TLSConnectChoices,
-    DeleteSettingChoices,
-    InterfaceTypeChoices,
 )
-from netbox_zabbix.utils import create_custom_field
-from netbox_zabbix import zabbix as z
-from netbox_zabbix.inventory_properties import inventory_properties
-
-
 from netbox_zabbix.utils import (
+    create_custom_field,
     validate_templates,
     validate_templates_and_interface,
-    is_valid_interface
+    is_valid_interface,
 )
-
+from netbox_zabbix.inventory_properties import inventory_properties
+from netbox_zabbix import zabbix as z
 from netbox_zabbix import settings
 from netbox_zabbix.logger import logger
 

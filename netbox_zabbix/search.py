@@ -1,19 +1,27 @@
-# search.py
-#
-# Defines how plugin models are indexed and displayed in NetBox's global search.
-# Each SearchIndex class maps model fields to searchable attributes and controls
-# how results appear in search output.
-#
-# Key attributes for each SearchIndex class:
-# fields: defines which model fields are searchable and their weight for ranking results.
-# display_attrs: defines which additional model fields are shown in the search results
-#                next to the object name as badges or extra info.
-#
+"""
+NetBox Zabbix Plugin — Global Search Configuration
 
+This module defines how plugin models are indexed and displayed in
+NetBox's global search. Each SearchIndex class maps model fields to
+searchable attributes and controls how results appear in search output.
+
+Key attributes for each SearchIndex class:
+- fields: Defines which model fields are searchable and their weight for ranking.
+- display_attrs: Defines which additional model fields are shown in the search
+                 results next to the object name as badges or extra info.
+"""
+
+# NetBox imports
 from netbox.search import SearchIndex
+
+# NetBox Zabbix plugin imports
 from .models import (
     HostConfig
 )
+
+# ------------------------------------------------------------------------------
+# Search Index definitions
+# ------------------------------------------------------------------------------
 
 class HostConfigIndex(SearchIndex):
     """

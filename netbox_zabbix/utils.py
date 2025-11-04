@@ -1,12 +1,34 @@
-# utils.py
+"""
+NetBox Zabbix Plugin — Utility Functions
 
+This module provides utility functions used throughout the Zabbix integration
+plugin. These helpers handle object traversal, inventory generation, and
+general-purpose data preparation before synchronization with the Zabbix API.
+
+Responsibilities:
+- Resolve nested Django model fields dynamically via dotted paths.
+- Generate Zabbix inventory payloads for NetBox Devices and Virtual Machines.
+- Serve as a shared utility layer for mappings, job execution, and view logic.
+
+Note:
+These utilities are designed to be side-effect-free and stateless, except for
+logging and database lookups. They are intended for reusability across jobs,
+views, and synchronization routines.
+"""
+
+# Standard library imports
 import json
+
+# Django imports
 from django.contrib.contenttypes.models import ContentType
+
+# NetBox imports
 from extras.models import CustomField
 from dcim.models import Device
 from virtualization.models import VirtualMachine
-
 from ipam.models import IPAddress
+
+# NetBox Zabbix plugin imports
 from netbox_zabbix import models
 from netbox_zabbix.settings import get_default_tag, get_tag_prefix
 from netbox_zabbix.inventory_properties import inventory_properties

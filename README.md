@@ -1,340 +1,190 @@
-# netbox-zabbix
+# NetBox Zabbix Plugin
 
-NetBox plugin for Zabbix.
+## Overview
 
+The **NetBox Zabbix Plugin** integrates NetBox with Zabbix, providing a seamless way to monitor devices and virtual machines. The plugin allows NetBox users to:
 
-* Free software: MIT
-* Documentation: https://pergus.github.io/netbox-zabbix/
+* Manage Zabbix connection settings.
+* Import Zabbix templates, proxies, proxy groups, and host groups into NetBox.
+* Map NetBox objects (Devices/VMs) to Zabbix hosts using customizable mappings.
+* Configure host interfaces (Agent, SNMP) and host-specific configurations.
+* Validate importable hosts and synchronize them with Zabbix.
 
+The plugin **reads data from Zabbix** but does not directly manage templates, proxies, or host groups in Zabbix from NetBox.
 
+---
 
-## Logging
+## Installation
 
-Use logger.error() when something is wrong and action may be required (exceptions, inconsistent state, missing required data).
-
-Use logger.info() only for high-level events that operators care about (host created, host updated, config deleted). Keep these concise.
-
-Use logger.debug() for internal decisions and state checks (branching logic, computed values). Wrap in f-strings only if cheap to evaluate, or use lazy logging (%s) to avoid overhead when debug is off. 
-
-
-Examples
-
-| When                              | Level | Why                                 |
-| --------------------------------- | ------|------------------------------------ |
-| Function entry + decision details | debug | Only useful during troubleshooting. |
-| “No DeviceZabbixConfig found … Skipping update.” | warning | Likely a configuration issue. |
-| Job queued successfully           | info  | Operational event worth recording in production. |
-
-
-### Bugs
-
-
-
-### Todo/Bugs
-
-
-[DONE] Implement filtering where applicable.
-
-[DONE] Add user to the event log.
-
-* Add Tags
-
-* Access control.
-
-* Add options in Setting to control how the diff between NetBox and Zabbix should
-  behave. strict/lenient?
-
-[DONE] Should the zabbix host pre-data be normalized before it is displayed or 
-  when it is saved to the event/job logs? I could just normalize it
-  when displaying the data just in case we need the full data...dunno.
-
-* Should the system issue a warning when a template is removed while it is 
-  still used by a default mapping? - Yes!
-  Should it also block the removal? - No
-
-  Blocking the removal doesn’t make sense, since if the template has already 
-  been removed from Zabbix, it no longer exists anyway.
-  Also, it is ok for a host in Zabbix not have any templates.
-
-* Should NetBox be the source for proxies, proxy group and groups?
-  And Zabbix should only be the source for Templates?
-
-* The date when scheduling the background job should use
-  
-  django.utils.timezone.now() to remove the warning:
-  
-  RuntimeWarning: DateTimeField Job.scheduled received a naive datetime 
-  
-  (2025-08-21 17:43:35.860721) while time zone support is active.
-
-* Since the background job doesn't use the system job decorator it isn't
-  started automatically by NB when the rqworker is started.
-  Look into how this can be fixed.
-
-* Go over all models and make sure that the fields doesn't have unnecessary
-  null=True and blank=True settings. Many of them were added to prevent having
-  to dump the database when running makemigrations.
-
-* Make sure the API works as expected.
-
-* Implement maintenance mode.
-
-
-[DONE] Rename 'zabbix_config_model' in jobs to 'config_model'.
-
-
-[DONE] When the implementation works for Devices, implement the corresponding code
-  for Virual Machines.
-
-[DONE] Replace checks for interfaces in forms? with calls to has_agent_interface & has_snmpv3_interface.
-
-
-[DONE] It should not be possible to assign an ip address to a zabbix interface
-  for an ip that isn't associated with the underlyin device or vm.
-  Let's say we have two devices A and B. It should not be possible to
-  create a zabbix interface for A and assign it an IP that belongs to B.
-
-[DONE] Edit zabbix configuration - when chaning monitored by to say proxy, then
-  the form should force the user to add a proxy. The same goes for proxy group.
-
-
-[DONE] Added has_agent_interface/has_snmpv3_interface methods to ZConfig.
-
-[DONE] Rename 'host' in Interfaces to zabbix_config or zcfg?
-
-[DONE] Not having a proper name for ZabbixConfig's makes it problematic for scripting and searching.
-
-
-[DONE] CF that excludes a machine from appearing in NetBox only.
-
-[DONE] Bug - Users can delete the Configuration.
-
-[DONE] Should deleting a host in zabbix that doesn't exist cause an exception?
-  Exception: Failed to soft delete zabbix host 11537: No host with host id '11537' found in Zabbix
-  No the jobs should not cause an exception. But a warning as result.
-
-
-[DONE] Handle delete of an ip addres and/or interface on a device.
-
-[DONE] Handle delete of an Z-interface.
-
-[DONE] Failsafe delete - implemented Hard/Soft delete.
-
-[DONE] DNS name changes
-
-[DONE] netbox_zabbix.jobs.ExceptionWithData: ('Error -32602: Invalid params., 
-       Cannot link template "AXIS Debian" to host "dk-ece007w", because its 
-       parent template "ICMP Ping" would be linked twice.', -32602)
-
-[DONE] Should I add additional information about templates to Zabbix to make
-       the checks easier.
-
-[DONE] There might a logical error in how Device/VM mapping design.
-
-[DONE] The interface hostid shoud be set to the Zabbix Hostid.
-
-[DONE] Add delete button to Agent Interfaces and SNMP Interfaces.
-This took longer than expected beacuse I couldn't get it to work.
-The solution was to implement bulk delete.
-
-[DONE] Update/Delete interfaces should record the changes in the ZC change log
-       and update Zabbix.
-
-[DONE] Import doesn't include proxy/proxy group.
-
-[DNE] Mapping ins't updated when the user change page for Devices Exclusive To NetBox.
-        To update the mapping the user has to reload the page....
-
-[DONE] The helper function 'quick_add_interface' should take a Zabbix Config
-  instance as argument and only add an interface. Now it also creates
-  the Zabbix Config which isn't correct if we want separations of concerns.
-
-[WAIT] If a global default setting changes, should all ZC and Hosts in Z also update?
-  Don't think so.
-
-
-
-#### General
-
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| Document and format the code                                 | Todo          |
-| Write a user manual                                          | Todo          |
-| Format for exception and logging messages                    | Todo          |
-| Replace plugin settings with configuration variables         | Done          |
-| Create Importable Devices/VMs                                | Done          |
-| Create Devices/VM Zabbix configurations                      | Done          |
-| Create Devices/VM components                                 | Done          |
-| Create ALL Zabbix Configurations                             | Done          |
-| Create NetBox only Devices/VMs                               | Done          |
-| Create Zabbix only Hosts                                     | Done          |
-| Create model and form for Agent interfaces                   | Done          |
-| Create model and form for SNMPv3 interfaces                  | Done          |
-| Create model and form for SNMPv1 interfaces                  | Todo          |
-| Create model and form for SNMPv2c interfaces                 | Todo          |
-| Create class or function to run background jobs              | Done          |
-| Implement signals for create, update and delete              | Todo          |
-| Auto hide validate button depending on if automatic validation is enabled or not | Done |
-| Add Host information as a tab for Device and VM              | Done          |
-| Add filtersets to the views                                  | Todo          |
-| Implement GraphQL                                            | Todo          |
-| Add template mappings                                        | Done          |
-| Add host group mappings                                      | Done          |
-| Add models for Proxy and Proxy Groups                        | Done          |
-| Add Proxy mappings                                           | Done          |
-| Add Proxy Group mappings                                     | Done          |
-| Add support for TLS certificates                             | Todo          |
-| Add Maintenance                                              | Todo          |
-| Add a tab to vm and device that show the Zabbix Configuration. | Done         |
-
-
-#### Settings
-
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| Add Automatic Host Validation                                | Done          |
-| Add TLS settings                                             | Done          |
-| Add Max deletions on import                                  | Done          |
-| Add Maximum Success Notifications                            | Done          |
-| Add Background Job for Zabbix Config Sync                    | Done          |
-| Should Max deletions on import be enabled/disabled?          | Done          |
-| Add defaults for zabbix interfaces                           | Done          |
-
-
-#### NetBox Only Hosts
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| Add action button to quick add Agent                         | Done          |
-| Add action button to quick Add SNMP                          | Done          |
-
-
-#### Mappings
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| Tag Mappings                                                 | Done          |
-| Inventory Mappings                                           | Done          |
-| Device Mappings                                              | Done          |
-| VM Mappings                                                  | Done          |
-
-
-#### Event Log
-| Action                                                       | Status        |
-| ------------------------------------------------------------ | ------------- |
-| List events                                                  | Done          |
-| Add support for pre/post data                                | Done          |
-
-
-## Features
-
-The features the plugin provides should be listed here.
-
-## Compatibility
-
-| NetBox Version | Plugin Version |
-|----------------|----------------|
-|     4.0        |      0.1.0     |
-
-## Installing
-
-For adding to a NetBox Docker setup see
-[the general instructions for using netbox-docker with plugins](https://github.com/netbox-community/netbox-docker/wiki/Using-Netbox-Plugins).
-
-While this is still in development and not yet on pypi you can install with pip:
+1. **Install the plugin into your NetBox environment**:
 
 ```bash
-pip install git+https://github.com/pergus/netbox-zabbix
+pip install git+https://github.com/pergus/netbox-zabbix.git'
+pip install pyzabbix==1.3.1
 ```
 
-or by adding to your `local_requirements.txt` or `plugin_requirements.txt` (netbox-docker):
-
-```bash
-git+https://github.com/pergus/netbox-zabbix
-```
-
-Enable the plugin in `/opt/netbox/netbox/netbox/configuration.py`,
- or if you use netbox-docker, your `/configuration/plugins.py` file :
+2. **Add the plugin to NetBox configuration** (`configuration.py`):
 
 ```python
 PLUGINS = [
-    'netbox-zabbix'
+    'netbox_zabbix',
 ]
 
 PLUGINS_CONFIG = {
-    "netbox-zabbix": {},
+    'netbox_zabbix': {
+        # Optional configuration overrides
+    }
 }
 ```
 
-## Notes on date conversion for Zabbix Maintenance
+3. **Apply database migrations**:
 
-```python
-
-from datetime import datetime
-
-maintenance = {
-    'maintenanceid': '1',
-    'name': 'Sample',
-    'maintenance_type': '0',
-    'description': 'Sample Maintenance',
-    'active_since': '1751493600',
-    'active_till': '1751580000',
-    'tags_evaltype': '0'
-}
-
-# Convert to datetime
-active_since = datetime.fromtimestamp(int(maintenance['active_since']), tz=timezone.utc)
-active_till = datetime.fromtimestamp(int(maintenance['active_till']), tz=timezone.utc)
-
-print(f"Active Since: {active_since}")
-print(f"Active Till: {active_till}")
+```bash
+python manage.py migrate netbox_zabbix
 ```
 
-```python
-from datetime import datetime, timezone
+4. **Restart NetBox**:
 
-# Your datetime object (e.g., in UTC)
-dt = datetime(2025, 8, 1, 1, 0, 0, tzinfo=timezone.utc)
-
-# Convert to Unix timestamp
-unix_timestamp = int(dt.timestamp())
-
-print(unix_timestamp)  # → 1751493600
-````
-
-Converting a Django datetime to a Zabbix-compatible Unix timestamp
-```python
-from django.utils import timezone
-
-# Get a timezone-aware datetime (UTC or local based on settings)
-dt = timezone.now()
-
-# Convert to Unix timestamp
-unix_timestamp = int(dt.timestamp())
-````
-
-Converting a specific datetime to a timestamp using Django's timezone
-
-```python
-from django.utils import timezone
-from datetime import datetime
-
-# Define a naive datetime
-naive_dt = datetime(2025, 8, 1, 1, 0, 0)
-
-# Make it timezone-aware using Django settings
-aware_dt = timezone.make_aware(naive_dt)
-
-# Convert to Unix timestamp
-timestamp = int(aware_dt.timestamp())
+```bash
+supervisorctl restart netbox
 ```
 
+---
 
+## Settings
 
+The plugin provides a single **Zabbix Settings** object in NetBox under the Zabbix menu.
 
-## Credits
+| Field                     | Description                                 | Default       | Notes                                         |
+| ------------------------- | ------------------------------------------- | ------------- | --------------------------------------------- |
+| Name                      | Friendly name for this Zabbix configuration | -             | Used for identification                       |
+| API Endpoint              | Zabbix API URL                              | -             | Required to connect to Zabbix API             |
+| Web Address               | Zabbix web interface URL                    | -             | Optional, for links to Zabbix GUI             |
+| Token                     | Zabbix API token                            | -             | Must have sufficient API permissions          |
+| Connection                | Status of Zabbix connection                 | False         | Updated automatically when testing connection |
+| Auto-validate Importables | Validate hosts before import                | True          | Ensures hosts exist and mappings are correct  |
+| Max Deletions             | Maximum hosts to delete per run             | 10            | Prevent accidental mass deletions             |
+| Event Log Enabled         | Log plugin job events in NetBox             | True          | Records all job execution events              |
+| Auto-validate Quick Add   | Validate quick-add hosts                    | True          | Ensures imported hosts comply with mappings   |
+| Inventory Mode            | How inventory is pushed to Zabbix           | -             | Device or VM inventory                        |
+| Monitored By              | Method to monitor hosts                     | Zabbix Server | Options: Zabbix Server, Proxy, Proxy Group    |
+| TLS Connect / TLS Accept  | TLS connection settings                     | -             | Used for agent-based communication            |
+| Agent / SNMP Ports        | Default ports for interfaces                | 10050 / 161   | Used for auto-created interfaces              |
+| Tagging                   | Default tag and prefix for hosts            | -             | Used to categorize hosts in Zabbix            |
+| Last Checked At           | Timestamp of last connection test           | -             | Updated when testing connection               |
 
-Based on the NetBox plugin tutorial:
+> **Note:** Only one Settings object is supported. Attempts to create multiple objects are prevented.
 
-- [demo repository](https://github.com/netbox-community/netbox-plugin-demo)
-- [tutorial](https://github.com/netbox-community/netbox-plugin-tutorial)
+---
 
-This package was created with [Cookiecutter](https://github.com/audreyr/cookiecutter) and the [`netbox-community/cookiecutter-netbox-plugin`](https://github.com/netbox-community/cookiecutter-netbox-plugin) project template.
+## Templates, Proxies, Host Groups
+
+These are **read-only** objects imported from Zabbix:
+
+* **Templates:** Imported Zabbix templates can be viewed in NetBox and linked to hosts.
+* **Proxies & Proxy Groups:** Imported for monitoring via proxies.
+* **Host Groups:** Imported Zabbix host groups can be used in mappings.
+
+These objects **cannot be modified from NetBox**, only imported and referenced.
+
+---
+
+## Mappings
+
+Mappings define how NetBox objects are translated into Zabbix hosts.
+
+### Tag Mapping
+
+* Maps NetBox tags to Zabbix host tags.
+* Allows automated categorization of hosts in Zabbix.
+
+### Inventory Mapping
+
+* Maps device or VM fields (e.g., serial number, model, custom fields) to Zabbix inventory fields.
+* Supports multiple paths for each inventory property.
+* Ensures accurate reporting of device metadata in Zabbix.
+
+### Device & VM Mapping
+
+* Define how Devices or Virtual Machines are transformed into Zabbix hosts.
+* Include filters to select specific subsets of devices/VMs (e.g., by site, role, custom field).
+* Filters are based on NetBox’s QuerySet filtering, allowing complex selections.
+* Used during host creation and import.
+
+---
+
+## Host Configurations
+
+* Defines host-specific parameters for Zabbix, such as templates, groups, and macros.
+* Configurations are applied when creating or updating hosts in Zabbix.
+* Allows per-host customization for monitoring.
+
+---
+
+## Interface Types
+
+### Agent Interfaces
+
+* Created for Zabbix agent-based monitoring.
+* Configured with port, use of IP, and TLS settings.
+* Automatically linked during host creation if “agent” monitoring is selected.
+
+### SNMP Interfaces
+
+* Created for SNMP-based monitoring.
+* Supports SNMP v1, v2c, and v3 with full SNMPv3 credentials.
+* Can include bulk, max-repetitions, security name, auth/priv credentials.
+* Signals are triggered when modifying interfaces to ensure NetBox and Zabbix stay in sync.
+
+---
+
+## Importable Hosts
+
+* **Definition:** Hosts present in NetBox but not yet in Zabbix.
+* Hosts can be **validated** before import to check mappings and interface availability.
+* **Import Options:**
+
+  * Quick Add: Minimal required fields.
+  * Full Import: Apply mappings, templates, host groups, and interfaces.
+* Validation ensures host will be correctly created in Zabbix.
+
+---
+
+## NetBox Only Hosts
+
+* Hosts that exist in NetBox but are **not yet managed by Zabbix**.
+* Can be queued for import into Zabbix.
+* Ensures consistent monitoring setup across all NetBox objects.
+
+---
+
+## Zabbix Only Hosts
+
+* Hosts present in Zabbix but not linked to NetBox objects.
+* Displayed for informational purposes and to aid reconciliation.
+* Can be manually linked to NetBox objects or ignored.
+
+---
+
+## Event Logs
+
+* Every job or import operation can be logged in NetBox’s **Event Log**.
+* Provides detailed information for troubleshooting:
+
+  * Job name
+  * Status
+  * Error messages
+  * Pre/post execution data
+* Event logging can be enabled or disabled via Settings.
+
+---
+
+## Contributing
+
+We welcome contributions! Please fork the repository and submit pull requests with enhancements, bug fixes, or new features.
+
+---
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.

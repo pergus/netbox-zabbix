@@ -1,11 +1,37 @@
-# urls.py
+"""
+NetBox Zabbix Plugin — URL Configuration
+
+Defines all URL routes for the NetBox Zabbix integration plugin.
+Each route maps a specific view to handle CRUD operations, jobs, 
+and synchronization endpoints for Zabbix-related models such as 
+Settings, Templates, and Mappings.
+
+This module integrates seamlessly with NetBox’s generic view system
+and provides clean namespacing under `plugins:netbox_zabbix`.
+
+Usage:
+    Included automatically by NetBox when the plugin is installed
+    and enabled in the `PLUGINS` configuration.
+
+Namespace:
+    app_name = 'netbox_zabbix'
+"""
+
+# Django imports
 from django.urls import path
+
+# NetBox imports
 from netbox.views.generic import ObjectChangeLogView
 
+# NetBox Zabbix plugin imports
 from netbox_zabbix import models, views
 
+# App namespace
 app_name = 'netbox_zabbix' 
 
+# ------------------------------------------------------------------------------
+# URL patterns
+# ------------------------------------------------------------------------------
 
 urlpatterns = (
 

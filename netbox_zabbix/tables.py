@@ -1,6 +1,18 @@
-# tables.py
+"""
+NetBox Zabbix Plugin — Tables Definitions
 
-# Standard / Django imports
+This module defines all Django tables used to display Zabbix-related
+models in the NetBox UI. It leverages django-tables2 and NetBox’s
+NetBoxTable base class to provide sortable, linkified, and action-enabled
+tables for Settings, Templates, Proxies, Mappings, and HostConfigs.
+
+Tables:
+    - SettingTable: Displays Zabbix settings and connection details.
+    - TemplateTable: Displays Zabbix templates with host counts and dependencies.
+"""
+
+
+# Django imports
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.timezone import datetime
@@ -10,14 +22,10 @@ import django_tables2 as tables
 
 # NetBox imports
 from netbox.tables import NetBoxTable, columns
-
-# DCIM imports
 from dcim.models import Device
-
-# Virtualization imports
 from virtualization.models import VirtualMachine
 
-# netbox_zabbix imports
+# NetBox Zabbix plugin imports
 from netbox_zabbix import settings, jobs
 from netbox_zabbix.models import (
     InterfaceTypeChoices,
@@ -35,14 +43,12 @@ from netbox_zabbix.models import (
     SNMPInterface,
     EventLog
 )
-
 from netbox_zabbix.utils import (
     validate_quick_add, 
     can_delete_interface, 
     is_interface_available,
     compare_zabbix_config_with_host
 )
-
 from netbox_zabbix.logger import logger
 
 

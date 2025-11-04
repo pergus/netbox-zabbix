@@ -1,13 +1,33 @@
-# zabbix.py
-# 
-# Description: Wrapper functions for the Zabbix API
-#
+"""
+NetBox Zabbix Plugin — Zabbix API Wrapper
 
+This module provides a set of helper functions and lightweight abstractions
+for interacting with the Zabbix API. It acts as the central integration point
+between NetBox and Zabbix, handling authentication, communication, and
+object synchronization.
+
+Responsibilities:
+- Manage API authentication and session creation.
+- Validate Zabbix connection and credentials.
+- Handle exceptions for missing hosts and misconfigured endpoints.
+- Provide reusable functions for other plugin modules (e.g., sync jobs, views).
+
+Note:
+This wrapper relies on the `pyzabbix` library for all API calls and assumes that
+valid credentials and endpoint configuration are stored in the NetBox database.
+"""
+# Django imports
 from django.utils import timezone
 from django.core.cache import cache
+
+# Third-party imports
+from pyzabbix import ZabbixAPI
+
+# NetBox imports
 from dcim.models import Device
 from virtualization.models import VirtualMachine
-from pyzabbix import ZabbixAPI
+
+# NetBox Zabbix plugin imports
 from netbox_zabbix import models
 from netbox_zabbix.settings import (
     ZabbixSettingNotFound,
@@ -18,11 +38,17 @@ from netbox_zabbix.settings import (
 from netbox_zabbix import utils as utils
 from netbox_zabbix.logger import logger
 
+# ------------------------------------------------------------------------------
+# Exceptions
+# ------------------------------------------------------------------------------
 
 class ZabbixHostNotFound(Exception):
     """Raised when a Zabbix host is not present in Zabbix."""
     pass
 
+# ------------------------------------------------------------------------------
+# API Client Helpers
+# ------------------------------------------------------------------------------
 
 def get_zabbix_client():
     """
