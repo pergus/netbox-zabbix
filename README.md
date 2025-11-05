@@ -2,15 +2,12 @@
 
 ## Overview
 
-The **NetBox Zabbix Plugin** integrates NetBox with Zabbix, providing a seamless way to monitor devices and virtual machines. The plugin allows NetBox users to:
+The **NetBox Zabbix Plugin** integrates Zabbix with NetBox.
+The plugin allows NetBox users to:
 
-* Manage Zabbix connection settings.
-* Import Zabbix templates, proxies, proxy groups, and host groups into NetBox.
-* Map NetBox objects (Devices/VMs) to Zabbix hosts using customizable mappings.
+* Create/Update and Delete Zabbix hosts from NetBox.
 * Configure host interfaces (Agent, SNMP) and host-specific configurations.
-* Validate importable hosts and synchronize them with Zabbix.
-
-The plugin **reads data from Zabbix** but does not directly manage templates, proxies, or host groups in Zabbix from NetBox.
+* Import hosts from Zabbix to NetBox.
 
 ---
 
@@ -101,14 +98,11 @@ Mappings define how NetBox objects are translated into Zabbix hosts.
 ### Inventory Mapping
 
 * Maps device or VM fields (e.g., serial number, model, custom fields) to Zabbix inventory fields.
-* Supports multiple paths for each inventory property.
-* Ensures accurate reporting of device metadata in Zabbix.
 
 ### Device & VM Mapping
 
 * Define how Devices or Virtual Machines are transformed into Zabbix hosts.
-* Include filters to select specific subsets of devices/VMs (e.g., by site, role, custom field).
-* Filters are based on NetBox’s QuerySet filtering, allowing complex selections.
+* Include filters to select specific subsets of Devices/VMs (e.g., by site, role, custom field).
 * Used during host creation and import.
 
 ---
@@ -176,6 +170,82 @@ Mappings define how NetBox objects are translated into Zabbix hosts.
   * Error messages
   * Pre/post execution data
 * Event logging can be enabled or disabled via Settings.
+
+
+
+---
+
+## Default Settings
+
+The NetBox Zabbix plugin ships with default tag mappings and inventory mappings. 
+These define how NetBox Devices and Virtual Machines are transformed into Zabbix 
+hosts, including which attributes are added as tags and which populate the 
+Zabbix inventory.
+
+### 1. Tag Mappings
+
+Purpose: Tags in Zabbix are used to categorize hosts and enable filtering in Zabbix dashboards, triggers, and actions.
+
+By default, the plugin maps common NetBox attributes to Zabbix host tags for both Devices and Virtual Machines:
+
+
+| Object Type	| Zabbix Tag    | NetBox Attribute |
+|-------------|---------------|------------------|
+| Device	    | Site          | site.name        |
+| Device	    | Region	      | site.region      |
+| Device	    | Latitude	    | site.latitude    |
+| Device	    | Longitude	    | site.longitude   |
+| Device	    | Role	        | role.name        |
+| Device	    | Platform	    | platform.name    |
+| Virtual Machine	| Site	    | site.name        |
+| Virtual Machine	| Region	  | site.region      |
+| Virtual Machine	| Latitude	| site.latitude    |
+| Virtual Machine	| Longitude	| site.longitude   |
+| Virtual Machine	| Cluster	  | cluster.name     |
+| Virtual Machine	| Role	    | role.name        |
+| Virtual Machine	| Platform	| platform.name    |
+
+Explanation:
+
+These tag mappings allow Zabbix to automatically classify hosts based on their location, role, and platform.
+
+For VMs, the Cluster tag is included to distinguish hosts grouped under the same cluster.
+
+### 2. Inventory Mappings
+
+Purpose: Zabbix inventory fields store detailed host metadata that can be used in templates, reports, or automated actions. Inventory mappings define which NetBox fields populate Zabbix inventory keys.
+
+Default mappings for Devices and VMs:
+
+| Object Type      | Inventory Key | Zabbix Field | Source Path(s) in NetBox                     |
+|------------------|---------------|--------------|----------------------------------------------|
+| Device           | Name          | name         | `["name"]`                                   |
+| Device           | Platform      | os           | `["platform.name"]`                          |
+| Device           | Location      | location     | `["location.name", "site.name"]`            |
+| Device           | Latitude      | location_lat | `["location.site.latitude", "site.latitude"]` |
+| Device           | Longitude     | location_lon | `["location.site.longitude", "site.longitude"]` |
+| Virtual Machine  | Name          | name         | `["name"]`                                   |
+| Virtual Machine  | Platform      | os           | `["platform.name"]`                          |
+| Virtual Machine  | Location      | location     | `["location.name", "site.name"]`            |
+| Virtual Machine  | Latitude      | location_lat | `["location.site.latitude", "site.latitude"]` |
+| Virtual Machine  | Longitude     | location_lon | `["location.site.longitude", "site.longitude"]` |
+
+Explanation:
+
+Each inventory key in Zabbix is filled from one or more NetBox attributes. The plugin attempts the first path in the list that returns a value.
+
+For example, the Location inventory key will first try location.name on the object; if that’s empty, it will fallback to site.name.
+
+Latitude and Longitude provide geolocation for hosts in Zabbix maps.
+
+How These Defaults Are Used:
+
+When importing a Device or VM into Zabbix, the plugin applies these mappings automatically.
+
+Users can override defaults by editing Tag Mappings or Inventory Mappings in NetBox.
+
+These mappings ensure that newly imported Zabbix hosts are consistently categorized and have the relevant metadata.
+
 
 ---
 

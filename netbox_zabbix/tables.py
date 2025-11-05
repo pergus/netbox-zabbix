@@ -873,5 +873,21 @@ class ZabbixProblemTable(tables.Table):
             return value
 
 
+# ------------------------------------------------------------------------------
+# Maintenance
+# ------------------------------------------------------------------------------
+
+class MaintenanceTable(NetBoxTable):
+    """
+    Table for displaying Zabbix Maintenance.
+    """
+
+    name = tables.Column( linkify=True, order_by="name", accessor="name" )
+        
+    class Meta(NetBoxTable.Meta):
+        model           = Proxy
+        fields          = ( "name", "description", "start_time", "end_time", "disable_data_collection", "host_config", "sites", "host_groups", "proxy_groups", "clusters", "zabbix_id", "status" )
+        default_columns = ( "name", "description", "start_time", "end_time", "disable_data_collection", "host_config", "sites", "host_groups", "proxy_groups", "clusters", "zabbix_id", "status" )
+
 
 # end

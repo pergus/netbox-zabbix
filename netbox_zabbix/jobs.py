@@ -927,12 +927,12 @@ def link_missing_interface(host_config, hostid):
             unlinked_iface = iface
             break
 
-    if not unlinked_iface:  
-        logger.info( f"All interfaces for {host_config.name} are already linked")
+    if not unlinked_iface:
+        logger.debug( f"All interfaces for {host_config.name} are already linked")
         return
 
     if not zbx_interfaces:
-        logger.info( f"No interfaces found in Zabbix for host {host_config.name} hostid ({host_config.hostid})" )
+        logger.debug( f"No interfaces found in Zabbix for host {host_config.name} hostid ({host_config.hostid})" )
         return
 
     # Normalize unlinked IP (remove /prefix) for comparison
@@ -959,7 +959,7 @@ def link_missing_interface(host_config, hostid):
 
     # Fallback: if no match but only one interface exists, use it
     if not target_iface and len(zbx_interfaces) == 1:
-        logger.info( f"No exact match found; only one Zabbix interface exists, linking it anyway." )
+        logger.debug( f"No exact match found; only one Zabbix interface exists, linking it anyway." )
         target_iface = zbx_interfaces[0]
 
 
@@ -1210,7 +1210,6 @@ def hard_delete_zabbix_host(hostid):
         
         except ZabbixHostNotFound as e:
             msg = f"Failed to soft delete Zabbix host {hostid}: {str( e )}"
-            logger.info( msg )
             return { "message": msg }
         
         except Exception as e:
@@ -1278,7 +1277,8 @@ def soft_delete_zabbix_host(hostid):
             }
 
         except ZabbixHostNotFound as e:
-            logger.info( f"Failed to soft delete Zabbix host {hostid}: {str( e )}" )
+            msg = f"Failed to soft delete Zabbix host {hostid}: {str( e )}"
+            return { "message": msg }
 
         except Exception as e:
             msg = f"Failed to soft delete Zabbix host {hostid}: {str( e )}"
@@ -1446,9 +1446,15 @@ def import_zabbix_host(ctx: ImportHostContext):
 
         # Resolve the NetBox interface
         if ctx.content_type == ContentType.objects.get_for_model( VirtualMachine ):
-            nb_interface = VMInterface.objects.get( id=nb_ip_address.assigned_object_id )
+            try:
+                nb_interface = VMInterface.objects.get( id=nb_ip_address.assigned_object_id )
+            except Exception as e:
+                raise 
         else:
-            nb_interface = DeviceInterface.objects.get( id=nb_ip_address.assigned_object_id )
+            try:
+                nb_interface = DeviceInterface.objects.get( id=nb_ip_address.assigned_object_id )
+            except Exception as e:
+                raise
 
         if iface["type"] == 1:  # Agent
             try:

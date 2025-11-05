@@ -1548,7 +1548,82 @@ class SNMPInterface(BaseInterface):
                 existing_mains.update( main=MainChoices.NO )
     
         return super().save(*args, **kwargs)
-    
+
+
+# ------------------------------------------------------------------------------
+# Maintenance
+# ------------------------------------------------------------------------------
+
+from virtualization.models import Cluster
+from django.utils import timezone
+
+class Maintenance(NetBoxModel):
+    """
+    Represents a scheduled maintenance window for Zabbix hosts.
+
+    This object defines a time period during which one or more hosts are put
+    into maintenance mode in Zabbix. The maintenance can target hosts derived
+    from Sites, HostGroups, ProxyGroups, or Clusters.
+
+    Attributes:
+        name (str): Name of the maintenance.
+        description (str): Optional descriptive text.
+        start_time (datetime): When maintenance begins.
+        end_time (datetime): When maintenance ends.
+        disable_data_collection (bool): If True, disables item collection during maintenance.
+        host_config: (ManyToMany): Releated Host Configurtions that is part of the maintenance.
+        sites (ManyToMany): Related Sites whose hosts will be included.
+        host_groups (ManyToMany): Related Zabbix host groups.
+        proxy_groups (ManyToMany): Related Zabbix proxy groups.
+        clusters (ManyToMany): Related Clusters whose VMs will be included.
+        zabbix_id (str): ID of the maintenance in Zabbix.
+        status (str): Current lifecycle status (pending, active, expired).
+    """
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('active', 'Active'),
+        ('expired', 'Expired'),
+        ('failed', 'Failed'),
+    ]
+
+    name = models.CharField( max_length=200 )
+    description = models.TextField( blank=True )
+    start_time = models.DateTimeField( default=timezone.now )
+    end_time = models.DateTimeField()
+    disable_data_collection = models.BooleanField(
+        default=False,
+        help_text="Disable data collection in Zabbix during maintenance."
+    )
+
+    host_configs = models.ManyToManyField( HostConfig, blank=True, related_name="zabbix_maintenances" )
+    sites = models.ManyToManyField( Site, blank=True, related_name="zabbix_maintenances" )
+    host_groups = models.ManyToManyField( HostGroup, blank=True, related_name="zabbix_maintenances" )
+    proxy_groups = models.ManyToManyField( ProxyGroup, blank=True, related_name="zabbix_maintenances" )
+    clusters = models.ManyToManyField( Cluster, blank=True, related_name="zabbix_maintenances" )
+
+    zabbix_id = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Zabbix ID of this maintenance window (if synced)."
+    )
+
+    status = models.CharField( max_length=20, choices=STATUS_CHOICES, default='pending' )
+
+    class Meta:
+        verbose_name = "Zabbix Maintenance"
+        verbose_name_plural = "Zabbix Maintenances"
+        ordering = ['-start_time']
+
+    def __str__(self):
+        return f"{self.name} ({self.start_time:%Y-%m-%d %H:%M})"
+
+    def is_active(self):
+        """Return True if the maintenance is currently active."""
+        now = timezone.now()
+        return self.start_time <= now <= self.end_time
+
 
 # ------------------------------------------------------------------------------
 # Events

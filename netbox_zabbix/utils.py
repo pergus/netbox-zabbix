@@ -98,7 +98,7 @@ def get_zabbix_inventory_for_object(obj):
 
         invkey = str( field.get( "invkey" ) )
         if invkey not in inventory_properties:
-            logger.info( f"{invkey} is not a legal inventory property" )
+            logger.error( f"{invkey} is not a legal inventory property" )
             continue
 
         paths = field.get( "paths" )
@@ -307,7 +307,6 @@ def populate_templates_with_interface_type():
 
     # Calculate and store the interface type for each template
     for template in models.Template.objects.all():
-        logger.info( f"{template.name}" )
         all_ids = collect_template_ids( template )
 
         # Collect items for this template and all its parents
@@ -764,9 +763,6 @@ def create_custom_field(name, defaults):
     if created:
         cf.object_types.set( [ device_ct.id, vm_ct.id ] )
         cf.save()
-        logger.info( f"Created new custom field" )
-    else:
-        logger.info( f"Did not create new custom field" )
 
 
 # ------------------------------------------------------------------------------
@@ -788,7 +784,7 @@ def find_ip_address(address:str):
     if not address.endswith("/"):
         address += "/"
 
-    return IPAddress.objects.filter( address__startswith=address )
+    return IPAddress.objects.filter( address__startswith=address ).first()
 
 
 # ------------------------------------------------------------------------------

@@ -252,4 +252,16 @@ urlpatterns = (
     path( 'events/<int:pk>/changelog', ObjectChangeLogView.as_view(),          name='eventlog_changelog', kwargs={'model': models.EventLog} ),
 
 
+    # --------------------------------------------------------------------------
+    # Maintenance
+    # --------------------------------------------------------------------------
+    
+    path( 'maintenance/',                   views.MaintenanceListView.as_view(),       name='maintenance_list' ),
+    path( 'maintenance/add/',               views.MaintenanceEditView.as_view(),       name='maintenance_add' ),
+    path( 'maintenance/<int:pk>/',          views.MaintenanceView.as_view(),           name='maintenance' ),
+    path( 'maintenance/<int:pk>/edit/',     views.MaintenanceEditView.as_view(),       name='maintenance_edit' ),
+    path( 'maintenance/<int:pk>/delete/',   views.MaintenanceDeleteView.as_view(),     name='maintenance_delete' ),
+#    path( 'maintenance/delete/',            views.MaintenanceBulkDeleteView.as_view(), name='maintenance_bulk_delete' ),
+    path( 'maintenance/<int:pk>/changelog', ObjectChangeLogView.as_view(),                   name='maintenance_changelog', kwargs={'model': models.Maintenance} ),
+    
  ) 

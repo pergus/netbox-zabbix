@@ -533,7 +533,7 @@ class InventoryMappingForm(NetBoxModelForm):
                     initial=existing_selection.get( name, False ),
                 )
             else:
-                logger.info( f"{invkey} is not a legal inventory property" )
+                logger.error( f"{invkey} is not a legal inventory property" )
 
     def clean_object_type(self):
         """
@@ -1261,7 +1261,8 @@ class AgentInterfaceForm(BaseHostInterfaceForm):
         self.agent_defaults = {
             "port": settings.get_agent_port()
         }
-        
+
+
 # ------------------------------------------------------------------------------
 # SNMP Interface
 # ------------------------------------------------------------------------------
@@ -1306,6 +1307,60 @@ class SNMPInterfaceForm(BaseHostInterfaceForm):
             "privprotocol":    settings.get_snmp_privprotocol(),
             "privpassphrase":  settings.get_snmp_privpassphrase(),
         }
-        
+
+
+# ------------------------------------------------------------------------------
+# Maintenance
+# ------------------------------------------------------------------------------
+
+from utilities.forms.fields import DynamicModelMultipleChoiceField
+
+
+from dcim.models import Site
+from virtualization.models import Cluster
+from netbox_zabbix.models import Maintenance
+
+class MaintenanceForm(NetBoxModelForm):
+    """
+    Form for creating or updating a Zabbix maintenance window.
+    """
+
+
+    host_configs = DynamicModelMultipleChoiceField(
+        queryset=HostConfig.objects.all(),
+        required=False,
+        label="Host Configs",
+        help_text="Host Configs to include in the maintenance."
+    )
+    
+    sites = DynamicModelMultipleChoiceField(
+        queryset=Site.objects.all(),
+        required=False,
+        label="Sites",
+        help_text="Hosts under these Sites will be included in the maintenance."
+    )
+
+    proxy_groups = DynamicModelMultipleChoiceField(
+        queryset=ProxyGroup.objects.all(),
+        required=False,
+        label="Proxy Groups",
+        help_text="Hosts monitored via these proxies will be included in the maintenance.."
+    )
+
+    clusters = DynamicModelMultipleChoiceField(
+        queryset=Cluster.objects.all(),
+        required=False,
+        label="Clusters",
+        help_text="VMs in these Clusters will be included in the maintenance."
+    )
+
+    class Meta:
+        model = Maintenance
+        fields = (
+            'name', 'description', 'start_time', 'end_time',
+            'disable_data_collection', 'host_configs', 'sites', 'host_groups',
+            'proxy_groups', 'clusters'
+        )
+
 
 # end

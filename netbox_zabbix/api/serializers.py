@@ -386,4 +386,19 @@ class UnAssignedHostIPAddressesSerializer(serializers.Serializer):
         fields = ['id', 'display']
 
 
+# ------------------------------------------------------------------------------
+# Maintenance
+# ------------------------------------------------------------------------------
+
+from netbox_zabbix.models import Maintenance
+
+class MaintenanceSerializer(NetBoxModelSerializer):
+    """
+    API serializer for Maintenance.
+    """
+
+    class Meta:
+        model = Maintenance
+        fields = '__all__'
+
 # end

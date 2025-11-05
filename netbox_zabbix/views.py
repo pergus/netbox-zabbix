@@ -358,9 +358,9 @@ def run_import_templates(request=None):
         if request is not None:
             msg_lines = ["Importing Zabbix Templates succeeded."]
             if added:
-                msg_lines.append( f"Added {len(added)} template{pluralize(len(added))}." )
+                msg_lines.append( f"Added {len(added)} template{pluralize( len( added ) )}." )
             if deleted:
-                msg_lines.append( f"Deleted {len(deleted)} template{pluralize(len(deleted))}." )
+                msg_lines.append( f"Deleted {len(deleted)} template{pluralize( len( deleted ) )}." )
             if not added and not deleted:
                 msg_lines.append( "No changes detected." )
             messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
@@ -470,9 +470,9 @@ def run_import_proxies(request=None):
         if request is not None:
             msg_lines = ["Importing Zabbix Proxies succeeded."]
             if added:
-                msg_lines.append( f"Added {len( added )} prox{pluralize(len(added), 'y,ies')}." )
+                msg_lines.append( f"Added {len( added )} prox{pluralize( len( added ), 'y,ies')}." )
             if deleted:
-                msg_lines.append( f"Deleted {len( deleted )} prox{pluralize(len(deleted), 'y,ies')}." )
+                msg_lines.append( f"Deleted {len( deleted )} prox{pluralize( len( deleted ), 'y,ies')}." )
             if not added and not deleted:
                 msg_lines.append( "No changes detected." )
             messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
@@ -580,9 +580,9 @@ def run_import_proxy_groups(request=None):
         if request is not None:
             msg_lines = ["Import Zabbix Proxy Groups succeeded."]
             if added:
-                msg_lines.append( f"Added {len( added )} proxy group{pluralize( len(added) )}." )
+                msg_lines.append( f"Added {len( added )} proxy group{pluralize( len( added ) )}." )
             if deleted:
-                msg_lines.append( f"Deleted {len( deleted )} proxy group{pluralize( len(deleted) )}." )
+                msg_lines.append( f"Deleted {len( deleted )} proxy group{pluralize( len( deleted ) )}." )
             if not added and not deleted:
                 msg_lines.append( "No changes detected." )
             messages.success( request, mark_safe( "<br>".join( msg_lines ) ) )
@@ -1469,7 +1469,7 @@ class AgentInterfaceBulkDeleteView(generic.BulkDeleteView):
         interfaces = self.get_queryset( request ).filter( pk__in=request.POST.getlist( 'pk' ) )
     
         for interface in interfaces:
-            if not can_delete_interface(interface ):
+            if not can_delete_interface( interface ):
                 messages.error( request, f"Interface '{interface.name}' cannot be deleted because it is linked to one or more templates in Zabbix." )
                 return redirect( self.get_return_url( request ) )
     
@@ -1565,7 +1565,7 @@ class SNMPInterfaceBulkDeleteView(generic.BulkDeleteView):
         interfaces = self.get_queryset( request ).filter( pk__in=request.POST.getlist( 'pk' ) )
     
         for interface in interfaces:
-            if not can_delete_interface(interface ):
+            if not can_delete_interface( interface ):
                 messages.error( request, f"Interface '{interface.name}' cannot be deleted because it is linked to one or more templates in Zabbix." )
                 return redirect( self.get_return_url( request ) )
     
@@ -2149,7 +2149,7 @@ class EventLogDeleteView(generic.ObjectDeleteView):
         """
         interface = self.get_object( pk=kwargs.get( "pk" ) )
     
-        if can_delete_interface(interface, request):
+        if can_delete_interface( interface ):
             return super().post( request, *args, **kwargs )
         else:
             return redirect( request.POST.get( 'return_url' ) or interface.host_config.get_absolute_url() )
@@ -2185,7 +2185,7 @@ class EventLogBulkDeleteView(generic.BulkDeleteView):
         interfaces = self.get_queryset( request ).filter( pk__in=request.POST.getlist( 'pk' ) )
     
         for interface in interfaces:
-            if not can_delete_interface(interface, request):
+            if not can_delete_interface( interface ):
                 return redirect( self.get_return_url( request ) )
     
         # If all checks pass, proceed with normal bulk deletion
@@ -2414,6 +2414,47 @@ class VMVirtualMachineTabView(generic.ObjectView):
                 "web_address": settings.get_zabbix_web_address(),
             },
         )
+
+
+# --------------------------------------------------------------------------
+# Maintenance
+# --------------------------------------------------------------------------
+
+from netbox_zabbix.models import Maintenance
+from netbox.forms import NetBoxModelFilterSetForm
+from netbox_zabbix.forms import MaintenanceForm
+
+
+class MaintenanceView(generic.ObjectView):
+    """
+    Detail view for a single Zabbix Maintenance.
+    """
+    queryset = Maintenance.objects.all()
+
+
+class MaintenanceListView(generic.ObjectListView):
+    """
+    Display a list of Zabbix Maintenance windows.
+    """
+    queryset = Maintenance.objects.all()
+    #filterset = NetBoxModelFilterSetForm
+    table = tables.MaintenanceTable
+    template_name = "netbox_zabbix/maintenance_list.html"
+
+
+class MaintenanceEditView(generic.ObjectEditView):
+    """
+    Create or edit a Zabbix Maintenance window.
+    """
+    queryset = Maintenance.objects.all()
+    form     = forms.MaintenanceForm
+
+
+class MaintenanceDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a Zabbix Maintenance window.
+    """
+    queryset = Maintenance.objects.all()
 
 
 # end

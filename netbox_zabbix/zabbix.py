@@ -572,7 +572,6 @@ def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item
 
         obj, created = model.objects.update_or_create( **{id_field: item[id_field]}, defaults=defaults )
         if created:
-            logger.info( f"Added {name} {item['name']} ({item[id_field]})" )
             added.append(item)
 
         if "parentTemplates" in item:
@@ -592,12 +591,12 @@ def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item
         max_deletions = get_max_deletions()
 
     if len(to_delete_ids) >= max_deletions:
-        logger.info( f"{name}s to delete: {to_delete_ids}" )
+        logger.debug( f"{name}s to delete: {to_delete_ids}" )
         raise RuntimeError( f"Too many deletions ({len(to_delete_ids)}), max allowed is {max_deletions}" )
 
     for obj_id in to_delete_ids:
         obj = model.objects.get( **{id_field: obj_id} )
-        logger.info( f"Deleted {name} {obj.name} ({getattr(obj, id_field)})" )
+        logger.debug( f"Deleted {name} {obj.name} ({getattr(obj, id_field)})" )
         deleted.append( ( obj.name, getattr( obj, id_field ) ) )
         obj.delete()
 

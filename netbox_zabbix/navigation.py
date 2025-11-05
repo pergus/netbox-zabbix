@@ -90,6 +90,11 @@ menu = PluginMenu(
                     link_text="NetBox Only Hosts", 
                     link="plugins:netbox_zabbix:netboxhosts_list",
                 ),
+                PluginMenuItem( 
+                    link_text="Maintenance", 
+                    link="plugins:netbox_zabbix:maintenance_list",
+                ),
+                
             ),
         ),
         ( "Zabbix",

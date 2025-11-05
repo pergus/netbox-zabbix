@@ -31,6 +31,7 @@ router.register( 'host-config',                views.HostConfigViewSet )
 router.register( 'agent-interface',            views.AgentInterfaceViewSet )
 router.register( 'snmp-interface',             views.SNMPInterfaceViewSet )
 router.register( 'event-log',                  views.EventLogViewSet )
+router.register( 'maintenance',                views.MaintenanceViewSet )
 
 
 # Proxy Models

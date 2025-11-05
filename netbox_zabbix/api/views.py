@@ -543,5 +543,18 @@ class UnAssignedHostIPAddressesViewSet(NetBoxModelViewSet):
     
         return qs
 
+# ------------------------------------------------------------------------------
+# Maintenance
+# ------------------------------------------------------------------------------
+
+from netbox_zabbix.models import Maintenance
+from netbox_zabbix.api.serializers import MaintenanceSerializer
+class MaintenanceViewSet(NetBoxModelViewSet):
+    """
+    API viewset for managing Maintenance objects.
+    """
+    queryset = Maintenance.objects.all()
+    serializer_class = MaintenanceSerializer
+
 
 # end
