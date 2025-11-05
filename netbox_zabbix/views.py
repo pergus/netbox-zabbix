@@ -2133,63 +2133,35 @@ class EventLogEditView(generic.ObjectView):
 
 class EventLogDeleteView(generic.ObjectDeleteView):
     """
-    Delete a single EventLog instance after checking deletion constraints.
+    Delete a single EventLog instance
     """
     queryset = EventLog.objects.all()
-
-    def post(self, request, *args, **kwargs):
-        """
-        Handle deletion of an EventLog instance.
-        
-        Args:
-            request (HttpRequest): Current request.
-        
-        Returns:
-            HttpResponseRedirect: Redirect back after deletion.
-        """
-        interface = self.get_object( pk=kwargs.get( "pk" ) )
-    
-        if can_delete_interface( interface ):
-            return super().post( request, *args, **kwargs )
-        else:
-            return redirect( request.POST.get( 'return_url' ) or interface.host_config.get_absolute_url() )
-    
-
-class EventLogBulkDeleteView(generic.BulkDeleteView):
-    """
-    Bulk delete multiple EventLog instances with deletion constraints.
-    """
-    queryset = EventLog.objects.all()
-    table    = tables.EventLogTable
 
     def get_return_url(self, request, obj=None):
         """
-        Return URL after bulk deletion.
+        Return URL after deletion.
         
         Returns:
             str: URL to EventLog list view.
         """
         return reverse( 'plugins:netbox_zabbix:eventlog_list' )
 
-    def post(self, request, *args, **kwargs):
+
+class EventLogBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple EventLog instances.
+    """
+    queryset = EventLog.objects.all()
+    table    = tables.EventLogTable
+
+    def get_return_url(self, request, obj=None):
         """
-        Handle bulk deletion of EventLog instances with validation.
-        
-        Args:
-            request (HttpRequest): Current request.
+        Return URL after deletion.
         
         Returns:
-            HttpResponseRedirect: Redirect back after deletion.
+            str: URL to EventLog list view.
         """
-        # Get the list of interfaces to be deleted
-        interfaces = self.get_queryset( request ).filter( pk__in=request.POST.getlist( 'pk' ) )
-    
-        for interface in interfaces:
-            if not can_delete_interface( interface ):
-                return redirect( self.get_return_url( request ) )
-    
-        # If all checks pass, proceed with normal bulk deletion
-        return super().post( request, *args, **kwargs )
+        return reverse( 'plugins:netbox_zabbix:eventlog_list' )
 
 
 # ------------------------------------------------------------------------------
