@@ -1314,7 +1314,7 @@ class SNMPInterfaceForm(BaseHostInterfaceForm):
 # ------------------------------------------------------------------------------
 
 from utilities.forms.fields import DynamicModelMultipleChoiceField
-
+from utilities.forms.widgets import DateTimePicker
 
 from dcim.models import Site
 from virtualization.models import Cluster
@@ -1325,13 +1325,27 @@ class MaintenanceForm(NetBoxModelForm):
     Form for creating or updating a Zabbix maintenance window.
     """
 
-
-    host_configs = DynamicModelMultipleChoiceField(
-        queryset=HostConfig.objects.all(),
-        required=False,
-        label="Host Configs",
-        help_text="Host Configs to include in the maintenance."
+    start_time = forms.DateTimeField( 
+        required=True,
+        widget=DateTimePicker(),
+        label="Start at",
+        help_text="Maintenence start time." 
     )
+
+    end_time = forms.DateTimeField( 
+        required=True,
+        widget=DateTimePicker(),
+        label="End at",
+        help_text="Maintenence end time." 
+    )
+    
+
+    #host_configs = DynamicModelMultipleChoiceField(
+    #    queryset=HostConfig.objects.all(),
+    #    required=False,
+    #    label="Host Configs",
+    #    help_text="Host Configs to include in the maintenance."
+    #)
     
     sites = DynamicModelMultipleChoiceField(
         queryset=Site.objects.all(),
@@ -1357,9 +1371,9 @@ class MaintenanceForm(NetBoxModelForm):
     class Meta:
         model = Maintenance
         fields = (
-            'name', 'description', 'start_time', 'end_time',
+            'name', 'start_time', 'end_time',
             'disable_data_collection', 'host_configs', 'sites', 'host_groups',
-            'proxy_groups', 'clusters'
+            'proxy_groups', 'clusters', 'description'
         )
 
 

@@ -130,7 +130,7 @@ urlpatterns = (
 
     path( 'tag/mappings/',                    views.TagMappingListView.as_view(),   name='tagmapping_list' ),
     path( 'tag/mappings/add/',                views.TagMappingEditView.as_view(),   name='tagmapping_add' ),
-    path( 'tag/mappings/<int:pk>/',            views.TagMappingView.as_view(),      name='tagmapping' ),
+    path( 'tag/mappings/<int:pk>/',           views.TagMappingView.as_view(),      name='tagmapping' ),
     path( 'tag/mappings/<int:pk>/edit/',      views.TagMappingEditView.as_view(),   name='tagmapping_edit' ),
     path( 'tag/mappings/<int:pk>/delete/',    views.TagMappingDeleteView.as_view(), name='tagmapping_delete' ),
     path( 'tag/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),        name='tagmapping_changelog', kwargs={'model': models.TagMapping} ),
@@ -262,6 +262,8 @@ urlpatterns = (
     path( 'maintenance/<int:pk>/edit/',     views.MaintenanceEditView.as_view(),       name='maintenance_edit' ),
     path( 'maintenance/<int:pk>/delete/',   views.MaintenanceDeleteView.as_view(),     name='maintenance_delete' ),
 #    path( 'maintenance/delete/',            views.MaintenanceBulkDeleteView.as_view(), name='maintenance_bulk_delete' ),
+    path( 'maintenance/<int:pk>/host_configs/',   views.MaintenanceHostConfigsView.as_view(),    name='maintenance_host_configs' ),
+    
     path( 'maintenance/<int:pk>/changelog', ObjectChangeLogView.as_view(),                   name='maintenance_changelog', kwargs={'model': models.Maintenance} ),
     
  ) 

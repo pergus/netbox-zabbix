@@ -1554,8 +1554,10 @@ class SNMPInterface(BaseInterface):
 # Maintenance
 # ------------------------------------------------------------------------------
 
-from virtualization.models import Cluster
 from django.utils import timezone
+from django.db.models import Q
+from virtualization.models import Cluster
+
 
 class Maintenance(NetBoxModel):
     """
@@ -1587,20 +1589,20 @@ class Maintenance(NetBoxModel):
         ('failed', 'Failed'),
     ]
 
-    name = models.CharField( max_length=200 )
-    description = models.TextField( blank=True )
+    name       = models.CharField( max_length=200 )
     start_time = models.DateTimeField( default=timezone.now )
-    end_time = models.DateTimeField()
+    end_time   = models.DateTimeField()
+
     disable_data_collection = models.BooleanField(
         default=False,
         help_text="Disable data collection in Zabbix during maintenance."
     )
 
     host_configs = models.ManyToManyField( HostConfig, blank=True, related_name="zabbix_maintenances" )
-    sites = models.ManyToManyField( Site, blank=True, related_name="zabbix_maintenances" )
-    host_groups = models.ManyToManyField( HostGroup, blank=True, related_name="zabbix_maintenances" )
+    sites        = models.ManyToManyField( Site, blank=True, related_name="zabbix_maintenances" )
+    host_groups  = models.ManyToManyField( HostGroup, blank=True, related_name="zabbix_maintenances" )
     proxy_groups = models.ManyToManyField( ProxyGroup, blank=True, related_name="zabbix_maintenances" )
-    clusters = models.ManyToManyField( Cluster, blank=True, related_name="zabbix_maintenances" )
+    clusters     = models.ManyToManyField( Cluster, blank=True, related_name="zabbix_maintenances" )
 
     zabbix_id = models.CharField(
         max_length=50,
@@ -1610,7 +1612,9 @@ class Maintenance(NetBoxModel):
     )
 
     status = models.CharField( max_length=20, choices=STATUS_CHOICES, default='pending' )
-
+    description = models.TextField( blank=True )
+    
+    
     class Meta:
         verbose_name = "Zabbix Maintenance"
         verbose_name_plural = "Zabbix Maintenances"
@@ -1624,6 +1628,43 @@ class Maintenance(NetBoxModel):
         now = timezone.now()
         return self.start_time <= now <= self.end_time
 
+
+    def get_matching_host_configs(self):
+        qs = HostConfig.objects.all()
+        combined_filter = Q()
+    
+        if self.sites.exists():
+            # Get ContentType objects for Device and VirtualMachine
+            device_ct = ContentType.objects.get_for_model(Device)
+            vm_ct = ContentType.objects.get_for_model(VirtualMachine)
+    
+            # Get PKs of devices and VMs in the selected sites
+            device_pks = Device.objects.filter(site__in=self.sites.all()).values_list('pk', flat=True)
+            vm_pks = VirtualMachine.objects.filter(site__in=self.sites.all()).values_list('pk', flat=True)
+    
+            site_filter = Q(
+                content_type=device_ct,
+                object_id__in=device_pks
+            ) | Q(
+                content_type=vm_ct,
+                object_id__in=vm_pks
+            )
+    
+            combined_filter &= site_filter
+    
+        if self.host_groups.exists():
+            combined_filter |= Q(host_groups__in=self.host_groups.all())
+    
+        if self.proxy_groups.exists():
+            combined_filter |= Q(proxy_group__in=self.proxy_groups.all())
+    
+        if self.host_configs.exists():
+            combined_filter |= Q(id__in=self.host_configs.all())
+    
+        if combined_filter:
+            qs = qs.filter(combined_filter).distinct()
+    
+        return qs
 
 # ------------------------------------------------------------------------------
 # Events

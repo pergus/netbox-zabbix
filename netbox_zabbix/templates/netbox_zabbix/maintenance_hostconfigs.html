@@ -1,0 +1,22 @@
+{% extends "generic/object.html" %}
+{% load render_table from django_tables2 %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header"> Matching Host Configurations </h2>
+            {% if table.rows %}
+            {% render_table table 'inc/table.html' %}
+            {% include 'inc/paginator.html' with table=table paginator=table.paginator page=table.page %}
+            {% else %}
+            <div class="card-body">
+                <p>No matching Host Configurations.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

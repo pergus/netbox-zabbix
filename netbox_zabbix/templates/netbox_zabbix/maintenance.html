@@ -1,0 +1,108 @@
+{% extends "generic/object.html" %}
+{% load helpers %}
+
+{% block content %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h5 class="card-header">Maintenance</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+
+                    <tr>
+                        <th scope="row">Name</th>
+                        <td>{{ object.name }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Start Time</th>
+                        <td>{{ object.start_time|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">End Time</th>
+                        <td>{{ object.end_time|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Disable Data Collection</th>
+                        <td>{{ object.disable_data_collection }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Host Configurations</th>
+                        {% if object.host_configs.all %}
+                        <td>
+                            {% for host_config in object.host_configs.all %}
+                            <a href="{{ host_config.get_absolute_url }}" class="badge text-bg-primary">{{ host_config.name }}</a>
+                            {% endfor %}
+                        </td>
+                        {% else %}
+                        <td> — </td>
+                        {% endif %}
+                    </tr>
+
+
+                    <tr>
+                        <th scope="row">Sites</th>
+                        {% if object.sites.all %}
+                        <td>
+                            {% for site in object.sites.all %}
+                            <a href="{{ site.get_absolute_url }}" class="badge text-bg-primary">{{ site.name }}</a>
+                            {% endfor %}
+                        </td>
+                        {% else %}
+                        <td> — </td>
+                        {% endif %}
+
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Host Groups</th>
+                        {% if object.host_groups.all %}
+                        <td>
+                            {% for host_group in object.host_groups.all %}
+                            <a href="{{ host_group.get_absolute_url }}" class="badge text-bg-primary">{{ host_group.name }}</a>
+                            {% endfor %}
+                        </td>
+                        {% else %}
+                        <td> — </td>
+                        {% endif %}
+
+                    </tr>
+                    
+                    <tr>
+                        <th scope="row">Proxy Groups</th>
+                        {% if object.proxy_group.all %}
+                        <td>
+                            {% for proxy_group in object.proxy_group.all %}
+                            <a href="{{ proxy_group.get_absolute_url }}" class="badge text-bg-primary">{{ proxy_group.name }}</a>
+                            {% endfor %}
+                        </td>
+                        {% else %}
+                        <td> — </td>
+                        {% endif %}
+
+                    </tr>
+
+
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if object.description %}
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header">Description</h2>
+            <div class="card-body">
+                {{ object.description|markdown }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

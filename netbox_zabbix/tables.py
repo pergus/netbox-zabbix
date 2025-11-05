@@ -16,6 +16,7 @@ Tables:
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.timezone import datetime
+from django.db.models import Case, When, IntegerField
 
 # Third-party imports
 import django_tables2 as tables
@@ -29,6 +30,7 @@ from virtualization.models import VirtualMachine
 from netbox_zabbix import settings, jobs
 from netbox_zabbix.models import (
     InterfaceTypeChoices,
+    Maintenance,
     Setting,
     Template,
     Proxy,
@@ -51,6 +53,67 @@ from netbox_zabbix.utils import (
 )
 from netbox_zabbix.logger import logger
 
+
+# ------------------------------------------------------------------------------
+# Helper Functions
+# ------------------------------------------------------------------------------
+
+
+def order_queryset_by_attr(queryset, attr_path, descending=False):
+    """
+    Order a QuerySet by an arbitrary attribute (including related objects)
+    even if the database cannot order it directly.
+    
+    Args:
+        queryset: Django QuerySet
+        attr_path: str, e.g. 'assigned_object.site.name'
+        descending: bool, reverse order if True
+    
+    Returns:
+        Tuple (ordered QuerySet, True) suitable for django-tables2 `order_by` method
+    """
+    def get_attr(obj, path):
+        # Walk nested attributes safely
+        for attr in path.split( '.' ):
+            obj = getattr( obj, attr, None )
+            if obj is None:
+                break
+        return obj
+
+    # Sort in Python
+    sorted_list = sorted(
+        queryset,
+        key=lambda obj: get_attr( obj, attr_path ) or '',
+        reverse=descending
+    )
+
+    # Extract PKs in the desired order
+    pks = [obj.pk for obj in sorted_list]
+    if not pks:
+        return (queryset.none(), True)
+
+    # Preserve order in the database by adding an _order field that can be used
+    # to order the queryset with.
+    # Think of it like this:
+    # order_map = {7: 0, 3: 1, 9: 2}
+    # 
+    # ordered_qs = queryset.filter(pk__in=[7, 3, 9]).annotate(
+    #     _order=Case(
+    #         When(pk=7, then=0),
+    #         When(pk=3, then=1),
+    #         When(pk=9, then=2),
+    #         output_field=IntegerField()
+    #     )
+    # ).order_by('_order')
+    order_map = {pk: idx for idx, pk in enumerate(pks)}
+    ordered_qs = queryset.filter(pk__in=pks).annotate(
+        _order=Case(
+            *[When(pk=pk, then=idx) for pk, idx in order_map.items()],
+            output_field=IntegerField()
+        )
+    ).order_by('_order')
+
+    return (ordered_qs, True)
 
 
 # ------------------------------------------------------------------------------
@@ -445,14 +508,16 @@ class HostConfigTable(NetBoxTable):
     Table for displaying Zabbix HostConfig objects.
     """
     name            = tables.Column( accessor='name', order_by='name', verbose_name='Name', linkify=True )
-    assigned_object = tables.Column( accessor='assigned_object', verbose_name='Linked Object', linkify=True, orderable=False )
+    assigned_object = tables.Column( accessor='assigned_object.name', verbose_name='Linked Object', linkify=True, orderable=True )
     host_type       = tables.Column( accessor="host_type", empty_values=(), verbose_name="Type", orderable=False )
     sync            = tables.BooleanColumn( accessor='sync', verbose_name="In Sync", orderable=False )
-    
+    site            = tables.Column( accessor='assigned_object.site.name', empty_values=(), verbose_name='Site', linkify=True )
+
     class Meta(NetBoxTable.Meta):
         model = HostConfig
         fields =  ('name', 
                    'assigned_object',
+                   'site',
                    'host_type',
                    'sync',
                    'status',
@@ -464,6 +529,19 @@ class HostConfigTable(NetBoxTable):
                    'host_groups', 
                    'description')
         default_columns = fields
+
+
+    def render_site(self, record):
+        return mark_safe( record.assigned_object.site.name )
+
+
+    def order_site(self, queryset, is_descending):
+        return order_queryset_by_attr( queryset, 'assigned_object.site.name', descending=is_descending )
+
+
+    def order_assigned_object(self, queryset, is_descending):
+        return order_queryset_by_attr( queryset, 'assigned_object.name', descending=is_descending )
+
 
     def render_host_type(self, record):
         """
@@ -883,11 +961,64 @@ class MaintenanceTable(NetBoxTable):
     """
 
     name = tables.Column( linkify=True, order_by="name", accessor="name" )
-        
+    start_time = tables.DateTimeColumn(format="Y-m-d H:i:s")
+    end_time = tables.DateTimeColumn(format="Y-m-d H:i:s")
+    
+    host_configs = tables.Column( verbose_name="Host Configs", empty_values=(), orderable=False )
+    sites = tables.Column( verbose_name="Sites", empty_values=(), orderable=False )
+    host_groups = tables.Column( verbose_name="Host Groups", empty_values=(), orderable=False )
+    proxy_groups = tables.Column( verbose_name="Proxy Groups", empty_values=(), orderable=False )
+    clusters = tables.Column( verbose_name="Clusters", empty_values=(), orderable=False )
+
     class Meta(NetBoxTable.Meta):
-        model           = Proxy
-        fields          = ( "name", "description", "start_time", "end_time", "disable_data_collection", "host_config", "sites", "host_groups", "proxy_groups", "clusters", "zabbix_id", "status" )
-        default_columns = ( "name", "description", "start_time", "end_time", "disable_data_collection", "host_config", "sites", "host_groups", "proxy_groups", "clusters", "zabbix_id", "status" )
+        model           = Maintenance
+        fields          = ( "name", "start_time", "end_time", "disable_data_collection", "host_configs", "sites", "host_groups", "proxy_groups", "clusters", "zabbix_id", "status", "description",  )
+        default_columns = ( "name", "start_time", "end_time", "disable_data_collection", "host_configs", "sites", "host_groups", "proxy_groups", "clusters", "zabbix_id", "status", "description",  )
+
+
+    # Helper to render many-valued fields as badges
+    def _render_badge_list( self, record, attr_name ):
+        """
+        Render a related manager field as badges, assuming all items have `.name`.
+        
+        Args:
+            record: Table row object.
+            attr_name: Name of the related manager attribute.
+            empty_label: Label to show if no items exist.
+        
+        Returns:
+            Safe HTML string with one badge per item, or a single 'None' badge.
+        """
+        manager = getattr( record, attr_name, None )
+        if not manager:
+            items = []
+        else:
+            items = list( manager.all() )
+    
+        if not items:
+            return "—"
+    
+        badges = " ".join( f'<span class="badge text-bg-primary">{item.name if hasattr(item, "name") else item}</span>' for item in items )
+        return mark_safe( badges )
+    
+    
+    def render_host_configs(self, record):
+        return self._render_badge_list(record, "host_configs" )
+
+    def render_sites(self, record):
+        return self._render_badge_list(record, "sites" )
+    
+    
+    def render_host_groups(self, record):
+        return self._render_badge_list(record, "host_groups" )
+    
+    
+    def render_proxy_groups(self, record):
+        return self._render_badge_list(record, "proxy_groups" )
+    
+    
+    def render_clusters(self, record):
+        return self._render_badge_list(record, "clusters" )
 
 
 # end

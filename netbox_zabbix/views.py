@@ -2065,7 +2065,6 @@ class ZabbixOnlyHostsView(GenericTemplateView):
         return context
 
 
-
 # ------------------------------------------------------------------------------
 # Event Log
 # ------------------------------------------------------------------------------
@@ -2428,5 +2427,40 @@ class MaintenanceDeleteView(generic.ObjectDeleteView):
     """
     queryset = Maintenance.objects.all()
 
+
+@register_model_view(Maintenance, 'host_configs')
+class MaintenanceHostConfigsView(generic.ObjectView):
+    """
+    Display HostConfigs that match a Maintenance instance in a dedicated tab.
+    """
+    queryset      = Maintenance.objects.all()
+    template_name = 'netbox_zabbix/maintenance_hostconfigs.html'
+    tab           = ViewTab(
+        label="Matching Host Configs",
+        badge=lambda obj: obj.get_matching_host_configs().count(),
+        weight=500
+    )
+
+    def get_extra_context(self, request, instance):
+        """
+        Prepare extra context with matching HostConfigs.
+
+        Args:
+            request (HttpRequest): Current request.
+            instance (Maintenance): The Maintenance instance.
+
+        Returns:
+            dict: Context containing the table of matching HostConfigs.
+        """
+        queryset = instance.get_matching_host_configs()
+        table    = tables.HostConfigTable( queryset )
+        RequestConfig(
+            request,
+            {
+                "paginator_class": EnhancedPaginator,
+                "per_page": get_paginate_count(request),
+            }
+        ).configure(table)
+        return { "table": table }
 
 # end
