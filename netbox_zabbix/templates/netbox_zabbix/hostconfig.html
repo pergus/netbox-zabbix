@@ -98,7 +98,6 @@
                         </td>
                     </tr>
                     
-                    
                     <tr>
                         <th>Templates</th>
                         <td>
@@ -107,7 +106,6 @@
                             {% endfor %}
                         </td>
                     </tr>
-
                 </table>
             </div>
         </div>
@@ -164,5 +162,23 @@
     </div>
 </div>
 
+
+<div class="row">
+    <div class="col col-md-12">
+        <div class="card">
+            <h2 class="card-header">
+                Tags
+                <div class="card-actions"> </div>
+            </h2>
+            <table>
+            {% for tag in object.zabbix_tags %}
+            <tr>
+            <td>{{ tag.tag }}</td> <td>{{ tag.value }}</td>
+            </tr>
+            {% endfor %}
+            </table>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

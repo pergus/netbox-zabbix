@@ -1351,6 +1351,13 @@ class HostConfig(NetBoxModel, JobsMixin):
         except:
             return {}
 
+    @property
+    def zabbix_tags(self):
+        """Return tags for this host configuration suitable for templates."""
+        from netbox_zabbix.jobs import get_tags
+        return get_tags( self.assigned_object )
+        
+
     def save(self, *args, **kwargs):
         """
         Save the HostConfig instance to the database.
