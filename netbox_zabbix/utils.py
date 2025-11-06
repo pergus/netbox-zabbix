@@ -30,7 +30,7 @@ from ipam.models import IPAddress
 
 # NetBox Zabbix plugin imports
 from netbox_zabbix import models
-from netbox_zabbix.settings import get_default_tag, get_tag_prefix
+from netbox_zabbix.settings import get_default_tag, get_host_sync_mode, get_tag_prefix
 from netbox_zabbix.inventory_properties import inventory_properties
 from netbox_zabbix import zabbix as z
 from netbox_zabbix.logger import logger
@@ -540,79 +540,97 @@ def validate_quick_add( host ):
 # ------------------------------------------------------------------------------
 
 
-def compare_json(obj_a, obj_b):
+def compare_json(obj_a, obj_b, mode="overwrite"):
     """
     Recursively compare two JSON-compatible objects.
-    
-    Args:
-        obj_a, obj_b: Dictionaries, lists, or primitive types.
-    
-    Returns:
-        tuple: (a_diff, b_diff) showing differences from each perspective.
+    Supports 'overwrite' and 'relaxed' modes.
+
+    In relaxed mode:
+      - Extra tags, templates, or groups in Zabbix are ignored.
+      - Missing ones in Zabbix are reported.
     """
 
-    # Case 1: both are dicts
+    # --- Case 1: both are dicts ---
     if isinstance( obj_a, dict ) and isinstance( obj_b, dict ):
-        a_diff, b_diff = {}, {}                 # Initialize differences for each object
-        all_keys = set( obj_a ) | set( obj_b )  # All keys present in either dict
+        a_diff, b_diff = {}, {}
+        all_keys = set( obj_a ) | set( obj_b )
 
         for key in all_keys:
+            a_val, b_val = obj_a.get( key ), obj_b.get( key )
 
-            # Key exists in both dicts, compare values recursively
+            # Recursive comparison, handle special fields below
             if key in obj_a and key in obj_b:
-                sub_a, sub_b = compare_json( obj_a[key], obj_b[key] )
+                # Apply relaxed rules only for known list-based keys
+                if key in {"tags", "templates", "groups"}:
+                    sub_a, sub_b = compare_json( a_val, b_val, mode )
+                else:
+                    sub_a, sub_b = compare_json( a_val, b_val, mode )
 
-                # Only store differences if there are any
-                if sub_a != {} and sub_a != [] and sub_a is not None:
+                if sub_a not in ( {}, [], None ):
                     a_diff[key] = sub_a
-                
-                if sub_b != {} and sub_b != [] and sub_b is not None:
+                if sub_b not in ( {}, [], None ):
                     b_diff[key] = sub_b
 
-            # Key exists only in obj_a
             elif key in obj_a:
-                a_diff[key] = obj_a[key]
-            
-            # Key exists only in obj_b
+                a_diff[key] = a_val
             else:
-                b_diff[key] = obj_b[key]
+                b_diff[key] = b_val
 
         return a_diff, b_diff
 
-    # Case 2: both are lists
+    # --- Case 2: both are lists ---
     if isinstance( obj_a, list ) and isinstance( obj_b, list ):
 
-        # Items in obj_a not in obj_b
-        a_only = [ item for item in obj_a if item not in obj_b ]
+        # Special handling for list of dicts with single keys (tags-like)
+        if all( isinstance( item, dict ) and len( item ) == 1 for item in obj_a + obj_b ):
+            a_map = {list( d.keys() )[0]: list( d.values() )[0] for d in obj_a}
+            b_map = {list( d.keys() )[0]: list( d.values() )[0] for d in obj_b}
 
-        # Items in obj_b not in obj_a
-        b_only = [ item for item in obj_b if item not in obj_a ]
+            a_diff, b_diff = {}, {}
 
-        return ( a_only if a_only else [], b_only if b_only else [] )
+            for key in set( a_map ) | set( b_map ):
+                if key in a_map and key in b_map:
+                    if a_map[key] != b_map[key]:
+                        a_diff[key] = a_map[key]
+                        b_diff[key] = b_map[key]
+                elif key in a_map:
+                    # Missing from Zabbix gives difference in both modes
+                    a_diff[key] = a_map[key]
+                elif key in b_map:
+                    # Extra in Zabbix gives difference only in overwrite mode
+                    if mode == models.HostSyncModeChoices.OVERWRITE:
+                        b_diff[key] = b_map[key]
 
+            return (
+                [{k: v} for k, v in a_diff.items()],
+                [{k: v} for k, v in b_diff.items()],
+            )
 
-    # Case 3: primitives (string, number, bool, None)
-    # If the values are the same, return None for both
-    # If different, return the differing values
-    return ( obj_a if obj_a != obj_b else None, obj_b if obj_a != obj_b else None )
+        # Normal lists (e.g., primitive values)
+        a_only = [item for item in obj_a if item not in obj_b]
+        b_only = [item for item in obj_b if item not in obj_a]
+
+        # In preserve mode, ignore extra items in Zabbix
+        if mode == models.HostSyncModeChoices.PRESERVE:
+            b_only = []
+
+        return ( a_only, b_only )
+
+    # --- Case 3: primitive values ---
+    if obj_a != obj_b:
+        return obj_a, obj_b
+    return None, None
 
 
 def normalize_host(zabbix_host, payload_template):
     """
     Normalize a Zabbix host to match a payload template structure.
-    
-    Args:
-        zabbix_host (dict): Zabbix host dictionary.
-        payload_template (dict): Template structure dictionary.
-    
-    Returns:
-        dict: Normalized host dictionary.
+    Ensures missing keys exist and have the correct empty type.
     """
     normalized = {}
 
     for key, template_value in payload_template.items():
         if key not in zabbix_host:
-            # If a key is missing then set the value to represent 'empty'.
             if isinstance( template_value, dict ):
                 normalized[key] = {}
             elif isinstance( template_value, list ):
@@ -629,10 +647,9 @@ def normalize_host(zabbix_host, payload_template):
         elif isinstance( template_value, list ) and isinstance( value, list ):
             if template_value and isinstance( template_value[0], dict ):
                 template_elem = template_value[0]
-                normalized[key] = [ normalize_host( item, template_elem ) for item in value ]
+                normalized[key] = [normalize_host( item, template_elem ) for item in value]
             else:
                 normalized[key] = list( value )
-
         else:
             normalized[key] = value
 
@@ -643,83 +660,76 @@ def preprocess_host(host, template):
     """
     Preprocess a host dictionary for comparison:
     - Normalize structure
-    - Rewrite tags as {tag: value}
-    - Convert groups/templates to sorted string lists
-    
-    Args:
-        host (dict): Host dictionary.
-        template (dict): Template dictionary.
-    
-    Returns:
-        dict: Preprocessed host ready for JSON comparison.
+    - Rewrite tags as [{tag: value}]
+    - Convert groups/templates to sorted lists of strings
     """
-    # Step 1: Normalize host
     normalized = normalize_host( host, template )
 
-    # Step 2: Rewrite tags
+    # Rewrite tags → [{tag: value}]
     if "tags" in normalized and isinstance( normalized["tags"], list ):
         normalized["tags"] = [
             {t["tag"]: t.get("value", "")} for t in normalized["tags"] if "tag" in t
         ]
 
-    # Step 3: Convert groups and templates to sorted lists of strings
+    # Convert groups/templates → sorted string lists
     for key in ["groups", "templates"]:
         if key in normalized and isinstance( normalized[key], list ):
             normalized[key] = sorted(
-                list( item.values() )[0] for item in normalized[key] 
+                list( item.values() )[0]
+                for item in normalized[key]
                 if isinstance( item, dict ) and len( item ) == 1
             )
 
     return normalized
 
 
-def compare_zabbix_config_with_host(zabbix_config):
+def compare_host_config_with_zabbix_host(host_config):
     """
     Compare a NetBox host configuration with its Zabbix counterpart.
-    
+
     Args:
-        zabbix_config: DeviceZabbixConfig instance.
-    
+        host_config: HostConfig instance.
+
     Returns:
-        dict: {
+        dict:
+        {
             "differ": bool,
             "netbox": dict of differences,
             "zabbix": dict of differences
         }
     """
-    retval = { "differ": False, "netbox": {}, "zabbix": {} }
+    retval = {"differ": False, "netbox": {}, "zabbix": {}}
+    mode = get_host_sync_mode()
 
     from netbox_zabbix.jobs import build_payload
-    payload = build_payload( zabbix_config, True )
+    payload = build_payload( host_config, True )
 
     zabbix_host_raw = {}
-    if zabbix_config.hostid:
+    if host_config.hostid:
         try:
-            zabbix_host_raw = z.get_host_by_id_with_templates( zabbix_config.hostid )
-        except:
+            zabbix_host_raw = z.get_host_by_id_with_templates( host_config.hostid )
+        except Exception:
             pass
-    
-    # Preprocess both the payload and zabbix host
+
     payload_processed = preprocess_host( payload, payload )
-    zabbix_processed  = preprocess_host( zabbix_host_raw, payload )
+    zabbix_processed = preprocess_host( zabbix_host_raw, payload )
 
-    # Compare the json documents
-    netbox_config, zabbix_config = compare_json( payload_processed, zabbix_processed )
-    
-    retval["differ"] = False if netbox_config == {} and zabbix_config == {} else True
-    retval["netbox"] = netbox_config
-    retval["zabbix"] = zabbix_config
+    netbox_diff, zabbix_diff = compare_json( payload_processed, zabbix_processed, mode )
 
+    retval["differ"] = bool( netbox_diff or zabbix_diff )
+    retval["netbox"] = netbox_diff
+    retval["zabbix"] = zabbix_diff
     return retval
 
 
-def cli_compare_config(name="dk-ece003w"):
+
+def cli_compare_config(name="dk-ece001w"):
     """
     DO NOT CALL THIS FUNCTION
     CLI test function to compare configuration for a host by name.
     
     Args:
-        name (str, optional): Device name. Defaults to "dk-ece003w".
+        name (str, optional): Device name. Defaults to "dk-ece001w".
     
     Prints JSON differences.
 
@@ -734,9 +744,9 @@ def cli_compare_config(name="dk-ece003w"):
 
     # Retrieve device and config
     device = models.Device.objects.get( name=name )
-    config = models.DeviceZabbixConfig.objects.get( device=device )
+    config = device.host_config
 
-    result = compare_zabbix_config_with_host( config )
+    result = compare_host_config_with_zabbix_host( config )
 
     print( f"{json.dumps( result, indent=2 ) }" )
 

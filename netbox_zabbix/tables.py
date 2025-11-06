@@ -49,7 +49,7 @@ from netbox_zabbix.utils import (
     validate_quick_add, 
     can_delete_interface, 
     is_interface_available,
-    compare_zabbix_config_with_host
+    compare_host_config_with_zabbix_host
 )
 from netbox_zabbix.logger import logger
 
@@ -510,12 +510,13 @@ class HostConfigTable(NetBoxTable):
     name            = tables.Column( accessor='name', order_by='name', verbose_name='Name', linkify=True )
     assigned_object = tables.Column( accessor='assigned_object.name', verbose_name='Linked Object', linkify=True, orderable=True )
     host_type       = tables.Column( accessor="host_type", empty_values=(), verbose_name="Type", orderable=False )
-    sync            = tables.BooleanColumn( accessor='sync', verbose_name="In Sync", orderable=False )
+    sync            = tables.BooleanColumn( accessor='sync', empty_values=(), verbose_name="In Sync", orderable=False )
     site            = tables.Column( accessor='assigned_object.site.name', empty_values=(), verbose_name='Site', linkify=True )
 
     class Meta(NetBoxTable.Meta):
         model = HostConfig
-        fields =  ('name', 
+        fields =  ('name',
+                   'host_sync_mode',
                    'assigned_object',
                    'site',
                    'host_type',
@@ -555,7 +556,7 @@ class HostConfigTable(NetBoxTable):
         Render ✔ if the Host Config is in sync with Zabbix, ✘ otherwise.
         """
         try:
-            result = compare_zabbix_config_with_host( record )
+            result = compare_host_config_with_zabbix_host( record )
         except Exception:
             return mark_safe( "✘" )
         return mark_safe( "✘" ) if result["differ"] else mark_safe( "✔" )

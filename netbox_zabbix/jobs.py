@@ -56,6 +56,7 @@ from netbox_zabbix.models import (
     TagNameFormattingChoices,
     DeleteSettingChoices,
     InterfaceTypeChoices,
+    HostSyncModeChoices,
 
     Template,
     HostGroup,
@@ -83,6 +84,7 @@ from netbox_zabbix.settings import (
     get_snmp_privprotocol,
     get_snmp_privpassphrase,
     get_tag_name_formatting,
+    get_host_sync_mode,
 )
 from netbox_zabbix.utils import ( 
     get_zabbix_tags_for_object,
@@ -96,6 +98,7 @@ from netbox_zabbix.zabbix import (
     import_host_groups,
     get_host,
     get_host_by_id,
+    get_host_by_id_with_templates,
     create_host,
     update_host,
     delete_host,
@@ -702,7 +705,7 @@ def associate_instance_with_job(job, instance):
     job.object_id = instance.pk
 
 
-def create_zabbix_config( obj ):
+def create_host_config( obj ):
     """
     Create a HostConfig object for a Device or VirtualMachine.
     
@@ -832,7 +835,7 @@ def create_zabbix_interface( obj, host_config, interface_model, interface_name_s
         raise Exception( msg )
 
 
-def save_zabbix_config( host_config ):
+def save_host_config( host_config ):
     """
     Validate and save a HostConfig object to NetBox.
     
@@ -980,7 +983,7 @@ def link_missing_interface(host_config, hostid):
 
  
 # ------------------------------------------------------------------------------
-#  Provision an new Zabbix Configuration in NetBox and a Host in Zabbix
+#  Provision an new Host Configuration in NetBox and a new Host in Zabbix
 # ------------------------------------------------------------------------------
 
 @dataclass
@@ -1065,7 +1068,7 @@ def provision_zabbix_host(ctx: ProvisionContext):
             update_host_in_zabbix( host_config, ctx.user, ctx.request_id )
 
             link_interface_in_zabbix (host_config.hostid, iface, ctx.object.name )
-            save_zabbix_config( host_config )
+            save_host_config( host_config )
             changelog_create( host_config, ctx.user, ctx.request_id )
             associate_instance_with_job( ctx.job, host_config )
 
@@ -1075,7 +1078,7 @@ def provision_zabbix_host(ctx: ProvisionContext):
             }
 
         # No existing config exists so we do a full provisioning
-        host_config = create_zabbix_config( ctx.object )
+        host_config = create_host_config( ctx.object )
         apply_mapping_to_config( host_config, mapping, monitored_by )
 
         iface = create_zabbix_interface(
@@ -1091,7 +1094,7 @@ def provision_zabbix_host(ctx: ProvisionContext):
         hostid, payload = create_host_in_zabbix( host_config )
         host_config.hostid = hostid
         link_interface_in_zabbix( hostid, iface, ctx.object.name )
-        save_zabbix_config( host_config )
+        save_host_config( host_config )
         changelog_create( host_config, ctx.user, ctx.request_id )
         associate_instance_with_job( ctx.job, host_config )
 
@@ -1117,7 +1120,7 @@ def provision_zabbix_host(ctx: ProvisionContext):
 # ------------------------------------------------------------------------------
 
 
-def update_host_in_zabbix(host_config, user, request_id):
+def update_host_in_zabbix_v1(host_config, user, request_id):
     """
     Update an existing Zabbix host based on its HostConfig.
     
@@ -1179,6 +1182,157 @@ def update_host_in_zabbix(host_config, user, request_id):
 
     return {
         "message":  f"Updated Zabbix host {host_config.hostid}",
+        "pre_data": pre_data,
+        "post_data": payload,
+    }
+
+
+import json
+
+def update_host_in_zabbix(host_config, user, request_id):
+    """
+    Update an existing Zabbix host based on its HostConfig and host_sync_mode.
+
+    Performs:
+        - Fetching current host state from Zabbix
+        - Determining templates/groups/tags to remove/add according to host_sync_mode
+        - Sending host.update() payload to Zabbix
+        - Logging changelog entry in NetBox
+
+    Args:
+        host_config (HostConfig): Configuration object representing the host.
+        user (User): NetBox user performing the update.
+        request_id (str): Request ID for changelog tracking.
+
+    Returns:
+        dict: Message and pre/post payload data.
+
+    Raises:
+        ExceptionWithData: If update fails.
+    """
+    if not isinstance( host_config, HostConfig ):
+        raise ValueError( "host_config must be an instance of HostConfig" )
+
+    # Fetch current state of the host in Zabbix
+    try:
+        pre_data = get_host_by_id_with_templates( host_config.hostid )
+        logger.info( f"pre_data {json.dumps(pre_data, indent=2) }" )
+
+    except Exception as e:
+        raise Exception( f"Failed to get host by id from Zabbix: {str(e)}" )
+
+    sync_mode = get_host_sync_mode()
+
+    # Build base payload
+    payload = build_payload(host_config, for_update=True)
+    
+
+    if sync_mode == HostSyncModeChoices.OVERWRITE:
+        # Current template IDs in Zabbix (directly assigned to host)
+        current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
+        
+        # Templates currently assigned in NetBox
+        new_template_ids = set( str( tid ) for tid in host_config.templates.values_list( "templateid", flat=True ) )
+        
+        # Only remove templates that are no longer assigned
+        removed_template_ids = current_template_ids - new_template_ids
+        templates_clear = [ {"templateid": tid} for tid in removed_template_ids ]
+        
+        # Build payload for update
+        payload = build_payload( host_config, for_update=True )
+        if templates_clear:
+            payload[ "templates_clear" ] = templates_clear
+        
+    elif sync_mode == HostSyncModeChoices.PRESERVE:
+        """
+        In PRESERVE mode:
+        - Keep existing templates, groups, and tags from Zabbix
+        - Add any missing ones from NetBox
+        - Do NOT remove anything from Zabbix
+        """
+
+        # --- Templates ---
+
+        logger.info( f"zabbix templates {pre_data.get( 'templates', [] ) }" )
+
+        current_template_ids = set( str( t["templateid"]) for t in pre_data.get( "templates", [] ) )
+        new_template_ids = set( str( tid ) for tid in host_config.templates.values_list( "templateid", flat=True ) )
+        
+        # Union of Zabbix + NetBox templates
+        merged_template_ids = sorted(current_template_ids | new_template_ids)
+        payload["templates"] = [{"templateid": tid} for tid in merged_template_ids]
+        
+        logger.info( f"payload templates {payload['templates']}" )
+        
+
+        # Templates
+        #current_template_ids = set( str(t["templateid"]) for t in pre_data.get( "templates", [] ) )
+        #new_template_ids = set( str( tid ) for tid in host_config.templates.values_list( "templateid", flat=True ) )
+        
+        # Only add templates that are in NetBox but not yet in Zabbix
+        #templates_to_add = new_template_ids - current_template_ids
+        
+        #if templates_to_add:
+        #    payload["templates"] = [{"templateid": tid} for tid in templates_to_add]
+        #else:
+        #    # Do not include templates key if nothing to add
+        #    payload.pop( "templates", None )
+        
+        # Never remove templates in PRESERVE mode
+        payload.pop( "templates_clear", None )
+
+
+        # Host Groups
+        current_group_ids = set( str(g["groupid"]) for g in pre_data.get("groups", []) )
+        new_group_ids = set( str(gid) for gid in host_config.host_groups.values_list( "groupid", flat=True ) )
+        
+        merged_group_ids = sorted(current_group_ids | new_group_ids)
+        payload["groups"] = [ {"groupid": gid} for gid in merged_group_ids ]
+        
+        # Tags
+        zabbix_tags = pre_data.get( "tags", [] )
+        netbox_tags = get_tags( host_config.assigned_object )
+        
+        merged = {}
+        
+        # Start with existing Zabbix tags
+        for t in zabbix_tags:
+            tag = t.get( "tag" )
+            value = t.get( "value", "" )
+            if tag:
+                merged[tag] = value
+        
+        # Add / overwrite with NetBox tags
+        for t in netbox_tags:
+            tag = t.get( "tag" )
+            value = t.get( "value", "" )
+            if tag:
+                merged[tag] = value
+        
+        # Convert back to Zabbix list-of-dicts format
+        payload["tags"] = [ {"tag": k, "value": v} for k, v in merged.items() ]
+
+    else:
+        # Illegal Host Sync Mode
+        pass
+
+    # Perform the update in Zabbix
+    try:
+        update_host( **payload )
+    except Exception as e:
+        if isinstance( e, ExceptionWithData ):
+            raise
+        raise ExceptionWithData(
+            f"Failed to update Zabbix host {host_config.name}: {e}",
+            pre_data=pre_data,
+            post_data=payload,
+        )
+
+    # Document the update in NetBox
+    changelog_update( host_config, user, request_id )
+
+    return {
+        "message": f"Updated Zabbix host {host_config.hostid} (mode: {sync_mode})",
         "pre_data": pre_data,
         "post_data": payload,
     }
@@ -2042,7 +2196,7 @@ class CreateZabbixHost( AtomicJobRunner ):
         try:
             hostid, payload = create_host_in_zabbix( host_config )
             host_config.hostid = hostid
-            save_zabbix_config( host_config )
+            save_host_config( host_config )
             changelog_create( host_config, user, request_id )
             associate_instance_with_job( cls.job, host_config )
             return {"message": f"Host {host_config.assigned_object.name} added to Zabbix.", "data": payload}

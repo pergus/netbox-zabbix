@@ -300,6 +300,18 @@ class SyncJobIntervalChoices(ChoiceSet):
     )
 
 
+class HostSyncModeChoices(models.IntegerChoices):
+    """
+    Choices for controlling how NetBox synchronizes host configurations with Zabbix.
+
+    Attributes:
+        OVERWRITE: NetBox enforces exact configuration; it overwrites all host settings in Zabbix.
+        PRESERVE: NetBox merges its configuration with existing Zabbix settings, preserving extra items.
+    """
+    OVERWRITE = 0, 'Overwrite'
+    PRESERVE  = 1, 'Preserve'
+
+
 # ------------------------------------------------------------------------------
 # Setting
 # ------------------------------------------------------------------------------
@@ -311,6 +323,7 @@ class Setting(NetBoxModel):
     
     Attributes:
         name (str): Name of the setting.
+        host_sync_mode(int): Overwrite or preserve Zabbix host settings.
         ip_assignment_method (str): Method to assign IPs to host interfaces.
         event_log_enabled (bool): Whether event logging is enabled.
         auto_validate_importables (bool): Automatically validate importable hosts.
@@ -336,6 +349,11 @@ class Setting(NetBoxModel):
 
     # General
     name                      = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the setting." )
+    host_sync_mode            = models.PositiveIntegerField( verbose_name="Host Sync Mode",
+                                                 choices=HostSyncModeChoices,
+                                                 default=HostSyncModeChoices.OVERWRITE, 
+                                                 help_text="Determines how NetBox synchronizes host configurations with Zabbix." )
+    
     ip_assignment_method      = models.CharField(
         verbose_name="IP Assignment Method",
         max_length=16,
@@ -348,7 +366,7 @@ class Setting(NetBoxModel):
                                                     help_text="When enabled, importable hosts are validated automatically." )
     auto_validate_quick_add   = models.BooleanField( verbose_name="Validate Quick Add", default=False, 
                                                     help_text="When enabled, hosts eligible for Quick Add are validated automatically." )
-    
+
 
     # Background Job(s)
     max_deletions             = models.IntegerField(
@@ -1274,6 +1292,7 @@ class HostConfig(NetBoxModel, JobsMixin):
     object_id       = models.PositiveIntegerField()
     assigned_object = GenericForeignKey( "content_type", "object_id" )
 
+
     def __str__(self):
         """
         Return a human-readable string representation of the object.
@@ -1284,15 +1303,18 @@ class HostConfig(NetBoxModel, JobsMixin):
         """
         return f"{self.name}"
 
+
     @property
     def has_agent_interface(self):
         """Return True if this host has at least one AgentInterface assigned."""
         return self.agent_interfaces.exists()
 
+
     @property
     def has_snmp_interface(self):
         """Return True if this host has at least one SNMPInterface assigned."""
         return self.snmp_interfaces.exists()
+
 
     def get_sync_status(self):
         """
@@ -1301,12 +1323,20 @@ class HostConfig(NetBoxModel, JobsMixin):
         Returns:
             bool: True if host differs from Zabbix configuration, False otherwise.
         """
-        from netbox_zabbix.utils import compare_zabbix_config_with_host
+        from netbox_zabbix.utils import compare_host_config_with_zabbix_host
         try:
-            result = compare_zabbix_config_with_host( self )
+            result = compare_host_config_with_zabbix_host( self )
             return result.get( "differ", False )
         except:
             return False
+
+
+    def get_sync_icon(self):
+          """
+          Returns a checkmark or cross to indicate if the Host Config is in Sync with the Zabbix host.
+          """
+          return mark_safe( "✘" ) if self.get_sync_status() else mark_safe( "✔" )
+
 
     def get_sync_diff(self):
         """
@@ -1315,9 +1345,9 @@ class HostConfig(NetBoxModel, JobsMixin):
         Returns:
             dict: JSON-like dictionary describing differences.
         """
-        from netbox_zabbix.utils import compare_zabbix_config_with_host
+        from netbox_zabbix.utils import compare_host_config_with_zabbix_host
         try:
-            return compare_zabbix_config_with_host( self )
+            return compare_host_config_with_zabbix_host( self )
         except:
             return {}
 

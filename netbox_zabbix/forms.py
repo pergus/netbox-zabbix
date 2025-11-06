@@ -92,6 +92,7 @@ class SettingForm(NetBoxModelForm):
     """
     fieldsets = (
         FieldSet( 'name',
+                  'host_sync_mode',
                   'ip_assignment_method',
                   'event_log_enabled',
                   'auto_validate_importables',
@@ -1338,15 +1339,7 @@ class MaintenanceForm(NetBoxModelForm):
         label="End at",
         help_text="Maintenence end time." 
     )
-    
 
-    #host_configs = DynamicModelMultipleChoiceField(
-    #    queryset=HostConfig.objects.all(),
-    #    required=False,
-    #    label="Host Configs",
-    #    help_text="Host Configs to include in the maintenance."
-    #)
-    
     sites = DynamicModelMultipleChoiceField(
         queryset=Site.objects.all(),
         required=False,
