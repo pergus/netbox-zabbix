@@ -1120,75 +1120,6 @@ def provision_zabbix_host(ctx: ProvisionContext):
 # ------------------------------------------------------------------------------
 
 
-def update_host_in_zabbix_v1(host_config, user, request_id):
-    """
-    Update an existing Zabbix host based on its HostConfig.
-    
-    Performs:
-        - Fetching current host state from Zabbix
-        - Determining templates to remove/add
-        - Sending host.update() payload to Zabbix
-        - Logging changelog entry in NetBox
-    
-    Args:
-        host_config (HostConfig): Configuration object representing the host.
-        user (User): NetBox user performing the update.
-        request_id (str): Request ID for changelog tracking.
-    
-    Returns:
-        dict: Message and pre/post payload data.
-    
-    Raises:
-        ExceptionWithData: If update fails.
-    """
-    if not isinstance( host_config, HostConfig ):
-        raise ValueError( "host_config must be an instance of HostConfig" )
-    
-    # Fetch current state of the host in Zabbix
-    try:
-        pre_data = get_host_by_id( host_config.hostid )
-    except Exception as e:
-        raise Exception( f"Failed to get host by id Zabbix: {str( e )}" )
-
-    # Current template IDs in Zabbix (directly assigned to host)
-    current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
-
-    # Templates currently assigned in NetBox
-    new_template_ids = set( str( tid ) for tid in host_config.templates.values_list( "templateid", flat=True ) )
-
-    # Only remove templates that are no longer assigned
-    removed_template_ids = current_template_ids - new_template_ids
-    templates_clear = [ {"templateid": tid} for tid in removed_template_ids ]
-
-    # Build payload for update
-    payload = build_payload( host_config, for_update=True )
-    if templates_clear:
-        payload[ "templates_clear" ] = templates_clear
-
-    try:
-        update_host( **payload )
-    except Exception as e:
-        # Don’t wrap twice – keep context if already ExceptionWithData
-        if isinstance( e, ExceptionWithData ):
-            raise
-        raise ExceptionWithData(
-            f"Failed to update Zabbix host {host_config.name}: {e}",
-            pre_data=pre_data,
-            post_data=payload,
-        )
-
-    # Add a change log entry for the update
-    changelog_update( host_config, user, request_id )
-
-    return {
-        "message":  f"Updated Zabbix host {host_config.hostid}",
-        "pre_data": pre_data,
-        "post_data": payload,
-    }
-
-
-import json
-
 def update_host_in_zabbix(host_config, user, request_id):
     """
     Update an existing Zabbix host based on its HostConfig and host_sync_mode.
@@ -1216,7 +1147,6 @@ def update_host_in_zabbix(host_config, user, request_id):
     # Fetch current state of the host in Zabbix
     try:
         pre_data = get_host_by_id_with_templates( host_config.hostid )
-        logger.info( f"pre_data {json.dumps(pre_data, indent=2) }" )
 
     except Exception as e:
         raise Exception( f"Failed to get host by id from Zabbix: {str(e)}" )
@@ -1251,10 +1181,7 @@ def update_host_in_zabbix(host_config, user, request_id):
         - Do NOT remove anything from Zabbix
         """
 
-        # --- Templates ---
-
-        logger.info( f"zabbix templates {pre_data.get( 'templates', [] ) }" )
-
+        # Templates
         current_template_ids = set( str( t["templateid"]) for t in pre_data.get( "templates", [] ) )
         new_template_ids = set( str( tid ) for tid in host_config.templates.values_list( "templateid", flat=True ) )
         
@@ -1262,25 +1189,8 @@ def update_host_in_zabbix(host_config, user, request_id):
         merged_template_ids = sorted(current_template_ids | new_template_ids)
         payload["templates"] = [{"templateid": tid} for tid in merged_template_ids]
         
-        logger.info( f"payload templates {payload['templates']}" )
-        
-
-        # Templates
-        #current_template_ids = set( str(t["templateid"]) for t in pre_data.get( "templates", [] ) )
-        #new_template_ids = set( str( tid ) for tid in host_config.templates.values_list( "templateid", flat=True ) )
-        
-        # Only add templates that are in NetBox but not yet in Zabbix
-        #templates_to_add = new_template_ids - current_template_ids
-        
-        #if templates_to_add:
-        #    payload["templates"] = [{"templateid": tid} for tid in templates_to_add]
-        #else:
-        #    # Do not include templates key if nothing to add
-        #    payload.pop( "templates", None )
-        
         # Never remove templates in PRESERVE mode
         payload.pop( "templates_clear", None )
-
 
         # Host Groups
         current_group_ids = set( str(g["groupid"]) for g in pre_data.get("groups", []) )
@@ -1313,10 +1223,9 @@ def update_host_in_zabbix(host_config, user, request_id):
         payload["tags"] = [ {"tag": k, "value": v} for k, v in merged.items() ]
 
     else:
-        # Illegal Host Sync Mode
-        pass
+        raise Exception ( "Illegal Host Sync Mode value" )
 
-    # Perform the update in Zabbix
+    # Update the host in Zabbix
     try:
         update_host( **payload )
     except Exception as e:
