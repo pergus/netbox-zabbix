@@ -342,8 +342,11 @@ class HostConfigFilterSet(NetBoxModelFilterSet):
     
         return queryset.filter(
             Q(name__icontains=value)
-            | Q(description__icontains=value)
-            | Q(content_type_id__in=matching_cts)
+            | Q( host_groups__name__icontains=value )
+            | Q( proxy__name__icontains=value )
+            | Q( proxy_group__name__icontains=value )
+            | Q( description__icontains=value )
+            | Q( content_type_id__in=matching_cts )
         )
 
 

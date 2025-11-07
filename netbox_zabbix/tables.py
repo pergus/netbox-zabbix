@@ -17,6 +17,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.timezone import datetime
 from django.db.models import Case, When, IntegerField
+from django.urls import reverse
 
 # Third-party imports
 import django_tables2 as tables
@@ -508,19 +509,20 @@ class HostConfigTable(NetBoxTable):
     Table for displaying Zabbix HostConfig objects.
     """
     name            = tables.Column( accessor='name', order_by='name', verbose_name='Name', linkify=True )
-    assigned_object = tables.Column( accessor='assigned_object.name', verbose_name='Linked Object', linkify=True, orderable=True )
+    assigned_object = tables.Column(accessor='assigned_object.name', verbose_name='Linked Object', linkify=lambda record: HostConfigTable.link_assigned_object(record) )
+    site            = tables.Column(accessor='assigned_object.site.name', verbose_name='Site', linkify=lambda record: HostConfigTable.link_site( record ) )
     host_type       = tables.Column( accessor="host_type", empty_values=(), verbose_name="Type", orderable=False )
     sync            = tables.BooleanColumn( accessor='sync', empty_values=(), verbose_name="In Sync", orderable=False )
-    site            = tables.Column( accessor='assigned_object.site.name', empty_values=(), verbose_name='Site', linkify=True )
+
 
     class Meta(NetBoxTable.Meta):
         model = HostConfig
         fields =  ('name',
-                   'host_sync_mode',
                    'assigned_object',
                    'site',
                    'host_type',
                    'sync',
+                   'in_maintenance',
                    'status',
                    'monitored_by',
                    'hostid',
@@ -530,6 +532,23 @@ class HostConfigTable(NetBoxTable):
                    'host_groups', 
                    'description')
         default_columns = fields
+
+    @classmethod
+    def link_assigned_object(cls, record):
+        obj = record.assigned_object
+        if not obj:
+            return None
+        if hasattr(obj, 'device_type'):
+            return reverse('dcim:device', args=[obj.pk])
+        if hasattr(obj, 'cluster'):
+            return reverse('virtualization:virtualmachine', args=[obj.pk])
+        return None
+
+
+    @classmethod
+    def link_site(cls, record):
+        site = getattr(record.assigned_object, 'site', None)
+        return reverse('dcim:site', args=[site.pk]) if site else None
 
 
     def render_site(self, record):
@@ -551,15 +570,29 @@ class HostConfigTable(NetBoxTable):
         return mark_safe( f'{ "Device" if type( record.assigned_object ) == Device else "VirtualMachine" }' )
 
 
+    #def render_sync(self, record):
+    #    """
+    #    Render ✔ if the Host Config is in sync with Zabbix, ✘ otherwise.
+    #    """
+    #    try:
+    #        result = compare_host_config_with_zabbix_host( record )
+    #    except Exception:
+    #        return mark_safe( "✘" )
+    #    return mark_safe( "✘" ) if result["differ"] else mark_safe( "✔" )
+
     def render_sync(self, record):
         """
-        Render ✔ if the Host Config is in sync with Zabbix, ✘ otherwise.
+        Render ✔ in green if the Host Config is in sync with Zabbix,
+        ✘ in red if not in sync or on error.
         """
         try:
-            result = compare_host_config_with_zabbix_host( record )
+            result = compare_host_config_with_zabbix_host(record)
+            if result["differ"]:
+                return mark_safe('<span style="color:red;">✘</span>')
+            else:
+                return mark_safe('<span style="color:green;">✔</span>')
         except Exception:
-            return mark_safe( "✘" )
-        return mark_safe( "✘" ) if result["differ"] else mark_safe( "✔" )
+            return mark_safe('<span style="color:red;">✘</span>')
 
 
 # ------------------------------------------------------------------------------
@@ -585,19 +618,20 @@ class BaseInterfaceTable(NetBoxTable):
         fields = ("name", "host_config", "interface", "resolved_ip_address", "resolved_dns_name", "removable")
         default_columns = ("name", "host_config", "interface", "resolved_ip_address", "resolved_dns_name", "removable" )
 
+
     def render_removable(self, record):
         """
         Render a checkmark or cross depending on if an interface can be deleted without having to delete templates.
         """
-        return mark_safe( "✔" ) if can_delete_interface( record ) else mark_safe( "✘" )
-    
+        return mark_safe('<span style="color:green;">✔</span>') if can_delete_interface( record ) else mark_safe('<span style="color:red;">✘</span>')
+
 
     def render_available(self, record):
         """
         Render a checkmark or cross depending on the availability of the interface.
         """
         return mark_safe( "✔" ) if is_interface_available( record ) else mark_safe( "✘" )
-    
+
 
 # ------------------------------------------------------------------------------
 # Agent Interface Table
@@ -968,13 +1002,14 @@ class MaintenanceTable(NetBoxTable):
     host_configs = tables.Column( verbose_name="Host Configs", empty_values=(), orderable=False )
     sites = tables.Column( verbose_name="Sites", empty_values=(), orderable=False )
     host_groups = tables.Column( verbose_name="Host Groups", empty_values=(), orderable=False )
+    proxies = tables.Column( verbose_name="Proxies", empty_values=(), orderable=False )
     proxy_groups = tables.Column( verbose_name="Proxy Groups", empty_values=(), orderable=False )
     clusters = tables.Column( verbose_name="Clusters", empty_values=(), orderable=False )
 
     class Meta(NetBoxTable.Meta):
         model           = Maintenance
-        fields          = ( "name", "start_time", "end_time", "disable_data_collection", "host_configs", "sites", "host_groups", "proxy_groups", "clusters", "zabbix_id", "status", "description",  )
-        default_columns = ( "name", "start_time", "end_time", "disable_data_collection", "host_configs", "sites", "host_groups", "proxy_groups", "clusters", "zabbix_id", "status", "description",  )
+        fields          = ( "name", "start_time", "end_time", "is_active", "disable_data_collection", "host_configs", "sites", "host_groups", "proxies", "proxy_groups", "clusters", "zabbix_id", "status", "description",  )
+        default_columns = ( "name", "start_time", "end_time", "is_active", "disable_data_collection" )
 
 
     # Helper to render many-valued fields as badges
@@ -1002,24 +1037,26 @@ class MaintenanceTable(NetBoxTable):
         badges = " ".join( f'<span class="badge text-bg-primary">{item.name if hasattr(item, "name") else item}</span>' for item in items )
         return mark_safe( badges )
     
-    
+    def render_disable_data_collection(self, record):
+        return record.disable_data_collection_value
+
     def render_host_configs(self, record):
-        return self._render_badge_list(record, "host_configs" )
+        return self._render_badge_list( record, "host_configs" )
 
     def render_sites(self, record):
-        return self._render_badge_list(record, "sites" )
-    
-    
+        return self._render_badge_list( record, "sites" )
+
     def render_host_groups(self, record):
-        return self._render_badge_list(record, "host_groups" )
-    
-    
+        return self._render_badge_list( record, "host_groups" )
+
+    def render_proxies(self, record):
+        return self._render_badge_list( record, "proxies" )
+
     def render_proxy_groups(self, record):
-        return self._render_badge_list(record, "proxy_groups" )
-    
-    
+        return self._render_badge_list( record, "proxy_groups" )
+
     def render_clusters(self, record):
-        return self._render_badge_list(record, "clusters" )
+        return self._render_badge_list( record, "clusters" )
 
 
 # end

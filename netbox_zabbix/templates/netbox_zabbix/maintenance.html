@@ -26,7 +26,7 @@
 
                     <tr>
                         <th scope="row">Disable Data Collection</th>
-                        <td>{{ object.disable_data_collection }}</td>
+                        <td>{{ object.disable_data_collection_value }}</td>
                     </tr>
 
                     <tr>
@@ -54,7 +54,6 @@
                         {% else %}
                         <td> — </td>
                         {% endif %}
-
                     </tr>
 
                     <tr>
@@ -68,9 +67,21 @@
                         {% else %}
                         <td> — </td>
                         {% endif %}
-
                     </tr>
                     
+                    <tr>
+                        <th scope="row">Proxy</th>
+                        {% if object.proxies.all %}
+                        <td>
+                            {% for proxy in object.proxies.all %}
+                            <a href="{{ proxy.get_absolute_url }}" class="badge text-bg-primary">{{ proxy.name }}</a>
+                            {% endfor %}
+                        </td>
+                        {% else %}
+                        <td> — </td>
+                        {% endif %}
+                    </tr>
+
                     <tr>
                         <th scope="row">Proxy Groups</th>
                         {% if object.proxy_group.all %}
@@ -82,9 +93,20 @@
                         {% else %}
                         <td> — </td>
                         {% endif %}
-
                     </tr>
 
+                    <tr>
+                        <th scope="row">Clusters</th>
+                        {% if object.clusters.all %}
+                        <td>
+                            {% for cluster in object.clusters.all %}
+                            <a href="{{ cluster.get_absolute_url }}" class="badge text-bg-primary">{{ cluster.name }}</a>
+                            {% endfor %}
+                        </td>
+                        {% else %}
+                        <td> — </td>
+                        {% endif %}
+                    </tr>
 
                 </table>
             </div>

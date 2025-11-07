@@ -5,16 +5,27 @@
 # configuration synchronized with NetBox objects.
 #
 
+# Standard library imports
+import threading
+import os
+import logging
+
+# Django imports
 from django.db import transaction
-from django.db.models.signals import pre_delete, post_delete, pre_save, post_save
+from django.db.models.signals import pre_delete, post_delete, pre_save, post_save, m2m_changed
 from django.dispatch import receiver
 from django.contrib import messages
 from django.http import HttpRequest
+
+# NetBox imports
 from core.models import ObjectChange
 from dcim.models import Device, Interface
 from virtualization.models  import VirtualMachine, VMInterface
 from ipam.models import IPAddress
 from netbox.context import current_request
+
+# NetBox Zabbix plugin imports
+from netbox_zabbix.zabbix import create_maintenance, update_maintenance, delete_maintenance
 from netbox_zabbix.jobs import (
     DeleteZabbixHost,
     CreateZabbixHost,
@@ -24,16 +35,13 @@ from netbox_zabbix.jobs import (
     UpdateZabbixInterface
 )
 from netbox_zabbix.models import (
+    MainChoices,
     Setting,
     HostConfig,
     AgentInterface,
     SNMPInterface,
-    MainChoices,
+    Maintenance
 )
-
-import threading
-import os
-import logging
 
 logger = logging.getLogger("netbox.plugins.netbox_zabbix")
 
@@ -47,13 +55,14 @@ _deletion_context = threading.local()
 # ------------------------------------------------------------------------------
 
 SIGNAL_CODES = {
-    Setting:         "SET",
-    Device:          "DEV",
+    Setting:         "SETTING",
+    Device:          "DEVICE",
     VirtualMachine:  "VM",
-    HostConfig:      "HC",
-    AgentInterface:  "AI",
-    SNMPInterface:   "SI",
-    IPAddress:       "IP",
+    HostConfig:      "HOST_CONFIG",
+    AgentInterface:  "AGENT_INERFACE",
+    SNMPInterface:   "SNMP_INTERFACE",
+    IPAddress:       "IPADDRESS",
+    Maintenance:     "MAINTENANCE"
 }
 
 # ------------------------------------------------------------------------------
@@ -61,10 +70,10 @@ SIGNAL_CODES = {
 # ------------------------------------------------------------------------------
 
 SIGNAL_TYPE_CODES = {
-    "post_save":   "PS",
-    "pre_save":    "PrS",
-    "post_delete": "PD",
-    "pre_delete":  "PrD",
+    "post_save":   "POST_SAVE",
+    "pre_save":    "PRE_SAVE",
+    "post_delete": "POST_DELETE",
+    "pre_delete":  "PRE_DELETE",
 }
 
 
@@ -676,7 +685,7 @@ def create_or_update_ip_address(sender, instance, created, **kwargs):
 
 
 @receiver(pre_delete, sender=IPAddress)
-def delete_ip_address(sender, instance: IPAddress,  **kwargs):
+def delete_ip_address(sender, instance: IPAddress, **kwargs):
    """
    Handle deletion of an IPAddress. Logs a warning if a Zabbix configuration
    may be out of sync.
@@ -798,6 +807,197 @@ def update_device_or_vm(sender, instance, **kwargs):
 
    else:
        logger.warning( "[%s] primary IP assigned_object for name=%s is not an Interface or VMInterface, skipping Zabbix update.", signal_id, instance.name )
+
+
+# ------------------------------------------------------------------------------
+# Maintenance
+# ------------------------------------------------------------------------------
+
+
+#def sync_maintenance_with_zabbix(instance, action="update"):
+#    """
+#    Sync the Maintenance instance with Zabbix.
+#    """
+#    signal_id = f"MAINTENANCE-POST_SAVE"
+#
+#    hostids = [hc.hostid for hc in instance.get_matching_host_configs() if hc.hostid]
+#    if not hostids:
+#        logger.warning("[%s] No host IDs found for Maintenance pk=%s", signal_id, instance.pk)
+#        return
+#
+#    params = {
+#        "name":         instance.name,
+#        "active_since": int( instance.start_time.timestamp() ),
+#        "active_till":  int( instance.end_time.timestamp() ),
+#        "hostids":      hostids,
+#        "description":  instance.description or "",
+#        "tags_evaltype": 0,
+#        "timeperiods": [{
+#            "timeperiod_type": 0,  # One-time only
+#            "start_date":      int( instance.start_time.timestamp() ),
+#            "period":          int( (instance.end_time - instance.start_time).total_seconds() )
+#        }],
+#    }
+#
+#    try:
+#        if action == "create" or not instance.zabbix_id:
+#            logger.info("[%s] create", signal_id)
+#            result = create_maintenance(params)
+#            instance.zabbix_id = result["maintenanceids"][0]
+#            instance.status = "active"
+#
+#        else:
+#            logger.info("[%s] update", signal_id)
+#            update_maintenance({"maintenanceid": instance.zabbix_id, **params})
+#            instance.status = "active"
+#
+#        # Avoid recursion
+#        if not getattr(instance, "_netbox_zabbix_updated", False):
+#            instance._netbox_zabbix_updated = True
+#            instance.save(update_fields=["status", "zabbix_id"])
+#
+#    except Exception as e:
+#        logger.error("[%s] Failed to %s Maintenance (pk=%s) in Zabbix: %s", signal_id, action, instance.pk, e, exc_info=True)
+#
+#
+## -------------------
+## POST_SAVE SIGNAL
+## -------------------
+#@receiver(post_save, sender=Maintenance)
+#def maintenance_post_save(sender, instance, created, **kwargs):
+#    if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
+#        return
+#
+#    action = "create" if created else "update"
+#    sync_maintenance_with_zabbix(instance, action=action)
+#
+#
+## -------------------
+## M2M_CHANGED SIGNAL
+## -------------------
+#M2M_FIELDS = ["host_configs", "sites", "host_groups", "proxy_groups"]
+#
+#for field_name in M2M_FIELDS:
+#    @receiver(m2m_changed, sender=getattr(Maintenance, field_name).through)
+#    def maintenance_m2m_changed(sender, instance, action, **kwargs):
+#        """
+#        Sync Zabbix when many-to-many relations change.
+#        Only trigger after the M2M operation is complete.
+#        """
+#        if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
+#            return
+#
+#        if action in ["post_add", "post_remove", "post_clear"]:
+#            # Reset the flag so post_save doesn't ignore this save
+#            instance._netbox_zabbix_updated = False
+#            sync_maintenance_with_zabbix(instance, action="update")
+#
+#
+
+
+# Thread-local flag to prevent recursion
+_local = threading.local()
+
+def signals_disabled():
+    return getattr(_local, "disabled", False)
+
+class disable_zabbix_signals:
+    """Context manager to temporarily disable Zabbix signals."""
+    def __enter__(self):
+        _local.disabled = True
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _local.disabled = False
+
+
+def sync_maintenance_with_zabbix(instance: Maintenance, action: str):
+    """
+    Synchronize a Maintenance instance with Zabbix.
+    """
+    if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1" or signals_disabled():
+        return
+
+    signal_id = get_signal_id(type(instance), "post_save")
+    logger.info("[%s] Sync maintenance pk=%s, action=%s", signal_id, instance.pk, action)
+
+    # Get the host IDs for this maintenance
+    hostids = [hc.hostid for hc in instance.get_matching_host_configs() if hc.hostid]
+
+    if not hostids:
+        logger.warning("[%s] No host IDs found for Maintenance pk=%s", signal_id, instance.pk)
+        return
+
+    params = {
+        "name":             instance.name,
+        "maintenance_type": 1 if instance.disable_data_collection else 0,
+        "active_since":     int( instance.start_time.timestamp() ),
+        "active_till":      int( instance.end_time.timestamp() ),
+        "hostids":          hostids,
+        "description":      instance.description or "",
+        "timeperiods":      [{
+                            "timeperiod_type": 0,  # One-time only
+                            "start_date":      int( instance.start_time.timestamp() ),
+                            "period":          int( (instance.end_time - instance.start_time).total_seconds() )
+                            }],
+    }
+
+    try:
+        with disable_zabbix_signals():
+            if action == "create":
+                logger.info("[%s] Creating maintenance in Zabbix", signal_id)
+                result = create_maintenance(params)
+                instance.zabbix_id = result["maintenanceids"][0]
+                instance.status = "active"
+                instance.save(update_fields=["status", "zabbix_id"])
+
+            elif action == "update" and instance.zabbix_id:
+                logger.info("[%s] Updating maintenance in Zabbix", signal_id)
+                update_maintenance({"maintenanceid": instance.zabbix_id, **params})
+                instance.status = "active"
+                instance.save(update_fields=["status"])
+
+    except Exception as e:
+        logger.error(
+            "[%s] Failed to %s Maintenance (pk=%s) in Zabbix: %s",
+            signal_id, action, instance.pk, e,
+            exc_info=True
+        )
+
+
+@receiver(post_save, sender=Maintenance)
+def maintenance_post_save(sender, instance: Maintenance, created, **kwargs):
+    action = "create" if created else "update"
+    sync_maintenance_with_zabbix(instance, action=action)
+
+
+@receiver(m2m_changed, sender=Maintenance.host_configs.through)
+@receiver(m2m_changed, sender=Maintenance.sites.through)
+@receiver(m2m_changed, sender=Maintenance.host_groups.through)
+@receiver(m2m_changed, sender=Maintenance.proxy_groups.through)
+@receiver(m2m_changed, sender=Maintenance.clusters.through)
+def maintenance_m2m_changed(sender, instance: Maintenance, action, **kwargs):
+    # Only sync on add or remove
+    if action not in ("post_add", "post_remove", "post_clear"):
+        return
+
+    sync_maintenance_with_zabbix(instance, action="update")
+
+
+
+
+@receiver(pre_delete, sender=Maintenance)
+def maintenance_pre_delete(sender, instance, **kwargs):
+    if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
+        return  # skip logic silently
+    
+    signal_id = get_signal_id( sender, "post_save" )
+    logger.debug( "[%s] received: pk=%s", signal_id, instance.pk )
+    
+    if instance.zabbix_id:
+        try:
+            delete_maintenance( instance.zabbix_id )
+        except:
+            logger.error( "[%s] failed to delete Zabbix Maintenance (pk=%d)", signal_id, instance.pk )
+
 
 
 # end

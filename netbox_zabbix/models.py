@@ -1316,6 +1316,42 @@ class HostConfig(NetBoxModel, JobsMixin):
         return self.snmp_interfaces.exists()
 
 
+    @property
+    def zabbix_tags(self):
+        """Return tags for this host configuration suitable for templates."""
+        from netbox_zabbix.jobs import get_tags
+        return get_tags( self.assigned_object )
+
+
+    @property
+    def active_maintenances(self):
+        """
+        Return all active Maintenance objects that include this HostConfig
+        (either directly or indirectly through sites, host groups, proxy groups, or clusters).
+        """
+        from netbox_zabbix.models import Maintenance  # avoid circular import
+        now = timezone.now()
+    
+        # Start with active maintenance windows
+        maintenances = Maintenance.objects.filter(
+            start_time__lte=now,
+            end_time__gte=now
+        )
+    
+        # Filter to those that include this host
+        result = []
+        for m in maintenances:
+            if self in m.get_matching_host_configs():
+                result.append(m)
+        return result
+
+
+    @property
+    def in_maintenance(self):
+        """Return True if this host is currently under any maintenance window."""
+        return bool( self.active_maintenances )
+
+
     def get_sync_status(self):
         """
         Check if the host is in sync with Zabbix.
@@ -1335,7 +1371,7 @@ class HostConfig(NetBoxModel, JobsMixin):
           """
           Returns a checkmark or cross to indicate if the Host Config is in Sync with the Zabbix host.
           """
-          return mark_safe( "✘" ) if self.get_sync_status() else mark_safe( "✔" )
+          return mark_safe('<span style="color:red;">✘</span>') if self.get_sync_status() else mark_safe('<span style="color:green;">✔</span>')
 
 
     def get_sync_diff(self):
@@ -1350,13 +1386,6 @@ class HostConfig(NetBoxModel, JobsMixin):
             return compare_host_config_with_zabbix_host( self )
         except:
             return {}
-
-    @property
-    def zabbix_tags(self):
-        """Return tags for this host configuration suitable for templates."""
-        from netbox_zabbix.jobs import get_tags
-        return get_tags( self.assigned_object )
-        
 
     def save(self, *args, **kwargs):
         """
@@ -1613,6 +1642,7 @@ class Maintenance(NetBoxModel):
         host_config: (ManyToMany): Releated Host Configurtions that is part of the maintenance.
         sites (ManyToMany): Related Sites whose hosts will be included.
         host_groups (ManyToMany): Related Zabbix host groups.
+        proxies (ManyToMany): Related Zabbix proxies.
         proxy_groups (ManyToMany): Related Zabbix proxy groups.
         clusters (ManyToMany): Related Clusters whose VMs will be included.
         zabbix_id (str): ID of the maintenance in Zabbix.
@@ -1621,35 +1651,36 @@ class Maintenance(NetBoxModel):
 
     STATUS_CHOICES = [
         ('pending', 'Pending'),
-        ('active', 'Active'),
+        ('active',  'Active'),
         ('expired', 'Expired'),
-        ('failed', 'Failed'),
+        ('failed',  'Failed'),
     ]
 
-    name       = models.CharField( max_length=200 )
-    start_time = models.DateTimeField( default=timezone.now )
-    end_time   = models.DateTimeField()
+    name       = models.CharField( max_length=200, help_text="Name of the maintenance window." )
+    start_time = models.DateTimeField( default=timezone.now, help_text="Maintenence start time." )
+    end_time   = models.DateTimeField( help_text="Maintenence end time.")
 
     disable_data_collection = models.BooleanField(
         default=False,
         help_text="Disable data collection in Zabbix during maintenance."
     )
 
-    host_configs = models.ManyToManyField( HostConfig, blank=True, related_name="zabbix_maintenances" )
-    sites        = models.ManyToManyField( Site, blank=True, related_name="zabbix_maintenances" )
-    host_groups  = models.ManyToManyField( HostGroup, blank=True, related_name="zabbix_maintenances" )
-    proxy_groups = models.ManyToManyField( ProxyGroup, blank=True, related_name="zabbix_maintenances" )
-    clusters     = models.ManyToManyField( Cluster, blank=True, related_name="zabbix_maintenances" )
+    host_configs = models.ManyToManyField( HostConfig, blank=True, related_name="zabbix_maintenances", help_text="Host configurations that will be included in this maintenance." )
+    sites        = models.ManyToManyField( Site, blank=True, related_name="zabbix_maintenances", help_text="Sites whose hosts will be included in this maintenance." )
+    host_groups  = models.ManyToManyField( HostGroup, blank=True, related_name="zabbix_maintenances" , help_text="Host groups whose hosts will be included in this maintenance." )
+    proxies      = models.ManyToManyField( Proxy, blank=True, related_name="zabbix_maintenances", help_text="Proxy whose hosts will be included in this maintenance." )
+    proxy_groups = models.ManyToManyField( ProxyGroup, blank=True, related_name="zabbix_maintenances", help_text="Proxy groups whose hosts will be included in this maintenance." )
+    clusters     = models.ManyToManyField( Cluster, blank=True, related_name="zabbix_maintenances", help_text="Clusters whose hosts will be included in this maintenance." )
 
     zabbix_id = models.CharField(
         max_length=50,
         blank=True,
         null=True,
-        help_text="Zabbix ID of this maintenance window (if synced)."
+        help_text="Unique maintenance ID assigned by Zabbix (if synchronized)."
     )
 
-    status = models.CharField( max_length=20, choices=STATUS_CHOICES, default='pending' )
-    description = models.TextField( blank=True )
+    status = models.CharField( max_length=20, choices=STATUS_CHOICES, default='pending', help_text="Current status of the maintenance (Pending, Active, Expired, or Failed)." )
+    description = models.TextField( blank=True, help_text="Optional detailed description of the maintenance purpose or scope." )
     
     
     class Meta:
@@ -1658,13 +1689,19 @@ class Maintenance(NetBoxModel):
         ordering = ['-start_time']
 
     def __str__(self):
-        return f"{self.name} ({self.start_time:%Y-%m-%d %H:%M})"
+        local_time = timezone.localtime(self.start_time)
+        return f"{self.name} ({local_time:%Y-%m-%d %H:%M:%S})"
 
+
+    @property
     def is_active(self):
         """Return True if the maintenance is currently active."""
         now = timezone.now()
         return self.start_time <= now <= self.end_time
 
+    @property
+    def disable_data_collection_value(self):
+        return  mark_safe('<span style="color:green;">✔</span>') if self.disable_data_collection else mark_safe('<span style="color:red;">✘</span>')
 
     def get_matching_host_configs(self):
         qs = HostConfig.objects.all()
@@ -1672,12 +1709,12 @@ class Maintenance(NetBoxModel):
     
         if self.sites.exists():
             # Get ContentType objects for Device and VirtualMachine
-            device_ct = ContentType.objects.get_for_model(Device)
-            vm_ct = ContentType.objects.get_for_model(VirtualMachine)
+            device_ct = ContentType.objects.get_for_model( Device )
+            vm_ct = ContentType.objects.get_for_model( VirtualMachine )
     
             # Get PKs of devices and VMs in the selected sites
-            device_pks = Device.objects.filter(site__in=self.sites.all()).values_list('pk', flat=True)
-            vm_pks = VirtualMachine.objects.filter(site__in=self.sites.all()).values_list('pk', flat=True)
+            device_pks = Device.objects.filter( site__in=self.sites.all() ).values_list( 'pk', flat=True )
+            vm_pks = VirtualMachine.objects.filter( site__in=self.sites.all() ).values_list( 'pk', flat=True )
     
             site_filter = Q(
                 content_type=device_ct,
@@ -1690,18 +1727,92 @@ class Maintenance(NetBoxModel):
             combined_filter &= site_filter
     
         if self.host_groups.exists():
-            combined_filter |= Q(host_groups__in=self.host_groups.all())
+            combined_filter |= Q( host_groups__in=self.host_groups.all() )
     
+        if self.proxies.exists():
+            combined_filter |= Q( proxy__in=self.proxies.all() )
+
         if self.proxy_groups.exists():
-            combined_filter |= Q(proxy_group__in=self.proxy_groups.all())
-    
+            combined_filter |= Q( proxy_group__in=self.proxy_groups.all() )
+
         if self.host_configs.exists():
-            combined_filter |= Q(id__in=self.host_configs.all())
-    
+            combined_filter |= Q( id__in=self.host_configs.all() )
+
+        if self.clusters.exists():
+            cluster_vms = VirtualMachine.objects.filter( cluster__in=self.clusters.all() ).values_list( 'pk', flat=True )
+            vm_ct = ContentType.objects.get_for_model( VirtualMachine )
+            
+            cluster_filter = Q(
+                content_type=vm_ct,
+                object_id__in=cluster_vms
+            )
+            combined_filter |= cluster_filter
+
         if combined_filter:
-            qs = qs.filter(combined_filter).distinct()
-    
+            qs = qs.filter( combined_filter ).distinct()
+
         return qs
+
+
+
+
+#    def sync_to_zabbix(self):
+#        from netbox_zabbix.zabbix import create_maintenance, update_maintenance
+#
+#        hostids = [hc.hostid for hc in self.get_matching_host_configs() if hc.hostid]
+#    
+#        params = {
+#            "name":          self.name,
+#            "active_since":  int(self.start_time.timestamp()),
+#            "active_till":   int(self.end_time.timestamp()),
+#            "hostids":       hostids,
+#            "description":   self.description or "",
+#            "tags_evaltype": 0,
+#            "timeperiods": [{
+#                "timeperiod_type": 0,  # One-time only
+#                "start_date":      int(self.start_time.timestamp()),
+#                "period":          int((self.end_time - self.start_time).total_seconds())
+#            }],
+#        }
+#    
+#        if not hostids:
+#            raise ValueError("No hosts found to include in maintenance window.")
+#    
+#        if self.zabbix_id:
+#            
+#            update_maintenance({ "maintenanceid": self.zabbix_id, **params })
+#            self.status = "active"
+#            logger.info( f"hostids {hostids}" )
+#
+#        else:
+#            result = create_maintenance(params)
+#            self.zabbix_id = result["maintenanceids"][0]
+#            self.status = "active"
+#    
+#        super().save( update_fields=["zabbix_id", "status"] )
+#
+#
+#    def save(self, *args, **kwargs):
+#        super().save(*args, **kwargs)
+#    
+#        try:
+#            self.sync_to_zabbix()
+#        except Exception as e:
+#            logger.exception(f"Failed to sync maintenance '{self.name}' to Zabbix: {e}")
+#            self.status = "failed"
+#            super().save(update_fields=["status"])
+#
+#
+#    def delete(self, *args, **kwargs):
+#        from netbox_zabbix.zabbix import delete_maintenance
+#        if self.zabbix_id:
+#            from netbox_zabbix.api import zabbix_api_client
+#            try:
+#                delete_maintenance( self.zabbix_id )
+#            except Exception as e:
+#                logger.warning(f"Failed to delete maintenance {self.name} ({self.zabbix_id}) from Zabbix: {e}")
+#        super().delete(*args, **kwargs)
+
 
 # ------------------------------------------------------------------------------
 # Events

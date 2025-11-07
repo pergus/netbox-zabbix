@@ -61,6 +61,7 @@ from netbox_zabbix.models import (
     HostConfig,
     AgentInterface,
     SNMPInterface,
+    Maintenance,
     EventLog,
 )
 from netbox_zabbix.utils import (
@@ -1573,6 +1574,80 @@ class SNMPInterfaceBulkDeleteView(generic.BulkDeleteView):
         return super().post( request, *args, **kwargs )
 
 
+
+# --------------------------------------------------------------------------
+# Maintenance
+# --------------------------------------------------------------------------
+
+
+class MaintenanceView(generic.ObjectView):
+    """
+    Detail view for a single Zabbix Maintenance.
+    """
+    queryset = Maintenance.objects.all()
+
+
+class MaintenanceListView(generic.ObjectListView):
+    """
+    Display a list of Zabbix Maintenance windows.
+    """
+    queryset = Maintenance.objects.all()
+    #filterset = NetBoxModelFilterSetForm
+    table = tables.MaintenanceTable
+    template_name = "netbox_zabbix/maintenance_list.html"
+
+
+class MaintenanceEditView(generic.ObjectEditView):
+    """
+    Create or edit a Zabbix Maintenance window.
+    """
+    queryset = Maintenance.objects.all()
+    form     = forms.MaintenanceForm
+
+
+class MaintenanceDeleteView(generic.ObjectDeleteView):
+    """
+    Delete a Zabbix Maintenance window.
+    """
+    queryset = Maintenance.objects.all()
+
+
+@register_model_view(Maintenance, 'host_configs')
+class MaintenanceHostConfigsView(generic.ObjectView):
+    """
+    Display HostConfigs that match a Maintenance instance in a dedicated tab.
+    """
+    queryset      = Maintenance.objects.all()
+    template_name = 'netbox_zabbix/maintenance_hostconfigs.html'
+    tab           = ViewTab(
+        label="Matching Host Configs",
+        badge=lambda obj: obj.get_matching_host_configs().count(),
+        weight=500
+    )
+
+    def get_extra_context(self, request, instance):
+        """
+        Prepare extra context with matching HostConfigs.
+
+        Args:
+            request (HttpRequest): Current request.
+            instance (Maintenance): The Maintenance instance.
+
+        Returns:
+            dict: Context containing the table of matching HostConfigs.
+        """
+        queryset = instance.get_matching_host_configs()
+        table    = tables.HostConfigTable( queryset )
+        RequestConfig(
+            request,
+            {
+                "paginator_class": EnhancedPaginator,
+                "per_page": get_paginate_count(request),
+            }
+        ).configure(table)
+        return { "table": table }
+
+
 # --------------------------------------------------------------------------
 # Importable Hosts
 # --------------------------------------------------------------------------
@@ -2386,81 +2461,5 @@ class VMVirtualMachineTabView(generic.ObjectView):
             },
         )
 
-
-# --------------------------------------------------------------------------
-# Maintenance
-# --------------------------------------------------------------------------
-
-from netbox_zabbix.models import Maintenance
-from netbox.forms import NetBoxModelFilterSetForm
-from netbox_zabbix.forms import MaintenanceForm
-
-
-class MaintenanceView(generic.ObjectView):
-    """
-    Detail view for a single Zabbix Maintenance.
-    """
-    queryset = Maintenance.objects.all()
-
-
-class MaintenanceListView(generic.ObjectListView):
-    """
-    Display a list of Zabbix Maintenance windows.
-    """
-    queryset = Maintenance.objects.all()
-    #filterset = NetBoxModelFilterSetForm
-    table = tables.MaintenanceTable
-    template_name = "netbox_zabbix/maintenance_list.html"
-
-
-class MaintenanceEditView(generic.ObjectEditView):
-    """
-    Create or edit a Zabbix Maintenance window.
-    """
-    queryset = Maintenance.objects.all()
-    form     = forms.MaintenanceForm
-
-
-class MaintenanceDeleteView(generic.ObjectDeleteView):
-    """
-    Delete a Zabbix Maintenance window.
-    """
-    queryset = Maintenance.objects.all()
-
-
-@register_model_view(Maintenance, 'host_configs')
-class MaintenanceHostConfigsView(generic.ObjectView):
-    """
-    Display HostConfigs that match a Maintenance instance in a dedicated tab.
-    """
-    queryset      = Maintenance.objects.all()
-    template_name = 'netbox_zabbix/maintenance_hostconfigs.html'
-    tab           = ViewTab(
-        label="Matching Host Configs",
-        badge=lambda obj: obj.get_matching_host_configs().count(),
-        weight=500
-    )
-
-    def get_extra_context(self, request, instance):
-        """
-        Prepare extra context with matching HostConfigs.
-
-        Args:
-            request (HttpRequest): Current request.
-            instance (Maintenance): The Maintenance instance.
-
-        Returns:
-            dict: Context containing the table of matching HostConfigs.
-        """
-        queryset = instance.get_matching_host_configs()
-        table    = tables.HostConfigTable( queryset )
-        RequestConfig(
-            request,
-            {
-                "paginator_class": EnhancedPaginator,
-                "per_page": get_paginate_count(request),
-            }
-        ).configure(table)
-        return { "table": table }
 
 # end

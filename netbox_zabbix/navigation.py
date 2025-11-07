@@ -81,7 +81,10 @@ menu = PluginMenu(
                     link_text="SNMP Interfaces", 
                     link="plugins:netbox_zabbix:snmpinterface_list",
                 ),
-                
+                PluginMenuItem( 
+                    link_text="Maintenance", 
+                    link="plugins:netbox_zabbix:maintenance_list",
+                ),
                 PluginMenuItem( 
                     link_text="Importable Hosts", 
                     link="plugins:netbox_zabbix:importablehosts_list",
@@ -89,10 +92,6 @@ menu = PluginMenu(
                 PluginMenuItem( 
                     link_text="NetBox Only Hosts", 
                     link="plugins:netbox_zabbix:netboxhosts_list",
-                ),
-                PluginMenuItem( 
-                    link_text="Maintenance", 
-                    link="plugins:netbox_zabbix:maintenance_list",
                 ),
                 
             ),

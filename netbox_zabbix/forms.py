@@ -9,6 +9,7 @@ Custom validation and helper functions are provided to ensure that Zabbix
 configuration and mappings are consistent and correctly formatted.
 """
 
+
 # Standard library imports
 import re
 
@@ -23,9 +24,17 @@ from django.utils.timezone import now
 from django.contrib.contenttypes.models import ContentType
 
 # NetBox imports
-from utilities.forms.fields import ContentTypeChoiceField, DynamicModelChoiceField
+from utilities.forms.fields import (
+    ContentTypeChoiceField, 
+    DynamicModelChoiceField, 
+    DynamicModelMultipleChoiceField
+)
+from utilities.forms.widgets import DateTimePicker
 from utilities.forms.rendering import FieldSet
 from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
+from dcim.models import Site
+from virtualization.models import Cluster
+
 
 # NetBox Zabbix plugin imports
 from netbox_zabbix.models import (
@@ -48,6 +57,7 @@ from netbox_zabbix.models import (
     HostConfig,
     AgentInterface,
     SNMPInterface,
+    Maintenance,
     UnAssignedHosts,
     UnAssignedHostInterfaces,
     UnAssignedHostIPAddresses,
@@ -264,6 +274,17 @@ class TemplateForm(NetBoxModelForm):
         model = Template
         fields = ( "name", "templateid", "tags" )
 
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize form with default initial values for new instance.
+        
+        Hides 'tags' field.
+        """
+        super().__init__( *args, **kwargs )
+    
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop('tags', None)
+
 
 class TemplateFilterForm(NetBoxModelFilterSetForm):
     """
@@ -298,6 +319,17 @@ class ProxyForm(NetBoxModelForm):
     class Meta:
         model = Proxy
         fields = ( "name", "proxyid", "proxy_groupid" )
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize form with default initial values for new instance.
+        
+        Hides 'tags' field.
+        """
+        super().__init__( *args, **kwargs )
+    
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop('tags', None)
 
 
 class ProxyFilterForm(NetBoxModelFilterSetForm):
@@ -338,6 +370,18 @@ class ProxyGroupForm(NetBoxModelForm):
         fields = ( "name", "proxy_groupid" )
 
 
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize form with default initial values for new instance.
+        
+        Hides 'tags' field.
+        """
+        super().__init__( *args, **kwargs )
+    
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop('tags', None)
+
+
 class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
     """
     Filter form for Proxy Groups by name or group ID.
@@ -371,6 +415,18 @@ class HostGroupForm(NetBoxModelForm):
     class Meta:
         model = HostGroup
         fields = [ 'name', 'groupid' ]
+
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize form with default initial values for new instance.
+        
+        Hides 'tags' field.
+        """
+        super().__init__( *args, **kwargs )
+    
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop('tags', None)
 
 
 # ------------------------------------------------------------------------------
@@ -427,6 +483,8 @@ class TagMappingForm(NetBoxModelForm):
                 required=False,
                 initial=existing_selection.get( tag_value, False ),
             )
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop('tags', None)
 
 
     def clean_object_type(self):
@@ -536,6 +594,10 @@ class InventoryMappingForm(NetBoxModelForm):
             else:
                 logger.error( f"{invkey} is not a legal inventory property" )
 
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop('tags', None)
+
+
     def clean_object_type(self):
         """
         Validate that no duplicate inventory mapping exists for the same object_type.
@@ -596,9 +658,10 @@ class DeviceMappingForm(NetBoxModelForm):
     and prevents deletion of the default mapping.
     """
     fieldsets = (
-        FieldSet( 'name', 'description', 'default', name="General" ),
+        FieldSet( 'name', 'default', name="General" ),
         FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', 'interface_type', name="Settings" ),
-        FieldSet( 'sites', 'roles', 'platforms', name="Filters")
+        FieldSet( 'sites', 'roles', 'platforms', name="Filters"),
+        FieldSet( 'description', name="Optional" )
     )
     
     class Meta:
@@ -640,6 +703,10 @@ class DeviceMappingForm(NetBoxModelForm):
         else:
             # A default exists already: drop the 'default' field entirely
             self.fields.pop( 'default', None )
+
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop('tags', None)
+
 
     def clean(self):
         """
@@ -782,9 +849,10 @@ class VMMappingForm(NetBoxModelForm):
     Similar to DeviceMappingForm, but specifically for virtual machines.
     """
     fieldsets = (
-        FieldSet( 'name', 'description', 'default', name="General" ),
+        FieldSet( 'name', 'default', name="General" ),
         FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', 'interface_type', name="Settings" ),
-        FieldSet( 'sites', 'roles', 'platforms', name="Filters")
+        FieldSet( 'sites', 'roles', 'platforms', name="Filters"),
+        FieldSet( 'description', name="Optional" )
     )
     
     class Meta:
@@ -826,6 +894,8 @@ class VMMappingForm(NetBoxModelForm):
             # A default exists already: drop the 'default' field entirely
             self.fields.pop( 'default', None )
 
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop('tags', None)
 
 
     def clean(self):
@@ -1027,6 +1097,8 @@ class HostConfigForm(NetBoxModelForm):
                 self.fields['content_type'].disabled = True
                 self.fields['content_type'].widget   = forms.HiddenInput()
 
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop('tags', None)
 
     def clean(self):
         """
@@ -1314,25 +1386,19 @@ class SNMPInterfaceForm(BaseHostInterfaceForm):
 # Maintenance
 # ------------------------------------------------------------------------------
 
-from utilities.forms.fields import DynamicModelMultipleChoiceField
-from utilities.forms.widgets import DateTimePicker
-
-from dcim.models import Site
-from virtualization.models import Cluster
-from netbox_zabbix.models import Maintenance
 
 class MaintenanceForm(NetBoxModelForm):
     """
     Form for creating or updating a Zabbix maintenance window.
     """
-
+    
     start_time = forms.DateTimeField( 
         required=True,
         widget=DateTimePicker(),
         label="Start at",
         help_text="Maintenence start time." 
     )
-
+    
     end_time = forms.DateTimeField( 
         required=True,
         widget=DateTimePicker(),
@@ -1340,34 +1406,25 @@ class MaintenanceForm(NetBoxModelForm):
         help_text="Maintenence end time." 
     )
 
-    sites = DynamicModelMultipleChoiceField(
-        queryset=Site.objects.all(),
-        required=False,
-        label="Sites",
-        help_text="Hosts under these Sites will be included in the maintenance."
-    )
-
-    proxy_groups = DynamicModelMultipleChoiceField(
-        queryset=ProxyGroup.objects.all(),
-        required=False,
-        label="Proxy Groups",
-        help_text="Hosts monitored via these proxies will be included in the maintenance.."
-    )
-
-    clusters = DynamicModelMultipleChoiceField(
-        queryset=Cluster.objects.all(),
-        required=False,
-        label="Clusters",
-        help_text="VMs in these Clusters will be included in the maintenance."
-    )
-
     class Meta:
         model = Maintenance
         fields = (
             'name', 'start_time', 'end_time',
-            'disable_data_collection', 'host_configs', 'sites', 'host_groups',
-            'proxy_groups', 'clusters', 'description'
+            'disable_data_collection', 
+            'host_configs', 'sites', 'host_groups',
+            'proxies', 'proxy_groups', 'clusters', 
+            'description'
         )
 
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize form with default initial values for new instance.
+        
+        Hides 'tags' field.
+        """
+        super().__init__( *args, **kwargs )
+
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop('tags', None)
 
 # end

@@ -856,7 +856,37 @@ def interface_availability(hostid, interfaceid):
         return True if available == 1 else False
     except Exception as e:
         raise e
-    
+
+
+# ------------------------------------------------------------------------------
+# Maintenance
+# ------------------------------------------------------------------------------
+
+def create_maintenance(params):
+
+    try:
+        z = get_zabbix_client()
+        return z.maintenance.create( **params )
+    except:
+        raise
+
+
+def update_maintenance(params):
+
+    try:
+        z = get_zabbix_client()
+        return z.maintenance.update( **params )
+    except:
+        raise
+
+
+def delete_maintenance(id):
+    try:
+        z = get_zabbix_client()
+        return z.maintenance.delete([id])
+    except:
+        raise
+
 
 # ------------------------------------------------------------------------------
 # Misc.
