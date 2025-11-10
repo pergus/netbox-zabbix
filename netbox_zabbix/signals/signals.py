@@ -836,7 +836,7 @@ def sync_maintenance_with_zabbix(instance: Maintenance, action: str):
     if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1" or signals_disabled():
         return
 
-    signal_id = get_signal_id(type(instance), "post_save")
+    signal_id = get_signal_id( type( instance ), "post_save" )
     logger.info("[%s] Sync maintenance pk=%s, action=%s", signal_id, instance.pk, action)
 
     # Get the host IDs for this maintenance
@@ -883,25 +883,29 @@ def sync_maintenance_with_zabbix(instance: Maintenance, action: str):
         )
 
 
+#@receiver(post_save, sender=Maintenance)
+#def maintenance_post_save(sender, instance: Maintenance, created, **kwargs):
+#    action = "create" if created else "update"
+#    sync_maintenance_with_zabbix(instance, action=action)
+
+
+#@receiver(m2m_changed, sender=Maintenance.host_configs.through)
+#@receiver(m2m_changed, sender=Maintenance.sites.through)
+#@receiver(m2m_changed, sender=Maintenance.host_groups.through)
+#@receiver(m2m_changed, sender=Maintenance.proxy_groups.through)
+#@receiver(m2m_changed, sender=Maintenance.clusters.through)
+#def maintenance_m2m_changed(sender, instance: Maintenance, action, **kwargs):
+#    # Only sync on add or remove
+#    if action not in ("post_add", "post_remove", "post_clear"):
+#        return
+#
+#    sync_maintenance_with_zabbix(instance, action="update")
+
+
 @receiver(post_save, sender=Maintenance)
 def maintenance_post_save(sender, instance: Maintenance, created, **kwargs):
     action = "create" if created else "update"
-    sync_maintenance_with_zabbix(instance, action=action)
-
-
-@receiver(m2m_changed, sender=Maintenance.host_configs.through)
-@receiver(m2m_changed, sender=Maintenance.sites.through)
-@receiver(m2m_changed, sender=Maintenance.host_groups.through)
-@receiver(m2m_changed, sender=Maintenance.proxy_groups.through)
-@receiver(m2m_changed, sender=Maintenance.clusters.through)
-def maintenance_m2m_changed(sender, instance: Maintenance, action, **kwargs):
-    # Only sync on add or remove
-    if action not in ("post_add", "post_remove", "post_clear"):
-        return
-
-    sync_maintenance_with_zabbix(instance, action="update")
-
-
+    sync_maintenance_with_zabbix( instance, action=action )
 
 
 @receiver(pre_delete, sender=Maintenance)
@@ -909,7 +913,7 @@ def maintenance_pre_delete(sender, instance, **kwargs):
     if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
         return  # skip logic silently
     
-    signal_id = get_signal_id( sender, "post_save" )
+    signal_id = get_signal_id( sender, "pre_delete" )
     logger.debug( "[%s] received: pk=%s", signal_id, instance.pk )
     
     if instance.zabbix_id:

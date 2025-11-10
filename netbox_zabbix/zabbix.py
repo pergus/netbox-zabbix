@@ -883,7 +883,7 @@ def update_maintenance(params):
 def delete_maintenance(id):
     try:
         z = get_zabbix_client()
-        return z.maintenance.delete([id])
+        return z.maintenance.delete(id)
     except:
         raise
 

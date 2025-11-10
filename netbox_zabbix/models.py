@@ -17,6 +17,8 @@ from django.db import models
 from django.urls import reverse
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from django.utils import timezone
+from django.db.models import Q
 
 
 # NetBox imports
@@ -27,6 +29,7 @@ from netbox.models import NetBoxModel
 from netbox.models import JobsMixin
 from virtualization.models.virtualmachines import VirtualMachine
 from utilities.choices import ChoiceSet
+from virtualization.models import Cluster
 
 # NetBox Zabbix plugin imports
 from netbox_zabbix.logger import logger
@@ -1623,10 +1626,6 @@ class SNMPInterface(BaseInterface):
 # ------------------------------------------------------------------------------
 # Maintenance
 # ------------------------------------------------------------------------------
-
-from django.utils import timezone
-from django.db.models import Q
-from virtualization.models import Cluster
 
 
 class Maintenance(NetBoxModel):

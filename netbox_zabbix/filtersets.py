@@ -275,6 +275,7 @@ class DeviceMappingFilterSet(DeviceFilterSet):
 # VM Mapping
 # ------------------------------------------------------------------------------
 
+
 class VMMappingFilterSet(VirtualMachineFilterSet):
     """
     Extended virtual machine filter set with Zabbix-specific search functionality.
@@ -337,9 +338,21 @@ class HostConfigFilterSet(NetBoxModelFilterSet):
     
         # Find matching content types by display name (app_label/model name)
         matching_cts = ContentType.objects.filter(
-            Q(model__icontains=value)
+            Q( model__icontains=value )
         ).values_list('id', flat=True)
-    
+
+        # Filter by site via Device or VM
+        device_ct = ContentType.objects.get_for_model( Device )
+        vm_ct = ContentType.objects.get_for_model( VirtualMachine )
+        
+        device_ids = Device.objects.filter( site__name__icontains=value).values_list('pk', flat=True )
+        vm_ids = VirtualMachine.objects.filter( site__name__icontains=value).values_list('pk', flat=True )
+        
+        site_filter = Q(
+            Q( content_type=device_ct, object_id__in=device_ids ) |
+            Q( content_type=vm_ct, object_id__in=vm_ids )
+        )
+
         return queryset.filter(
             Q(name__icontains=value)
             | Q( host_groups__name__icontains=value )
@@ -347,6 +360,7 @@ class HostConfigFilterSet(NetBoxModelFilterSet):
             | Q( proxy_group__name__icontains=value )
             | Q( description__icontains=value )
             | Q( content_type_id__in=matching_cts )
+            | site_filter
         )
 
 

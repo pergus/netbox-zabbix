@@ -81,17 +81,16 @@ def order_queryset_by_attr(queryset, attr_path, descending=False):
                 break
         return obj
 
-    # Sort in Python
     sorted_list = sorted(
         queryset,
-        key=lambda obj: get_attr( obj, attr_path ) or '',
+        key=lambda obj: str( get_attr( obj, attr_path ) or '' ),
         reverse=descending
     )
 
     # Extract PKs in the desired order
     pks = [obj.pk for obj in sorted_list]
     if not pks:
-        return (queryset.none(), True)
+        return ( queryset.none(), True )
 
     # Preserve order in the database by adding an _order field that can be used
     # to order the queryset with.
@@ -107,14 +106,14 @@ def order_queryset_by_attr(queryset, attr_path, descending=False):
     #     )
     # ).order_by('_order')
     order_map = {pk: idx for idx, pk in enumerate(pks)}
-    ordered_qs = queryset.filter(pk__in=pks).annotate(
+    ordered_qs = queryset.filter( pk__in=pks ).annotate(
         _order=Case(
             *[When(pk=pk, then=idx) for pk, idx in order_map.items()],
             output_field=IntegerField()
         )
-    ).order_by('_order')
+    ).order_by ('_order' )
 
-    return (ordered_qs, True)
+    return ( ordered_qs, True )
 
 
 # ------------------------------------------------------------------------------
@@ -518,8 +517,8 @@ class HostConfigTable(NetBoxTable):
     assigned_object = tables.Column(accessor='assigned_object.name', verbose_name='Linked Object', linkify=lambda record: HostConfigTable.link_assigned_object(record) )
     site            = tables.Column(accessor='assigned_object.site.name', verbose_name='Site', linkify=lambda record: HostConfigTable.link_site( record ) )
     host_type       = tables.Column( accessor="host_type", empty_values=(), verbose_name="Type", orderable=False )
-    sync            = tables.BooleanColumn( accessor='sync', empty_values=(), verbose_name="In Sync", orderable=False )
-
+    sync            = tables.BooleanColumn( accessor='sync', empty_values=(), verbose_name="In Sync" )
+    in_maintenance = tables.BooleanColumn( accessor='in_maintenance', empty_values=(), verbose_name="In Maintenance" )
 
     class Meta(NetBoxTable.Meta):
         model = HostConfig
@@ -556,13 +555,19 @@ class HostConfigTable(NetBoxTable):
         site = getattr(record.assigned_object, 'site', None)
         return reverse('dcim:site', args=[site.pk]) if site else None
 
-
+    
     def render_site(self, record):
         return mark_safe( record.assigned_object.site.name )
 
 
     def order_site(self, queryset, is_descending):
         return order_queryset_by_attr( queryset, 'assigned_object.site.name', descending=is_descending )
+
+    def order_sync(self, queryset, is_descending):
+        return order_queryset_by_attr( queryset, 'sync', descending=is_descending )
+    
+    def order_in_maintenance(self, queryset, is_descending):
+          return order_queryset_by_attr( queryset, 'in_maintenance', descending=is_descending )
 
 
     def order_assigned_object(self, queryset, is_descending):
@@ -575,16 +580,6 @@ class HostConfigTable(NetBoxTable):
         """
         return mark_safe( f'{ "Device" if type( record.assigned_object ) == Device else "VirtualMachine" }' )
 
-
-    #def render_sync(self, record):
-    #    """
-    #    Render ✔ if the Host Config is in sync with Zabbix, ✘ otherwise.
-    #    """
-    #    try:
-    #        result = compare_host_config_with_zabbix_host( record )
-    #    except Exception:
-    #        return mark_safe( "✘" )
-    #    return mark_safe( "✘" ) if result["differ"] else mark_safe( "✔" )
 
     def render_sync(self, record):
         """
