@@ -54,28 +54,28 @@
       </div>
     </div>
 
-    <div class="col col-md-12">
-      <div class="card">
-        <h5 class="card-header">Zabbix Tags</h5>
-        <div class="card-body">
-          <table class="table table-hover attr-table">
-            <tr>
-              <th scope="row">Default Tag</th>
-              <td>{{ object.default_tag }}</td>
-            </tr>
-            <tr>
-              <th scope="row">Tag Prefix</th>
-              <td>{{ object.tag_prefix }}</td>
-            </tr>
-            <tr>
-              <th scope="row">Tag Name Formatting</th>
-              <td>{{ object.tag_name_formatting }}</td>
-            </tr>
-
-          </table>
+      <div class="col col-md-12">
+        <div class="card">
+          <h5 class="card-header">Zabbix Tags</h5>
+          <div class="card-body">
+            <table class="table table-hover attr-table">
+              <tr>
+                <th scope="row">Default Tag</th>
+                <td>{{ object.default_tag }}</td>
+              </tr>
+              <tr>
+                <th scope="row">Tag Prefix</th>
+                <td>{{ object.tag_prefix }}</td>
+              </tr>
+              <tr>
+                <th scope="row">Tag Name Formatting</th>
+                <td>{{ object.tag_name_formatting }}</td>
+              </tr>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
+
   </div>
 
   <div class="col col-md-6">
@@ -115,6 +115,11 @@
           </tr>
 
           <tr>
+            <th scope="row">Use IP</th>
+            <td>{{ object.get_useip_display }}</td>
+          </tr>
+
+          <tr>
             <th scope="row">Inventory Mode</th>
             <td>{{ object.get_inventory_mode_display }}</td>
           </tr>
@@ -148,7 +153,57 @@
         </table>
       </div>
     </div>
+
+      <div class="col col-md-12">
+        <div class="card">
+          <h5 class="card-header">Default Agent Settings</h5>
+          <div class="card-body">
+            <table class="table table-hover attr-table">
+              <tr>
+                <th scope="row">Port</th>
+                <td>{{ object.agent_port }}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col col-md-12">
+        <div class="card">
+          <h5 class="card-header">Default SNMP Settings</h5>
+          <div class="card-body">
+            <table class="table table-hover attr-table">
+              <tr>
+                <th scope="row">Port</th>
+                <td>{{ object.snmp_port }}</td>
+              </tr>
+              <tr>
+                <th scope="row">Bulk</th>
+                <td>{{ object.snmp_bulk }}</td>
+              </tr>
+              <tr>
+                <th scope="row">Max Bulk Repetitions</th>
+                <td>{{ object.snmp_max_repetitions }}</td>
+              </tr>
+              <tr>
+                <th scope="row">SNMP Security Level</th>
+                <td>{{ object.get_snmp_securitylevel_display }}</td>
+              </tr>
+              <tr>
+                <th scope="row">SNMP Authentication Protocol</th>
+                <td>{{ object.get_snmp_authprotocol_display }}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+
   </div>
+
+
+
+
 
 </div>
 
