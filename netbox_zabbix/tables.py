@@ -198,6 +198,12 @@ class SettingTable(NetBoxTable):
     name = tables.Column( linkify=True )
     actions = columns.ActionsColumn( extra_buttons=EXTRA_CONFIG_BUTTONS )
 
+    def render_token(self, record):
+        if len(record.token) > 4:
+            tok = record.token[:3]
+        else:
+            tok = record.token
+        return tok + 7 * "*" 
 
 # ------------------------------------------------------------------------------
 # Template Table

@@ -814,87 +814,6 @@ def update_device_or_vm(sender, instance, **kwargs):
 # ------------------------------------------------------------------------------
 
 
-#def sync_maintenance_with_zabbix(instance, action="update"):
-#    """
-#    Sync the Maintenance instance with Zabbix.
-#    """
-#    signal_id = f"MAINTENANCE-POST_SAVE"
-#
-#    hostids = [hc.hostid for hc in instance.get_matching_host_configs() if hc.hostid]
-#    if not hostids:
-#        logger.warning("[%s] No host IDs found for Maintenance pk=%s", signal_id, instance.pk)
-#        return
-#
-#    params = {
-#        "name":         instance.name,
-#        "active_since": int( instance.start_time.timestamp() ),
-#        "active_till":  int( instance.end_time.timestamp() ),
-#        "hostids":      hostids,
-#        "description":  instance.description or "",
-#        "tags_evaltype": 0,
-#        "timeperiods": [{
-#            "timeperiod_type": 0,  # One-time only
-#            "start_date":      int( instance.start_time.timestamp() ),
-#            "period":          int( (instance.end_time - instance.start_time).total_seconds() )
-#        }],
-#    }
-#
-#    try:
-#        if action == "create" or not instance.zabbix_id:
-#            logger.info("[%s] create", signal_id)
-#            result = create_maintenance(params)
-#            instance.zabbix_id = result["maintenanceids"][0]
-#            instance.status = "active"
-#
-#        else:
-#            logger.info("[%s] update", signal_id)
-#            update_maintenance({"maintenanceid": instance.zabbix_id, **params})
-#            instance.status = "active"
-#
-#        # Avoid recursion
-#        if not getattr(instance, "_netbox_zabbix_updated", False):
-#            instance._netbox_zabbix_updated = True
-#            instance.save(update_fields=["status", "zabbix_id"])
-#
-#    except Exception as e:
-#        logger.error("[%s] Failed to %s Maintenance (pk=%s) in Zabbix: %s", signal_id, action, instance.pk, e, exc_info=True)
-#
-#
-## -------------------
-## POST_SAVE SIGNAL
-## -------------------
-#@receiver(post_save, sender=Maintenance)
-#def maintenance_post_save(sender, instance, created, **kwargs):
-#    if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
-#        return
-#
-#    action = "create" if created else "update"
-#    sync_maintenance_with_zabbix(instance, action=action)
-#
-#
-## -------------------
-## M2M_CHANGED SIGNAL
-## -------------------
-#M2M_FIELDS = ["host_configs", "sites", "host_groups", "proxy_groups"]
-#
-#for field_name in M2M_FIELDS:
-#    @receiver(m2m_changed, sender=getattr(Maintenance, field_name).through)
-#    def maintenance_m2m_changed(sender, instance, action, **kwargs):
-#        """
-#        Sync Zabbix when many-to-many relations change.
-#        Only trigger after the M2M operation is complete.
-#        """
-#        if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
-#            return
-#
-#        if action in ["post_add", "post_remove", "post_clear"]:
-#            # Reset the flag so post_save doesn't ignore this save
-#            instance._netbox_zabbix_updated = False
-#            sync_maintenance_with_zabbix(instance, action="update")
-#
-#
-
-
 # Thread-local flag to prevent recursion
 _local = threading.local()
 
@@ -905,6 +824,7 @@ class disable_zabbix_signals:
     """Context manager to temporarily disable Zabbix signals."""
     def __enter__(self):
         _local.disabled = True
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         _local.disabled = False
 
@@ -934,9 +854,9 @@ def sync_maintenance_with_zabbix(instance: Maintenance, action: str):
         "hostids":          hostids,
         "description":      instance.description or "",
         "timeperiods":      [{
-                            "timeperiod_type": 0,  # One-time only
-                            "start_date":      int( instance.start_time.timestamp() ),
-                            "period":          int( (instance.end_time - instance.start_time).total_seconds() )
+                                "timeperiod_type": 0,  # One-time only
+                                "start_date":      int( instance.start_time.timestamp() ),
+                                "period":          int( (instance.end_time - instance.start_time).total_seconds() )
                             }],
     }
 

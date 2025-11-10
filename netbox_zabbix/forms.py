@@ -150,6 +150,9 @@ class SettingForm(NetBoxModelForm):
                   name="Tags" ),
     )
     
+    # Hide the token
+    token = forms.CharField( widget=forms.PasswordInput( render_value=True ), help_text="Zabbix API token (hidden input)" )
+
     class Meta:
         model = Setting
         fields = '__all__'
@@ -178,7 +181,7 @@ class SettingForm(NetBoxModelForm):
                 self.initial['name'] = "config"
                 self.initial['api_endpoint'] = f"https://{zhost}/api_jsonrpc.php"
                 self.initial['web_address'] = f"https://{zhost}"
-
+            
             # Hide the 'tags' field on "add" and "edit" view
             self.fields.pop('tags', None)
 
