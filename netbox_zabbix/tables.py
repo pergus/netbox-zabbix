@@ -175,7 +175,7 @@ class SettingTable(NetBoxTable):
             'tls_accept', 
             'tls_psk_identity', 
             'tls_psk', 
-            'use_ip', 
+            'useip', 
             'agent_port', 
             'snmp_port', 
             'snmp_bulk',
