@@ -337,6 +337,7 @@ class Setting(NetBoxModel):
         token (str): Zabbix API token.
         delete_setting (str): Soft or hard delete behavior.
         graveyard (str): Host group for soft-deleted hosts.
+        useip(int): Connect via IP or DNS.
         inventory_mode (int): Inventory population mode.
         monitored_by (int): Monitoring method.
         tls_connect / tls_accept (int): TLS configuration for connections.
@@ -427,6 +428,9 @@ class Setting(NetBoxModel):
     
 
     # Common Defaults
+
+    useip = models.IntegerField( verbose_name="Use IP", choices=UseIPChoices, default=UseIPChoices.IP, help_text="Connect via IP or DNS." )
+
     inventory_mode = models.IntegerField(
         verbose_name="Inventory Mode",
         choices=InventoryModeChoices,

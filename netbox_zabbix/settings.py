@@ -11,6 +11,7 @@ from netbox_zabbix.models import Setting
 from netbox_zabbix.logger import logger
 from netbox_zabbix.models import (
     DeleteSettingChoices,
+    UseIPChoices,
     MonitoredByChoices,
     InventoryModeChoices,
     TLSConnectChoices,
@@ -353,6 +354,16 @@ def get_exclude_custom_field_enabled(s):
 # ------------------------------------------------------------------------------
 # Common Defaults
 # ------------------------------------------------------------------------------
+
+@safe_setting(UseIPChoices.IP)
+def get_useip(s):
+    """
+    Retrieves the default useip value from the configuration.
+    
+    Returns:
+        The default useip value as specified in the configuration.
+    """
+    return s.useip
 
 
 @safe_setting(MonitoredByChoices.ZabbixServer)

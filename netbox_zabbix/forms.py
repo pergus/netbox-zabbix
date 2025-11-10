@@ -125,11 +125,11 @@ class SettingForm(NetBoxModelForm):
                   name="Additional Settings" ),
         FieldSet( 'inventory_mode',
                   'monitored_by',
+                  'useip',
                   'tls_connect', 
                   'tls_accept', 
                   'tls_psk_identity', 
                   'tls_psk', 
-                  'use_ip', 
                   name="Common Defaults" ),
         FieldSet( 'agent_port', 
                   name="Agent Specific Defaults"),
@@ -1197,7 +1197,7 @@ class BaseHostInterfaceForm(NetBoxModelForm):
     interface_type_choice = InterfaceTypeChoices.Any  # override in subclasses
     default_name_suffix = ""                          # override in subclasses
     agent_defaults = {}                               # override in Agent form
-    snmp_defaults = {}                                # override in SNMP form
+    snmp_defaults  = {}                               # override in SNMP form
 
     class Meta:
         fields = (
@@ -1225,9 +1225,12 @@ class BaseHostInterfaceForm(NetBoxModelForm):
         
         # Set the is_edit_field, which is used in the template to prevent fetching primary ip when editing an interface.
         self.fields["is_edit_field"].initial = bool( self.instance and self.instance.pk )
+        logger.info( "BaseHostInterfaceForm" )
 
         # Editing an existing interface
         if self.instance.pk:
+            logger.info( "BaseHostInterfaceForm: Existing Interface" )
+            
             current_interface = self.instance.interface
             current_ip        = self.instance.ip_address
 
@@ -1250,23 +1253,52 @@ class BaseHostInterfaceForm(NetBoxModelForm):
                 self.fields["ip_address"].disabled = True
                 self.fields["dns_name"].initial = current_ip.dns_name or ""
                 self.fields["dns_name"].disabled = True
-
+            return
 
         # Creating a new interface
-        if not self.instance.pk:
-            try:
-                host_config = HostConfig.objects.get( id=self.initial["host_config"] )
-                self.initial["name"] = f"{host_config.assigned_object.name}-{self.default_name_suffix}"
+#        if not self.instance.pk:
+#            try:
+#                host_config = HostConfig.objects.get( id=self.initial["host_config"] )
+#                self.initial["name"] = f"{host_config.assigned_object.name}-{self.default_name_suffix}"
+#
+#                # Apply Agent defaults if any
+#                for field, value in self.agent_defaults.items():
+#                    logger.info( f"field({field}): {value}" )
+#                    self.initial[field] = value
+#                
+#                # Apply SNMP defaults if any
+#                for field, value in self.snmp_defaults.items():
+#                    logger.info( f"field({field}): {value}" )
+#                    self.initial[field] = value
+#            except Exception as e:
+#                logger.info( f"Exception { str( e ) }" )
+#                pass
+        # Creating new interface
+        logger.info( "BaseHostInterfaceForm: New Interface" )
+        
+        host_config = None
+        if "host_config" in self.initial:
+            host_config = HostConfig.objects.filter(id=self.initial["host_config"]).first()
+        elif getattr(self.instance, "host_config_id", None):
+            host_config = self.instance.host_config
+        
+        if host_config:
+            self.initial["name"] = f"{host_config.assigned_object.name}-{self.default_name_suffix}"
+            logger.info( f"agent settings {self.agent_defaults}" )
+            logger.info( f"snmp settings {self.snmp_defaults}" )
+            
+            # Apply common defaults
+            for field, value in self.agent_defaults.items():
+                logger.info(f"Applying agent default {field}={value}")
+                self.initial[field] = value
+        
+            # Apply SNMP defaults
+            for field, value in self.snmp_defaults.items():
+                logger.info(f"Applying SNMP default {field}={value}")
+                self.initial[field] = value
+        else:
+            logger.info( "HostConfig is Not defined" )
 
-                # Apply Agent defaults if any
-                for field, value in self.agent_defaults.items():
-                    self.initial[field] = value
-                
-                # Apply SNMP defaults if any
-                for field, value in self.snmp_defaults.items():
-                    self.initial[field] = value
-            except Exception:
-                pass
 
 
     def clean(self):
@@ -1333,10 +1365,14 @@ class AgentInterfaceForm(BaseHostInterfaceForm):
         """
         Initialize AgentInterfaceForm and apply default port from settings.
         """
-        super().__init__( *args, **kwargs )
+
+        # The order is important agent defaults has to be set before the __init__ call.
         self.agent_defaults = {
-            "port": settings.get_agent_port()
+            "useip": settings.get_useip(),
+            "port":  settings.get_agent_port()
         }
+        super().__init__( *args, **kwargs )
+
 
 
 # ------------------------------------------------------------------------------
@@ -1370,8 +1406,9 @@ class SNMPInterfaceForm(BaseHostInterfaceForm):
         """
         Initialize SNMPInterfaceForm and apply default SNMP settings from plugin configuration.
         """
-        super().__init__( *args, **kwargs )
+        # The order is important snmp defaults has to be set before the __init__ call.
         self.snmp_defaults = {
+            "useip":           settings.get_useip(),
             "port":            settings.get_snmp_port(),
             "bulk":            settings.get_snmp_bulk(),
             "max_repetitions": settings.get_snmp_max_repetitions(),
@@ -1383,6 +1420,7 @@ class SNMPInterfaceForm(BaseHostInterfaceForm):
             "privprotocol":    settings.get_snmp_privprotocol(),
             "privpassphrase":  settings.get_snmp_privpassphrase(),
         }
+        super().__init__( *args, **kwargs )
 
 
 # ------------------------------------------------------------------------------
