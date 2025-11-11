@@ -862,8 +862,8 @@ def interface_availability(hostid, interfaceid):
 # Maintenance
 # ------------------------------------------------------------------------------
 
-def create_maintenance(params):
 
+def create_maintenance(params):
     try:
         z = get_zabbix_client()
         return z.maintenance.create( **params )
@@ -872,7 +872,6 @@ def create_maintenance(params):
 
 
 def update_maintenance(params):
-
     try:
         z = get_zabbix_client()
         return z.maintenance.update( **params )

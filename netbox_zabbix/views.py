@@ -31,6 +31,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.views.generic import TemplateView as GenericTemplateView
+from django.db import transaction
+
 
 # Third-party imports
 from django_tables2 import RequestConfig
@@ -157,7 +159,7 @@ class SettingDeleteView(generic.ObjectDeleteView):
     
         if obj:
             messages.error( request, "You cannot delete the configuration." )
-            return redirect('plugins:netbox_zabbix:setting_list' )
+            return redirect( 'plugins:netbox_zabbix:setting_list' )
     
         return super().post( request, *args, **kwargs )
 
@@ -1602,7 +1604,35 @@ class MaintenanceEditView(generic.ObjectEditView):
     Create or edit a Zabbix Maintenance window.
     """
     queryset = Maintenance.objects.all()
-    form     = forms.MaintenanceForm
+    form = forms.MaintenanceForm
+
+
+    def post(self, request, *args, **kwargs):
+        obj = self.get_object(**kwargs)
+        form = self.form( data=request.POST, files=request.FILES, instance=obj )
+    
+        object_created = form.instance.pk is None
+    
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    instance = form.save( commit=False )
+                    instance.save()
+                    form.save_m2m()
+
+                    # Log creation or update
+                    if object_created:
+                        instance.create_maintenance_window()
+                    else:
+                        instance.update_maintenance_window()
+    
+            except Exception as e:
+                messages.error(request, f"Failed to sync with external system: {e}")
+                return self.get( request, *args, **kwargs )
+
+            return redirect('plugins:netbox_zabbix:maintenance_list')
+    
+        return self.get( request, *args, **kwargs )# Invalid form
 
 
 class MaintenanceDeleteView(generic.ObjectDeleteView):
@@ -1610,6 +1640,24 @@ class MaintenanceDeleteView(generic.ObjectDeleteView):
     Delete a Zabbix Maintenance window.
     """
     queryset = Maintenance.objects.all()
+
+
+class MaintenanceBulkDeleteView(generic.BulkDeleteView):
+    """
+    Bulk delete multiple Maintenance instances.
+    """
+    queryset = Maintenance.objects.all()
+    table    = tables.MaintenanceTable
+    
+    def get_return_url(self, request, obj=None):
+        """
+        Return URL after deletion.
+        
+        Returns:
+            str: URL to EventLog list view.
+        """
+        return reverse( 'plugins:netbox_zabbix:maintenance_list' )
+
 
 
 @register_model_view(Maintenance, 'host_configs')

@@ -1211,6 +1211,7 @@ class BaseHostInterfaceForm(NetBoxModelForm):
             "port",
         )
 
+
     def __init__(self, *args, **kwargs):
         """
         Initialize form for creating or editing an interface.
@@ -1300,7 +1301,6 @@ class BaseHostInterfaceForm(NetBoxModelForm):
             logger.info( "HostConfig is Not defined" )
 
 
-
     def clean(self):
         """
         Validate DNS and interface constraints for host configuration.
@@ -1321,6 +1321,7 @@ class BaseHostInterfaceForm(NetBoxModelForm):
             is_valid_interface( host_config, self.interface_type_choice )
         except Exception as e:
             raise ValidationError( f"{str( e )}" )
+
 
     def save(self, commit=True):
         """
@@ -1467,5 +1468,7 @@ class MaintenanceForm(NetBoxModelForm):
 
         # Hide the 'tags' field on "add" and "edit" view
         self.fields.pop('tags', None)
+
+
 
 # end

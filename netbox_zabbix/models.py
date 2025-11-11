@@ -35,6 +35,7 @@ from virtualization.models import Cluster
 from netbox_zabbix.logger import logger
 
 
+
 # ------------------------------------------------------------------------------
 # Choices
 # ------------------------------------------------------------------------------
@@ -1758,63 +1759,86 @@ class Maintenance(NetBoxModel):
 
 
 
+    def _build_params(self):
+        """
+        Construct the parameters dict for Zabbix API create/update maintenance call.
+        """
+        hostids = [hc.hostid for hc in self.get_matching_host_configs()]
+        if not hostids:
+            raise ValueError("No hosts found to include in maintenance window.")
+    
+        params = {
+            "name": self.name,
+            "active_since": int(self.start_time.timestamp()),
+            "active_till": int(self.end_time.timestamp()),
+            "hostids": hostids,
+            "description": self.description or "",
+            "tags_evaltype": 0,  # 0 = AND
+            "timeperiods": [{
+                "timeperiod_type": 0,  # One-time period
+                "start_date": int(self.start_time.timestamp()),
+                "period": int((self.end_time - self.start_time).total_seconds())
+            }],
+        }
+        return params
 
-#    def sync_to_zabbix(self):
-#        from netbox_zabbix.zabbix import create_maintenance, update_maintenance
-#
-#        hostids = [hc.hostid for hc in self.get_matching_host_configs() if hc.hostid]
-#    
-#        params = {
-#            "name":          self.name,
-#            "active_since":  int(self.start_time.timestamp()),
-#            "active_till":   int(self.end_time.timestamp()),
-#            "hostids":       hostids,
-#            "description":   self.description or "",
-#            "tags_evaltype": 0,
-#            "timeperiods": [{
-#                "timeperiod_type": 0,  # One-time only
-#                "start_date":      int(self.start_time.timestamp()),
-#                "period":          int((self.end_time - self.start_time).total_seconds())
-#            }],
-#        }
-#    
-#        if not hostids:
-#            raise ValueError("No hosts found to include in maintenance window.")
-#    
-#        if self.zabbix_id:
-#            
-#            update_maintenance({ "maintenanceid": self.zabbix_id, **params })
-#            self.status = "active"
-#            logger.info( f"hostids {hostids}" )
-#
-#        else:
-#            result = create_maintenance(params)
-#            self.zabbix_id = result["maintenanceids"][0]
-#            self.status = "active"
-#    
-#        super().save( update_fields=["zabbix_id", "status"] )
-#
-#
-#    def save(self, *args, **kwargs):
-#        super().save(*args, **kwargs)
-#    
-#        try:
-#            self.sync_to_zabbix()
-#        except Exception as e:
-#            logger.exception(f"Failed to sync maintenance '{self.name}' to Zabbix: {e}")
-#            self.status = "failed"
-#            super().save(update_fields=["status"])
-#
-#
-#    def delete(self, *args, **kwargs):
-#        from netbox_zabbix.zabbix import delete_maintenance
-#        if self.zabbix_id:
-#            from netbox_zabbix.api import zabbix_api_client
-#            try:
-#                delete_maintenance( self.zabbix_id )
-#            except Exception as e:
-#                logger.warning(f"Failed to delete maintenance {self.name} ({self.zabbix_id}) from Zabbix: {e}")
-#        super().delete(*args, **kwargs)
+
+    def create_maintenance_window(self):
+        """
+        Create a new maintenance window in Zabbix.
+        """
+        from netbox_zabbix.zabbix import create_maintenance
+        
+        params = self._build_params()
+        logger.info(f"Creating Zabbix maintenance for hosts: {params['hostids']}")
+
+        try:
+            result = create_maintenance(params)
+            self.zabbix_id = result["maintenanceids"][0]
+            self.status = "active"
+
+            # Save NetBox object atomically
+            super().save(update_fields=["zabbix_id", "status"])
+        except Exception as e:
+            raise e
+
+
+    def update_maintenance_window(self):
+        """
+        Update an existing maintenance window in Zabbix.
+        """
+        from netbox_zabbix.zabbix import update_maintenance
+        
+        if not self.zabbix_id:
+            raise ValueError("Cannot update maintenance: zabbix_id not set.")
+        
+        params = self._build_params()
+        params["maintenanceid"] = self.zabbix_id
+    
+        logger.info(f"Updating Zabbix maintenance {self.zabbix_id} for hosts: {params['hostids']}")
+
+        try:
+            update_maintenance(params)
+    
+            self.status = "active"
+            super().save(update_fields=["status"])
+        except Exception as e:
+            raise e
+
+
+
+    def delete(self, *args, **kwargs):
+        """
+        Delete an existing maintenance window in Zabbix.
+        """
+        from netbox_zabbix.zabbix import delete_maintenance 
+        
+        if self.zabbix_id:
+            try:
+                delete_maintenance( self.zabbix_id )
+            except Exception as e:
+                raise e
+        super().delete(*args, **kwargs)
 
 
 # ------------------------------------------------------------------------------
