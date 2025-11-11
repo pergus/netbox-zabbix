@@ -316,16 +316,26 @@ class VMMappingFilterSet(VirtualMachineFilterSet):
 # Host Configuration
 # ------------------------------------------------------------------------------
 
+from django_filters import ModelMultipleChoiceFilter
 
 class HostConfigFilterSet(NetBoxModelFilterSet):
     """
     Filter set for Zabbix host configurations.
     """
+
+    templates = django_filters.ModelMultipleChoiceFilter(
+        field_name='templates',  # use the actual field name
+        queryset=Template.objects.all(),
+        label='Templates'
+    )
+
     class Meta:
         model = HostConfig
         fields = (
             'name', 'content_type', 'description',
         )
+
+    
 
     def search(self, queryset, name, value):
         """
