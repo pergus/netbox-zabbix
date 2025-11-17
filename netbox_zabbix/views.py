@@ -1337,6 +1337,18 @@ class HostConfigEditView(generic.ObjectEditView):
     queryset = HostConfig.objects.all()
     form     = forms.HostConfigForm
 
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object( **kwargs )
+    
+        # Prevent editing if the host is in active maintenance
+        if obj.in_maintenance:
+            active_maintenances = ", ".join( [m.name for m in obj.active_maintenances] )
+            messages.warning( request, f"HostConfig '{obj.name}' is currently under maintenance: {active_maintenances}. Editing is not allowed." )
+            return redirect( self.get_return_url( request, obj ) )
+    
+        return super().dispatch( request, *args, **kwargs )
+
+
 
 class HostConfigDeleteView(generic.ObjectDeleteView):
     """

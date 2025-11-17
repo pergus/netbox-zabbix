@@ -12,7 +12,7 @@
 
 {% if config %}
 <div class="row">
-    <div class="col col-md-12">
+    <div class="col col-md-8">
         <div class="card">
             <h5 class="card-header">Device Zabbix Config</h5>
             <div class="card-body">
@@ -81,7 +81,61 @@
                 </table>
             </div>
         </div>
+
+        
     </div>
+
+        <div class="col col-md-4">
+            <div class="card">
+                <h5 class="card-header">Maintenance</h5>
+                <div class="card-body">
+                    <table class="table table-hover attr-table">
+                        <tr>
+                            <th>Active Maintenance</th>
+                            {% if config.active_maintenances %}
+                            <td>
+                                {% for active in config.active_maintenances %}
+                                <a href="{{ active.get_absolute_url }}" class="badge text-bg-primary">{{ active.name }}</a>
+                                {% endfor %}
+                            </td>
+                            {% else %}
+                            <td> — </td>
+                            {% endif %}
+        
+                        </tr>
+        
+                        <tr>
+                            <th>In Maintenance</th>
+                            <td>
+                                {% if config.in_maintenance %}
+                                <span class="badge text-bg-primary">Yes</span>
+                                {% else %}
+                                <span class="badge text-bg-secondary">No</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+        
+                </div>
+            </div>
+        
+        
+            <div class="card">
+                <h5 class="card-header">Tags</h5>
+                <div class="card-body">
+                    <table class="table table-hover attr-table">
+                        {% for tag in config.zabbix_tags %}
+                        <tr>
+                            <td>{{ tag.tag }}</td>
+                            <td>{{ tag.value }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+        
+        </div>
+    
 </div>
 
 <div class="row">
