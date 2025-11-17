@@ -26,14 +26,11 @@ from django.contrib.contenttypes.models import ContentType
 # NetBox imports
 from utilities.forms.fields import (
     ContentTypeChoiceField, 
-    DynamicModelChoiceField, 
-    DynamicModelMultipleChoiceField
+    DynamicModelChoiceField
 )
 from utilities.forms.widgets import DateTimePicker
 from utilities.forms.rendering import FieldSet
 from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
-from dcim.models import Site
-from virtualization.models import Cluster
 
 
 # NetBox Zabbix plugin imports
@@ -62,14 +59,15 @@ from netbox_zabbix.models import (
     UnAssignedHostInterfaces,
     UnAssignedHostIPAddresses,
 )
-from netbox_zabbix.utils import (
-    create_custom_field,
-    validate_templates,
-    validate_templates_and_interface,
-    is_valid_interface,
+
+from netbox_zabbix.netbox.model_ops import create_custom_field
+from netbox_zabbix.zabbix.templates import (
+    validate_templates, 
+    validate_templates_and_interface, 
+    is_valid_interface 
 )
-from netbox_zabbix.inventory_properties import inventory_properties
-from netbox_zabbix import zabbix as z
+from netbox_zabbix.zabbix.inventory_properties import inventory_properties
+from netbox_zabbix import zabbix as zapi
 from netbox_zabbix import settings
 from netbox_zabbix.logger import logger
 
@@ -234,8 +232,8 @@ class SettingForm(NetBoxModelForm):
     
         # Check connection/token
         try:
-            z.validate_zabbix_credentials( self.cleaned_data['api_endpoint'], self.cleaned_data['token'] )
-            self.instance.version = z.fetch_version_from_credentials( self.cleaned_data['api_endpoint'], self.cleaned_data['token'] )
+            zapi.validate_zabbix_credentials( self.cleaned_data['api_endpoint'], self.cleaned_data['token'] )
+            self.instance.version = zapi.fetch_version_from_credentials( self.cleaned_data['api_endpoint'], self.cleaned_data['token'] )
             self.instance.connection = True
             self.instance.last_checked_at = now()
         except Exception:
@@ -354,7 +352,7 @@ class ProxyFilterForm(NetBoxModelFilterSetForm):
         super().__init__(*args, **kwargs)
     
          # Set proxyid choices dynamically on instantiation
-        proxyids = Proxy.objects.order_by('proxyid').distinct('proxyid').values_list('proxyid', flat=True)
+        proxyids = Proxy.objects.order_by( 'proxyid' ).distinct( 'proxyid' ).values_list( 'proxyid', flat=True )
         choices = [("", "---------")] + [(zid, zid) for zid in proxyids if zid is not None]
         self.fields["proxyid"].choices = choices
 
@@ -382,7 +380,7 @@ class ProxyGroupForm(NetBoxModelForm):
         super().__init__( *args, **kwargs )
     
         # Hide the 'tags' field on "add" and "edit" view
-        self.fields.pop('tags', None)
+        self.fields.pop( 'tags', None )
 
 
 class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
@@ -401,7 +399,7 @@ class ProxyGroupFilterForm(NetBoxModelFilterSetForm):
         super().__init__(*args, **kwargs)
 
          # Set proxyid choices dynamically on instantiation
-        proxy_groupids = ProxyGroup.objects.order_by('proxy_groupid').distinct('proxy_groupid').values_list('proxy_groupid', flat=True)
+        proxy_groupids = ProxyGroup.objects.order_by( 'proxy_groupid' ).distinct( 'proxy_groupid' ).values_list( 'proxy_groupid', flat=True )
         choices = [("", "---------")] + [(zid, zid) for zid in proxy_groupids if zid is not None]
         self.fields["proxy_groupid"].choices = choices
 
@@ -1256,24 +1254,6 @@ class BaseHostInterfaceForm(NetBoxModelForm):
                 self.fields["dns_name"].disabled = True
             return
 
-        # Creating a new interface
-#        if not self.instance.pk:
-#            try:
-#                host_config = HostConfig.objects.get( id=self.initial["host_config"] )
-#                self.initial["name"] = f"{host_config.assigned_object.name}-{self.default_name_suffix}"
-#
-#                # Apply Agent defaults if any
-#                for field, value in self.agent_defaults.items():
-#                    logger.info( f"field({field}): {value}" )
-#                    self.initial[field] = value
-#                
-#                # Apply SNMP defaults if any
-#                for field, value in self.snmp_defaults.items():
-#                    logger.info( f"field({field}): {value}" )
-#                    self.initial[field] = value
-#            except Exception as e:
-#                logger.info( f"Exception { str( e ) }" )
-#                pass
         # Creating new interface
         logger.info( "BaseHostInterfaceForm: New Interface" )
         

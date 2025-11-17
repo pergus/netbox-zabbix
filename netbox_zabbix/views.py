@@ -47,7 +47,16 @@ from utilities.views import ViewTab, register_model_view
 from virtualization.models import VirtualMachine
 
 # NetBox Zabbix plugin imports
-from netbox_zabbix import settings, filtersets, forms, jobs, tables, zabbix as z
+from netbox_zabbix import settings, filtersets, forms, tables
+from netbox_zabbix.jobs.host import UpdateZabbixHost
+from netbox_zabbix.jobs.imports import ImportZabbixSettings, ImportHost
+from netbox_zabbix.jobs.validate import ValidateHost
+from netbox_zabbix.jobs.provision import ProvisionAgent, ProvisionSNMP
+
+
+
+from netbox_zabbix.zabbix import api as zapi
+
 from netbox_zabbix.models import (
     InterfaceTypeChoices,
     Setting,
@@ -66,11 +75,8 @@ from netbox_zabbix.models import (
     Maintenance,
     EventLog,
 )
-from netbox_zabbix.utils import (
-    validate_quick_add, 
-    can_delete_interface,
-    is_interface_available,
-)
+from netbox_zabbix.zabbix.validation import validate_quick_add
+from netbox_zabbix.netbox.model_ops import can_delete_interface, is_interface_available
 from netbox_zabbix.logger import logger
 
 
@@ -183,8 +189,8 @@ def zabbix_check_connection(request):
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
 
     try:
-        z.validate_zabbix_credentials_from_config()
-        settings.set_version( z.get_version() )
+        zapi.validate_zabbix_credentials_from_config()
+        settings.set_version( zapi.get_version() )
         settings.set_connection( status=True )
         settings.set_last_checked( timezone.now() )
         messages.success( request, "Connection to Zabbix succeeded" )
@@ -224,7 +230,7 @@ def sync_with_zabbix(request):
     try:
         host_config_id = request.GET.get( "host_config_id" )
         host_config = HostConfig.objects.get( id=host_config_id )
-        jobs.UpdateZabbixHost.run_job_now( host_config=host_config, request=request )
+        UpdateZabbixHost.run_job_now( host_config=host_config, request=request )
         messages.success( request, f"Sync {host_config.name} with Zabbix succeeded." )
     except Exception as e:
         messages.error( request, f"Failed to sync {host_config.name} with Zabbix. Reason: { str( e ) }" )
@@ -249,7 +255,7 @@ def zabbix_import_settings(request):
     """
     redirect_url = request.META.get( 'HTTP_REFERER', '/' )
     try:
-        jobs.ImportZabbixSettings.run_now()
+        ImportZabbixSettings.run_now()
     except Exception as e:
         raise e
     
@@ -356,7 +362,7 @@ def run_import_templates(request=None):
         tuple: (added_templates, deleted_templates, error)
     """
     try:
-        added, deleted = z.import_templates()
+        added, deleted = zapi.import_templates()
 
         if request is not None:
             msg_lines = ["Importing Zabbix Templates succeeded."]
@@ -468,7 +474,7 @@ def run_import_proxies(request=None):
         tuple: (added_proxies, deleted_proxies, error)
     """
     try:
-        added, deleted = z.import_proxies()
+        added, deleted = zapi.import_proxies()
 
         if request is not None:
             msg_lines = ["Importing Zabbix Proxies succeeded."]
@@ -579,7 +585,7 @@ def run_import_proxy_groups(request=None):
         tuple: (added_groups, deleted_groups, error)
     """
     try:
-        added, deleted = z.import_proxy_groups()
+        added, deleted = zapi.import_proxy_groups()
         if request is not None:
             msg_lines = ["Import Zabbix Proxy Groups succeeded."]
             if added:
@@ -697,7 +703,7 @@ def run_import_host_groups(request=None):
         tuple: (added_hostgroups, deleted_hostgroups, error)
     """
     try:
-        added, deleted = z.import_host_groups()
+        added, deleted = zapi.import_host_groups()
 
         if request is not None:
             msg_lines = ["Importing Zabbix Hostgroups succeeded."]
@@ -1308,7 +1314,7 @@ class HostConfigView(generic.ObjectView):
         problems = []
         table = None
         try:
-            problems = z.get_problems( instance.assigned_object.name )
+            problems = zapi.get_problems( instance.assigned_object.name )
         except:
             pass
         table = tables.ZabbixProblemTable( problems )
@@ -1736,7 +1742,7 @@ class ImportableHostsListView(generic.ObjectListView):
         query = request.GET.get("q", "").strip().lower()
 
         try:
-            zabbix_hostnames = z.get_cached_zabbix_hostnames()
+            zabbix_hostnames = zapi.get_cached_zabbix_hostnames()
         except Exception as e:
             messages.error( request, f"Error fetching hostnames from Zabbix: {e}" )
             zabbix_hostnames = []
@@ -1797,7 +1803,7 @@ class ImportableHostsListView(generic.ObjectListView):
                     host_identifier = selected_hosts[0]
                     pk, content_type_id = host_identifier.split( ":" )
                     instance = get_instance_from_ct_and_pk( content_type_id, pk )
-                    result = jobs.ValidateHost.run_now(
+                    result = ValidateHost.run_now(
                         instance=instance,
                         request=request,
                         name=f"Validate {instance.name}"
@@ -1820,7 +1826,7 @@ class ImportableHostsListView(generic.ObjectListView):
                     try:
                         pk, content_type_id = host_identifier.split( ":" )
                         instance = get_instance_from_ct_and_pk( content_type_id, pk )
-                        job = jobs.ImportHost.run_job( instance=instance, request=request )
+                        job = ImportHost.run_job( instance=instance, request=request )
     
                         message = mark_safe(
                             f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> '
@@ -1879,7 +1885,7 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
         query = request.GET.get("q", "").strip().lower()
         
         try:
-            zabbix_hostnames = z.get_cached_zabbix_hostnames()
+            zabbix_hostnames = zapi.get_cached_zabbix_hostnames()
         except Exception as e:
             messages.error( request, f"Error fetching hostnames from Zabbix: {e}" )
             zabbix_hostnames = []
@@ -2080,7 +2086,7 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
                         pk, content_type_id = host_identifier.split( ":" )
                         instance = get_instance_from_ct_and_pk( content_type_id, pk )
 
-                        job = jobs.ProvisionAgent.run_job( instance=instance, request=request )
+                        job = ProvisionAgent.run_job( instance=instance, request=request )
             
                         message = mark_safe(
                             f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> '
@@ -2110,7 +2116,7 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
                         pk, content_type_id = host_identifier.split( ":" )
                         instance = get_instance_from_ct_and_pk( content_type_id, pk )
         
-                        job = jobs.ProvisionSNMP.run_job( instance=instance, request=request )
+                        job = ProvisionSNMP.run_job( instance=instance, request=request )
             
                         message = mark_safe(
                             f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> '
@@ -2151,7 +2157,7 @@ class ZabbixOnlyHostsView(GenericTemplateView):
 
         error_occurred = False
         try:            
-            data        = z.get_zabbix_only_hostnames()
+            data        = zapi.get_zabbix_only_hostnames()
             web_address = settings.get_zabbix_web_address()
 
         except settings.ZabbixSettingNotFound as e:
@@ -2297,7 +2303,7 @@ class HostConfigProblemsTabView(generic.ObjectView):
     Tab view to display Zabbix problems for a HostConfig.
     """
     queryset      = HostConfig.objects.all()
-    tab           = ViewTab( label="Zabbix Problems", badge=lambda instance: len( z.get_problems( instance.assigned_object.name ) ) )
+    tab           = ViewTab( label="Zabbix Problems", badge=lambda instance: len( zapi.get_problems( instance.assigned_object.name ) ) )
     template_name = 'netbox_zabbix/host_config_zabbix_problems_tab.html'
 
 
@@ -2319,7 +2325,7 @@ class HostConfigProblemsTabView(generic.ObjectView):
         # Zabbix problems table
         problems = []
         try:
-            problems = z.get_problems(instance.assigned_object.name)
+            problems = zapi.get_problems(instance.assigned_object.name)
         except Exception:
             pass
         problems_table = tables.ZabbixProblemTable(problems)
@@ -2403,7 +2409,7 @@ class ZabbixDeviceTabView(generic.ObjectView):
     tab = ViewTab(
         label="Zabbix",
         hide_if_empty=True,
-        badge=lambda device: str( len( z.get_problems( device.name ) )
+        badge=lambda device: str( len( zapi.get_problems( device.name ) )
         ) if HostConfig.objects.filter(
             content_type=ContentType.objects.get_for_model( Device ),
             object_id=device.pk
@@ -2432,7 +2438,7 @@ class ZabbixDeviceTabView(generic.ObjectView):
 
         if config:
             try:
-                problems = z.get_problems( device.name )
+                problems = zapi.get_problems( device.name )
             except:
                 problems = []
             table = tables.ZabbixProblemTable( problems )
@@ -2464,7 +2470,7 @@ class VMVirtualMachineTabView(generic.ObjectView):
     tab = ViewTab(
         label="Zabbix",
         hide_if_empty=True,
-        badge=lambda device: str( len( z.get_problems( device.name ) )
+        badge=lambda device: str( len( zapi.get_problems( device.name ) )
         ) if HostConfig.objects.filter(
             content_type=ContentType.objects.get_for_model( VirtualMachine ),
             object_id=device.pk
@@ -2492,7 +2498,7 @@ class VMVirtualMachineTabView(generic.ObjectView):
 
         if config:
             try:
-                problems = z.get_problems( vm.name )
+                problems = zapi.get_problems( vm.name )
             except:
                 problems = []
             table = tables.ZabbixProblemTable( problems )

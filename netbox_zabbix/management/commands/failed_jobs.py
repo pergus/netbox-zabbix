@@ -4,7 +4,7 @@ from rich.console import Console
 from rich.table import Table
 from django_rq import get_queue
 from rq.registry import FailedJobRegistry
-
+from rq.job import Job
 
 class Command(BaseCommand):
     help = "Delete or list failed jobs"
@@ -13,8 +13,8 @@ class Command(BaseCommand):
         # Add a positional argument 'action' that can be 'list' or 'delete'
         parser.add_argument(
             "action",
-            choices=["list", "delete"],
-            help="Action to perform: list or delete failed jobs"
+            choices=["list", "delete", "rerun" ],
+            help="Action to perform: list, delete or rerun failed jobs"
         )
 
     def handle(self, *args, **options):
@@ -24,6 +24,9 @@ class Command(BaseCommand):
             self.list_failed_jobs()
         elif action == "delete":
             self.delete_failed_jobs()
+        elif action == "rerun":
+            self.rerun_failed_jobs()
+
 
     def list_failed_jobs(self):
         console = Console()
@@ -44,3 +47,32 @@ class Command(BaseCommand):
             failed_registry.remove( job_id, delete_job=True )
             self.stdout.write( self.style.SUCCESS( f"Deleted job {job_id}" ) )
         self.stdout.write( self.style.SUCCESS( "All failed jobs have been deleted." ) )
+
+
+    def rerun_failed_jobs(self):
+         queue = get_queue("default")
+         failed_registry = FailedJobRegistry(queue=queue)
+    
+         job_ids = failed_registry.get_job_ids()
+    
+         if not job_ids:
+             self.stdout.write(self.style.WARNING("No failed jobs found."))
+             return
+    
+         for job_id in job_ids:
+             job = Job.fetch(job_id, connection=queue.connection)
+    
+             # Requeue the job
+             queue.enqueue_job(job)
+    
+             # Remove from failed registry
+             # Set delete_job=False so the original job object remains
+             failed_registry.remove(job_id, delete_job=False)
+    
+             self.stdout.write(
+                 self.style.SUCCESS(f"Requeued job {job_id}")
+             )
+    
+         self.stdout.write(
+             self.style.SUCCESS("All failed jobs have been requeued.")
+         )

@@ -130,7 +130,7 @@ urlpatterns = (
 
     path( 'tag/mappings/',                    views.TagMappingListView.as_view(),   name='tagmapping_list' ),
     path( 'tag/mappings/add/',                views.TagMappingEditView.as_view(),   name='tagmapping_add' ),
-    path( 'tag/mappings/<int:pk>/',           views.TagMappingView.as_view(),      name='tagmapping' ),
+    path( 'tag/mappings/<int:pk>/',           views.TagMappingView.as_view(),       name='tagmapping' ),
     path( 'tag/mappings/<int:pk>/edit/',      views.TagMappingEditView.as_view(),   name='tagmapping_edit' ),
     path( 'tag/mappings/<int:pk>/delete/',    views.TagMappingDeleteView.as_view(), name='tagmapping_delete' ),
     path( 'tag/mappings/<int:pk>/changelog/', ObjectChangeLogView.as_view(),        name='tagmapping_changelog', kwargs={'model': models.TagMapping} ),
@@ -209,14 +209,13 @@ urlpatterns = (
     # SNMP Interface
     # --------------------------------------------------------------------------
 
-    path( 'snmp-interface/',                     views.SNMPInterfaceListView.as_view(),        name='snmpinterface_list' ),
-    path( 'snmp-interface/add/',                 views.SNMPInterfaceEditView.as_view(),        name='snmpinterface_add' ),
-    path( 'snmp-interface/<int:pk>/',            views.SNMPInterfaceView.as_view(),            name='snmpinterface' ),
-    path( 'snmp-interface/<int:pk>/edit/',       views.SNMPInterfaceEditView.as_view(),        name='snmpinterface_edit' ),
-    path( 'snmp-interface/<int:pk>/delete/',     views.SNMPInterfaceDeleteView.as_view(),      name='snmpinterface_delete' ),
-    path( 'snmp-interface/delete/',              views.SNMPInterfaceBulkDeleteView.as_view(),  name='snmpinterface_bulk_delete' ),
-    path( 'snmp-interface/<int:pk>/changelog/',  ObjectChangeLogView.as_view(),                name='snmpinterface_changelog', kwargs={'model': models.SNMPInterface} ),
-
+    path( 'snmp-interface/',                     views.SNMPInterfaceListView.as_view(),       name='snmpinterface_list' ),
+    path( 'snmp-interface/add/',                 views.SNMPInterfaceEditView.as_view(),       name='snmpinterface_add' ),
+    path( 'snmp-interface/<int:pk>/',            views.SNMPInterfaceView.as_view(),           name='snmpinterface' ),
+    path( 'snmp-interface/<int:pk>/edit/',       views.SNMPInterfaceEditView.as_view(),       name='snmpinterface_edit' ),
+    path( 'snmp-interface/<int:pk>/delete/',     views.SNMPInterfaceDeleteView.as_view(),     name='snmpinterface_delete' ),
+    path( 'snmp-interface/delete/',              views.SNMPInterfaceBulkDeleteView.as_view(), name='snmpinterface_bulk_delete' ),
+    path( 'snmp-interface/<int:pk>/changelog/',  ObjectChangeLogView.as_view(),               name='snmpinterface_changelog', kwargs={'model': models.SNMPInterface} ),
 
     # --------------------------------------------------------------------------
     # Importable Hosts
@@ -263,7 +262,6 @@ urlpatterns = (
     path( 'maintenance/<int:pk>/delete/',       views.MaintenanceDeleteView.as_view(),      name='maintenance_delete' ),
     path( 'maintenance/delete/',                views.MaintenanceBulkDeleteView.as_view(),  name='maintenance_bulk_delete' ),
     path( 'maintenance/<int:pk>/host_configs/', views.MaintenanceHostConfigsView.as_view(), name='maintenance_host_configs' ),
-    
-    path( 'maintenance/<int:pk>/changelog', ObjectChangeLogView.as_view(),                   name='maintenance_changelog', kwargs={'model': models.Maintenance} ),
+    path( 'maintenance/<int:pk>/changelog',     ObjectChangeLogView.as_view(),              name='maintenance_changelog', kwargs={'model': models.Maintenance} ),
     
  ) 

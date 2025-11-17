@@ -9,6 +9,8 @@ and map attributes from NetBox objects to Zabbix.
 Only properties listed here are considered legal and will be included in the
 inventory payload sent to Zabbix.
 """
+
+
 # Valid inventory property keys
 inventory_properties = [
     "alias",

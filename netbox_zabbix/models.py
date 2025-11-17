@@ -1043,7 +1043,7 @@ class DeviceMapping(Mapping):
         exclude_ids = set()
         for m in candidates:
             if is_more_specific(candidate_fields[m.pk], self_fields):
-                exclude_ids.update(device_sets[m.pk])
+                exclude_ids.update( device_sets[m.pk] )
     
         # Step 6: Compute self’s Device
         qs = all_devices
@@ -1055,7 +1055,7 @@ class DeviceMapping(Mapping):
             qs = qs.filter(platform_id__in=self_fields["platforms"])
     
         if exclude_ids:
-            qs = qs.exclude(pk__in=exclude_ids)
+            qs = qs.exclude( pk__in=exclude_ids )
     
         return qs
 
@@ -1229,7 +1229,7 @@ class VMMapping(Mapping):
         exclude_ids = set()
         for m in candidates:
             if is_more_specific(candidate_fields[m.pk], self_fields):
-                exclude_ids.update(vm_sets[m.pk])
+                exclude_ids.update( vm_sets[m.pk] )
     
         # Step 6: Compute self’s VMs
         qs = all_vms
@@ -1241,7 +1241,7 @@ class VMMapping(Mapping):
             qs = qs.filter(platform_id__in=self_fields["platforms"])
     
         if exclude_ids:
-            qs = qs.exclude(pk__in=exclude_ids)
+            qs = qs.exclude( pk__in=exclude_ids )
     
         return qs
     
@@ -1327,7 +1327,7 @@ class HostConfig(NetBoxModel, JobsMixin):
     @property
     def zabbix_tags(self):
         """Return tags for this host configuration suitable for templates."""
-        from netbox_zabbix.jobs import get_tags
+        from netbox_zabbix.zabbix.builders import get_tags # avoid circular import
         return get_tags( self.assigned_object )
 
 
@@ -1350,7 +1350,7 @@ class HostConfig(NetBoxModel, JobsMixin):
         result = []
         for m in maintenances:
             if self in m.get_matching_host_configs():
-                result.append(m)
+                result.append( m )
         return result
 
 
@@ -1367,7 +1367,7 @@ class HostConfig(NetBoxModel, JobsMixin):
         Returns:
             bool: True if host differs from Zabbix configuration, False otherwise.
         """
-        from netbox_zabbix.utils import compare_host_config_with_zabbix_host
+        from netbox_zabbix.netbox.compare import compare_host_config_with_zabbix_host
         try:
             result = compare_host_config_with_zabbix_host( self )
             return result.get( "differ", False )
@@ -1379,7 +1379,7 @@ class HostConfig(NetBoxModel, JobsMixin):
           """
           Returns a checkmark or cross to indicate if the Host Config is in Sync with the Zabbix host.
           """
-          return mark_safe('<span style="color:red;">✘</span>') if self.get_sync_status() else mark_safe('<span style="color:green;">✔</span>')
+          return mark_safe( '<span style="color:red;">✘</span>' ) if self.get_sync_status() else mark_safe( '<span style="color:green;">✔</span>' )
 
 
     def get_sync_diff(self):
@@ -1389,7 +1389,7 @@ class HostConfig(NetBoxModel, JobsMixin):
         Returns:
             dict: JSON-like dictionary describing differences.
         """
-        from netbox_zabbix.utils import compare_host_config_with_zabbix_host
+        from netbox_zabbix.netbox.compare import compare_host_config_with_zabbix_host
         try:
             return compare_host_config_with_zabbix_host( self )
         except:
@@ -1515,7 +1515,7 @@ class BaseInterface(NetBoxModel):
         # Validate interface/IP match
         if ip_address and interface:
             if ip_address.assigned_object != interface:
-                raise ValidationError({ "ip_address": "The selected IP address is not assigned to the selected interface." })
+                raise ValidationError( { "ip_address": "The selected IP address is not assigned to the selected interface." } )
 
 
 # ------------------------------------------------------------------------------
@@ -1705,7 +1705,7 @@ class Maintenance(NetBoxModel):
 
     @property
     def disable_data_collection_value(self):
-        return  mark_safe('<span style="color:green;">✔</span>') if self.disable_data_collection else mark_safe('<span style="color:red;">✘</span>')
+        return  mark_safe( '<span style="color:green;">✔</span>' ) if self.disable_data_collection else mark_safe( '<span style="color:red;">✘</span>' )
 
     def get_matching_host_configs(self):
         qs = HostConfig.objects.all()
@@ -1765,19 +1765,19 @@ class Maintenance(NetBoxModel):
         """
         hostids = [hc.hostid for hc in self.get_matching_host_configs()]
         if not hostids:
-            raise ValueError("No hosts found to include in maintenance window.")
+            raise ValueError( "No hosts found to include in maintenance window." )
     
         params = {
             "name": self.name,
-            "active_since": int(self.start_time.timestamp()),
-            "active_till": int(self.end_time.timestamp()),
-            "hostids": hostids,
-            "description": self.description or "",
+            "active_since":  int( self.start_time.timestamp() ),
+            "active_till":   int( self.end_time.timestamp() ),
+            "hostids":       hostids,
+            "description":   self.description or "",
             "tags_evaltype": 0,  # 0 = AND
             "timeperiods": [{
                 "timeperiod_type": 0,  # One-time period
-                "start_date": int(self.start_time.timestamp()),
-                "period": int((self.end_time - self.start_time).total_seconds())
+                "start_date":      int( self.start_time.timestamp() ),
+                "period":          int( ( self.end_time - self.start_time ).total_seconds() )
             }],
         }
         return params
@@ -1815,10 +1815,10 @@ class Maintenance(NetBoxModel):
         params = self._build_params()
         params["maintenanceid"] = self.zabbix_id
     
-        logger.info(f"Updating Zabbix maintenance {self.zabbix_id} for hosts: {params['hostids']}")
+        logger.info( f"Updating Zabbix maintenance {self.zabbix_id} for hosts: {params['hostids']}" )
 
         try:
-            update_maintenance(params)
+            update_maintenance( params )
     
             self.status = "active"
             super().save(update_fields=["status"])
@@ -1963,8 +1963,6 @@ class UnAssignedHostIPAddresses(IPAddress):
     """Proxy model for unassigned IP addresses."""
     class Meta:
         proxy = True
-
-
 
 
 # end

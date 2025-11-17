@@ -28,7 +28,8 @@ from dcim.models import Device
 from virtualization.models import VirtualMachine
 
 # NetBox Zabbix plugin imports
-from netbox_zabbix import settings, jobs
+from netbox_zabbix import settings
+from netbox_zabbix.jobs.validate import ValidateHost
 from netbox_zabbix.models import (
     InterfaceTypeChoices,
     Maintenance,
@@ -46,12 +47,9 @@ from netbox_zabbix.models import (
     SNMPInterface,
     EventLog
 )
-from netbox_zabbix.utils import (
-    validate_quick_add, 
-    can_delete_interface, 
-    is_interface_available,
-    compare_host_config_with_zabbix_host
-)
+from netbox_zabbix.zabbix.validation import validate_quick_add
+from netbox_zabbix.netbox.model_ops import can_delete_interface, is_interface_available
+from netbox_zabbix.netbox.compare import compare_host_config_with_zabbix_host
 from netbox_zabbix.logger import logger
 
 
@@ -544,16 +542,16 @@ class HostConfigTable(NetBoxTable):
         if not obj:
             return None
         if hasattr(obj, 'device_type'):
-            return reverse('dcim:device', args=[obj.pk])
+            return reverse( 'dcim:device', args=[obj.pk] )
         if hasattr(obj, 'cluster'):
-            return reverse('virtualization:virtualmachine', args=[obj.pk])
+            return reverse( 'virtualization:virtualmachine', args=[obj.pk] )
         return None
 
 
     @classmethod
     def link_site(cls, record):
-        site = getattr(record.assigned_object, 'site', None)
-        return reverse('dcim:site', args=[site.pk]) if site else None
+        site = getattr( record.assigned_object, 'site', None )
+        return reverse( 'dcim:site', args=[site.pk] ) if site else None
 
     
     def render_site(self, record):
@@ -587,13 +585,13 @@ class HostConfigTable(NetBoxTable):
         ✘ in red if not in sync or on error.
         """
         try:
-            result = compare_host_config_with_zabbix_host(record)
+            result = compare_host_config_with_zabbix_host( record )
             if result["differ"]:
-                return mark_safe('<span style="color:red;">✘</span>')
+                return mark_safe( '<span style="color:red;">✘</span>' )
             else:
-                return mark_safe('<span style="color:green;">✔</span>')
+                return mark_safe( '<span style="color:green;">✔</span>' )
         except Exception:
-            return mark_safe('<span style="color:red;">✘</span>')
+            return mark_safe( '<span style="color:red;">✘</span>' )
 
 
 # ------------------------------------------------------------------------------
@@ -624,7 +622,7 @@ class BaseInterfaceTable(NetBoxTable):
         """
         Render a checkmark or cross depending on if an interface can be deleted without having to delete templates.
         """
-        return mark_safe('<span style="color:green;">✔</span>') if can_delete_interface( record ) else mark_safe('<span style="color:red;">✘</span>')
+        return mark_safe( '<span style="color:green;">✔</span>' ) if can_delete_interface( record ) else mark_safe( '<span style="color:red;">✘</span>' )
 
 
     def render_available(self, record):
@@ -736,7 +734,7 @@ class ImportableHostsTable(NetBoxTable):
         key = f"{record.pk}:{record.content_type}"
         if key not in self.reasons:
             try:
-                jobs.ValidateHost.run_now( instance=record )
+                ValidateHost.run_now( instance=record )
                 self.reasons[key] = None
             except Exception as e:
                 self.reasons[key] = e
@@ -899,7 +897,7 @@ class ZabbixOnlyHostTable(tables.Table):
         template_code='<a href="{{web_address}}/zabbix.php?action=host.edit&hostid={{ record.hostid }}">{{ record.name }}</a>',
         verbose_name="Host"
     )
-    hostid = tables.Column(verbose_name="Zabbix Host ID")
+    hostid = tables.Column( verbose_name="Zabbix Host ID" )
 
     class Meta:
         attrs = {'class': 'table table-hover panel-table'}

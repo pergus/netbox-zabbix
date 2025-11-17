@@ -39,8 +39,7 @@ from netbox_zabbix.models import (
     HostConfig,
     AgentInterface,
     SNMPInterface,
-    )
-
+)
 from netbox_zabbix.filtersets import (
     HostGroupFilterSet,
     TagMappingFilterSet,

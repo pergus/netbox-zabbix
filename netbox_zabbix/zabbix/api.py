@@ -1,5 +1,5 @@
 """
-NetBox Zabbix Plugin — Zabbix API Wrapper
+NetBox Zabbix Plugin — Low-level Zabbix API communication layer.
 
 This module provides a set of helper functions and lightweight abstractions
 for interacting with the Zabbix API. It acts as the central integration point
@@ -16,6 +16,7 @@ Note:
 This wrapper relies on the `pyzabbix` library for all API calls and assumes that
 valid credentials and endpoint configuration are stored in the NetBox database.
 """
+
 # Django imports
 from django.utils import timezone
 from django.core.cache import cache
@@ -35,20 +36,26 @@ from netbox_zabbix.settings import (
     get_zabbix_api_endpoint,
     get_zabbix_token,
 )
-from netbox_zabbix import utils as utils
+from netbox_zabbix.zabbix.templates import (
+    populate_templates_with_interface_type,
+    populate_templates_with_dependencies
+)
 from netbox_zabbix.logger import logger
 
 # ------------------------------------------------------------------------------
 # Exceptions
 # ------------------------------------------------------------------------------
 
+
 class ZabbixHostNotFound(Exception):
     """Raised when a Zabbix host is not present in Zabbix."""
     pass
 
+
 # ------------------------------------------------------------------------------
 # API Client Helpers
 # ------------------------------------------------------------------------------
+
 
 def get_zabbix_client():
     """
@@ -453,6 +460,7 @@ def get_host_group(name=None, groupid=None):
         raise e
 
 
+# TODO: Is this used? If not remove it and rename get_host_by_id_with_templates.
 def get_host_by_id(hostid):
     """
     Retrieves detailed information about a single host from Zabbix by hostid.
@@ -526,7 +534,7 @@ def get_host_by_id_with_templates(hostid):
         return host
     except:
         raise
-    
+
 
 # ------------------------------------------------------------------------------
 # Import Settings
@@ -624,12 +632,12 @@ def import_templates(max_deletions=None):
 
     # Calculate and store the interface type for each template
     try:
-        utils.populate_templates_with_interface_type()
+        populate_templates_with_interface_type()
     except Exception as e:
         raise e
     
     # Populate the template with template dependencies.
-    utils.populate_templates_with_dependencies()
+    populate_templates_with_dependencies()
 
     return added_templates, deleted_templates
 
@@ -888,7 +896,7 @@ def delete_maintenance(id):
 
 
 # ------------------------------------------------------------------------------
-# Misc.
+# Problems
 # ------------------------------------------------------------------------------
 
 

@@ -12,7 +12,7 @@ import logging
 
 # Django imports
 from django.db import transaction
-from django.db.models.signals import pre_delete, post_delete, pre_save, post_save, m2m_changed
+from django.db.models.signals import pre_delete, post_delete, pre_save, post_save
 from django.dispatch import receiver
 from django.contrib import messages
 from django.http import HttpRequest
@@ -25,12 +25,13 @@ from ipam.models import IPAddress
 from netbox.context import current_request
 
 # NetBox Zabbix plugin imports
-from netbox_zabbix.zabbix import create_maintenance, update_maintenance, delete_maintenance
-from netbox_zabbix.jobs import (
+from netbox_zabbix.jobs.host import (
     DeleteZabbixHost,
     CreateZabbixHost,
-    UpdateZabbixHost,
-    ImportZabbixSystemJob,
+    UpdateZabbixHost
+)
+from netbox_zabbix.jobs.system import ImportZabbixSystemJob
+from netbox_zabbix.jobs.interface import (
     CreateZabbixInterface,
     UpdateZabbixInterface
 )
