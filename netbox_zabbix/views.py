@@ -981,10 +981,10 @@ class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
         if default_mappings.exists():
             names = ", ".join( [m.name for m in default_mappings] )
             messages.error( request, f"Cannot delete default mapping: {names}" )
-            return redirect('plugins:netbox_zabbix:devicemapping_list' )
+            return redirect( 'plugins:netbox_zabbix:devicemapping_list' )
     
         # No default mappings selected, proceed with normal deletion
-        return super().post(request, *args, **kwargs)
+        return super().post( request, *args, **kwargs )
     
 
     def get_return_url(self, request, obj=None):
@@ -1343,6 +1343,8 @@ class HostConfigDeleteView(generic.ObjectDeleteView):
     Delete a HostConfig instance.
     """
     queryset = HostConfig.objects.all()
+    lookup_field = "pk" 
+
 
     def get_return_url(self, request, obj=None):
         """
@@ -1352,6 +1354,22 @@ class HostConfigDeleteView(generic.ObjectDeleteView):
             str: URL to HostConfig list view.
         """
         return reverse( 'plugins:netbox_zabbix:hostconfig_list' )
+
+
+    def post(self, request, *args, **kwargs):
+        obj = self.get_object( **kwargs )
+    
+        # Prevent deletion if the host is in active maintenance
+        if obj.in_maintenance:
+            active_maintenances = ", ".join( [m.name for m in obj.active_maintenances] )
+            messages.warning( request, f"HostConfig '{obj.name}' is currently under maintenance: {active_maintenances}. It cannot be deleted." )
+            return redirect( self.get_return_url( request, obj ) )
+    
+        # Proceed with deletion
+        obj_name = str( obj )
+        obj.delete()
+        messages.success( request, f"HostConfig '{obj_name}' deleted successfully." )
+        return redirect( self.get_return_url( request, obj ) )
 
 
 class HostConfigBulkDeleteView(generic.BulkDeleteView):
@@ -1369,6 +1387,20 @@ class HostConfigBulkDeleteView(generic.BulkDeleteView):
             str: URL to HostConfig list view.
         """
         return reverse( 'plugins:netbox_zabbix:hostconfig_list' )
+
+    def post(self, request, *args, **kwargs):
+        queryset = self.get_queryset( request ).filter( pk__in=request.POST.getlist( "pk" ) )
+    
+        for obj in queryset:
+            if obj.in_maintenance:
+                active_maintenances = ", ".join( [m.name for m in obj.active_maintenances] )
+                messages.warning( request, f"HostConfig '{obj.name}' is currently under maintenance: {active_maintenances}. It cannot be deleted." )
+            else:
+                obj_name = str( obj )
+                obj.delete( request=request )
+                messages.success( request, f"HostConfig '{obj_name}' deleted successfully." )
+    
+        return redirect(request.GET.get("return_url", "/plugins/netbox_zabbix/host-config/"))
 
 
 # --------------------------------------------------------------------------
@@ -1647,6 +1679,15 @@ class MaintenanceDeleteView(generic.ObjectDeleteView):
     """
     queryset = Maintenance.objects.all()
 
+    def post(self, request, *args, **kwargs):
+        obj = self.get_object()
+        result = obj.delete()
+        
+        if isinstance( result, dict ) and result.get( "warning" ):
+            messages.warning( request, result["message"] )
+    
+        return redirect( self.get_return_url( request, obj ) )
+
 
 class MaintenanceBulkDeleteView(generic.BulkDeleteView):
     """
@@ -1664,6 +1705,19 @@ class MaintenanceBulkDeleteView(generic.BulkDeleteView):
         """
         return reverse( 'plugins:netbox_zabbix:maintenance_list' )
 
+
+    def post(self, request, *args, **kwargs):
+        queryset = self.get_queryset( request ).filter(  pk__in=request.POST.getlist( 'pk' ) )
+        
+        for obj in queryset:
+            try:
+                result = obj.delete()
+                if isinstance( result, dict ) and result.get( "warning" ):
+                    messages.warning( request, result["message"] )
+            except Exception as e:
+                messages.warning(request, f"Failed to delete {obj}: {e}")
+
+        return redirect( request.GET.get( 'return_url', '/plugins/netbox_zabbix/maintenance/' ) )
 
 
 @register_model_view(Maintenance, 'host_configs')

@@ -1412,6 +1412,20 @@ class HostConfig(NetBoxModel, JobsMixin):
         super().save( *args, **kwargs )
 
 
+    def delete(self, request=None, *args, **kwargs):
+        """
+        Custom delete method that checks for active maintenance.
+        If `request` is provided, a warning message is sent instead of raising an exception.
+        """
+        if self.in_maintenance:
+            warning_msg = f"HostConfig '{self.name}' cannot be deleted because it is currently in maintenance."
+            if request:
+                return {"warning": True, "message": warning_msg}
+            else:
+                raise Exception(warning_msg)
+    
+        return super().delete(*args, **kwargs)
+
 # ------------------------------------------------------------------------------
 # Base Interface
 # ------------------------------------------------------------------------------
@@ -1664,10 +1678,7 @@ class Maintenance(NetBoxModel):
     start_time = models.DateTimeField( default=timezone.now, help_text="Maintenence start time." )
     end_time   = models.DateTimeField( help_text="Maintenence end time.")
 
-    disable_data_collection = models.BooleanField(
-        default=False,
-        help_text="Disable data collection in Zabbix during maintenance."
-    )
+    disable_data_collection = models.BooleanField( default=False, help_text="Disable data collection in Zabbix during maintenance." )
 
     host_configs = models.ManyToManyField( HostConfig, blank=True, related_name="zabbix_maintenances", help_text="Host configurations that will be included in this maintenance." )
     sites        = models.ManyToManyField( Site, blank=True, related_name="zabbix_maintenances", help_text="Sites whose hosts will be included in this maintenance." )
@@ -1675,16 +1686,9 @@ class Maintenance(NetBoxModel):
     proxies      = models.ManyToManyField( Proxy, blank=True, related_name="zabbix_maintenances", help_text="Proxy whose hosts will be included in this maintenance." )
     proxy_groups = models.ManyToManyField( ProxyGroup, blank=True, related_name="zabbix_maintenances", help_text="Proxy groups whose hosts will be included in this maintenance." )
     clusters     = models.ManyToManyField( Cluster, blank=True, related_name="zabbix_maintenances", help_text="Clusters whose hosts will be included in this maintenance." )
-
-    zabbix_id = models.CharField(
-        max_length=50,
-        blank=True,
-        null=True,
-        help_text="Unique maintenance ID assigned by Zabbix (if synchronized)."
-    )
-
-    status = models.CharField( max_length=20, choices=STATUS_CHOICES, default='pending', help_text="Current status of the maintenance (Pending, Active, Expired, or Failed)." )
-    description = models.TextField( blank=True, help_text="Optional detailed description of the maintenance purpose or scope." )
+    zabbix_id    = models.CharField( max_length=50, blank=True, null=True, help_text="Unique maintenance ID assigned by Zabbix (if synchronized)." )
+    status       = models.CharField( max_length=20, choices=STATUS_CHOICES, default='pending', help_text="Current status of the maintenance (Pending, Active, Expired, or Failed)." )
+    description  = models.TextField( blank=True, help_text="Optional detailed description of the maintenance purpose or scope." )
     
     
     class Meta:
@@ -1763,7 +1767,7 @@ class Maintenance(NetBoxModel):
         """
         Construct the parameters dict for Zabbix API create/update maintenance call.
         """
-        hostids = [hc.hostid for hc in self.get_matching_host_configs()]
+        hostids = [ hc.hostid for hc in self.get_matching_host_configs() ]
         if not hostids:
             raise ValueError( "No hosts found to include in maintenance window." )
     
@@ -1787,10 +1791,9 @@ class Maintenance(NetBoxModel):
         """
         Create a new maintenance window in Zabbix.
         """
-        from netbox_zabbix.zabbix import create_maintenance
+        from netbox_zabbix.zabbix.api import create_maintenance
         
         params = self._build_params()
-        logger.info(f"Creating Zabbix maintenance for hosts: {params['hostids']}")
 
         try:
             result = create_maintenance(params)
@@ -1798,7 +1801,7 @@ class Maintenance(NetBoxModel):
             self.status = "active"
 
             # Save NetBox object atomically
-            super().save(update_fields=["zabbix_id", "status"])
+            super().save( update_fields=["zabbix_id", "status"] )
         except Exception as e:
             raise e
 
@@ -1807,38 +1810,55 @@ class Maintenance(NetBoxModel):
         """
         Update an existing maintenance window in Zabbix.
         """
-        from netbox_zabbix.zabbix import update_maintenance
+        from netbox_zabbix.zabbix.api import update_maintenance
         
         if not self.zabbix_id:
-            raise ValueError("Cannot update maintenance: zabbix_id not set.")
+            raise ValueError( "Cannot update maintenance: zabbix_id not set." )
         
         params = self._build_params()
         params["maintenanceid"] = self.zabbix_id
     
-        logger.info( f"Updating Zabbix maintenance {self.zabbix_id} for hosts: {params['hostids']}" )
-
         try:
             update_maintenance( params )
     
             self.status = "active"
-            super().save(update_fields=["status"])
+            super().save( update_fields=["status"] )
         except Exception as e:
             raise e
 
 
-
     def delete(self, *args, **kwargs):
         """
-        Delete an existing maintenance window in Zabbix.
+        Attempt to delete Zabbix maintenance. 
+        If it fails, return a warning for the caller to handle.
         """
-        from netbox_zabbix.zabbix import delete_maintenance 
-        
+        from netbox_zabbix.zabbix.api import delete_maintenance
+    
+        zbx_failed = False
+        error_msg = ""
+    
         if self.zabbix_id:
             try:
                 delete_maintenance( self.zabbix_id )
             except Exception as e:
-                raise e
+                zbx_failed = True
+                error_msg = f"Failed to delete maintenance {self.zabbix_id} from Zabbix: {e}"
+                logger.warning( error_msg )
+                self.zabbix_id = None
+    
         super().delete(*args, **kwargs)
+
+        if zbx_failed:
+            return {
+                "warning": True,
+                "message": (
+                    "Zabbix maintenance could not be deleted from Zabbix, "
+                    "but it has been removed from NetBox."
+                ),
+                "detail": error_msg
+            }
+    
+        return None
 
 
 # ------------------------------------------------------------------------------
