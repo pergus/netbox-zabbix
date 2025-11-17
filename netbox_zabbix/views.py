@@ -1670,6 +1670,7 @@ class MaintenanceEditView(generic.ObjectEditView):
     queryset = Maintenance.objects.all()
     form = forms.MaintenanceForm
 
+
     def alter_object(self, obj, request, args, kwargs):
         """
         Called before rendering the form.

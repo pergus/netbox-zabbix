@@ -989,6 +989,7 @@ class ZabbixProblemTable(tables.Table):
 # Maintenance
 # ------------------------------------------------------------------------------
 
+
 class MaintenanceTable(NetBoxTable):
     """
     Table for displaying Zabbix Maintenance.
