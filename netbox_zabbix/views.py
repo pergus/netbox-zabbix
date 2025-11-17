@@ -1338,6 +1338,21 @@ class HostConfigEditView(generic.ObjectEditView):
     form     = forms.HostConfigForm
 
     def dispatch(self, request, *args, **kwargs):
+        """
+        Intercept the request before it reaches form handling to prevent editing.
+        
+        If the HostConfig instance is currently under any active maintenance window,
+        the user is redirected back to the listing view with a warning message. 
+        
+        Args:
+            request (HttpRequest): The current HTTP request.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        
+        Returns:
+            HttpResponse: Either a redirect response if editing is disallowed, 
+                          or proceeds to the normal dispatch if allowed.
+        """
         obj = self.get_object( **kwargs )
     
         # Prevent editing if the host is in active maintenance
@@ -1347,7 +1362,6 @@ class HostConfigEditView(generic.ObjectEditView):
             return redirect( self.get_return_url( request, obj ) )
     
         return super().dispatch( request, *args, **kwargs )
-
 
 
 class HostConfigDeleteView(generic.ObjectDeleteView):
@@ -1656,8 +1670,52 @@ class MaintenanceEditView(generic.ObjectEditView):
     queryset = Maintenance.objects.all()
     form = forms.MaintenanceForm
 
+    def alter_object(self, obj, request, args, kwargs):
+        """
+        Called before rendering the form.
+
+        Sets a default unique name for new objects based on the current user.
+       
+        Note:
+            NetBox's ObjectEditView does not pass the current user to the form __init__,
+            and does not call get_form or get_form_kwargs in a way we can intercept
+            for new objects. Therefore, we override `alter_object` to inject the
+            username directly into the model instance before the form is rendered.
+        """
+        user = getattr( self.request, 'user', None )
+        if obj.pk is None and user and user.is_authenticated:
+            base_name = f"{user.username}-maintenance"
+            name = base_name
+            counter = 0
+        
+            # Keep incrementing until we find a unique name
+            while Maintenance.objects.filter( name=name ).exists():
+                counter += 1
+                name = f"{base_name}-{counter}"
+        
+            obj.name = name
+        
+        return obj
+
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to create or update a Maintenance instance.
+        
+        - Validates form data.
+        - Saves the Maintenance instance and its related objects atomically.
+        - Calls Zabbix API to create or update the maintenance window.
+        - Displays error messages if external synchronization fails.
+        - Redirects to the maintenance list on success.
+        
+        Args:
+            request (HttpRequest): Current HTTP request.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        
+        Returns:
+            HttpResponse: Either the form view with errors or a redirect to the maintenance list.
+        """
         obj = self.get_object(**kwargs)
         form = self.form( data=request.POST, files=request.FILES, instance=obj )
     
@@ -1682,7 +1740,7 @@ class MaintenanceEditView(generic.ObjectEditView):
 
             return redirect('plugins:netbox_zabbix:maintenance_list')
     
-        return self.get( request, *args, **kwargs )# Invalid form
+        return self.get( request, *args, **kwargs )
 
 
 class MaintenanceDeleteView(generic.ObjectDeleteView):
@@ -1692,6 +1750,21 @@ class MaintenanceDeleteView(generic.ObjectDeleteView):
     queryset = Maintenance.objects.all()
 
     def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to delete a Maintenance instance.
+        
+        - Calls the instance's delete method, which may attempt to remove it from Zabbix.
+        - Displays a warning message if deletion from Zabbix fails.
+        - Redirects to the maintenance list after deletion.
+        
+        Args:
+            request (HttpRequest): Current HTTP request.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        
+        Returns:
+            HttpResponse: Redirect to the maintenance list view.
+        """
         obj = self.get_object()
         result = obj.delete()
         
