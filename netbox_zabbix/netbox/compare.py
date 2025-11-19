@@ -107,7 +107,7 @@ def _compare_json(obj_a, obj_b, mode="overwrite"):
     return None, None
 
 
-def _normalize_host(zabbix_host, payload_template):
+def _normalize_zabbix_host(zabbix_host, payload_template):
     """
     Normalize a Zabbix host to match a payload template structure.
     Ensures missing keys exist and have the correct empty type.
@@ -127,12 +127,12 @@ def _normalize_host(zabbix_host, payload_template):
         value = zabbix_host[key]
 
         if isinstance( template_value, dict ) and isinstance( value, dict ):
-            normalized[key] = _normalize_host( value, template_value )
+            normalized[key] = _normalize_zabbix_host( value, template_value )
 
         elif isinstance( template_value, list ) and isinstance( value, list ):
             if template_value and isinstance( template_value[0], dict ):
                 template_elem = template_value[0]
-                normalized[key] = [_normalize_host( item, template_elem ) for item in value]
+                normalized[key] = [_normalize_zabbix_host( item, template_elem ) for item in value]
             else:
                 normalized[key] = list( value )
         else:
@@ -141,14 +141,14 @@ def _normalize_host(zabbix_host, payload_template):
     return normalized
 
 
-def _preprocess_host(host, template):
+def _prepare_host_for_comparison(host, template):
     """
     Preprocess a host dictionary for comparison:
     - Normalize structure
     - Rewrite tags as [{tag: value}]
     - Convert groups/templates to sorted lists of strings
     """
-    normalized = _normalize_host( host, template )
+    normalized = _normalize_zabbix_host( host, template )
 
     # Rewrite tags → [{tag: value}]
     if "tags" in normalized and isinstance( normalized["tags"], list ):
@@ -172,7 +172,7 @@ def _preprocess_host(host, template):
 # Compare Zabbix Configuration and Zabbix Host 
 # ------------------------------------------------------------------------------
 
-def compare_host_config_with_zabbix_host(host_config):
+def compare_host_configuration(host_config):
     """
     Compare a NetBox host configuration with its Zabbix counterpart.
 
@@ -199,8 +199,8 @@ def compare_host_config_with_zabbix_host(host_config):
         except Exception:
             pass
 
-    payload_processed = _preprocess_host( payload, payload )
-    zabbix_processed = _preprocess_host( zabbix_host_raw, payload )
+    payload_processed = _prepare_host_for_comparison( payload, payload )
+    zabbix_processed = _prepare_host_for_comparison( zabbix_host_raw, payload )
 
     netbox_diff, zabbix_diff = _compare_json( payload_processed, zabbix_processed, mode )
 
@@ -233,7 +233,7 @@ def cli_compare_config(name="dk-ece001w"):
     device = models.Device.objects.get( name=name )
     config = device.host_config
 
-    result = compare_host_config_with_zabbix_host( config )
+    result = compare_host_configuration( config )
 
     print( f"{json.dumps( result, indent=2 ) }" )
 

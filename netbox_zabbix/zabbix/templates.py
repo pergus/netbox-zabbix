@@ -31,7 +31,7 @@ from netbox_zabbix.logger import logger
 # ------------------------------------------------------------------------------
 
 
-def compute_interface_type(items):
+def determine_interface_type(items):
     """
     Determine the Zabbix interface type based on item types.
     
@@ -126,7 +126,7 @@ def get_template_dependencies(templateid):
     return deps
 
 
-def populate_templates_with_interface_type():
+def enrich_templates_with_interface_types():
     """
     Populate all Template objects with their computed interface type
     based on associated Zabbix items.
@@ -158,11 +158,11 @@ def populate_templates_with_interface_type():
         for tid in all_ids:
             items.extend( items_by_template.get( tid, [] ) )
 
-        template.interface_type = compute_interface_type( items )
+        template.interface_type = determine_interface_type( items )
         template.save()
 
 
-def populate_templates_with_dependencies():
+def enrich_templates_with_dependencies():
     """
     Populate all Template objects with dependencies based on triggers
     retrieved from Zabbix.

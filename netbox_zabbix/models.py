@@ -1388,9 +1388,9 @@ class HostConfig(NetBoxModel, JobsMixin):
             bool: False if host differs from Zabbix configuration, False otherwise.
         """
         # Do not use the cached 'in_sync' here!
-        from netbox_zabbix.netbox.compare import compare_host_config_with_zabbix_host
+        from netbox_zabbix.netbox.compare import compare_host_configuration
         try:
-            result = compare_host_config_with_zabbix_host( self )
+            result = compare_host_configuration( self )
             return result.get( "differ", False )
         except:
             return False
@@ -1410,9 +1410,9 @@ class HostConfig(NetBoxModel, JobsMixin):
         Returns:
             dict: JSON-like dictionary describing differences.
         """
-        from netbox_zabbix.netbox.compare import compare_host_config_with_zabbix_host
+        from netbox_zabbix.netbox.compare import compare_host_configuration
         try:
-            return compare_host_config_with_zabbix_host( self )
+            return compare_host_configuration( self )
         except:
             return {}
 
@@ -1421,10 +1421,10 @@ class HostConfig(NetBoxModel, JobsMixin):
         """
         Check if the host is in sync with Zabbix and update the database.
         """
-        from netbox_zabbix.netbox.compare import compare_host_config_with_zabbix_host
+        from netbox_zabbix.netbox.compare import compare_host_configuration
     
         try:
-            differ = compare_host_config_with_zabbix_host( self ).get( "differ", False )
+            differ = compare_host_configuration( self ).get( "differ", False )
             self.in_sync = differ["differ"]
             self.last_sync_update = timezone.now()
             self.save( update_fields=["in_sync", "last_sync_update"] )

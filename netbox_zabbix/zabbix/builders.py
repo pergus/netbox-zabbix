@@ -17,7 +17,7 @@ Key functionality:
 
 # NetBox Zabbix Imports
 from netbox_zabbix.zabbix.inventory_properties import inventory_properties
-from netbox_zabbix.helpers import resolve_field_path
+from netbox_zabbix.helpers import resolve_attribute_path
 from netbox_zabbix import settings, models
 from netbox_zabbix.logger import logger
 
@@ -26,7 +26,7 @@ from netbox_zabbix.logger import logger
 # ------------------------------------------------------------------------------
 
 
-def get_zabbix_inventory_for_object(obj):
+def generate_zabbix_inventory(obj):
     """
     Generate a Zabbix inventory dictionary for a Device or VirtualMachine.
     
@@ -65,7 +65,7 @@ def get_zabbix_inventory_for_object(obj):
         paths = field.get( "paths" )
 
         for path in paths:
-            value = resolve_field_path( obj, path )
+            value = resolve_attribute_path( obj, path )
             if value is None:
                 continue
             inventory[invkey] = str( value )
@@ -74,7 +74,7 @@ def get_zabbix_inventory_for_object(obj):
     return inventory
 
 
-def get_zabbix_tags_for_object(obj):
+def generate_zabbix_tags(obj):
     """
     Generate a list of Zabbix tag dictionaries for a Device or VirtualMachine.
     
@@ -120,7 +120,7 @@ def get_zabbix_tags_for_object(obj):
 
         name = field.get( "name" )
         path = field.get( "value" )
-        value = resolve_field_path( obj, path )
+        value = resolve_attribute_path( obj, path )
 
         if value is None:
             continue
@@ -169,7 +169,7 @@ def get_tags(obj, existing_tags=None):
     result = []
 
     # Combine existing and dynamic tags, format and deduplicate in one loop
-    for tag in existing_tags + get_zabbix_tags_for_object( obj ):
+    for tag in existing_tags + generate_zabbix_tags( obj ):
         name = tag['tag']
 
         if tag_name_formatting == models.TagNameFormattingChoices.LOWER:
@@ -237,7 +237,7 @@ def payload(host_config, for_update=False, pre_data=None) -> dict:
 
     # Inventory
     if payload["inventory_mode"] == str( models.InventoryModeChoices.MANUAL ):
-        payload["inventory"] = get_zabbix_inventory_for_object( host_config.assigned_object )
+        payload["inventory"] = generate_zabbix_inventory( host_config.assigned_object )
 
     # TLS
     if settings.get_tls_connect() == models.TLSConnectChoices.PSK or settings.get_tls_accept() == models.TLSConnectChoices.PSK:

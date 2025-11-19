@@ -18,8 +18,8 @@ of missing interfaces between Zabbix and NetBox.
 # NetBox Zabbix Imports
 from netbox_zabbix.jobs.atomicjobrunner import AtomicJobRunner
 from netbox_zabbix.jobs.base import require_kwargs
-from netbox_zabbix.zabbix.hosts import update_host_in_zabbix
-from netbox_zabbix.zabbix.interfaces import link_missing_interface
+from netbox_zabbix.zabbix.hosts import update_zabbix_host
+from netbox_zabbix.zabbix.interfaces import link_missing_zabbix_interface
 from netbox_zabbix import models
 
 
@@ -91,8 +91,8 @@ class CreateZabbixInterface(BaseZabbixInterfaceJob):
                 f"Host Config '{host_config.name}' has no associated Zabbix host id."
             )
 
-        retval = update_host_in_zabbix( host_config, kwargs.get( "user" ), kwargs.get( "request_id" ) )
-        link_missing_interface( host_config, host_config.hostid )
+        retval = update_zabbix_host( host_config, kwargs.get( "user" ), kwargs.get( "request_id" ) )
+        link_missing_zabbix_interface( host_config, host_config.hostid )
         return retval
 
 
@@ -122,6 +122,6 @@ class UpdateZabbixInterface(BaseZabbixInterfaceJob):
             )
 
         # Assoicate the interface with the interfaceid
-        link_missing_interface( host_config, host_config.hostid )
-        return update_host_in_zabbix( host_config, kwargs.get( "user" ), kwargs.get( "request_id" ) )
+        link_missing_zabbix_interface( host_config, host_config.hostid )
+        return update_zabbix_host( host_config, kwargs.get( "user" ), kwargs.get( "request_id" ) )
 

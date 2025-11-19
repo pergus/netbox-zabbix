@@ -4,9 +4,9 @@
 
   | Old Name                                          | New Name                                |
   |---------------------------------------------------|-----------------------------------------|
-  | get_zabbix_inventory_for_object(obj)              | generate_zabbix_inventory(obj)          |
-  | get_zabbix_tags_for_object(obj)                   | generate_zabbix_tags(obj)               |
-  | compare_host_config_with_zabbix_host(host_config) | compare_host_configuration(host_config) |
+X  | get_zabbix_inventory_for_object(obj)              | generate_zabbix_inventory(obj)          |
+X  | get_zabbix_tags_for_object(obj)                   | generate_zabbix_tags(obj)               |
+X  | compare_host_config_with_zabbix_host(host_config) | compare_host_configuration(host_config) |
 
   zabbix/api.py
 
@@ -18,10 +18,10 @@
 
   | Old Name                                             | New Name                                          |
   |------------------------------------------------------|---------------------------------------------------|
-  | create_host_in_zabbix(host_config)                   | create_zabbix_host(host_config)                   |
-  | update_host_in_zabbix(host_config, user, request_id) | update_zabbix_host(host_config, user, request_id) |
-  | hard_delete_zabbix_host(host_config)                 | delete_zabbix_host_permanently(host_config)       |
-  | soft_delete_zabbix_host(host_config)                 | delete_zabbix_host_softly(host_config)            |
+ X | create_host_in_zabbix(host_config)                   | create_zabbix_host(host_config)                   |
+ X | update_host_in_zabbix(host_config, user, request_id) | update_zabbix_host(host_config, user, request_id) |
+ X | hard_delete_zabbix_host(host_config)                 | delete_zabbix_host_permanently(host_config)       |
+ X | soft_delete_zabbix_host(host_config)                 | delete_zabbix_host_softly(host_config)            |
 
   zabbix/interfaces.py
 
@@ -42,8 +42,8 @@
 
   | Old Name                            | New Name                                   |
   |-------------------------------------|--------------------------------------------|
-  | create_custom_field(name, defaults) | create_netbox_custom_field(name, defaults) |
-  | find_ip_address(address)            | lookup_ip_address(address)                 |
+X  | create_custom_field(name, defaults) | create_netbox_custom_field(name, defaults) |
+X  | find_ip_address(address)            | lookup_ip_address(address)                 |
 
   netbox/changelog.py
 
@@ -51,8 +51,8 @@
   |
   |----------------------------------------------------|------------------------------------------------------
   |
-  | changelog_create(instance, user, request_id, data) | log_creation_event(instance, user, request_id, data) |
-  | changelog_update(instance, user, request_id, data) | log_update_event(instance, user, request_id, data) |
+X  | changelog_create(instance, user, request_id, data) | log_creation_event(instance, user, request_id, data) |
+X  | changelog_update(instance, user, request_id, data) | log_update_event(instance, user, request_id, data) |
 
   netbox/jobs.py
 
@@ -73,7 +73,7 @@
 
   | Old Name                                                    | New Name |
   |-------------------------------------------------------------|------------------------------------------------------------------|
-  | apply_mapping_to_config(host_config, mapping, monitored_by) | apply_mapping_to_host_config(host_config mapping, monitored_by) |
+X  | apply_mapping_to_config(host_config, mapping, monitored_by) | apply_mapping_to_host_config(host_config mapping, monitored_by) |
 
   provisioning/handler.py
 
@@ -93,7 +93,7 @@
   | Old Name                                                              | New Name |
   |-----------------------------------------------------------------------|---------------------------------------------------------------------------|
   | resolve_field_path(obj, path)                                         | resolve_nested_attribute(obj,path)                                       |
-  | compute_interface_type(items)                                         | determine_interface_type(items) |
+x  | compute_interface_type(items)                                         | determine_interface_type(items) |
   | collect_template_ids(template, visited=None)                          | gather_template_hierarchy(template, visited=None)                         |
   | get_template_dependencies(templateid)                                 |fetch_template_dependencies(templateid)                                   |
   | populate_templates_with_interface_type()                              |enrich_templates_with_interface_types()                                   |

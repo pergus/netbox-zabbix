@@ -11,7 +11,7 @@ from core.choices import ObjectChangeActionChoices
 # NetBox Zabbix Imports
 from netbox_zabbix import models
 
-def changelog_create( obj, user, request_id ):
+def log_creation_event( obj, user, request_id ):
     """
     Manually log an ObjectChange entry for an object creation in a background job.
 
@@ -34,7 +34,7 @@ def changelog_create( obj, user, request_id ):
         obj_change.save()
 
 
-def changelog_update( obj, user, request_id ):
+def log_update_event( obj, user, request_id ):
     """
     Manually log an ObjectChange entry for an object update in a background job.
 

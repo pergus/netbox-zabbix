@@ -11,7 +11,7 @@ from django.contrib.contenttypes.models import ContentType
 from ipam.models import IPAddress
 
 
-def resolve_field_path(obj, path):
+def resolve_attribute_path(obj, path):
     """
     Resolve a dotted attribute path on an object.
     
@@ -64,9 +64,9 @@ def get_instance(content_type_id, instance_id):
         raise ValueError( f"No instance with id={instance_id} for model {model_class.__name__}" )
 
 
-def find_ip_address(address:str):
+def lookup_ip_address(address:str):
     """
-    Find IPAddress objects in NetBox starting with a given address.
+    Lookup IPAddress objects in NetBox starting with a given address.
     
     Args:
         address (str): IPv4 or IPv6 address without CIDR, e.g., "10.0.0.46".

@@ -22,14 +22,14 @@ from netbox_zabbix.jobs.atomicjobrunner import AtomicJobRunner
 from netbox_zabbix.jobs.base import require_kwargs
 from netbox_zabbix import settings, models
 from netbox_zabbix.netbox.changelog import (
-    changelog_create
+    log_creation_event
 )
 from netbox_zabbix.netbox.jobs import associate_instance_with_job
 from netbox_zabbix.zabbix.hosts import (
-    create_host_in_zabbix,
-    update_host_in_zabbix,
-    hard_delete_zabbix_host,
-    soft_delete_zabbix_host,
+    create_zabbix_host,
+    update_zabbix_host,
+    delete_zabbix_host_hard,
+    delete_zabbix_host_soft,
     
 )
 from netbox_zabbix.netbox.model_ops import (
@@ -66,11 +66,11 @@ class CreateZabbixHost( AtomicJobRunner ):
         host_config = models.HostConfig.objects.get( id=host_config_id )
 
         try:
-            hostid, payload = create_host_in_zabbix( host_config )
+            hostid, payload = create_zabbix_host( host_config )
             host_config.hostid = hostid
 
             save_host_config( host_config )
-            changelog_create( host_config, user, request_id )
+            log_creation_event( host_config, user, request_id )
             associate_instance_with_job( cls.job, host_config )
 
             return {"message": f"Host {host_config.assigned_object.name} added to Zabbix.", "data": payload}
@@ -148,7 +148,7 @@ class UpdateZabbixHost( AtomicJobRunner ):
         request_id        = kwargs.get( "request_id" )
         
         host_config = models.HostConfig.objects.get( id=host_config_id )
-        return update_host_in_zabbix( host_config, user, request_id )
+        return update_zabbix_host( host_config, user, request_id )
 
 
     @classmethod
@@ -241,9 +241,9 @@ class DeleteZabbixHost( AtomicJobRunner ):
         try:
 
             if settings.get_delete_setting() == models.DeleteSettingChoices.HARD:
-                return hard_delete_zabbix_host( hostid )
+                return delete_zabbix_host_hard( hostid )
             else:
-                return soft_delete_zabbix_host( hostid )
+                return delete_zabbix_host_soft( hostid )
 
         except Exception as e:
             msg = f"{ str( e ) }"

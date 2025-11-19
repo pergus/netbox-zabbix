@@ -24,7 +24,7 @@ from netbox_zabbix.zabbix import api as zapi
 from netbox_zabbix.exceptions import ExceptionWithData
 from netbox_zabbix.logger import logger
 
-def link_interface_in_zabbix( hostid, iface, name ):
+def link_zabbix_interface( hostid, iface, name ):
     """
     Link a NetBox interface to its Zabbix interface ID after creation.
     
@@ -52,7 +52,7 @@ def link_interface_in_zabbix( hostid, iface, name ):
     iface.save()
 
 
-def link_missing_interface(host_config, hostid):
+def link_missing_zabbix_interface(host_config, hostid):
     """
     Ensure that any NetBox interface missing a Zabbix interface ID is linked.
    

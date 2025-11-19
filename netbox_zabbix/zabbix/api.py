@@ -37,8 +37,8 @@ from netbox_zabbix.settings import (
     get_zabbix_token,
 )
 from netbox_zabbix.zabbix.templates import (
-    populate_templates_with_interface_type,
-    populate_templates_with_dependencies
+    enrich_templates_with_interface_types,
+    enrich_templates_with_dependencies
 )
 from netbox_zabbix.logger import logger
 
@@ -632,12 +632,12 @@ def import_templates(max_deletions=None):
 
     # Calculate and store the interface type for each template
     try:
-        populate_templates_with_interface_type()
+        enrich_templates_with_interface_types()
     except Exception as e:
         raise e
     
     # Populate the template with template dependencies.
-    populate_templates_with_dependencies()
+    enrich_templates_with_dependencies()
 
     return added_templates, deleted_templates
 

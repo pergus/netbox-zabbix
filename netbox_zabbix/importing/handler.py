@@ -26,7 +26,7 @@ from virtualization.models import VirtualMachine, VMInterface
 # NetBox Zabbix plugin imports
 from netbox_zabbix import models
 from netbox_zabbix.importing.context import ImportHostContext
-from netbox_zabbix.helpers import find_ip_address
+from netbox_zabbix.helpers import lookup_ip_address
 from netbox_zabbix.zabbix.api import (
     import_templates,
     import_proxies,
@@ -34,7 +34,7 @@ from netbox_zabbix.zabbix.api import (
     import_host_groups
 )
 from netbox_zabbix.zabbix.validation import validate_zabbix_host
-from netbox_zabbix.netbox.changelog import changelog_create
+from netbox_zabbix.netbox.changelog import log_creation_event
 from netbox_zabbix.netbox.jobs import associate_instance_with_job
 from netbox_zabbix.zabbix.interfaces import normalize_interface
 from netbox_zabbix.logger import logger
@@ -120,7 +120,7 @@ def import_zabbix_host(ctx: ImportHostContext):
 
     config.full_clean()
     config.save()
-    changelog_create( config, ctx.user, ctx.request_id )
+    log_creation_event( config, ctx.user, ctx.request_id )
 
     # Add Host Groups
     for group in ctx.zabbix_host.get( "groups", [] ):
@@ -142,7 +142,7 @@ def import_zabbix_host(ctx: ImportHostContext):
         # Resolve IP address
         if iface["useip"] == 1 and iface["ip"]:
             # Search NetBox for the Zabbix IP
-            nb_ip_address = find_ip_address( iface['ip'] )
+            nb_ip_address = lookup_ip_address( iface['ip'] )
 
         elif iface["useip"] == 0 and iface["dns"]:
             nb_ip_address = IPAddress.objects.get( dns_name=iface["dns"] )
@@ -176,7 +176,7 @@ def import_zabbix_host(ctx: ImportHostContext):
                 )
                 agent_iface.full_clean()    
                 agent_iface.save()
-                changelog_create( agent_iface, ctx.user, ctx.request_id )
+                log_creation_event( agent_iface, ctx.user, ctx.request_id )
                 logger.debug( f"Added AgentInterface for {ctx.obj_instance.name} using IP {nb_ip_address}" )
 
             except Exception as e:
@@ -209,7 +209,7 @@ def import_zabbix_host(ctx: ImportHostContext):
                 )
                 snmp_iface.full_clean()
                 snmp_iface.save()
-                changelog_create( snmp_iface, ctx.user, ctx.request_id )
+                log_creation_event( snmp_iface, ctx.user, ctx.request_id )
                 logger.debug( f"Added SNMPInterface for {ctx.obj_instance.name} using IP {nb_ip_address}" )
 
             except Exception as e:

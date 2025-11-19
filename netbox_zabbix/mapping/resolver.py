@@ -99,7 +99,7 @@ def resolve_vm_mapping(obj, interface_model):
     return resolve_mapping( obj, interface_model, models.VMMapping, "VM" )
 
 
-def apply_mapping_to_config( host_config, mapping, monitored_by ):
+def apply_mapping_to_host_config( host_config, mapping, monitored_by ):
     """
     Apply a mapping's templates, host groups, proxies, and monitored_by setting to a HostConfig.
     

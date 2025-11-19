@@ -19,10 +19,10 @@ from netbox_zabbix import settings, models
 from netbox_zabbix.zabbix import builders
 from netbox_zabbix.zabbix import api as zapi
 from netbox_zabbix.exceptions import ExceptionWithData
-from netbox_zabbix.netbox.changelog import changelog_update
+from netbox_zabbix.netbox.changelog import log_update_event
 
 
-def create_host_in_zabbix( host_config ):
+def create_zabbix_host( host_config ):
     """
     Create a host in Zabbix via the API using a HostConfig.
     
@@ -48,7 +48,7 @@ def create_host_in_zabbix( host_config ):
     return int( hostid ), payload
 
 
-def update_host_in_zabbix(host_config, user, request_id):
+def update_zabbix_host(host_config, user, request_id):
     """
     Update an existing Zabbix host based on its HostConfig and host_sync_mode.
 
@@ -166,7 +166,7 @@ def update_host_in_zabbix(host_config, user, request_id):
         )
 
     # Document the update in NetBox
-    changelog_update( host_config, user, request_id )
+    log_update_event( host_config, user, request_id )
 
     return {
         "message": f"Updated Zabbix host {host_config.hostid} (mode: {sync_mode})",
@@ -175,7 +175,7 @@ def update_host_in_zabbix(host_config, user, request_id):
     }
 
 
-def hard_delete_zabbix_host(hostid):
+def delete_zabbix_host_hard(hostid):
     """
     Permanently deletes a Zabbix host by its ID.
     
@@ -203,7 +203,7 @@ def hard_delete_zabbix_host(hostid):
             raise Exception( msg )
 
 
-def soft_delete_zabbix_host(hostid):
+def delete_zabbix_host_soft(hostid):
     """
     Soft-deletes a Zabbix host by renaming it, disabling it, and moving it to a graveyard group.
     

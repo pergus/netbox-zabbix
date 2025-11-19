@@ -36,16 +36,16 @@ from netbox_zabbix.provisioning.context import ProvisionContext
 from netbox_zabbix.mapping.resolver import (
       resolve_device_mapping,
       resolve_vm_mapping,
-      apply_mapping_to_config
+      apply_mapping_to_host_config
 )
 from netbox_zabbix.netbox.model_ops import (
     create_zabbix_interface, save_host_config, create_host_config
 )
-from netbox_zabbix.netbox.changelog import changelog_create
+from netbox_zabbix.netbox.changelog import log_creation_event
 from netbox_zabbix.netbox.jobs import associate_instance_with_job
 
-from netbox_zabbix.zabbix.hosts import create_host_in_zabbix, update_host_in_zabbix
-from netbox_zabbix.zabbix.interfaces import link_interface_in_zabbix
+from netbox_zabbix.zabbix.hosts import create_zabbix_host, update_zabbix_host
+from netbox_zabbix.zabbix.interfaces import link_zabbix_interface
 from netbox_zabbix.zabbix.api import delete_host
 
 from netbox_zabbix import settings, models
@@ -92,11 +92,11 @@ def provision_zabbix_host(ctx: ProvisionContext):
             )
 
             # Update existing host in Zabbix
-            update_host_in_zabbix( host_config, ctx.user, ctx.request_id )
-            link_interface_in_zabbix (host_config.hostid, iface, ctx.object.name )
+            update_zabbix_host( host_config, ctx.user, ctx.request_id )
+            link_zabbix_interface (host_config.hostid, iface, ctx.object.name )
 
             save_host_config( host_config )
-            changelog_create( host_config, ctx.user, ctx.request_id )
+            log_creation_event( host_config, ctx.user, ctx.request_id )
             associate_instance_with_job( ctx.job, host_config )
 
             return {
@@ -106,7 +106,7 @@ def provision_zabbix_host(ctx: ProvisionContext):
 
         # No existing config exists so we do a full provisioning
         host_config = create_host_config( ctx.object )
-        apply_mapping_to_config( host_config, mapping, monitored_by )
+        apply_mapping_to_host_config( host_config, mapping, monitored_by )
 
         iface = create_zabbix_interface(
             ctx.object,
@@ -118,12 +118,12 @@ def provision_zabbix_host(ctx: ProvisionContext):
             ctx.request_id
         )
 
-        hostid, payload = create_host_in_zabbix( host_config )
+        hostid, payload = create_zabbix_host( host_config )
         host_config.hostid = hostid
-        link_interface_in_zabbix( hostid, iface, ctx.object.name )
+        link_zabbix_interface( hostid, iface, ctx.object.name )
 
         save_host_config( host_config )
-        changelog_create( host_config, ctx.user, ctx.request_id )
+        log_creation_event( host_config, ctx.user, ctx.request_id )
         associate_instance_with_job( ctx.job, host_config )
 
         return {

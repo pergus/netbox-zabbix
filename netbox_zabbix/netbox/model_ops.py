@@ -7,7 +7,7 @@ and persistence of HostConfig and associated interface objects.
 
 Key functionality:
 
-- `create_custom_field(name, defaults)`: Ensures a custom field exists
+- `create_netbox_custom_field(name, defaults)`: Ensures a custom field exists
   for Device and VirtualMachine objects.
 - `can_delete_interface(interface)`: Checks if a Zabbix interface can be safely deleted.
 - `is_interface_available(interface)`: Checks if a Zabbix interface is currently available.
@@ -30,11 +30,11 @@ from virtualization.models import VirtualMachine
 # NetBox Zabbix plugin imports
 import netbox_zabbix.zabbix.api as zapi
 from netbox_zabbix import models
-from netbox_zabbix.netbox.changelog import changelog_create
+from netbox_zabbix.netbox.changelog import log_creation_event
 from netbox_zabbix.logger import logger
 
 
-def create_custom_field(name, defaults):
+def create_netbox_custom_field(name, defaults):
     """
     Create a custom field for Device and VirtualMachine if it doesn't exist.
     
@@ -169,7 +169,7 @@ def create_zabbix_interface( obj, host_config, interface_model, interface_name_s
         iface._skip_signal = True
         iface.save()
         
-        changelog_create( iface, user, request_id )
+        log_creation_event( iface, user, request_id )
 
         return iface
     except Exception as e:
