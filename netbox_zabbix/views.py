@@ -53,11 +53,7 @@ from netbox_zabbix.jobs.host import UpdateZabbixHost
 from netbox_zabbix.jobs.imports import ImportZabbixSettings, ImportHost
 from netbox_zabbix.jobs.validate import ValidateHost
 from netbox_zabbix.jobs.provision import ProvisionAgent, ProvisionSNMP
-
-
-
 from netbox_zabbix.zabbix import api as zapi
-
 from netbox_zabbix.models import (
     InterfaceTypeChoices,
     Setting,
