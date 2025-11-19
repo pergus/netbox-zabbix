@@ -32,6 +32,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 from django.views.generic import TemplateView as GenericTemplateView
 from django.db import transaction
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 
 # Third-party imports
@@ -2279,8 +2280,7 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
 # Zabbix Only Hosts
 # ------------------------------------------------------------------------------
 
-
-class ZabbixOnlyHostsView(GenericTemplateView):
+class ZabbixOnlyHostsView(LoginRequiredMixin, GenericTemplateView):
     """
     Display hosts that exist in Zabbix but not in NetBox, including Zabbix web link.
     """

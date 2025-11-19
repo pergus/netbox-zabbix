@@ -2,19 +2,18 @@
 
 {% block title %}Host Groups{% endblock %}
 
-
 {% block extra_controls %}
+{% if perms.netbox_zabbix.change_hostgroup %}
 <a href="{% url 'plugins:netbox_zabbix:import_host_groups' %}" class="btn btn-primary">
     <i class="mdi mdi-sync"></i> Import Host Groups
 </a>
+{% endif %}
 {% endblock %}
 
 
 {% block action_buttons %}
 {# Hide default add/edit/delete buttons #}
 {% endblock %}
-
-
 {% block content %}
 {{ block.super }}
 {% endblock %}
