@@ -59,7 +59,6 @@ from netbox_zabbix.models import (
     UnAssignedHostInterfaces,
     UnAssignedHostIPAddresses,
 )
-
 from netbox_zabbix.netbox.model_ops import create_custom_field
 from netbox_zabbix.zabbix.templates import (
     validate_templates, 
@@ -67,7 +66,7 @@ from netbox_zabbix.zabbix.templates import (
     is_valid_interface 
 )
 from netbox_zabbix.zabbix.inventory_properties import inventory_properties
-from netbox_zabbix import zabbix as zapi
+from netbox_zabbix.zabbix import api as zapi
 from netbox_zabbix import settings
 from netbox_zabbix.logger import logger
 
@@ -108,8 +107,10 @@ class SettingForm(NetBoxModelForm):
                   name="General" ),
         FieldSet( 'max_deletions',
                   'max_success_notifications',
-                  'zabbix_sync_interval',
                   name="Background Jobs" ),
+        FieldSet( 'zabbix_import_interval',
+                  'host_config_sync_interval',
+                  name="System Jobs" ),
         FieldSet( 'api_endpoint',
                   'web_address',
                   'token',
@@ -197,12 +198,10 @@ class SettingForm(NetBoxModelForm):
         super().clean()
 
         if self.errors:
-            logger.error( f"Edit setting form errors: {self.errors}" )
             raise ValidationError( f"{self.errors}" )
         
         if self.cleaned_data is None:
-            logger.error( f"Edit setting form cleaned_data is None" )
-            raise ValidationError( f"Edit setting form cleaned_data is None" )
+            raise ValidationError( f"Internal Error: Edit setting form cleaned_data is None" )
         
         # Prevent second setting instance from being created
         if not self.instance.pk and Setting.objects.exists():
@@ -233,9 +232,6 @@ class SettingForm(NetBoxModelForm):
         # Check connection/token
         try:
             zapi.validate_zabbix_credentials( self.cleaned_data['api_endpoint'], self.cleaned_data['token'] )
-            self.instance.version = zapi.fetch_version_from_credentials( self.cleaned_data['api_endpoint'], self.cleaned_data['token'] )
-            self.instance.connection = True
-            self.instance.last_checked_at = now()
         except Exception:
             self.add_error( 'api_endpoint', mark_safe( "Failed to verify connection to Zabbix.<br>Please check the API address and token." ) )
 
@@ -260,6 +256,24 @@ class SettingForm(NetBoxModelForm):
                 "description": "If set, this object will be ignored in Zabbix synchronization."
             }
             create_custom_field( exclude_custom_field_name, defaults )
+
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+    
+        # Update connection fields after validation
+        try:
+            zapi.validate_zabbix_credentials(instance.api_endpoint, instance.token)
+            instance.version = zapi.fetch_version_from_credentials(instance.api_endpoint, instance.token)
+            instance.connection = True
+            instance.last_checked_at = now()
+        except Exception:
+            instance.connection = False
+            instance.last_checked_at = None
+    
+        if commit:
+            instance.save()
+        return instance
 
 
 # ------------------------------------------------------------------------------

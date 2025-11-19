@@ -19,7 +19,8 @@ __version__ = "2.0.0"
 # NetBox imports
 from netbox.plugins import PluginConfig
 
-class ZConfiguration(PluginConfig):
+
+class NetboxZabbixConfig(PluginConfig):
     """
     NetBox plugin configuration for the netbox-zabbix plugin.
     
@@ -120,5 +121,4 @@ class ZConfiguration(PluginConfig):
         
 
 
-
-config = ZConfiguration
+config = NetboxZabbixConfig

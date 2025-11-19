@@ -147,6 +147,10 @@ class SettingTable(NetBoxTable):
     """
     Table for displaying Zabbix settings in NetBox.
     """
+
+    system_jobs_scheduled = tables.BooleanColumn( accessor='system_jobs_scheduled', empty_values=(), verbose_name="System Jobs Scheduled" )
+
+
     class Meta(NetBoxTable.Meta):
         model = Setting
         fields = ( 
@@ -157,7 +161,9 @@ class SettingTable(NetBoxTable):
             'auto_validate_quick_add',
             'max_deletions',
             'max_success_notifications',
-            'zabbix_sync_interval',
+            'zabbix_import_interval',
+            'host_config_sync_interval',
+            'version',
             'api_endpoint',
             'web_address',
             'token',
@@ -189,18 +195,32 @@ class SettingTable(NetBoxTable):
             'tag_name_formatting',
             'connection',
             'last_checked_at',
+            'system_jobs_scheduled',
             )
-        default_columns = ('name', 'api_endpoint', 'version', 'connection', 'last_checked_at')
+        default_columns = ('name', 'api_endpoint', 'version', 'connection', 'last_checked_at', 'system_jobs_scheduled')
 
     name = tables.Column( linkify=True )
     actions = columns.ActionsColumn( extra_buttons=EXTRA_CONFIG_BUTTONS )
 
+
     def render_token(self, record):
-        if len(record.token) > 4:
+        """
+        Render the Zabbix token, masking the string except for the first 3 characters.
+        """
+        if len(record.token) >= 4:
             tok = record.token[:3]
         else:
-            tok = record.token
+            tok = "***"
         return tok + 7 * "*" 
+
+
+    def render_system_jobs_scheduled(self, record):
+        """
+        Render System Job Status.
+        """
+        from netbox_zabbix.jobs.system import system_jobs_scheduled
+        return mark_safe( '<span style="color:green;">✔</span>' if system_jobs_scheduled() else '<span style="color:red;">✘</span>')
+
 
 # ------------------------------------------------------------------------------
 # Template Table
@@ -515,7 +535,7 @@ class HostConfigTable(NetBoxTable):
     assigned_object = tables.Column(accessor='assigned_object.name', verbose_name='Linked Object', linkify=lambda record: HostConfigTable.link_assigned_object(record) )
     site            = tables.Column(accessor='assigned_object.site.name', verbose_name='Site', linkify=lambda record: HostConfigTable.link_site( record ) )
     host_type       = tables.Column( accessor="host_type", empty_values=(), verbose_name="Type", orderable=False )
-    sync            = tables.BooleanColumn( accessor='sync', empty_values=(), verbose_name="In Sync" )
+    in_sync         = tables.BooleanColumn( accessor='in_sync', empty_values=(), verbose_name="In Sync" )
     in_maintenance = tables.BooleanColumn( accessor='in_maintenance', empty_values=(), verbose_name="In Maintenance" )
 
     class Meta(NetBoxTable.Meta):
@@ -524,7 +544,8 @@ class HostConfigTable(NetBoxTable):
                    'assigned_object',
                    'site',
                    'host_type',
-                   'sync',
+                   'in_sync',
+                   'last_sync_update',
                    'in_maintenance',
                    'status',
                    'monitored_by',
@@ -533,7 +554,7 @@ class HostConfigTable(NetBoxTable):
                    'proxy',
                    'proxy_group',
                    'host_groups', 
-                   'description')
+                   'description') 
         default_columns = fields
 
     @classmethod
@@ -553,7 +574,7 @@ class HostConfigTable(NetBoxTable):
         site = getattr( record.assigned_object, 'site', None )
         return reverse( 'dcim:site', args=[site.pk] ) if site else None
 
-    
+
     def render_site(self, record):
         return mark_safe( record.assigned_object.site.name )
 
@@ -561,9 +582,11 @@ class HostConfigTable(NetBoxTable):
     def order_site(self, queryset, is_descending):
         return order_queryset_by_attr( queryset, 'assigned_object.site.name', descending=is_descending )
 
-    def order_sync(self, queryset, is_descending):
-        return order_queryset_by_attr( queryset, 'sync', descending=is_descending )
-    
+
+    def order_in_sync(self, queryset, is_descending):
+        return order_queryset_by_attr( queryset, 'in_sync', descending=is_descending )
+
+
     def order_in_maintenance(self, queryset, is_descending):
           return order_queryset_by_attr( queryset, 'in_maintenance', descending=is_descending )
 
@@ -579,20 +602,19 @@ class HostConfigTable(NetBoxTable):
         return mark_safe( f'{ "Device" if type( record.assigned_object ) == Device else "VirtualMachine" }' )
 
 
-    def render_sync(self, record):
+    def render_in_sync(self, record):
         """
-        Render ✔ in green if the Host Config is in sync with Zabbix,
-        ✘ in red if not in sync or on error.
+        Render a green checkmark if in sync, red cross if not.
         """
-        try:
-            result = compare_host_config_with_zabbix_host( record )
-            if result["differ"]:
-                return mark_safe( '<span style="color:red;">✘</span>' )
-            else:
-                return mark_safe( '<span style="color:green;">✔</span>' )
-        except Exception:
-            return mark_safe( '<span style="color:red;">✘</span>' )
+        # Use the cached version of 'in_sync' in the table to speed up access
+        return mark_safe( '<span style="color:green;">✔</span>' if record.in_sync else '<span style="color:red;">✘</span>')
 
+    def render_in_maintenance(self, record):
+        """
+        Render a green checkmark if in maintenance, red cross if not.
+        """
+        return mark_safe( '<span style="color:green;">✔</span>' if record.in_maintenance else '<span style="color:red;">✘</span>')
+    
 
 # ------------------------------------------------------------------------------
 # Base Interface Table

@@ -46,9 +46,20 @@
           </tr>
 
           <tr>
-            <th scope="row">Zabbix Sync Interval</th>
-            <td>{{ object.get_zabbix_sync_interval_display }}</td>
+            <th scope="row">Zabbix Import Interval</th>
+            <td>{{ object.get_zabbix_import_interval_display }}</td>
           </tr>
+
+          <tr>
+            <th scope="row">Host Config Sync Interval</th>
+            <td>{{ object.get_host_config_sync_interval_display }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">System Job Status</th>
+            <td>{{ object.get_system_jobs_scheduled }}</td>
+          </tr>
+
 
         </table>
       </div>
@@ -100,18 +111,13 @@
           </tr>
 
           <tr>
-            <th scope="row">Default CIDR</th>
-            <td>{{ object.default_cidr }}</td>
-          </tr>
-
-          <tr>
             <th scope="row">Connection</th>
             <td>{{ object.connection }}</td>
           </tr>
 
           <tr>
             <th scope="row">Last Connection Check</th>
-            <td>{{ object.last_checked_at }}</td>
+            <td>{{ object.last_checked_at|date:"Y-m-d H:i:s" }}</td>
           </tr>
 
           <tr>
@@ -148,7 +154,6 @@
             <th scope="row">TLS PSK</th>
             <td>{{ object.tls_psk }}</td>
           </tr>
-
 
         </table>
       </div>

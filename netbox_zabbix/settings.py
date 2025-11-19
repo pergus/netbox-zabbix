@@ -8,7 +8,6 @@ custom exceptions and provides safe accessors for plugin code.
 
 # NetBox Zabbix plugin imports
 from netbox_zabbix.models import Setting
-from netbox_zabbix.logger import logger
 from netbox_zabbix.models import (
     DeleteSettingChoices,
     UseIPChoices,
@@ -21,7 +20,9 @@ from netbox_zabbix.models import (
     SNMPPrivProtocolChoices,
     TagNameFormattingChoices,
     HostSyncModeChoices,
+    SystemJobIntervalChoices,
 )
+from netbox_zabbix.logger import logger
 
 
 # ------------------------------------------------------------------------------
@@ -125,6 +126,7 @@ def safe_setting(default=None):
 # General
 # ------------------------------------------------------------------------------
 
+
 @safe_setting(HostSyncModeChoices.OVERWRITE)
 def get_host_sync_mode(s):
     """
@@ -194,6 +196,33 @@ def get_max_success_notifications(s):
         The max success notifications as specified in the configuration.
     """
     return s.max_success_notifications
+
+
+# ------------------------------------------------------------------------------
+# System Job(s)
+# ------------------------------------------------------------------------------
+
+
+@safe_setting(SystemJobIntervalChoices.INTERVAL_DAILY)
+def get_zabbix_import_interval(s):
+    """
+    Retrieves the Zabbix Import Interval from the configuration.
+
+    Returns:
+        The Zabbix Import Interval as specified in the configuration.
+    """
+    return s.zabbix_import_interval
+
+
+@safe_setting(SystemJobIntervalChoices.INTERVAL_DAILY)
+def get_host_config_sync_interval(s):
+    """
+    Retrieves the Host Config Sync from the configuration.
+
+    Returns:
+        The Host Config Sync as specified in the configuration.
+    """
+    return s.host_config_sync_interval
 
 
 # ------------------------------------------------------------------------------

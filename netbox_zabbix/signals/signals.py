@@ -8,10 +8,8 @@
 # Standard library imports
 import threading
 import os
-import logging
 
 # Django imports
-from django.db import transaction
 from django.db.models.signals import pre_delete, post_delete, pre_save, post_save
 from django.dispatch import receiver
 from django.contrib import messages
@@ -30,7 +28,6 @@ from netbox_zabbix.jobs.host import (
     CreateZabbixHost,
     UpdateZabbixHost
 )
-from netbox_zabbix.jobs.system import ImportZabbixSystemJob
 from netbox_zabbix.jobs.interface import (
     CreateZabbixInterface,
     UpdateZabbixInterface
@@ -43,8 +40,7 @@ from netbox_zabbix.models import (
     SNMPInterface,
     Maintenance
 )
-
-logger = logging.getLogger("netbox.plugins.netbox_zabbix")
+from netbox_zabbix.logger import logger
 
 
 # Thread-local storage to track deletion state per thread
@@ -286,7 +282,7 @@ def has_object_name_changed(obj):
     return changed, old_name
 
 
-def is_config_being_deleted(config_pk: int) -> bool:
+def is_config_being_deleted(config_pk):
     """
     Check if a HostConfig is currently being deleted (thread-local context).
     
@@ -296,48 +292,7 @@ def is_config_being_deleted(config_pk: int) -> bool:
     Returns:
         bool: True if the config is being deleted.
     """
-    return ( hasattr(_deletion_context, "configs_being_deleted") and config_pk in _deletion_context.configs_being_deleted )
-
-# ------------------------------------------------------------------------------
-# System Job
-# ------------------------------------------------------------------------------
-
-
-@receiver(pre_save, sender=Setting)
-def reschedule_zabbix_sync_job(sender, instance: Setting, **kwargs):
-    """
-    Reschedule the Zabbix import system job if the sync interval changes.
-    
-    Triggered before saving a Setting object.
-    
-    Args:
-        sender (Model): Setting model class.
-        instance (Setting): Instance being saved.
-        **kwargs: Additional signal arguments.
-    """
-    if os.environ.get("DISABLE_NETBOX_ZABBIX_SIGNALS") == "1":
-        return  # skip logic silently
-    
-    logger.debug( "re-Scheduling Zabbix sync job" )
-
-    # Only act on updates (not initial creation)
-    if not instance.pk:
-        logger.debug( "Setting is new; no sync job interval comparison performed." )
-        return
-
-    try:
-        prev = sender.objects.get(pk=instance.pk)
-    except sender.DoesNotExist:
-        logger.warning( "previous Setting(pk=%s) not found; cannot compare sync interval.", instance.pk )
-        return
-    
-    logger.debug( "previous interval=%s, new interval=%s", prev.zabbix_sync_interval, instance.zabbix_sync_interval )
-
-    if prev.zabbix_sync_interval != instance.zabbix_sync_interval:
-        logger.info( "zabbix sync interval changed from %s to %s, rescheduling system job.", prev.zabbix_sync_interval, instance.zabbix_sync_interval )
-        transaction.on_commit(
-            lambda: ImportZabbixSystemJob.schedule( instance.zabbix_sync_interval )
-        )
+    return ( hasattr( _deletion_context, "configs_being_deleted" ) and config_pk in _deletion_context.configs_being_deleted )
 
 
 # ------------------------------------------------------------------------------

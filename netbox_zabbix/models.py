@@ -253,9 +253,9 @@ class SNMPPrivProtocolChoices(models.IntegerChoices):
     AES256C = (5, 'AES256C')
 
 
-class SyncJobIntervalChoices(ChoiceSet):
+class SystemJobIntervalChoices(ChoiceSet):
     """
-    Available intervals (in minutes) for Zabbix sync jobs.
+    Available intervals (in minutes) for Zabbix import job.
     
     Example:
         INTERVAL_HOURLY = 60
@@ -334,7 +334,7 @@ class Setting(NetBoxModel):
         auto_validate_quick_add (bool): Automatically validate hosts eligible for quick add.
         max_deletions (int): Max deletions allowed during import.
         max_success_notifications (int): Max success notifications per job.
-        zabbix_sync_interval (int): Interval in minutes for Zabbix sync jobs.
+        zabbix_import_interval (int): Interval in minutes for Zabbix import job.
         version (str): Zabbix server version.
         api_endpoint (str): Zabbix API endpoint URL.
         web_address (str): Zabbix web interface URL.
@@ -384,8 +384,11 @@ class Setting(NetBoxModel):
         default=3,
         help_text="Max number of success messages shown per job."
     )
-    zabbix_sync_interval      = models.PositiveIntegerField( verbose_name="Zabbix Sync Interval", null=True, blank=True, choices=SyncJobIntervalChoices, default=SyncJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix sync. Must be at least 1 minute." )
 
+    # System Job(s)
+    zabbix_import_interval    = models.PositiveIntegerField( verbose_name="Zabbix Import Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix import. Must be at least 1 minute." )
+    host_config_sync_interval = models.PositiveIntegerField( verbose_name="Host Config Sync Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Host Config Sync check. Must be at least 1 minute." )
+        
     # Zabbix Server
     version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
     api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
@@ -513,6 +516,7 @@ class Setting(NetBoxModel):
 
     tag_name_formatting =  models.CharField( verbose_name="Tag Name Formatting", choices=TagNameFormattingChoices, default=TagNameFormattingChoices.KEEP, help_text="Tag name formatting.")
 
+
     def __str__(self):
         """
         Return a human-readable string representation of the object.
@@ -534,6 +538,15 @@ class Setting(NetBoxModel):
         """
         return reverse( "plugins:netbox_zabbix:setting", args=[self.pk] )
 
+
+    def get_system_jobs_scheduled(self):
+        """
+        Return the system job scheduled status.
+        (This should not be defined on the model, but it is...)
+        """
+        from netbox_zabbix.jobs.system import system_jobs_scheduled
+        return mark_safe( '<span style="color:green;">✔</span>' if system_jobs_scheduled() else '<span style="color:red;">✘</span>')
+        
     
     def save(self, *args, **kwargs):
         """
@@ -547,7 +560,12 @@ class Setting(NetBoxModel):
             *args: Positional arguments passed to the model save method.
             **kwargs: Keyword arguments passed to the model save method.
         """
-        super().save(*args, **kwargs)
+        super().save( *args, **kwargs )
+
+        # Schedule system jobs
+        from netbox_zabbix.jobs.system import schedule_system_jobs
+        schedule_system_jobs()
+
 
 
 # ------------------------------------------------------------------------------
@@ -1287,18 +1305,20 @@ class HostConfig(NetBoxModel, JobsMixin):
         verbose_name = "Host Config"
         verbose_name_plural = "Host Configs"
 
-    name            = models.CharField( max_length=200, unique=True, blank=True, null=True, help_text="Name for this host configuration." )
-    hostid          = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
-    status          = models.IntegerField( choices=StatusChoices.choices, default=StatusChoices.ENABLED, help_text="Host monitoring status." )
-    host_groups     = models.ManyToManyField( HostGroup, help_text="Assigned Host Groups." )
-    templates       = models.ManyToManyField( Template,  help_text="Assgiend Tempalates.", blank=True )
-    monitored_by    = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host." )
-    proxy           = models.ForeignKey( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy." )
-    proxy_group     = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group." )
-    description     = models.TextField( blank=True, null=True, help_text="Optional description." )
-    content_type    = models.ForeignKey( ContentType, on_delete=models.CASCADE, limit_choices_to={ "model__in": ["device", "virtualmachine"] }, related_name="host_config")
-    object_id       = models.PositiveIntegerField()
-    assigned_object = GenericForeignKey( "content_type", "object_id" )
+    name             = models.CharField( max_length=200, unique=True, blank=True, null=True, help_text="Name for this host configuration." )
+    hostid           = models.PositiveIntegerField( unique=True, blank=True, null=True, help_text="Zabbix Host ID." )
+    status           = models.IntegerField( choices=StatusChoices.choices, default=StatusChoices.ENABLED, help_text="Host monitoring status." )
+    in_sync          = models.BooleanField( default=False, help_text="True if host configuration is in sync with Zabbix." )
+    last_sync_update = models.DateTimeField( null=True, blank=True, help_text="Timestamp when sync status was last updated." )
+    host_groups      = models.ManyToManyField( HostGroup, help_text="Assigned Host Groups." )
+    templates        = models.ManyToManyField( Template,  help_text="Assgiend Tempalates.", blank=True )
+    monitored_by     = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host." )
+    proxy            = models.ForeignKey( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy." )
+    proxy_group      = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group." )
+    description      = models.TextField( blank=True, null=True, help_text="Optional description." )
+    content_type     = models.ForeignKey( ContentType, on_delete=models.CASCADE, limit_choices_to={ "model__in": ["device", "virtualmachine"] }, related_name="host_config")
+    object_id        = models.PositiveIntegerField()
+    assigned_object  = GenericForeignKey( "content_type", "object_id" )
 
 
     def __str__(self):
@@ -1360,13 +1380,14 @@ class HostConfig(NetBoxModel, JobsMixin):
         return bool( self.active_maintenances )
 
 
-    def get_sync_status(self):
+    def get_in_sync_status(self):
         """
         Check if the host is in sync with Zabbix.
         
         Returns:
-            bool: True if host differs from Zabbix configuration, False otherwise.
+            bool: False if host differs from Zabbix configuration, False otherwise.
         """
+        # Do not use the cached 'in_sync' here!
         from netbox_zabbix.netbox.compare import compare_host_config_with_zabbix_host
         try:
             result = compare_host_config_with_zabbix_host( self )
@@ -1379,7 +1400,7 @@ class HostConfig(NetBoxModel, JobsMixin):
           """
           Returns a checkmark or cross to indicate if the Host Config is in Sync with the Zabbix host.
           """
-          return mark_safe( '<span style="color:red;">✘</span>' ) if self.get_sync_status() else mark_safe( '<span style="color:green;">✔</span>' )
+          return mark_safe( '<span style="color:red;">✘</span>' ) if self.get_in_sync_status() else mark_safe( '<span style="color:green;">✔</span>' )
 
 
     def get_sync_diff(self):
@@ -1394,6 +1415,23 @@ class HostConfig(NetBoxModel, JobsMixin):
             return compare_host_config_with_zabbix_host( self )
         except:
             return {}
+
+
+    def update_sync_status(self):
+        """
+        Check if the host is in sync with Zabbix and update the database.
+        """
+        from netbox_zabbix.netbox.compare import compare_host_config_with_zabbix_host
+    
+        try:
+            differ = compare_host_config_with_zabbix_host( self ).get( "differ", False )
+            self.in_sync = differ["differ"]
+            self.last_sync_update = timezone.now()
+            self.save( update_fields=["in_sync", "last_sync_update"] )
+        except Exception as e:
+            # Optional: log failure but do not block other updates
+            logger.warning( f"Failed to update sync for HostConfig {self.pk}: {e}" )
+
 
     def save(self, *args, **kwargs):
         """
@@ -1643,7 +1681,6 @@ class SNMPInterface(BaseInterface):
 # Maintenance
 # ------------------------------------------------------------------------------
 
-
 class Maintenance(NetBoxModel):
     """
     Represents a scheduled maintenance window for Zabbix hosts.
@@ -1792,11 +1829,13 @@ class Maintenance(NetBoxModel):
         """
         Create a new maintenance window in Zabbix.
         """
-        from netbox_zabbix.zabbix.api import create_maintenance
         
         params = self._build_params()
 
         try:
+            # Prevent circular imports
+            from netbox_zabbix.zabbix.api import create_maintenance
+            
             result = create_maintenance(params)
             self.zabbix_id = result["maintenanceids"][0]
             self.status = "active"
@@ -1811,7 +1850,6 @@ class Maintenance(NetBoxModel):
         """
         Update an existing maintenance window in Zabbix.
         """
-        from netbox_zabbix.zabbix.api import update_maintenance
         
         if not self.zabbix_id:
             raise ValueError( "Cannot update maintenance: zabbix_id not set." )
@@ -1820,6 +1858,9 @@ class Maintenance(NetBoxModel):
         params["maintenanceid"] = self.zabbix_id
     
         try:
+            # Prevent circular imports
+            from netbox_zabbix.zabbix.api import update_maintenance
+            
             update_maintenance( params )
     
             self.status = "active"
@@ -1833,13 +1874,15 @@ class Maintenance(NetBoxModel):
         Attempt to delete Zabbix maintenance. 
         If it fails, return a warning for the caller to handle.
         """
-        from netbox_zabbix.zabbix.api import delete_maintenance
     
         zbx_failed = False
         error_msg = ""
     
         if self.zabbix_id:
             try:
+                # Prevent circular imports
+                from netbox_zabbix.zabbix.api import delete_maintenance
+                
                 delete_maintenance( self.zabbix_id )
             except Exception as e:
                 zbx_failed = True

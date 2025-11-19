@@ -2392,6 +2392,22 @@ class EventLogListView(generic.ObjectListView):
     filterset = filtersets.EventLogFilterSet
 
 
+    def get_extra_context(self, request):
+        """
+        Add extra context for EventLog rendering.
+        
+        Args:
+            request (HttpRequest): Current request.
+        
+        Returns:
+            dict: Context dictionary with optional actions.
+        """
+        # Hide the add button since no evenlog should be added by the user.
+        context = super().get_extra_context( request )
+        context['actions'] = []
+        return context
+
+
 class EventLogEditView(generic.ObjectView):
     """
     Display details for a single EventLog instance.
@@ -2517,7 +2533,7 @@ class HostConfigDiffTabView(generic.ObjectView):
     Tab view to display configuration differences for a HostConfig.
     """
     queryset      = HostConfig.objects.all()
-    tab           = ViewTab( label="Difference", badge=lambda instance: int( instance.get_sync_status() ), hide_if_empty=True )
+    tab           = ViewTab( label="Difference", badge=lambda instance: int( instance.get_in_sync_status() ), hide_if_empty=True )
     template_name = 'netbox_zabbix/host_config_difference_tab.html'
 
     def get_extra_context(self, request, instance):

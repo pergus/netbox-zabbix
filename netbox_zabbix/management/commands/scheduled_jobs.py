@@ -2,17 +2,17 @@ from django.core.management.base import BaseCommand
 from rich.console import Console
 from rich.table import Table
 from django_rq import get_queue
-from rq.registry import FailedJobRegistry
+from rq.registry import ScheduledJobRegistry
 from rq.job import Job
 
 class Command(BaseCommand):
-    help = "List, delete, or rerun failed jobs"
+    help = "List, delete, or rerun scheduled jobs"
 
     def add_arguments(self, parser):
         parser.add_argument(
             "action",
             choices=["list", "delete", "rerun"],
-            help="Action to perform: list, delete, or rerun failed jobs"
+            help="Action to perform: list, delete, or rerun scheduled jobs"
         )
         parser.add_argument(
             "--job-id",
@@ -24,56 +24,56 @@ class Command(BaseCommand):
         job_id = options.get("job_id")
 
         if action == "list":
-            self.list_failed_jobs()
+            self.list_scheduled_jobs()
         elif action == "delete":
-            self.delete_failed_jobs(job_id)
+            self.delete_scheduled_jobs(job_id)
         elif action == "rerun":
-            self.rerun_failed_jobs(job_id)
+            self.rerun_scheduled_jobs(job_id)
 
-    def list_failed_jobs(self):
+    def list_scheduled_jobs(self):
         console = Console()
         queue = get_queue("default")
-        failed_registry = FailedJobRegistry(queue=queue)
+        scheduled_registry = ScheduledJobRegistry(queue=queue)
 
-        table = Table(title="Failed Jobs")
+        table = Table(title="Scheduled Jobs")
         table.add_column("Job ID")
-        for jid in failed_registry.get_job_ids():
-            table.add_row(jid)
+        for job_id in scheduled_registry.get_job_ids():
+            table.add_row(job_id)
         console.print(table)
 
-    def delete_failed_jobs(self, job_id=None):
+    def delete_scheduled_jobs(self, job_id=None):
         queue = get_queue("default")
-        failed_registry = FailedJobRegistry(queue=queue)
+        scheduled_registry = ScheduledJobRegistry(queue=queue)
 
         if job_id:
-            if job_id in failed_registry.get_job_ids():
-                failed_registry.remove(job_id, delete_job=True)
+            if job_id in scheduled_registry.get_job_ids():
+                scheduled_registry.remove(job_id, delete_job=True)
                 self.stdout.write(self.style.SUCCESS(f"Deleted job {job_id}"))
             else:
-                self.stdout.write(self.style.WARNING(f"Job ID {job_id} not found in failed jobs."))
+                self.stdout.write(self.style.WARNING(f"Job ID {job_id} not found."))
         else:
-            for jid in failed_registry.get_job_ids():
-                failed_registry.remove(jid, delete_job=True)
+            for jid in scheduled_registry.get_job_ids():
+                scheduled_registry.remove(jid, delete_job=True)
                 self.stdout.write(self.style.SUCCESS(f"Deleted job {jid}"))
-            self.stdout.write(self.style.SUCCESS("All failed jobs have been deleted."))
+            self.stdout.write(self.style.SUCCESS("All scheduled jobs have been deleted."))
 
-    def rerun_failed_jobs(self, job_id=None):
+    def rerun_scheduled_jobs(self, job_id=None):
         queue = get_queue("default")
-        failed_registry = FailedJobRegistry(queue=queue)
+        scheduled_registry = ScheduledJobRegistry(queue=queue)
 
-        job_ids = [job_id] if job_id else failed_registry.get_job_ids()
+        job_ids = [job_id] if job_id else scheduled_registry.get_job_ids()
 
         if not job_ids:
-            self.stdout.write(self.style.WARNING("No failed jobs found."))
+            self.stdout.write(self.style.WARNING("No jobs found."))
             return
 
         for jid in job_ids:
             try:
                 job = Job.fetch(jid, connection=queue.connection)
                 queue.enqueue_job(job)
-                failed_registry.remove(jid, delete_job=False)
+                scheduled_registry.remove(jid, delete_job=False)
                 self.stdout.write(self.style.SUCCESS(f"Requeued job {jid}"))
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"Failed to requeue job {jid}: {e}"))
 
-        self.stdout.write(self.style.SUCCESS("All specified failed jobs have been requeued."))
+        self.stdout.write(self.style.SUCCESS("All specified jobs have been requeued."))
