@@ -1325,7 +1325,22 @@ class HostConfigListView(generic.ObjectListView):
     queryset  = HostConfig.objects.all()
     table     = tables.HostConfigTable
     filterset = filtersets.HostConfigFilterSet
+
+
+    template_name = "netbox_zabbix/host_config_list.html"
     
+    def get_queryset(self, request):
+        qs = super().get_queryset( request )
+    
+        # Check toggle
+        if self.request.GET.get( "filtered" ) == "1":
+            qs = qs.filter( in_sync=False )
+    
+        return qs
+
+    def get_extra_context(self, request):
+        return { "filtered": self.request.GET.get( "filtered" ) == "1" }
+
 
 class HostConfigEditView(generic.ObjectEditView):
     """

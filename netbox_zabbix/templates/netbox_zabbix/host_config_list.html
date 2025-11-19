@@ -1,0 +1,12 @@
+{% extends 'generic/object_list.html' %}
+
+{% block extra_controls %}
+
+{% if filtered %}
+<a href="?" class="btn btn-primary">Show All</a>
+{% else %}
+<a href="?filtered=1" class="btn btn-primary">Show Out-of-Sync</a>
+{% endif %}
+
+{% endblock %}
+
