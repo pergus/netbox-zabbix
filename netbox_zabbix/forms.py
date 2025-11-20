@@ -59,7 +59,7 @@ from netbox_zabbix.models import (
     UnAssignedHostInterfaces,
     UnAssignedHostIPAddresses,
 )
-from netbox_zabbix.netbox.model_ops import create_netbox_custom_field
+from netbox_zabbix.netbox.custom_fields import create_netbox_custom_field
 from netbox_zabbix.zabbix.templates import (
     validate_templates, 
     validate_templates_and_interface, 

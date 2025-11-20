@@ -38,8 +38,12 @@ from netbox_zabbix.mapping.resolver import (
       resolve_vm_mapping,
       apply_mapping_to_host_config
 )
-from netbox_zabbix.netbox.model_ops import (
-    create_zabbix_interface, save_host_config, create_host_config
+from netbox_zabbix.netbox.host_config import (
+    create_host_config,
+    save_host_config, 
+)
+from netbox_zabbix.netbox.interfaces import (
+    create_zabbix_interface
 )
 from netbox_zabbix.netbox.changelog import log_creation_event
 from netbox_zabbix.netbox.jobs import associate_instance_with_job

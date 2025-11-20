@@ -48,8 +48,7 @@ from netbox_zabbix.models import (
     EventLog
 )
 from netbox_zabbix.zabbix.validation import validate_quick_add
-from netbox_zabbix.netbox.model_ops import can_delete_interface, is_interface_available
-from netbox_zabbix.netbox.compare import compare_host_configuration
+from netbox_zabbix.netbox.interfaces import can_delete_interface, is_interface_available
 from netbox_zabbix.logger import logger
 
 

@@ -32,7 +32,7 @@ from netbox_zabbix.zabbix.hosts import (
     delete_zabbix_host_soft,
     
 )
-from netbox_zabbix.netbox.model_ops import (
+from netbox_zabbix.netbox.host_config import (
     save_host_config
 )
 from netbox_zabbix.zabbix.api import (
