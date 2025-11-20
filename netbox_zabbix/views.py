@@ -2291,58 +2291,44 @@ class NetBoxOnlyHostsView(generic.ObjectListView):
 # Zabbix Only Hosts
 # ------------------------------------------------------------------------------
 
+
 class ZabbixOnlyHostsView(LoginRequiredMixin, GenericTemplateView):
-    """
-    Display hosts that exist in Zabbix but not in NetBox, including Zabbix web link.
-    """
     template_name = 'netbox_zabbix/zabbixonlyhosts.html'
 
     def get_context_data(self, **kwargs):
-        """
-        Fetch Zabbix-only hosts and provide context for template rendering.
-        
-        Returns:
-            dict: Contains 'table' of hosts and 'web_address' to Zabbix.
-        """
-        context = super().get_context_data( **kwargs )
+        context = super().get_context_data(**kwargs)
 
-        error_occurred = False
-        try:            
-            data        = zapi.get_zabbix_only_hostnames()
-            web_address = settings.get_zabbix_web_address()
-
-        except settings.ZabbixSettingNotFound as e:
-            messages.error( self.request, str( e ) )
-            error_occurred = True
-
-        except Exception as e:
-            messages.error( self.request, f"Failed to fetch data from Zabbix: {str(e)}" )
-            error_occurred = True
-        
-        if error_occurred:
-            empty_table = tables.ZabbixOnlyHostTable( [], orderable=False )
-            RequestConfig( self.request ).configure( empty_table )
-            context['table'] = empty_table
-            return context
-        
-        table = tables.ZabbixOnlyHostTable( data, orderable=False )
-        RequestConfig(
-            self.request, {
-                'paginator_class': EnhancedPaginator,
-                'per_page': get_paginate_count( self.request ),
-            }
-        ).configure( table )
-        
         try:
-            web_address = settings.get_zabbix_web_address()
+            data = zapi.get_zabbix_only_hostnames()
         except Exception as e:
-            raise e
-        
+            messages.error(self.request, f"Failed to fetch data from Zabbix: {str(e)}")
+            data = []
+
+        # Quick search
+        search = self.request.GET.get('q', '').strip()
+        if search:
+            search_lower = search.lower()
+            data = [h for h in data if search_lower in h['name'].lower()]
+
+        table = tables.ZabbixOnlyHostTable(data, orderable=False)
+        RequestConfig(self.request, {
+            'paginator_class': EnhancedPaginator,
+            'per_page': get_paginate_count(self.request),
+        }).configure(table)
+
         context.update({
             'table': table,
-            'web_address': web_address,
+            'web_address': settings.get_zabbix_web_address(),
+            'search': search,
         })
+
+        # If HTMX, render only the table partial
+        if self.request.htmx:
+            self.template_name = 'netbox_zabbix/zabbixonlyhosts_table.html'
+
         return context
+
+
 
 
 # ------------------------------------------------------------------------------

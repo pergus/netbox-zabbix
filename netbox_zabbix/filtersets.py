@@ -40,6 +40,7 @@ from netbox_zabbix.models import (
     SNMPInterface,
     EventLog
 )
+from netbox_zabbix.logger import logger
 
 
 # ------------------------------------------------------------------------------
@@ -316,7 +317,6 @@ class VMMappingFilterSet(VirtualMachineFilterSet):
 # Host Configuration
 # ------------------------------------------------------------------------------
 
-from django_filters import ModelMultipleChoiceFilter
 
 class HostConfigFilterSet(NetBoxModelFilterSet):
     """
@@ -480,6 +480,7 @@ class EventLogFilterSet(NetBoxModelFilterSet):
             Q( job_uuid_str__icontains=value ) |
             Q( message__icontains=value )
         )
+
 
 # end
 

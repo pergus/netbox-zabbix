@@ -1,6 +1,9 @@
 {% extends 'generic/_base.html' %}
-{% load render_table from django_tables2 %}
+{% load buttons %}
 {% load helpers %}
+{% load plugins %}
+{% load render_table from django_tables2 %}
+{% load static %}
 {% load i18n %}
 
 {% block title %}Zabbix Only Hosts{% endblock %}
@@ -24,15 +27,37 @@
 {% endblock tabs %}
 
 {% block content %}
-<div class="row mb-3">
-    <div class="col col-md-12">
-        <div class="card">
-            <div class="table-responsive">
-                {% render_table table 'inc/table.html' %}
-                {% include 'inc/paginator.html' with paginator=table.paginator page=table.page %}
+
+<div class="row mb-3" id="results">
+    <div class="row mb-3">
+        <div class="col-auto d-print-none">
+            <div class="input-group input-group-flat me-2 quicksearch" hx-disinherit="hx-select hx-swap">
+
+
+                <input type="search" results="5" name="q" id="quicksearch" class="form-control" placeholder="{% trans " Quick search"%}" hx-get="{% url 'plugins:netbox_zabbix:zabbixonlyhosts' %}" hx-target="#object_list"
+                    hx-trigger="keyup changed delay:500ms, search" />
+
+
+                <span class="input-group-text py-1">
+                    <a href="#" id="quicksearch_clear" class="invisible text-secondary"><i class="mdi mdi-close-circle"></i></a>
+                </span>
+                {% block extra_table_controls %}{% endblock %}
             </div>
         </div>
     </div>
 </div>
+
+
+<div class="row mb-3">
+    <div class="col col-md-12">
+        <div class="card">
+            <div class="htmx-container table-responsive" id="object_list">
+                {% include 'htmx/table.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
 {% endblock %}
 
