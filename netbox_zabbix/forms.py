@@ -1086,6 +1086,7 @@ class HostConfigForm(NetBoxModelForm):
         query_params={"content_type": "$content_type"},
     )
 
+    
 
     def __init__(self, *args, **kwargs):
         """

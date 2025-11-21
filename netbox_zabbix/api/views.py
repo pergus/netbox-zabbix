@@ -39,6 +39,7 @@ from netbox_zabbix.models import (
     HostConfig,
     AgentInterface,
     SNMPInterface,
+    Maintenance,
 )
 from netbox_zabbix.filtersets import (
     HostGroupFilterSet,
@@ -398,6 +399,7 @@ class UnAssignedInterfacesViewSet(NetBoxModelViewSet):
 # Unassigned Agent Interfaces
 # ------------------------------------------------------------------------------
 
+
 class UnAssignedAgentInterfacesViewSet(UnAssignedInterfacesViewSet):
     """
     API endpoint for returning unassigned Agent Interfaces.
@@ -419,7 +421,6 @@ class UnAssignedSNMPInterfacesViewSet(UnAssignedInterfacesViewSet):
     queryset = SNMPInterface.objects.all()
     serializer_class = serializers.SNMPInterfaceSerializer
     interface_type_name = "SNMP"
-
 
 
 # ------------------------------------------------------------------------------
@@ -480,7 +481,7 @@ class UnAssignedHostInterfacesViewSet(NetBoxModelViewSet):
 
 
 # ------------------------------------------------------------------------------
-# Unassigned Host IP  Addresses
+# Unassigned Host IP Addresses
 # ------------------------------------------------------------------------------
 
 
@@ -542,18 +543,20 @@ class UnAssignedHostIPAddressesViewSet(NetBoxModelViewSet):
     
         return qs
 
+
 # ------------------------------------------------------------------------------
 # Maintenance
 # ------------------------------------------------------------------------------
 
-from netbox_zabbix.models import Maintenance
-from netbox_zabbix.api.serializers import MaintenanceSerializer
+
 class MaintenanceViewSet(NetBoxModelViewSet):
     """
     API viewset for managing Maintenance objects.
     """
     queryset = Maintenance.objects.all()
-    serializer_class = MaintenanceSerializer
+    serializer_class = serializers.MaintenanceSerializer
+
+
 
 
 # end

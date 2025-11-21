@@ -21,7 +21,7 @@ from netbox_zabbix import models
 from netbox_zabbix.logger import logger
 
 
-def resolve_mapping(obj, interface_model, mapping_model, mapping_name: str):
+def resolve_mapping(obj, interface_model, mapping_model, mapping_name):
     """
     Resolve the appropriate mapping for a Device or VM based on interface type.
     

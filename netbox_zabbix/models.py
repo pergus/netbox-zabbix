@@ -1311,7 +1311,7 @@ class HostConfig(NetBoxModel, JobsMixin):
     in_sync          = models.BooleanField( default=False, help_text="True if host configuration is in sync with Zabbix." )
     last_sync_update = models.DateTimeField( null=True, blank=True, help_text="Timestamp when sync status was last updated." )
     host_groups      = models.ManyToManyField( HostGroup, help_text="Assigned Host Groups." )
-    templates        = models.ManyToManyField( Template,  help_text="Assgiend Tempalates.", blank=True )
+    templates        = models.ManyToManyField( Template,  help_text="Assigned Tempalates.", blank=True )
     monitored_by     = models.IntegerField( choices=MonitoredByChoices, default=MonitoredByChoices.ZabbixServer, help_text="Monitoring source for the host." )
     proxy            = models.ForeignKey( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy." )
     proxy_group      = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Assigned Proxy Group." )
