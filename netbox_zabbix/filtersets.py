@@ -35,6 +35,8 @@ from netbox_zabbix.models import (
     HostGroup,
     TagMapping,
     InventoryMapping,
+    DeviceMapping,
+    VMMapping,
     HostConfig,
     AgentInterface,
     SNMPInterface,
@@ -236,13 +238,22 @@ class InventoryMappingFilterSet(NetBoxModelFilterSet):
 # ------------------------------------------------------------------------------
 
 
-class DeviceMappingFilterSet(DeviceFilterSet):
+class DeviceMappingFilterSet(NetBoxModelFilterSet):
     """
-    Extended device filter set that adds Zabbix-specific search support.
+    FilterSet for DeviceMapping objects.
     """
-    class Meta(DeviceFilterSet.Meta):
-        model  = Device
-        fields = DeviceFilterSet.Meta.fields
+    
+    class Meta:
+        model = DeviceMapping
+        fields = [
+            "name",
+            "host_groups",
+            "templates",
+            "proxy",
+            "proxy_group",
+            "interface_type",
+        ]
+
 
     def search(self, queryset, name, value):
         """
@@ -268,8 +279,9 @@ class DeviceMappingFilterSet(DeviceFilterSet):
         q |= Q( host_groups__name__icontains=value )
         q |= Q( proxy__name__icontains=value )
         q |= Q( proxy_group__name__icontains=value )
-    
+
         return queryset.filter( q ).distinct()
+
 
 
 # ------------------------------------------------------------------------------
@@ -277,13 +289,20 @@ class DeviceMappingFilterSet(DeviceFilterSet):
 # ------------------------------------------------------------------------------
 
 
-class VMMappingFilterSet(VirtualMachineFilterSet):
+class VMMappingFilterSet(NetBoxModelFilterSet):
     """
-    Extended virtual machine filter set with Zabbix-specific search functionality.
+    FilterSet for VMMapping objects
     """
-    class Meta(VirtualMachineFilterSet.Meta):
-        model  = VirtualMachine
-        fields = VirtualMachineFilterSet.Meta.fields
+    class Meta:
+        model  = VMMapping
+        fields = [
+            "name",
+            "host_groups",
+            "templates",
+            "proxy",
+            "proxy_group",
+            "interface_type",
+        ]
 
     def search(self, queryset, name, value):
         """

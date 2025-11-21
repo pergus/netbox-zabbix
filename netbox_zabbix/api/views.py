@@ -566,18 +566,37 @@ class MaintenanceViewSet(NetBoxModelViewSet):
 #
 #class HostMappingViewSet(NetBoxModelViewSet):
 #    """
-#    Returns Zabbix mapping data for a selected host.
+#    Returns Zabbix mapping for a given Device or VirtualMachine.
+#
+#    Expects query parameters:
+#        - content_type: ID of the ContentType (device or virtualmachine)
+#        - object_id: ID of the host object
 #    """
 #
-#    @action(detail=True, methods=["get"], url_path="mapping")
-#    def mapping(self, request, pk=None):
-#        try:
-#            host = UnAssignedHosts.objects.get( pk=pk ) # Should this be more general and include all hosts?
-#            mapping = get_mapping_for_host( host )
-#            return Response(mapping)
+#    def list(self, request):
+#        """
+#        GET /api/plugins/netbox_zabbix/host-mapping/?content_type=12&object_id=34
+#        """
+#        content_type_id = request.query_params.get("content_type")
+#        object_id = request.query_params.get("object_id")
 #
+#        if not content_type_id or not object_id:
+#            # Safe fallback when visiting the endpoint without parameters
+#            return Response({
+#                "error": "Please provide 'content_type' and 'object_id' query parameters."
+#            }, status=200)
+#
+#        try:
+#            ct = ContentType.objects.get(pk=content_type_id)
+#            obj = ct.get_object_for_this_type(pk=object_id)
+#            mapping_data = get_mapping_for_host(obj)
+#            return Response(mapping_data)
+#
+#        except ContentType.DoesNotExist:
+#            return Response({"error": "Invalid content_type"}, status=400)
 #        except Exception as e:
 #            return Response({"error": str(e)}, status=400)
+
 
 
 # end

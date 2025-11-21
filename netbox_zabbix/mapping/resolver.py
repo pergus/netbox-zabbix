@@ -16,7 +16,11 @@ These resolvers ensure that Zabbix hosts created or updated via NetBox
 adhere to pre-defined configuration standards.
 """
 
-# NetBox Zabbix Imports
+# Django import
+from django.contrib.contenttypes.models import ContentType
+
+
+# NetBox Zabbix imports
 from netbox_zabbix import models
 from netbox_zabbix.logger import logger
 
@@ -151,55 +155,55 @@ def apply_mapping_to_host_config( host_config, mapping, monitored_by ):
             raise Exception( msg )
 
 
-#from django.contrib.contenttypes.models import ContentType
-#
-#def get_mapping_for_host(obj):
-#    """
-#    Return the mapping for a Device or VirtualMachine object.
-#
-#    Detects which interface model applies, selects the correct mapping resolver,
-#    and returns structured mapping data suitable for AJAX population.
-#
-#    Args:
-#        obj (Device | VirtualMachine): The NetBox object to resolve mapping for.
-#
-#    Returns:
-#        dict: {
-#            "templates":   [int],
-#            "proxy":       int | None,
-#            "proxy_group": int | None,
-#            "host_groups": [int]
-#        }
-#
-#    Raises:
-#        Exception: If content type is unsupported or mapping cannot be resolved.
-#    """
-#
-#    # Detect interface type
-#    if hasattr( obj, "agent_interfaces" ) and obj.agent_interfaces.exists():
-#        interface_model = models.AgentInterface
-#    elif hasattr( obj, "snmp_interfaces" ) and obj.snmp_interfaces.exists():
-#        interface_model = models.SNMPInterface
-#    else:
-#        interface_model = None
-#
-#    # Determine content type
-#    ct = ContentType.objects.get_for_model( obj )
-#
-#    # Resolve mapping
-#    if ct.model == "device":
-#        mapping = resolve_device_mapping( obj, interface_model )
-#    elif ct.model == "virtualmachine":
-#        mapping = resolve_vm_mapping( obj, interface_model )
-#    else:
-#        raise Exception( f"Unsupported content type: {ct.model}" )
-#
-#    # Return normalized data structure
-#    return {
-#        "templates":    [ t.pk for t in mapping.templates.all() ],
-#        "proxy":        mapping.proxy.pk if getattr( mapping, "proxy", None ) else None,
-#        "proxy_group":  mapping.proxy_group.pk if getattr( mapping, "proxy_group", None ) else None,
-#        "host_groups": [ hg.pk for hg in mapping.host_groups.all() ],
-#    }
+
+def get_mapping_for_host(obj):
+    """
+    Return the mapping for a Device or VirtualMachine object.
+
+    Detects which interface model applies, selects the correct mapping resolver,
+    and returns structured mapping data suitable for AJAX population.
+
+    Args:
+        obj (Device | VirtualMachine): The NetBox object to resolve mapping for.
+
+    Returns:
+        dict: {
+            "templates":   [int],
+            "proxy":       int | None,
+            "proxy_group": int | None,
+            "host_groups": [int]
+        }
+
+    Raises:
+        Exception: If content type is unsupported or mapping cannot be resolved.
+    """
+
+    # Detect interface type
+    if hasattr( obj, "agent_interfaces" ) and obj.agent_interfaces.exists():
+        interface_model = models.AgentInterface
+    elif hasattr( obj, "snmp_interfaces" ) and obj.snmp_interfaces.exists():
+        interface_model = models.SNMPInterface
+    else:
+        interface_model = None
+
+    # Determine content type
+    ct = ContentType.objects.get_for_model( obj )
+
+    # Resolve mapping
+    if ct.model == "device":
+        mapping = resolve_device_mapping( obj, interface_model )
+    elif ct.model == "virtualmachine":
+        mapping = resolve_vm_mapping( obj, interface_model )
+    else:
+        raise Exception( f"Unsupported content type: {ct.model}" )
+
+    # Return normalized data structure
+    return {
+        "templates":    [ t.pk for t in mapping.templates.all() ],
+        "proxy":        mapping.proxy.pk if getattr( mapping, "proxy", None ) else None,
+        "proxy_group":  mapping.proxy_group.pk if getattr( mapping, "proxy_group", None ) else None,
+        "host_groups": [ hg.pk for hg in mapping.host_groups.all() ],
+    }
+
 
 # end
