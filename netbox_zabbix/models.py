@@ -1138,7 +1138,7 @@ class VMMapping(Mapping):
             return matches[0]
 
         # Fallback return the default mapping
-        return cls.obejcts.get( default=True )
+        return cls.objects.get( default=True )
 
 
     def get_matching_virtual_machines(self):
@@ -1980,7 +1980,7 @@ class EventLog(NetBoxModel):
 
 
 class UnAssignedHosts(Device):
-    """Proxy model for unassigned Device objects."""
+    """Proxy model for unassigned hosts."""
     class Meta:
         proxy = True
 

@@ -40,6 +40,7 @@ from netbox_zabbix.models import (
     AgentInterface,
     SNMPInterface,
     Maintenance,
+    UnAssignedHosts
 )
 from netbox_zabbix.filtersets import (
     HostGroupFilterSet,
@@ -557,6 +558,26 @@ class MaintenanceViewSet(NetBoxModelViewSet):
     serializer_class = serializers.MaintenanceSerializer
 
 
+# ------------------------------------------------------------------------------
+# Host Mapping
+# ------------------------------------------------------------------------------
+
+#from netbox_zabbix.mapping.resolver import get_mapping_for_host
+#
+#class HostMappingViewSet(NetBoxModelViewSet):
+#    """
+#    Returns Zabbix mapping data for a selected host.
+#    """
+#
+#    @action(detail=True, methods=["get"], url_path="mapping")
+#    def mapping(self, request, pk=None):
+#        try:
+#            host = UnAssignedHosts.objects.get( pk=pk ) # Should this be more general and include all hosts?
+#            mapping = get_mapping_for_host( host )
+#            return Response(mapping)
+#
+#        except Exception as e:
+#            return Response({"error": str(e)}, status=400)
 
 
 # end
