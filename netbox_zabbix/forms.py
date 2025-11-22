@@ -26,12 +26,12 @@ from django.contrib.contenttypes.models import ContentType
 # NetBox imports
 from utilities.forms.fields import (
     ContentTypeChoiceField, 
-    DynamicModelChoiceField
+    DynamicModelChoiceField,
 )
 from utilities.forms.widgets import DateTimePicker
 from utilities.forms.rendering import FieldSet
 from netbox.forms import NetBoxModelFilterSetForm, NetBoxModelForm
-
+from virtualization.models import VirtualMachine
 
 # NetBox Zabbix plugin imports
 from netbox_zabbix.models import (
@@ -1054,7 +1054,9 @@ class HostConfigForm(NetBoxModelForm):
     Form for configuring hosts in Zabbix.
     Supports devices or VMs, validates monitored_by, templates, and interface availability.
     """
-    object_id = forms.IntegerField(widget=forms.HiddenInput(), required=False)
+    object_id = forms.IntegerField( widget=forms.HiddenInput(), required=False )
+
+    DefaultContentType = ContentType.objects.get_for_model( VirtualMachine )
 
     class Meta:
         model  = HostConfig
@@ -1065,28 +1067,36 @@ class HostConfigForm(NetBoxModelForm):
             'host',
             'status',
             'monitored_by',
+            'host_groups',
             'templates',
             'proxy',
             'proxy_group',
-            'host_groups',
             'description'
         )
 
     content_type = ContentTypeChoiceField(
         label="Host Type",
-        queryset=ContentType.objects.filter( model__in=["device", "virtualmachine"] ),
+        help_text="Associated Host Type.",
+        queryset=ContentType.objects.filter( model__in=["virtualmachine", "device" ] ),
+
+        # NOTE: Setting initial here has no effect on pre-selecting the model 
+        # in the form. However, the field must have a value; otherwise, it 
+        # defaults to empty, forcing the user to select both the Content Type 
+        # and Host before the Host Mappings can be prepopulated.
+        initial=DefaultContentType, 
         required=True,
     )
 
     host = DynamicModelChoiceField(
         label="Host",
+        help_text="Associated Device or Virtual Machine.",
         queryset=UnAssignedHosts.objects.all(),
         required=True,
         selector=False,
         query_params={"content_type": "$content_type"},
     )
 
-    
+    is_edit_field = forms.BooleanField( widget=forms.HiddenInput(), required=False )
 
     def __init__(self, *args, **kwargs):
         """
@@ -1094,9 +1104,16 @@ class HostConfigForm(NetBoxModelForm):
         
         Pre-populates fields with assigned object to prevent reassignment.
         """
+
         instance = kwargs.get( 'instance', None )
         super().__init__( *args, **kwargs )
 
+        self.fields["is_edit_field"].initial = bool( self.instance and self.instance.pk )
+
+        # Hide the 'tags' field on "add" and "edit" view
+        self.fields.pop( 'tags', None )
+        
+        # Editing existing HostConfig
         if instance and instance.pk and instance.content_type:
             assigned = instance.assigned_object
             if assigned:
@@ -1112,9 +1129,8 @@ class HostConfigForm(NetBoxModelForm):
 
                 self.fields['content_type'].disabled = True
                 self.fields['content_type'].widget   = forms.HiddenInput()
+            return
 
-        # Hide the 'tags' field on "add" and "edit" view
-        self.fields.pop('tags', None)
 
     def clean(self):
         """
@@ -1239,12 +1255,9 @@ class BaseHostInterfaceForm(NetBoxModelForm):
         
         # Set the is_edit_field, which is used in the template to prevent fetching primary ip when editing an interface.
         self.fields["is_edit_field"].initial = bool( self.instance and self.instance.pk )
-        logger.info( "BaseHostInterfaceForm" )
 
         # Editing an existing interface
-        if self.instance.pk:
-            logger.info( "BaseHostInterfaceForm: Existing Interface" )
-            
+        if self.instance and self.instance.pk:
             current_interface = self.instance.interface
             current_ip        = self.instance.ip_address
 
@@ -1270,8 +1283,6 @@ class BaseHostInterfaceForm(NetBoxModelForm):
             return
 
         # Creating new interface
-        logger.info( "BaseHostInterfaceForm: New Interface" )
-        
         host_config = None
         if "host_config" in self.initial:
             host_config = HostConfig.objects.filter(id=self.initial["host_config"]).first()
@@ -1280,20 +1291,16 @@ class BaseHostInterfaceForm(NetBoxModelForm):
         
         if host_config:
             self.initial["name"] = f"{host_config.assigned_object.name}-{self.default_name_suffix}"
-            logger.info( f"agent settings {self.agent_defaults}" )
-            logger.info( f"snmp settings {self.snmp_defaults}" )
             
             # Apply common defaults
             for field, value in self.agent_defaults.items():
-                logger.info(f"Applying agent default {field}={value}")
                 self.initial[field] = value
         
             # Apply SNMP defaults
             for field, value in self.snmp_defaults.items():
-                logger.info(f"Applying SNMP default {field}={value}")
                 self.initial[field] = value
         else:
-            logger.info( "HostConfig is Not defined" )
+            logger.error( "HostConfig is Not defined" )
 
 
     def clean(self):

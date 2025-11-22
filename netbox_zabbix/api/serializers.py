@@ -138,10 +138,25 @@ class HostGroupSerializer(serializers.ModelSerializer):
     """
     Serializer for Zabbix Host Groups.
     """
+    display = serializers.SerializerMethodField()
+    
     class Meta:
         model = models.HostGroup
         fields = '__all__'
-
+    
+    
+    def get_display(self, obj):
+        """
+        Returns a human-readable display value for the unassigned object.
+        
+        Args:
+            obj: Instance of Device or VirtualMachine.
+        
+        Returns:
+            str: Display string of the object.
+        """
+        return str(obj)
+    
 
 # ------------------------------------------------------------------------------
 # Tag Mapping
@@ -400,5 +415,21 @@ class MaintenanceSerializer(NetBoxModelSerializer):
     class Meta:
         model = Maintenance
         fields = '__all__'
+
+
+# ------------------------------------------------------------------------------
+# Host Mapping
+# ------------------------------------------------------------------------------
+
+
+class HostMappingSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Host Mapping objects.
+    """
+    class Meta:
+        model = models.HostMapping
+        fields = '__all__'
+
+
 
 # end

@@ -1,0 +1,75 @@
+{% extends 'generic/object_edit.html' %}
+
+{% block content %}
+{{ block.super }}
+{% endblock %}
+
+
+{% block javascript %}
+<script type="text/javascript">
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+
+        const isEdit = document.querySelector('[name="is_edit_field"]').value === "True";
+        if (isEdit) {
+            console.log( "is edit is true" );
+            return;  // Skip JS when editing an interface
+        }
+
+        const hostSelect = document.querySelector('[name=host]');
+        if (!hostSelect) return;
+
+        const updateField = (fieldName, values) => {
+            const field = document.querySelector(`[name=${fieldName}]`);
+            if (!field) return;
+
+            
+            const waitForTomSelect = setInterval(() => {
+                if (field.tomselect) {
+                    clearInterval(waitForTomSelect);
+                    const ids = values.map(v => v.id.toString());
+                    field.tomselect.setValue(ids);
+                }
+            }, 250);
+        };
+
+        
+
+        function updateHostDefaults(hostId) {
+            if (!hostId) return;
+            
+            const contentType = document.querySelector('[name=content_type]');
+            const contentTypeId = contentType.value;
+            console.log("contentTypeId: " + contentTypeId);
+
+            fetch(`/api/plugins/netbox_zabbix/host-mapping/?content_type=${contentTypeId}&object_id=${hostId}`)
+                .then(res => res.json())
+                .then(mapping => {
+                    console.log( "got mapping from NetBox" );
+                    console.log( mapping.host_groups );
+                    console.log(mapping.templates);
+                    console.log(mapping.proxy);
+                    console.log(mapping.proxy);
+                    
+                    // Preselect "the host mapping"
+                    updateField("host_groups", mapping.host_groups || []);
+                    updateField("templates",   mapping.templates || []);
+                    updateField("proxy",       mapping.proxy ? [mapping.proxy] : []);
+                    updateField("proxy_group", mapping.proxy ? [mapping.proxy_group] : []);
+                });
+        }
+
+        hostSelect.addEventListener('change', function () {
+            updateHostDefaults(this.value);
+        });
+
+        if (hostSelect.value) {
+            updateHostDefaults(hostSelect.value);
+        }
+
+    });
+
+</script>
+
+{% endblock %}

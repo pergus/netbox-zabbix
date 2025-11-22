@@ -891,8 +891,8 @@ class DeviceMappingView(generic.ObjectView):
             "related_devices": [
                 {
                     "queryset": devices,
-                    "label": "Devices",
-                    "count": devices.count()
+                    "label":   "Devices",
+                    "count":   devices.count()
                 }
             ]
         }
@@ -1348,6 +1348,7 @@ class HostConfigEditView(generic.ObjectEditView):
     """
     queryset = HostConfig.objects.all()
     form     = forms.HostConfigForm
+    template_name = "netbox_zabbix/hostconfig_edit.html"
 
     def dispatch(self, request, *args, **kwargs):
         """

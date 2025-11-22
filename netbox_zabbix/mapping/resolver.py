@@ -199,11 +199,64 @@ def get_mapping_for_host(obj):
 
     # Return normalized data structure
     return {
-        "templates":    [ t.pk for t in mapping.templates.all() ],
-        "proxy":        mapping.proxy.pk if getattr( mapping, "proxy", None ) else None,
-        "proxy_group":  mapping.proxy_group.pk if getattr( mapping, "proxy_group", None ) else None,
         "host_groups": [ hg.pk for hg in mapping.host_groups.all() ],
+        "templates":   [ t.pk for t in mapping.templates.all() ],
+        "proxy":       mapping.proxy.pk if getattr( mapping, "proxy", None ) else None,
+        "proxy_group": mapping.proxy_group.pk if getattr( mapping, "proxy_group", None ) else None,
     }
 
+
+
+def get_mapping_for_host_v2(obj):
+    """
+    Return the mapping for a Device or VirtualMachine object.
+
+    Detects which interface model applies, selects the correct mapping resolver,
+    and returns structured mapping data suitable for AJAX population.
+
+    Args:
+        obj (Device | VirtualMachine): The NetBox object to resolve mapping for.
+
+    Returns:
+        dict: {
+            "templates":   [{"id": int, "display": str}],
+            "proxy":       {"id": int, "display": str} | None,
+            "proxy_group": {"id": int, "display": str} | None,
+            "host_groups": [{"id": int, "display": str}]
+        }
+
+    Raises:
+        Exception: If content type is unsupported or mapping cannot be resolved.
+    """
+
+    # Detect interface type
+    if hasattr(obj, "agent_interfaces") and obj.agent_interfaces.exists():
+        interface_model = models.AgentInterface
+    elif hasattr(obj, "snmp_interfaces") and obj.snmp_interfaces.exists():
+        interface_model = models.SNMPInterface
+    else:
+        interface_model = None
+
+    # Determine content type
+    ct = ContentType.objects.get_for_model(obj)
+
+    # Resolve mapping
+    if ct.model == "device":
+        mapping = resolve_device_mapping(obj, interface_model)
+    elif ct.model == "virtualmachine":
+        mapping = resolve_vm_mapping(obj, interface_model)
+    else:
+        raise Exception(f"Unsupported content type: {ct.model}")
+
+    # Helper to convert queryset to list of {id, display}
+    def to_id_display(queryset):
+        return [{"id": o.pk, "display": str(o)} for o in queryset]
+
+    return {
+        "host_groups": to_id_display(mapping.host_groups.all()),
+        "templates":   to_id_display(mapping.templates.all()),
+        "proxy":       {"id": mapping.proxy.pk, "display": str(mapping.proxy)} if getattr(mapping, "proxy", None) else None,
+        "proxy_group": {"id": mapping.proxy_group.pk, "display": str(mapping.proxy_group)} if getattr(mapping, "proxy_group", None) else None,
+    }
 
 # end

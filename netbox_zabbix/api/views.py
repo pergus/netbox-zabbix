@@ -40,6 +40,7 @@ from netbox_zabbix.models import (
     AgentInterface,
     SNMPInterface,
     Maintenance,
+    HostMapping,
     UnAssignedHosts
 )
 from netbox_zabbix.filtersets import (
@@ -52,6 +53,7 @@ from netbox_zabbix.filtersets import (
     AgentInterfaceFilterSet,
     SNMPInterfaceFilterSet
 )
+from netbox_zabbix.mapping.resolver import get_mapping_for_host, get_mapping_for_host_v2
 from netbox_zabbix.logger import logger
 
 
@@ -100,6 +102,24 @@ class TemplateViewSet(NetBoxModelViewSet):
     filterset_class = TemplateFilter 
 
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+    
+        defaults_for = self.request.query_params.get( "defaults_for" )
+        if defaults_for:
+            
+            try:
+                # Always interpret the host by object_id from UnAssignedHosts
+                host = UnAssignedHosts.objects.get( pk=defaults_for )
+                mapping = get_mapping_for_host( host )
+                return qs.filter( pk__in=mapping["templates"] )
+            except Exception as e:
+                logger.error( f"Exception {str( e )}" )
+                return qs.none()
+    
+        return qs
+
+
 # ------------------------------------------------------------------------------
 # Proxy
 # ------------------------------------------------------------------------------
@@ -128,6 +148,21 @@ class ProxyViewSet(NetBoxModelViewSet):
     serializer_class = serializers.ProxySerializer
     filterset_class = ProxyFilter 
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+    
+        defaults_for = self.request.query_params.get( "defaults_for" )
+        if defaults_for:
+            try:
+                # Always interpret the host by object_id from UnAssignedHosts
+                host = UnAssignedHosts.objects.get( pk=defaults_for )
+                mapping = get_mapping_for_host( host )
+                return qs.filter( pk=mapping["proxy"] )
+            except Exception as e:
+                logger.info( f"Exception {str( e )}" )
+                return qs.none()
+    
+        return qs
 
 # ------------------------------------------------------------------------------
 # Proxy Group
@@ -157,7 +192,21 @@ class ProxyGroupViewSet(NetBoxModelViewSet):
     serializer_class = serializers.ProxyGroupSerializer
     filterset_class = ProxyGroupFilter 
 
-
+    def get_queryset(self):
+        qs = super().get_queryset()
+    
+        defaults_for = self.request.query_params.get( "defaults_for" )
+        if defaults_for:
+            try:
+                # Always interpret the host by object_id from UnAssignedHosts
+                host = UnAssignedHosts.objects.get( pk=defaults_for )
+                mapping = get_mapping_for_host( host )
+                return qs.filter( pk=mapping["proxy_group"] )
+            except Exception as e:
+                logger.info( f"Exception {str( e )}" )
+                return qs.none()
+    
+        return qs
 # ------------------------------------------------------------------------------
 # Host Group
 # ------------------------------------------------------------------------------
@@ -172,6 +221,22 @@ class HostGroupViewSet(NetBoxModelViewSet):
     queryset = HostGroup.objects.all()
     serializer_class = serializers.HostGroupSerializer
     filterset_class = HostGroupFilterSet
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+    
+        defaults_for = self.request.query_params.get( "defaults_for" )
+        if defaults_for:
+            try:
+                # Always interpret the host by object_id from UnAssignedHosts
+                host = UnAssignedHosts.objects.get( pk=defaults_for )
+                mapping = get_mapping_for_host( host )
+                return qs.filter( pk__in=mapping["host_groups"] )
+            except Exception as e:
+                logger.info( f"Exception {str( e )}" )
+                return qs.none()
+
+        return qs
 
 
 # ------------------------------------------------------------------------------
@@ -562,40 +627,39 @@ class MaintenanceViewSet(NetBoxModelViewSet):
 # Host Mapping
 # ------------------------------------------------------------------------------
 
-#from netbox_zabbix.mapping.resolver import get_mapping_for_host
-#
-#class HostMappingViewSet(NetBoxModelViewSet):
-#    """
-#    Returns Zabbix mapping for a given Device or VirtualMachine.
-#
-#    Expects query parameters:
-#        - content_type: ID of the ContentType (device or virtualmachine)
-#        - object_id: ID of the host object
-#    """
-#
-#    def list(self, request):
-#        """
-#        GET /api/plugins/netbox_zabbix/host-mapping/?content_type=12&object_id=34
-#        """
-#        content_type_id = request.query_params.get("content_type")
-#        object_id = request.query_params.get("object_id")
-#
-#        if not content_type_id or not object_id:
-#            # Safe fallback when visiting the endpoint without parameters
-#            return Response({
-#                "error": "Please provide 'content_type' and 'object_id' query parameters."
-#            }, status=200)
-#
-#        try:
-#            ct = ContentType.objects.get(pk=content_type_id)
-#            obj = ct.get_object_for_this_type(pk=object_id)
-#            mapping_data = get_mapping_for_host(obj)
-#            return Response(mapping_data)
-#
-#        except ContentType.DoesNotExist:
-#            return Response({"error": "Invalid content_type"}, status=400)
-#        except Exception as e:
-#            return Response({"error": str(e)}, status=400)
+from rest_framework import status
+
+class HostMappingViewSet(NetBoxModelViewSet):
+    """
+    Returns Zabbix mapping for a given Device or VirtualMachine.
+
+    Expects query parameters:
+        - content_type: ID of the ContentType (device or virtualmachine)
+        - object_id: ID of the host object
+    """
+    queryset = HostMapping.objects.none()  # Dummy QuerySet to satisfy DRF
+    serializer_class = serializers.HostMappingSerializer  # You can also create a simple serializer if needed
+
+    def list(self, request, *args, **kwargs):
+        content_type_id = request.query_params.get( "content_type" )
+        object_id = request.query_params.get( "object_id" )
+
+        if not content_type_id or not object_id:
+            return Response(
+                {"error": "Please provide 'content_type' and 'object_id' query parameters."},
+                status=status.HTTP_200_OK
+            )
+
+        try:
+            ct = ContentType.objects.get( pk=content_type_id )
+            obj = ct.get_object_for_this_type( pk=object_id )
+            mapping_data = get_mapping_for_host_v2( obj )
+            return Response( mapping_data )
+
+        except ContentType.DoesNotExist:
+            return Response( {"error": "Invalid content_type"}, status=status.HTTP_400_BAD_REQUEST )
+        except Exception as e:
+            return Response( {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST )
 
 
 

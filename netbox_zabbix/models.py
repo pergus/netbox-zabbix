@@ -935,7 +935,7 @@ class DeviceMapping(Mapping):
         filters = cls.objects.filter( default=False )
         matches = []
         for f in filters:
-            if f.interface_type == interface_type:
+            if f.interface_type == interface_type or interface_type == InterfaceTypeChoices.Any:
                 if (
                     (not f.sites.exists() or device.site in f.sites.all()) and
                     (not f.roles.exists() or device.role in f.roles.all()) and
@@ -2028,5 +2028,16 @@ class UnAssignedHostIPAddresses(IPAddress):
     class Meta:
         proxy = True
 
+
+
+# ------------------------------------------------------------------------------
+# Host Mapping
+# ------------------------------------------------------------------------------
+
+
+class HostMapping(VMMapping):
+    """Proxy model for Host Mappings."""
+    class Meta:
+        proxy = True
 
 # end

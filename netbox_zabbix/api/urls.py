@@ -34,7 +34,7 @@ router.register( 'event-log',         views.EventLogViewSet )
 router.register( 'maintenance',       views.MaintenanceViewSet )
 
 
-#router.register("host-mapping",       views.HostMappingViewSet, basename='host-mapping' )
+router.register("host-mapping",       views.HostMappingViewSet, basename='host-mapping' )
 
 
 # Proxy Models

@@ -26,4 +26,5 @@ from .serializers import (
     UnAssignedSNMPInterfaceSerializer,
     UnAssignedHostInterfacesSerializer,
     UnAssignedHostIPAddressesSerializer,
+    HostMappingSerializer,
     )

@@ -74,7 +74,7 @@ class TemplateFilterSet(NetBoxModelFilterSet):
         return queryset.filter(
             Q(name__icontains=value) |
             Q(interface_type__icontains=value)
-        )
+        ).distinct()
 
 
 # ------------------------------------------------------------------------------
@@ -105,7 +105,7 @@ class ProxyFilterSet(NetBoxModelFilterSet):
             return queryset
         return queryset.filter(
             Q(name__icontains=value) 
-        )
+        ).distinct()
 
 
 # ------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ class ProxyGroupFilterSet(NetBoxModelFilterSet):
             return queryset
         return queryset.filter(
             Q(name__icontains=value) 
-        )
+        ).distinct()
 
 
 # ------------------------------------------------------------------------------
@@ -167,7 +167,7 @@ class HostGroupFilterSet(NetBoxModelFilterSet):
             return queryset
         return queryset.filter(
             Q(name__icontains=value)
-        )
+        ).distinct()
 
 
 # ------------------------------------------------------------------------------
@@ -198,7 +198,7 @@ class TagMappingFilterSet(NetBoxModelFilterSet):
             return queryset
         return queryset.filter(
             Q(object_type__icontains=value) 
-        )
+        ).distinct()
 
 
 # ------------------------------------------------------------------------------
@@ -229,7 +229,7 @@ class InventoryMappingFilterSet(NetBoxModelFilterSet):
             return queryset
         return queryset.filter(
             Q(object_type__icontains=value) 
-        )
+        ).distinct()
 
 
 
@@ -354,7 +354,6 @@ class HostConfigFilterSet(NetBoxModelFilterSet):
             'name', 'content_type', 'description',
         )
 
-    
 
     def search(self, queryset, name, value):
         """
@@ -390,7 +389,7 @@ class HostConfigFilterSet(NetBoxModelFilterSet):
             | Q( description__icontains=value )
             | Q( content_type_id__in=matching_cts )
             | site_filter
-        )
+        ).distinct()
 
 
 # ------------------------------------------------------------------------------
@@ -498,7 +497,7 @@ class EventLogFilterSet(NetBoxModelFilterSet):
             Q( job__name__icontains=value ) |
             Q( job_uuid_str__icontains=value ) |
             Q( message__icontains=value )
-        )
+        ).distinct()
 
 
 # end
