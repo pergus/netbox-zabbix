@@ -317,6 +317,18 @@ class HostSyncModeChoices(models.IntegerChoices):
 
 
 # ------------------------------------------------------------------------------
+# Zabbix Admin Permissions
+# ------------------------------------------------------------------------------
+
+
+class ZabbixAdminPermission(NetBoxModel):
+    class Meta:
+        verbose_name = "Zabbix Admin Permission"
+        permissions = [ ("admin", "NetBox-Zabbix plugin administator"), ]
+    pass
+
+
+# ------------------------------------------------------------------------------
 # Setting
 # ------------------------------------------------------------------------------
 
@@ -935,7 +947,7 @@ class DeviceMapping(Mapping):
         filters = cls.objects.filter( default=False )
         matches = []
         for f in filters:
-            if f.interface_type == interface_type or interface_type == InterfaceTypeChoices.Any:
+            if f.interface_type == interface_type:
                 if (
                     (not f.sites.exists() or device.site in f.sites.all()) and
                     (not f.roles.exists() or device.role in f.roles.all()) and
@@ -1424,8 +1436,8 @@ class HostConfig(NetBoxModel, JobsMixin):
         from netbox_zabbix.netbox.compare import compare_host_configuration
     
         try:
-            differ = compare_host_configuration( self ).get( "differ", False )
-            self.in_sync = differ["differ"]
+            result = compare_host_configuration( self )
+            self.in_sync = not result.get( "differ", False ) # invert the differ flag
             self.last_sync_update = timezone.now()
             self.save( update_fields=["in_sync", "last_sync_update"] )
         except Exception as e:
@@ -1460,9 +1472,9 @@ class HostConfig(NetBoxModel, JobsMixin):
             if request:
                 return {"warning": True, "message": warning_msg}
             else:
-                raise Exception(warning_msg)
+                raise Exception( warning_msg )
     
-        return super().delete(*args, **kwargs)
+        return super().delete( *args, **kwargs )
 
 
 # ------------------------------------------------------------------------------

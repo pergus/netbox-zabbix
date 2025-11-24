@@ -83,7 +83,7 @@ def provision_zabbix_host(ctx: ProvisionContext):
         # Check if a Zabbix config already exists
         host_config = models.HostConfig.objects.filter( content_type=ContentType.objects.get_for_model( ctx.object ), object_id=ctx.object.id ).first()
 
-        if host_config:
+        if host_config and host_config.hostid:
             # Existing config - only add interface and update host in Zabbix
             iface = create_zabbix_interface(
                 ctx.object,
@@ -109,7 +109,8 @@ def provision_zabbix_host(ctx: ProvisionContext):
             }
 
         # No existing config exists so we do a full provisioning
-        host_config = create_host_config( ctx.object )
+        if not host_config:
+            host_config = create_host_config( ctx.object )
         apply_mapping_to_host_config( host_config, mapping, monitored_by )
 
         iface = create_zabbix_interface(

@@ -1,3 +1,19 @@
+"""
+NetBox Zabbix Plugin - Remove Empty Strings
+
+This module defines a custom Django template filter for cleaning JSON-like
+objects (dictionaries and lists) by removing keys with empty string values.
+
+Filters:
+    - remove_empty_strings: Recursively removes all keys with empty string
+      values from dictionaries and lists. Useful for cleaning data before
+      rendering it in templates.
+
+Intended for use in templates where empty string values should be hidden
+or excluded from output.
+"""
+
+# Django imports
 from django import template
 
 register = template.Library()

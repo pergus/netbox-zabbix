@@ -26,31 +26,31 @@ menu = PluginMenu(
                     link_text="Settings", 
                     link="plugins:netbox_zabbix:setting_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_setting" ]
+                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ]
                 ),
                 PluginMenuItem( 
                     link_text="Templates", 
                     link="plugins:netbox_zabbix:template_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_template" ]
+                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ]
                 ),
                 PluginMenuItem( 
                     link_text="Proxies", 
                     link="plugins:netbox_zabbix:proxy_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_proxy" ]
+                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ]
                 ),
                 PluginMenuItem( 
                     link_text="Proxy Groups", 
                     link="plugins:netbox_zabbix:proxygroup_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_proxygroup" ]
+                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ]
                 ), 
                 PluginMenuItem( 
                     link_text="Host Groups", 
                     link="plugins:netbox_zabbix:hostgroup_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_hostgroup" ]
+                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ]
                 ), 
             ),
         ),
@@ -60,25 +60,21 @@ menu = PluginMenu(
                     link_text="Tag Mappings", 
                     link="plugins:netbox_zabbix:tagmapping_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_tagmapping" ]
                 ),
                 PluginMenuItem( 
                     link_text="Inventory Mappings", 
                     link="plugins:netbox_zabbix:inventorymapping_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_inventorymapping" ]
                 ),
                 PluginMenuItem( 
                     link_text="Device Mappings", 
                     link="plugins:netbox_zabbix:devicemapping_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_devicemapping" ]
                 ),
                 PluginMenuItem( 
                     link_text="Virtual Machine Mappings",
                     link="plugins:netbox_zabbix:vmmapping_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_vmmapping" ]
                 ),
             ),
         ),

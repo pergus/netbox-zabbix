@@ -1,6 +1,31 @@
+"""
+NetBox Zabbix Plugin — Config Rendering
+
+This module provides custom Django template filters for rendering Python
+dicts, lists, and primitive values as HTML tables within templates. It
+includes functions to handle nested structures, merge multiple dicts, and
+display lists of primitives in a compact, readable table format.
+
+Filters and helpers:
+    - render_cell_v1: Renders a single dict or list into a table for a cell.
+    - render_cell: Renders dicts, lists of dicts, or primitives compactly.
+    - config_to_table: Django template filter to render dicts or lists of
+      dicts as full HTML tables, handling nested structures appropriately.
+
+Intended for use in templates where structured configuration or data needs
+to be displayed cleanly in tabular form.
+
+
+"""
+
+# Imports
+import json
+
+
+# Django imports
 from django import template
 from django.utils.safestring import mark_safe
-import json
+
 
 register = template.Library()
 
@@ -91,7 +116,6 @@ def render_cell(value):
 
     # Fallback
     return str(value)
-
 
 
 @register.filter(name="config_to_table")

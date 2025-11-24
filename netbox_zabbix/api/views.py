@@ -53,7 +53,7 @@ from netbox_zabbix.filtersets import (
     AgentInterfaceFilterSet,
     SNMPInterfaceFilterSet
 )
-from netbox_zabbix.mapping.resolver import get_mapping_for_host, get_mapping_for_host_v2
+from netbox_zabbix.mapping.resolver import get_mapping_for_host, get_host_mapping_for_form
 from netbox_zabbix.logger import logger
 
 
@@ -163,6 +163,7 @@ class ProxyViewSet(NetBoxModelViewSet):
                 return qs.none()
     
         return qs
+
 
 # ------------------------------------------------------------------------------
 # Proxy Group
@@ -634,26 +635,29 @@ class HostMappingViewSet(NetBoxModelViewSet):
     Returns Zabbix mapping for a given Device or VirtualMachine.
 
     Expects query parameters:
-        - content_type: ID of the ContentType (device or virtualmachine)
+        - content_type_id: ID of the ContentType (device or virtualmachine)
         - object_id: ID of the host object
+        - interface_type_id: ID of the interface type.
     """
     queryset = HostMapping.objects.none()  # Dummy QuerySet to satisfy DRF
     serializer_class = serializers.HostMappingSerializer  # You can also create a simple serializer if needed
 
     def list(self, request, *args, **kwargs):
-        content_type_id = request.query_params.get( "content_type" )
-        object_id = request.query_params.get( "object_id" )
+        content_type_id    = request.query_params.get( "content_type_id" )
+        object_id          = request.query_params.get( "object_id" )
+        interface_type_id  = request.query_params.get( "interface_type_id" )
 
         if not content_type_id or not object_id:
             return Response(
-                {"error": "Please provide 'content_type' and 'object_id' query parameters."},
+                {"error": "Please provide 'content_type', 'object_id' and 'interface_type_id' query parameters."},
                 status=status.HTTP_200_OK
             )
 
         try:
             ct = ContentType.objects.get( pk=content_type_id )
             obj = ct.get_object_for_this_type( pk=object_id )
-            mapping_data = get_mapping_for_host_v2( obj )
+
+            mapping_data = get_host_mapping_for_form( obj, interface_type_id )
             return Response( mapping_data )
 
         except ContentType.DoesNotExist:

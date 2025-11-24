@@ -296,14 +296,14 @@ def is_config_being_deleted(config_pk):
 
 
 # ------------------------------------------------------------------------------
-# Create/Update Host Config
+# Update Host Config
 # ------------------------------------------------------------------------------
 
 
 @receiver(post_save, sender=HostConfig)
-def create_or_update_host_config(sender, instance, created: bool, **kwargs):
+def update_host_config(sender, instance, created: bool, **kwargs):
     """
-    Create or update a Zabbix host after a HostConfig is saved.
+    Update a Zabbix host after a HostConfig is saved.
     
     Args:
         sender (Model): HostConfig model class.
@@ -329,10 +329,15 @@ def create_or_update_host_config(sender, instance, created: bool, **kwargs):
         logger.error( "[%s] no user found for Host Config %s. Cannot create/update Zabbix host.", signal_id, instance.pk )
         return
 
-    action = "create" if created else "update"
+    # Do nothing on create events. The Provision jobs are supposed to handle all configuration.
+    if created:
+        logger.warning( f"[%s] signal skipped for pk=%s since creating a host is not allowed", signal_id, instance.pk )
+        return
 
-    job_func = CreateZabbixHost.run_job if created else UpdateZabbixHost.run_job
-    
+
+    action = "update"
+    job_func = UpdateZabbixHost.run_job
+
     try:
         logger.info( "[%s] queuing %s Zabbix host for '%s'", action, signal_id, instance.name )
         
@@ -341,7 +346,7 @@ def create_or_update_host_config(sender, instance, created: bool, **kwargs):
         job_func( host_config=instance, request=request, name=name, signal_id=signal_id )
 
         logger.info( "[%s] successfully scheduled %s Zabbix host for '%s'", action, signal_id, instance.name )
-    
+
     except Exception as e:
         logger.error( "[%s] failed to schedule %s Zabbix host for '%s': %s", signal_id, action, instance.name, str(e), exc_info=True )
 
@@ -451,7 +456,7 @@ def create_or_update_zabbix_interface(sender, instance, created: bool, **kwargs)
         return
 
     # Determine action
-    action = "create" if created else "update"    
+    action = "create" if created else "update"
     logger.info( "[%s] %s Zabbix interface for '%s' (interface pk=%s)", signal_id, action, instance.name, instance.pk )
 
     # Pick the job

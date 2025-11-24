@@ -190,6 +190,7 @@ urlpatterns = (
     path( 'host-config/<int:pk>/problems',   views.HostConfigProblemsTabView.as_view(), name='hostconfig_problems' ),
     path( 'host-config/<int:pk>/jobs',       views.HostConfigJobsTabView.as_view(),     name='hostconfig_jobs' ),
     path( 'host-config/<int:pk>/difference', views.HostConfigDiffTabView.as_view(),     name='hostconfig_difference' ),
+    path( 'host-config/update-sync-status',  views.update_sync_status,                  name='hostconfig_updatesyncstatus' ),
 
 
     # --------------------------------------------------------------------------

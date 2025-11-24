@@ -1,12 +1,34 @@
+"""
+NetBox Zabbix Plugin — Model View Tabs (Excluding Jobs)
+
+This module defines a custom Django template tag for rendering the navigation
+tabs of a NetBox model view while excluding any tabs related to "Jobs". 
+
+The `model_view_tabs_exlude_jobs` tag dynamically generates tabs based on the
+registered views for a model, checks user permissions, computes URLs, and
+marks the active tab. It is intended to be used in templates for model
+instances where the "Jobs" tab should not be displayed.
+
+Key features:
+    - Retrieves all registered views for a given model from the NetBox registry.
+    - Filters tabs based on user permissions.
+    - Excludes tabs labeled "Jobs".
+    - Computes URLs for tabs using Django `reverse`.
+    - Marks the active tab based on the current context.
+    - Sorts tabs by weight for display ordering.
+"""
+
+# Django imports
 from django import template
 from django.urls import reverse
 from django.urls.exceptions import NoReverseMatch
 from django.utils.module_loading import import_string
 
+# NetBox imports
 from netbox.registry import registry
 from utilities.views import get_viewname
 
-
+# NetBox Zabbix plugin imports
 from netbox_zabbix.logger import logger
 
 register = template.Library()

@@ -2,7 +2,6 @@
 {% load buttons %}
 {% load custom_links %}
 {% load helpers %}
-{% load perms %}
 {% load plugins %}
 {% load tabs %}
 {% load i18n %}
@@ -36,14 +35,14 @@
 
 
 {% block content %}
-{% if table.rows %}
+{% if problems_table %}
 <div class="row">
     <div class="col col-md-12">
         <div class="card">
             <h2 class="card-header">
                 Problems
             </h2>
-            {% render_table table %}
+            {% render_table problems_table %}
         </div>
     </div>
 </div>
@@ -52,5 +51,6 @@
     {% trans "No Zabbix Problems." %}
 </div>
 {% endif %}
+
 
 {% endblock %}

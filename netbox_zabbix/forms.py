@@ -15,6 +15,7 @@ import re
 
 # Django imports
 from django import forms
+from django.contrib import messages
 from django.conf import settings as plugin_settings
 from django.core.exceptions import ValidationError
 from django.forms import Select
@@ -24,6 +25,7 @@ from django.utils.timezone import now
 from django.contrib.contenttypes.models import ContentType
 
 # NetBox imports
+from strawberry import interface
 from utilities.forms.fields import (
     ContentTypeChoiceField, 
     DynamicModelChoiceField,
@@ -68,6 +70,7 @@ from netbox_zabbix.zabbix.templates import (
 from netbox_zabbix.zabbix.inventory_properties import inventory_properties
 from netbox_zabbix.zabbix import api as zapi
 from netbox_zabbix import settings
+from netbox_zabbix.netbox.permissions import has_any_model_permission
 from netbox_zabbix.logger import logger
 
 
@@ -1056,7 +1059,10 @@ class HostConfigForm(NetBoxModelForm):
     """
     object_id = forms.IntegerField( widget=forms.HiddenInput(), required=False )
 
+    # Dummy
     DefaultContentType = ContentType.objects.get_for_model( VirtualMachine )
+
+    interface_type = forms.ChoiceField( label="Interface Type", choices=InterfaceTypeChoices, initial=InterfaceTypeChoices.Agent )
 
     class Meta:
         model  = HostConfig
@@ -1065,6 +1071,7 @@ class HostConfigForm(NetBoxModelForm):
             'content_type',
             'object_id',
             'host',
+            'interface_type',
             'status',
             'monitored_by',
             'host_groups',
@@ -1132,6 +1139,24 @@ class HostConfigForm(NetBoxModelForm):
             return
 
 
+
+    def clean_host(self):
+        """
+        Validate the selected host before saving the form.
+    
+        Ensures that the underlying Device or VirtualMachine has a primary IPv4 address.
+        """
+        host = self.cleaned_data.get( "host" )
+        if host is None:
+            return host
+    
+        # Check if the host has a primary IPv4
+        if not getattr(host, "primary_ip4", None):
+            raise ValidationError( f"The selected host '{host}' has no primary IPv4 address and cannot be used to create a HostConfig." )
+
+        return host
+    
+
     def clean(self):
         """
         Validate monitored_by settings, interface type, and template compatibility.
@@ -1188,6 +1213,35 @@ class HostConfigForm(NetBoxModelForm):
 
         return self.cleaned_data
 
+
+
+    def save(self, *args, **kwargs):
+
+        from netbox_zabbix.jobs.provision import ProvisionAgent, ProvisionSNMP
+
+        # Save the HostConfig instance normally
+        instance = super().save( *args, **kwargs )
+
+        # Retrieve the interface_type from cleaned_data
+        interface_type = self.cleaned_data.get( "interface_type", None )
+
+        # Get the request which was added in alter_object() in the view.
+        request = getattr( instance, "_request", None )
+        
+        if int( interface_type ) == int( InterfaceTypeChoices.Agent ):
+            job = ProvisionAgent.run_job( instance=instance.assigned_object, request=request )
+            message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> ' f'to create host in Zabbix' )
+            messages.success( request, message )
+
+        elif int( interface_type) == int( InterfaceTypeChoices.SNMP ):
+            job = ProvisionSNMP.run_job( instance=instance.assigned_object, request=request )
+            message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> ' f'to create host in Zabbix' )
+            messages.success( request, message )
+
+        else:
+            messages.error( request, "Did not provision host in Zabbix" )
+       
+        return instance
 
 # ------------------------------------------------------------------------------
 # Base Host Interface Form
@@ -1377,7 +1431,6 @@ class AgentInterfaceForm(BaseHostInterfaceForm):
         super().__init__( *args, **kwargs )
 
 
-
 # ------------------------------------------------------------------------------
 # SNMP Interface
 # ------------------------------------------------------------------------------
@@ -1469,7 +1522,13 @@ class MaintenanceForm(NetBoxModelForm):
         super().__init__( *args, **kwargs )
 
         # Hide the 'tags' field on "add" and "edit" view
-        self.fields.pop('tags', None)
+        self.fields.pop( 'tags', None )
+
+
+        user = getattr( self.instance, "_current_user", None )
+        if not has_any_model_permission( user, "netbox_zabbix", "zabbixadminpermission" ):
+            self.fields.pop( 'proxies', None )
+            self.fields.pop( 'proxy_groups', None )
 
 
 # end

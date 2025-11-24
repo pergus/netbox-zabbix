@@ -52,6 +52,7 @@ from netbox_zabbix import settings, filtersets, forms, tables
 from netbox_zabbix.jobs.host import UpdateZabbixHost
 from netbox_zabbix.jobs.imports import ImportZabbixSettings, ImportHost
 from netbox_zabbix.jobs.validate import ValidateHost
+from netbox_zabbix.jobs.synchosts import SystemJobHostConfigSyncRefresh
 from netbox_zabbix.jobs.provision import ProvisionAgent, ProvisionSNMP
 from netbox_zabbix.zabbix import api as zapi
 from netbox_zabbix.models import (
@@ -74,7 +75,9 @@ from netbox_zabbix.models import (
 )
 from netbox_zabbix.zabbix.validation import validate_quick_add
 from netbox_zabbix.netbox.interfaces import can_delete_interface, is_interface_available
+from netbox_zabbix.netbox.permissions import has_any_model_permission
 from netbox_zabbix.logger import logger
+
 
 
 # ------------------------------------------------------------------------------
@@ -324,11 +327,53 @@ class TemplateEditView(generic.ObjectEditView):
     form     = forms.TemplateForm
 
 
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 class TemplateDeleteView(generic.ObjectDeleteView):
     """
     Delete a Zabbix Template instance.
     """
     queryset = Template.objects.all()
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
 
 
 class TemplateBulkDeleteView(generic.BulkDeleteView):
@@ -346,6 +391,27 @@ class TemplateBulkDeleteView(generic.BulkDeleteView):
             str: URL to template list view.
         """
         return reverse( 'plugins:netbox_zabbix:template_list' )
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
 
 
 def run_import_templates(request=None):
@@ -436,11 +502,53 @@ class ProxyEditView(generic.ObjectEditView):
     form     = forms.ProxyForm
 
 
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 class ProxyDeleteView(generic.ObjectDeleteView):
     """
     Delete a Zabbix Proxy instance.
     """
     queryset = Proxy.objects.all()
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
 
 
 class ProxyBulkDeleteView(generic.BulkDeleteView):
@@ -458,6 +566,27 @@ class ProxyBulkDeleteView(generic.BulkDeleteView):
             str: URL to proxy list view.
         """
         return reverse( 'plugins:netbox_zabbix:proxy_list' )
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
 
 
 def run_import_proxies(request=None):
@@ -547,11 +676,53 @@ class ProxyGroupEditView(generic.ObjectEditView):
     form     = forms.ProxyGroupForm
 
 
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 class ProxyGroupDeleteView(generic.ObjectDeleteView):
     """
     Delete a Zabbix ProxyGroup instance.
     """
     queryset = ProxyGroup.objects.all()
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
 
 
 class ProxyGroupBulkDeleteView(generic.BulkDeleteView):
@@ -569,6 +740,27 @@ class ProxyGroupBulkDeleteView(generic.BulkDeleteView):
             str: URL to proxy group list view.
         """
         return reverse( 'plugins:netbox_zabbix:proxygroup_list' )
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
 
 
 def run_import_proxy_groups(request=None):
@@ -656,6 +848,27 @@ class HostGroupEditView(generic.ObjectEditView):
     form     = forms.HostGroupForm
 
 
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 class HostGroupDeleteView(generic.ObjectDeleteView):
     """
     Delete a Zabbix HostGroup instance.
@@ -670,6 +883,27 @@ class HostGroupDeleteView(generic.ObjectDeleteView):
             str: URL to host group list view.
         """
         return reverse( 'plugins:netbox_zabbix:hostgroup_list' )
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
 
 
 class HostGroupBulkDeleteView(generic.BulkDeleteView):
@@ -687,6 +921,27 @@ class HostGroupBulkDeleteView(generic.BulkDeleteView):
             str: URL to host group list view.
         """
         return reverse( 'plugins:netbox_zabbix:hostgroup_list' )
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
 
 
 def run_import_host_groups(request=None):
@@ -774,11 +1029,53 @@ class TagMappingEditView(generic.ObjectEditView):
     form     = forms.TagMappingForm
 
 
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 class TagMappingDeleteView(generic.ObjectDeleteView):
     """
     Delete a TagMapping instance.
     """
     queryset = TagMapping.objects.all()
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
 
 
 # ------------------------------------------------------------------------------
@@ -810,11 +1107,53 @@ class InventoryMappingEditView(generic.ObjectEditView):
     form          = forms.InventoryMappingForm
 
 
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 class InventoryMappingDeleteView(generic.ObjectDeleteView):
     """
     Delete an InventoryMapping instance.
     """
     queryset = InventoryMapping.objects.all()
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
 
 
 # ------------------------------------------------------------------------------
@@ -905,7 +1244,7 @@ class DeviceMappingListView(generic.ObjectListView):
     queryset  = DeviceMapping.objects.all()
     table     = tables.DeviceMappingTable
     filterset = filtersets.DeviceMappingFilterSet
-    
+
 
 class DeviceMappingEditView(generic.ObjectEditView):
     """
@@ -915,12 +1254,56 @@ class DeviceMappingEditView(generic.ObjectEditView):
     form          = forms.DeviceMappingForm
 
 
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 class DeviceMappingDeleteView(generic.ObjectDeleteView):
     """
     Delete a DeviceMapping instance.
     Prevents deletion if the mapping is marked as default.
     """
     queryset = DeviceMapping.objects.all()
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 
     def get_return_url(self, request, obj=None):
         """
@@ -958,6 +1341,29 @@ class DeviceMappingBulkDeleteView(generic.BulkDeleteView):
     queryset        = DeviceMapping.objects.all()
     filterset_class = filtersets.DeviceMappingFilterSet
     table           = tables.DeviceMappingTable
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 
     def post(self, request, *args, **kwargs):
         """
@@ -1095,6 +1501,27 @@ class VMMappingEditView(generic.ObjectEditView):
     form          = forms.VMMappingForm
 
 
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 class VMMappingDeleteView(generic.ObjectDeleteView):
     """
     Delete a VMMapping instance.
@@ -1102,7 +1529,29 @@ class VMMappingDeleteView(generic.ObjectDeleteView):
     Prevents deletion if the mapping is marked as default.
     """
     queryset = VMMapping.objects.all()
-    
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
     def get_return_url(self, request, obj=None):
         """
         Return URL after deletion.
@@ -1111,7 +1560,8 @@ class VMMappingDeleteView(generic.ObjectDeleteView):
             str: URL to VM mapping list view.
         """
         return reverse( 'plugins:netbox_zabbix:vmmapping_list' )
-    
+
+
     def post(self, request, *args, **kwargs):
         """
         Handle deletion request.
@@ -1139,6 +1589,29 @@ class VMMappingBulkDeleteView(generic.BulkDeleteView):
     queryset        = VMMapping.objects.all()
     filterset_class = filtersets.VMMappingFilterSet
     table           = tables.VMMappingTable
+
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Controls access to the view based on the user's NetBox-Zabbix plugin permissions.
+        
+        This method overrides the default `dispatch` to enforce plugin-level access control.
+        Only users with the `view_zabbixadminpermission` permission can access the view.
+        
+        Behavior:
+        - If the user has the permission `netbox_zabbix.view_zabbixadminpermission`,
+          the request proceeds normally by calling the parent `dispatch`.
+        - If the user lacks the permission, a `PermissionDenied` exception is raised,
+          resulting in a 403 Forbidden response in the UI.
+        """
+        
+        if has_any_model_permission( request.user, "netbox_zabbix", "zabbixadminpermission" ):
+            return super().dispatch( request, *args, **kwargs )
+        else:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied()
+
+
 
     def post(self, request, *args, **kwargs):
         """
@@ -1350,6 +1823,7 @@ class HostConfigEditView(generic.ObjectEditView):
     form     = forms.HostConfigForm
     template_name = "netbox_zabbix/hostconfig_edit.html"
 
+
     def dispatch(self, request, *args, **kwargs):
         """
         Intercept the request before it reaches form handling to prevent editing.
@@ -1375,6 +1849,11 @@ class HostConfigEditView(generic.ObjectEditView):
             return redirect( self.get_return_url( request, obj ) )
     
         return super().dispatch( request, *args, **kwargs )
+
+
+    def alter_object(self, obj, request, args, kwargs):
+        obj._request = request
+        return obj
 
 
 class HostConfigDeleteView(generic.ObjectDeleteView):
@@ -1441,6 +1920,21 @@ class HostConfigBulkDeleteView(generic.BulkDeleteView):
     
         return redirect(request.GET.get("return_url", "/plugins/netbox_zabbix/host-config/"))
 
+
+
+def update_sync_status(request):
+    """
+    View wrapper to sync hosts in NetBox with hosts in Zabbix.
+    
+    Args:
+        request (HttpRequest): Triggering request.
+    
+    Returns:
+        HttpResponseRedirect: Redirect to referring page.
+    """
+    redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
+    SystemJobHostConfigSyncRefresh.run( cutoff=0 )
+    return redirect( redirect_url )
 
 # --------------------------------------------------------------------------
 # Agent Interface
@@ -1653,7 +2147,6 @@ class SNMPInterfaceBulkDeleteView(generic.BulkDeleteView):
         return super().post( request, *args, **kwargs )
 
 
-
 # --------------------------------------------------------------------------
 # Maintenance
 # --------------------------------------------------------------------------
@@ -1697,6 +2190,10 @@ class MaintenanceEditView(generic.ObjectEditView):
             username directly into the model instance before the form is rendered.
         """
         user = getattr( self.request, 'user', None )
+
+        if user and user.is_authenticated:
+            obj._current_user = user
+        
         if obj.pk is None and user and user.is_authenticated:
             base_name = f"{user.username}-maintenance"
             name = base_name
@@ -2330,8 +2827,6 @@ class ZabbixOnlyHostsView(LoginRequiredMixin, GenericTemplateView):
         return context
 
 
-
-
 # ------------------------------------------------------------------------------
 # Event Log
 # ------------------------------------------------------------------------------
@@ -2485,7 +2980,7 @@ class HostConfigProblemsTabView(generic.ObjectView):
         problems_table = tables.ZabbixProblemTable(problems)
         
         return {
-            "jobs_table": jobs_table,
+            "jobs_table":     jobs_table,
             "problems_table": problems_table,
         }
 

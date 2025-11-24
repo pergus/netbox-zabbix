@@ -13,18 +13,18 @@
 
         const isEdit = document.querySelector('[name="is_edit_field"]').value === "True";
         if (isEdit) {
-            console.log( "is edit is true" );
             return;  // Skip JS when editing an interface
         }
 
         const hostSelect = document.querySelector('[name=host]');
-        if (!hostSelect) return;
+        const interfaceSelect = document.querySelector('[name=interface_type]');
+        if (!hostSelect || !interfaceSelect) return;
+
 
         const updateField = (fieldName, values) => {
             const field = document.querySelector(`[name=${fieldName}]`);
             if (!field) return;
 
-            
             const waitForTomSelect = setInterval(() => {
                 if (field.tomselect) {
                     clearInterval(waitForTomSelect);
@@ -34,25 +34,19 @@
             }, 250);
         };
 
-        
 
-        function updateHostDefaults(hostId) {
-            if (!hostId) return;
-            
+        function updateHostDefaults() {
+            const hostId = hostSelect.value;
+            const interfaceTypeId = interfaceSelect.value;
+
+            if (!hostSelect || !interfaceSelect) return;
+
             const contentType = document.querySelector('[name=content_type]');
             const contentTypeId = contentType.value;
-            console.log("contentTypeId: " + contentTypeId);
 
-            fetch(`/api/plugins/netbox_zabbix/host-mapping/?content_type=${contentTypeId}&object_id=${hostId}`)
+            fetch(`/api/plugins/netbox_zabbix/host-mapping/?content_type_id=${contentTypeId}&object_id=${hostId}&interface_type_id=${interfaceTypeId}`)
                 .then(res => res.json())
                 .then(mapping => {
-                    console.log( "got mapping from NetBox" );
-                    console.log( mapping.host_groups );
-                    console.log(mapping.templates);
-                    console.log(mapping.proxy);
-                    console.log(mapping.proxy);
-                    
-                    // Preselect "the host mapping"
                     updateField("host_groups", mapping.host_groups || []);
                     updateField("templates",   mapping.templates || []);
                     updateField("proxy",       mapping.proxy ? [mapping.proxy] : []);
@@ -60,12 +54,13 @@
                 });
         }
 
-        hostSelect.addEventListener('change', function () {
-            updateHostDefaults(this.value);
-        });
+        // Call whenever host or interface type changes
+        hostSelect.addEventListener('change', updateHostDefaults);
+        interfaceSelect.addEventListener('change', updateHostDefaults);
 
+        // Initial load
         if (hostSelect.value) {
-            updateHostDefaults(hostSelect.value);
+            updateHostDefaults();
         }
 
     });

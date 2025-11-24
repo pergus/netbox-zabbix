@@ -8,5 +8,13 @@
 <a href="?filtered=1" class="btn btn-primary">Show Out-of-Sync</a>
 {% endif %}
 
+<div>
+    <a href="{% url 'plugins:netbox_zabbix:hostconfig_updatesyncstatus' %}?return_url={% url 'plugins:netbox_zabbix:hostconfig_list' %}"
+        class="btn btn-primary">
+        <i class="mdi mdi-sync"></i> Update Sync Status
+    </a>
+</div>
+
+
 {% endblock %}
 

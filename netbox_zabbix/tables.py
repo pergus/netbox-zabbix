@@ -49,6 +49,7 @@ from netbox_zabbix.models import (
 )
 from netbox_zabbix.zabbix.validation import validate_quick_add
 from netbox_zabbix.netbox.interfaces import can_delete_interface, is_interface_available
+from netbox_zabbix.netbox.permissions import has_any_model_permission
 from netbox_zabbix.logger import logger
 
 
@@ -200,6 +201,15 @@ class SettingTable(NetBoxTable):
 
     name = tables.Column( linkify=True )
     actions = columns.ActionsColumn( extra_buttons=EXTRA_CONFIG_BUTTONS )
+
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop( "user", None )
+        super().__init__( *args, **kwargs )
+    
+        if self.user and not has_any_model_permission( self.user, "netbox_zabbix", "zabbixadminpermission" ):
+            if "actions" in self.columns:
+                self.columns.hide( "actions" )
 
 
     def render_token(self, record):

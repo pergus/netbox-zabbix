@@ -20,6 +20,7 @@ from datetime import timedelta
 # Django imports
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Q
 
 # NetBox imports
 from core.models import Job
@@ -144,24 +145,35 @@ class SystemJobHostConfigSyncRefresh( AtomicJobRunner ):
         failed = 0
         total = 0
 
-        cutoff = timezone.now() - timedelta(minutes=cls.CHECK_INTERVAL_MINUTES)
-        host_configs = HostConfig.objects.filter(last_synced__lt=cutoff)
+
+        cutoff = kwargs.get( "cutoff", None )
+
+        if isinstance( cutoff, int ):
+            cutoff = timezone.now() - timedelta( minutes=cutoff )
+        
+        if cutoff is None:
+            cutoff = timezone.now() - timedelta( minutes=cls.CHECK_INTERVAL_MINUTES )
+
+
+        host_configs = HostConfig.objects.filter(  Q( last_sync_update__lt=cutoff ) 
+                                                 | Q( last_sync_update__isnull=True ) )
+
         total = host_configs.count()
 
-        for i, host in enumerate(host_configs, start=1):
+        for i, host in enumerate( host_configs, start=1 ):
             try:
                 host.update_sync_status()
                 host.last_sync_update = timezone.now()
-                host.save(update_fields=['last_sync_update'])
+                host.save( update_fields=['last_sync_update'] )
                 updated += 1
             except Exception as e:
                 failed += 1
-                logger.warning(f"[{i}/{total}] Failed to update {host.name}: {e}")
-
+                logger.warning( f"[{i}/{total}] Failed to update {host.name}: {e}" )
+        logger.info( f"cutoff: {cutoff}" )
         return {
             "total": total,
             "updated": updated,
-            "failed": failed,
+            "failed": failed
         }
 
     @classmethod
@@ -180,7 +192,7 @@ class SystemJobHostConfigSyncRefresh( AtomicJobRunner ):
             return None
 
         name = cls.Meta.name
-        jobs = Job.objects.filter(name=name, status__in=["scheduled", "pending", "running"])
+        jobs = Job.objects.filter( name=name, status__in=["scheduled", "pending", "running"] )
         existing_job = jobs[0] if jobs.exists() else None
 
         if existing_job:
@@ -193,7 +205,7 @@ class SystemJobHostConfigSyncRefresh( AtomicJobRunner ):
         job_args = {
             "name":        name,
             "interval":    interval,
-            "schedule_at": timezone.now() + timedelta(minutes=interval),
+            "schedule_at": timezone.now() + timedelta( minutes=interval ),
         }
 
         job = cls.enqueue_once(**job_args)
