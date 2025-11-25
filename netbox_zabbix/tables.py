@@ -542,7 +542,7 @@ class HostConfigTable(NetBoxTable):
     Table for displaying Zabbix HostConfig objects.
     """
     name            = tables.Column( accessor='name', order_by='name', verbose_name='Name', linkify=True )
-    assigned_object = tables.Column(accessor='assigned_object.name', verbose_name='Linked Object', linkify=lambda record: HostConfigTable.link_assigned_object(record) )
+    assigned_object = tables.Column(accessor='assigned_object.name', verbose_name='NetBox Object', linkify=lambda record: HostConfigTable.link_assigned_object(record) )
     site            = tables.Column(accessor='assigned_object.site.name', verbose_name='Site', linkify=lambda record: HostConfigTable.link_site( record ) )
     host_type       = tables.Column( accessor="host_type", empty_values=(), verbose_name="Type", orderable=False )
     in_sync         = tables.BooleanColumn( accessor='in_sync', empty_values=(), verbose_name="In Sync" )

@@ -1940,7 +1940,7 @@ def update_sync_status(request):
         total   = result.get( "total", 0 )
         updated = result.get( "updated", 0 )
         failed  = result.get( "failed", 0 )
-        messages.success( request,  mark_safe( f"total: {total} updated: {updated} failed: {failed}" ) )
+        messages.success( request,  mark_safe( f"Total: {total} Updated: {updated} Failed: {failed}" ) )
     except Exception as e:
         msg = f"Failed to update sync status: {str(e)}"
         messages.error( request, msg )
