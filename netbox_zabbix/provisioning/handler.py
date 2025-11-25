@@ -97,7 +97,7 @@ def provision_zabbix_host(ctx: ProvisionContext):
 
             # Update existing host in Zabbix
             update_zabbix_host( host_config, ctx.user, ctx.request_id )
-            link_zabbix_interface (host_config.hostid, iface, ctx.object.name )
+            link_zabbix_interface( host_config.hostid, iface, ctx.object.name )
 
             save_host_config( host_config )
             log_creation_event( host_config, ctx.user, ctx.request_id )

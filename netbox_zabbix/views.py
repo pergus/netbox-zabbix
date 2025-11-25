@@ -2912,7 +2912,7 @@ class EventLogListView(generic.ObjectListView):
     queryset  = EventLog.objects.all()
     table     = tables.EventLogTable
     filterset = filtersets.EventLogFilterSet
-
+    template_name = "netbox_zabbix/eventlog_list.html"
 
     def get_extra_context(self, request):
         """
@@ -2926,7 +2926,7 @@ class EventLogListView(generic.ObjectListView):
         """
         # Hide the add button since no evenlog should be added by the user.
         context = super().get_extra_context( request )
-        context['actions'] = []
+        #context['actions'] = []
         return context
 
 

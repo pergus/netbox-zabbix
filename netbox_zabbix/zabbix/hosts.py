@@ -230,7 +230,7 @@ def delete_zabbix_host_soft(hostid):
             counter = 1
             while True:
                 try:
-                    zapi.get_host( archived_host_name )
+                    zapi.get_host( archived_host_name, log_errors=False )
 
                     # Try next if the host already exists
                     archived_host_name = f"{base_archived_name}-{counter}"

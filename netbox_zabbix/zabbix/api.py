@@ -357,7 +357,7 @@ def get_zabbix_only_hostnames():
     return [ h for h in zabbix_hostnames if h[ "name" ] not in netbox_hostnames ]
 
 
-def get_host(hostname):
+def get_host(hostname, log_errors=True):
     """
     Retrieves detailed information about a single host from Zabbix by hostname.
     
@@ -390,17 +390,17 @@ def get_host(hostname):
     
     except Exception as e:
         msg = f"Failed to retrieve host '{hostname}' from Zabbix, error: {e}"
-        logger.error( msg )
+        if log_errors: logger.error( msg )
         raise Exception( msg )
     
     if not hosts:
         msg = f"No host named '{hostname}' found in Zabbix"
-        logger.error( msg )
+        if log_errors: logger.error( msg )
         raise Exception( msg )
     
     if len(hosts) > 1:
         msg = f"Multiple hosts named '{hostname}' found in Zabbix"
-        logger.error( msg )
+        if log_errors: logger.error( msg )
         raise Exception( msg )
     
     return hosts[0]
