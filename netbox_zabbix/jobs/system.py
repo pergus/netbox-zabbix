@@ -127,9 +127,6 @@ class SystemJobHostConfigSyncRefresh( AtomicJobRunner ):
     class Meta:
         name = "System Job HostConfig Sync Refresh"
 
-    # Default interval for checking hosts that haven't been synced recently
-    CHECK_INTERVAL_MINUTES = 60
-
     @classmethod
     def run(cls, *args, **kwargs):
         """
@@ -147,33 +144,34 @@ class SystemJobHostConfigSyncRefresh( AtomicJobRunner ):
 
 
         cutoff = kwargs.get( "cutoff", None )
+        now = timezone.now()
 
         if isinstance( cutoff, int ):
-            cutoff = timezone.now() - timedelta( minutes=cutoff )
+            cutoff = now - timedelta( minutes=cutoff )
         
         if cutoff is None:
-            cutoff = timezone.now() - timedelta( minutes=cls.CHECK_INTERVAL_MINUTES )
-
+            cutoff = now - timedelta( minutes=settings.get_cutoff_host_config_sync() )
 
         host_configs = HostConfig.objects.filter(  Q( last_sync_update__lt=cutoff ) 
                                                  | Q( last_sync_update__isnull=True ) )
+        cutoff_in_minutes = int( ( now - cutoff).total_seconds() / 60 )
 
         total = host_configs.count()
 
         for i, host in enumerate( host_configs, start=1 ):
             try:
                 host.update_sync_status()
-                host.last_sync_update = timezone.now()
-                host.save( update_fields=['last_sync_update'] )
                 updated += 1
             except Exception as e:
                 failed += 1
                 logger.warning( f"[{i}/{total}] Failed to update {host.name}: {e}" )
-        logger.info( f"cutoff: {cutoff}" )
+
         return {
-            "total": total,
-            "updated": updated,
-            "failed": failed
+            "total":             total,
+            "updated":           updated,
+            "failed":            failed,
+            "cutoff_in_minutes": cutoff_in_minutes,
+            "cutoff":            cutoff.strftime("%Y-%m-%d %H:%M"),
         }
 
     @classmethod

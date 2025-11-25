@@ -225,6 +225,16 @@ def get_host_config_sync_interval(s):
     return s.host_config_sync_interval
 
 
+@safe_setting(60)
+def get_cutoff_host_config_sync(s):
+    """
+    Retrieve the cutoff interval for the HostConfig sync job.
+    
+    Returns:
+        The the cutoff interval for the HostConfig sync job.
+    """
+    return s.cutoff_host_config_sync
+
 # ------------------------------------------------------------------------------
 # Zabbix Server
 # ------------------------------------------------------------------------------

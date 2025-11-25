@@ -163,6 +163,7 @@ class SettingTable(NetBoxTable):
             'max_success_notifications',
             'zabbix_import_interval',
             'host_config_sync_interval',
+            'cutoff_host_config_sync',
             'version',
             'api_endpoint',
             'web_address',

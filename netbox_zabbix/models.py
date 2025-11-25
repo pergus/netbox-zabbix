@@ -1,4 +1,3 @@
-# models.py
 """
 NetBox Zabbix Plugin — Models
 
@@ -32,6 +31,7 @@ from utilities.choices import ChoiceSet
 from virtualization.models import Cluster
 
 # NetBox Zabbix plugin imports
+from netbox_zabbix.netbox.utils import save_without_signals
 from netbox_zabbix.logger import logger
 
 
@@ -347,6 +347,8 @@ class Setting(NetBoxModel):
         max_deletions (int): Max deletions allowed during import.
         max_success_notifications (int): Max success notifications per job.
         zabbix_import_interval (int): Interval in minutes for Zabbix import job.
+        host_config_sync_interval (int): Interval in minutes for in sync job.
+        cutoff_host_config_sync (int): Time in minutes to consider a HostConfig out-of-sync for the sync job.
         version (str): Zabbix server version.
         api_endpoint (str): Zabbix API endpoint URL.
         web_address (str): Zabbix web interface URL.
@@ -400,7 +402,8 @@ class Setting(NetBoxModel):
     # System Job(s)
     zabbix_import_interval    = models.PositiveIntegerField( verbose_name="Zabbix Import Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix import. Must be at least 1 minute." )
     host_config_sync_interval = models.PositiveIntegerField( verbose_name="Host Config Sync Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Host Config Sync check. Must be at least 1 minute." )
-        
+    cutoff_host_config_sync = models.PositiveIntegerField( verbose_name="Host Config Sync Cutoff", null=True, blank=True, default=60, help_text="Number of minutes to look back when determining which HostConfigs need syncing with Zabbix. Includes never-synced or outdated objects." )
+
     # Zabbix Server
     version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
     api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
@@ -1431,7 +1434,8 @@ class HostConfig(NetBoxModel, JobsMixin):
 
     def update_sync_status(self):
         """
-        Check if the host is in sync with Zabbix and update the database.
+        Check if the host is in sync with Zabbix and update the database
+        without triggering any signal handlers.
         """
         from netbox_zabbix.netbox.compare import compare_host_configuration
     
@@ -1439,7 +1443,7 @@ class HostConfig(NetBoxModel, JobsMixin):
             result = compare_host_configuration( self )
             self.in_sync = not result.get( "differ", False ) # invert the differ flag
             self.last_sync_update = timezone.now()
-            self.save( update_fields=["in_sync", "last_sync_update"] )
+            save_without_signals( self, update_fields=["in_sync", "last_sync_update"] )
         except Exception as e:
             # Optional: log failure but do not block other updates
             logger.warning( f"Failed to update sync for HostConfig {self.pk}: {e}" )

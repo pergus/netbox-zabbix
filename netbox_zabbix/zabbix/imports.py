@@ -181,7 +181,7 @@ def import_zabbix_host(ctx: ImportHostContext):
                     useip       = iface["useip"],
                     main        = iface["main"],
                     port        = iface["port"],
-                    host_config        = config,
+                    host_config = config,
                     interface   = nb_interface,
                     ip_address  = nb_ip_address,
                 )
@@ -202,7 +202,7 @@ def import_zabbix_host(ctx: ImportHostContext):
                     useip       = iface["useip"],
                     main        = iface["main"],
                     port        = iface["port"],
-                    host_config        = config,
+                    host_config = config,
                     interface   = nb_interface,
                     ip_address  = nb_ip_address,
 

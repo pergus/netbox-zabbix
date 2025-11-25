@@ -1,9 +1,46 @@
-# signals.py
-#
-# Description: Django signal handlers for NetBox Zabbix integration.
-# These helpers and signal receivers keep Zabbix host/interface
-# configuration synchronized with NetBox objects.
-#
+"""
+NetBox Zabbix Plugin - Django signal handlers.
+
+This module centralizes all model-level signal receivers used to keep Zabbix
+host and interface configuration synchronized with updates made to NetBox
+objects (Devices, VirtualMachines, Interfaces, IPAddresses, and HostConfig
+objects).  These handlers enqueue background jobs that create, update, or
+delete corresponding Zabbix hosts and interfaces whenever relevant NetBox
+objects are modified.
+
+The module also includes several helper utilities for:
+    • Resolving the current request and user who triggered a change.
+    • Detecting name/IP changes that require Zabbix updates.
+    • Reassigning Zabbix interface IPs to primary IPv4 addresses.
+    • Tracking HostConfig deletions across cascades using thread-local state.
+
+Preventing Signals From Firing
+------------------------------
+
+Several safeguards exist to prevent signals from firing when they should not:
+
+  1. **Environment Variable Global Disable**
+     Set the environment variable:
+         DISABLE_NETBOX_ZABBIX_SIGNALS="1"
+     When set, *all* signal handlers in this module return immediately and do
+     nothing. This is useful for bulk imports, maintenance tasks, or tests.
+
+  2. **Per-Instance Signal Suppression**
+     Many NetBox/Zabbix model objects support a `_skip_signal` attribute.
+     If a model instance has:
+         instance._skip_signal = True
+     then the corresponding signal receiver will exit early and take no action.
+     This is used internally to prevent infinite loops and redundant updates.
+
+  3. **Thread-Local Deletion Context**
+     When a HostConfig is being deleted, its primary key is recorded in a
+     thread-local set (`_deletion_context.configs_being_deleted`).  
+     Any interface deletions triggered by the CASCADE relationship will see
+     that their parent HostConfig is actively being removed and will skip
+     scheduling additional Zabbix updates. This prevents duplicate or invalid
+     Zabbix jobs from firing during cascaded deletions.
+"""
+
 
 # Standard library imports
 import threading

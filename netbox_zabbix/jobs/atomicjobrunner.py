@@ -171,7 +171,8 @@ class AtomicJobRunner(JobRunner):
                 cls._log_event(name=name, job=None, result=result, exception=exception)
 
         return result.get( "message", str( result ) )
-    
+
+
     @staticmethod
     def _log_event(name, job=None, result=None, exception=None, data=None, pre_data=None, post_data=None, signal_id=None ):
         """

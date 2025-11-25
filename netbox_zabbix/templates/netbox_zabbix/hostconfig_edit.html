@@ -2,29 +2,63 @@
 
 {% block content %}
 {{ block.super }}
+
+<div id="django-messages" class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="host-mapping-toast" class="toast toast-dark border-0 shadow-sm fade hide" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+        <div class="toast-header text-bg-success">
+            <i class="mdi mdi-check-circle me-1"></i>
+            <button type="button" class="btn-close me-0 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body"></div>
+    </div>
+</div>
+
+
 {% endblock %}
 
-
 {% block javascript %}
+
 <script type="text/javascript">
 
 
-    document.addEventListener('DOMContentLoaded', function () {
+    function showExistingToast(message, type = 'success', delay = 5000) {
+            const toastEl = document.getElementById('host-mapping-toast');
+            const bodyEl = toastEl.querySelector('.toast-body');
+            const headerEl = toastEl.querySelector('.toast-header');
 
-        const isEdit = document.querySelector('[name="is_edit_field"]').value === "True";
-        if (isEdit) {
-            return;  // Skip JS when editing an interface
+            if (!toastEl) return;
+
+            // Update message
+            bodyEl.textContent = message;
+
+            // Update type color
+            headerEl.className = `toast-header text-bg-${type}`;
+
+            // Temporarily override display so it becomes visible
+            const originalDisplay = toastEl.style.display;
+            toastEl.style.display = 'contents';
+
+            // Add Bootstrap show class to animate
+            toastEl.classList.add('show');
+
+            // Remove after delay
+            setTimeout(() => {
+                toastEl.classList.remove('show');
+                toastEl.style.display = originalDisplay || 'none';
+            }, delay);
         }
 
-        const hostSelect = document.querySelector('[name=host]');
-        const interfaceSelect = document.querySelector('[name=interface_type]');
-        if (!hostSelect || !interfaceSelect) return;
 
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const nameField = document.querySelector('[name=name]');
+        const hostField = document.querySelector('[name=host]');
+        const interfaceField = document.querySelector('[name=interface_type]');
+        if (!hostField || !interfaceField || !nameField) return;
 
         const updateField = (fieldName, values) => {
             const field = document.querySelector(`[name=${fieldName}]`);
             if (!field) return;
-
             const waitForTomSelect = setInterval(() => {
                 if (field.tomselect) {
                     clearInterval(waitForTomSelect);
@@ -34,37 +68,40 @@
             }, 250);
         };
 
+        const updateNameField = (hostName) => {
+            if (hostName) {
+                nameField.value = `z-${hostName}`;
+            }
+        };
 
-        function updateHostDefaults() {
-            const hostId = hostSelect.value;
-            const interfaceTypeId = interfaceSelect.value;
+        const updateHostDefaults = () => {
+            const hostName = hostField.selectedOptions[0]?.text.trim();
+            const hostValue = hostField.value.trim();
+            const interfaceTypeId = interfaceField.value;
+            const contentTypeId = document.querySelector('[name=content_type]').value;
 
-            if (!hostSelect || !interfaceSelect) return;
+            if (!hostValue || !interfaceTypeId) return;
 
-            const contentType = document.querySelector('[name=content_type]');
-            const contentTypeId = contentType.value;
-
-            fetch(`/api/plugins/netbox_zabbix/host-mapping/?content_type_id=${contentTypeId}&object_id=${hostId}&interface_type_id=${interfaceTypeId}`)
+            fetch(`/api/plugins/netbox_zabbix/host-mapping/?content_type_id=${contentTypeId}&object_id=${hostValue}&interface_type_id=${interfaceTypeId}`)
                 .then(res => res.json())
                 .then(mapping => {
                     updateField("host_groups", mapping.host_groups || []);
                     updateField("templates",   mapping.templates || []);
                     updateField("proxy",       mapping.proxy ? [mapping.proxy] : []);
-                    updateField("proxy_group", mapping.proxy ? [mapping.proxy_group] : []);
+                    updateField("proxy_group", mapping.proxy_group ? [mapping.proxy_group] : []);
+                    updateNameField(hostName);
+
+                    if (mapping.name) {
+                        showExistingToast( "Selected mapping: " + mapping.name );
+                    }
                 });
-        }
+        };
 
-        // Call whenever host or interface type changes
-        hostSelect.addEventListener('change', updateHostDefaults);
-        interfaceSelect.addEventListener('change', updateHostDefaults);
+        hostField.addEventListener('input', updateHostDefaults);
+        interfaceField.addEventListener('change', updateHostDefaults);
 
-        // Initial load
-        if (hostSelect.value) {
-            updateHostDefaults();
-        }
+        if (hostField.value) updateHostDefaults();
 
     });
-
 </script>
-
 {% endblock %}

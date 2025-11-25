@@ -21,6 +21,7 @@ from django.contrib.contenttypes.models import ContentType
 
 # NetBox Zabbix plugin imports
 from netbox_zabbix import models
+from netbox_zabbix.netbox.utils import save_without_signals
 
 def create_host_config( obj ):
     """
@@ -52,11 +53,15 @@ def create_host_config( obj ):
 
 def save_host_config( host_config ):
     """
-    Validate and save a HostConfig object to NetBox.
+    Validate and save a HostConfig object while explicitly preventing
+    any signal handlers from firing.
+    
+    This function sets the internal `_skip_signal` flag on the instance
+    before saving. All signal receivers in this plugin check this flag
+    and will exit early if it is set, ensuring that no background Zabbix
+    jobs or sync actions are triggered during this save operation.
     
     Args:
         host_config (HostConfig): The configuration to save.
     """
-    host_config.full_clean()
-    host_config._skip_signal = True
-    host_config.save()
+    save_without_signals( host_config )

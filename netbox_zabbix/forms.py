@@ -113,6 +113,7 @@ class SettingForm(NetBoxModelForm):
                   name="Background Jobs" ),
         FieldSet( 'zabbix_import_interval',
                   'host_config_sync_interval',
+                  'cutoff_host_config_sync',
                   name="System Jobs" ),
         FieldSet( 'api_endpoint',
                   'web_address',
@@ -1062,7 +1063,7 @@ class HostConfigForm(NetBoxModelForm):
     # Dummy
     DefaultContentType = ContentType.objects.get_for_model( VirtualMachine )
 
-    interface_type = forms.ChoiceField( label="Interface Type", choices=InterfaceTypeChoices, initial=InterfaceTypeChoices.Agent )
+    interface_type = forms.ChoiceField( label="Interface Type", help_text="Select the interface Zabbix should use to monitor this host: Agent, SNMP, or Any.", choices=InterfaceTypeChoices, initial=InterfaceTypeChoices.Agent )
 
     class Meta:
         model  = HostConfig

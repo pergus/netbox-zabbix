@@ -52,7 +52,8 @@ from netbox_zabbix import settings, filtersets, forms, tables
 from netbox_zabbix.jobs.host import UpdateZabbixHost
 from netbox_zabbix.jobs.imports import ImportZabbixSettings, ImportHost
 from netbox_zabbix.jobs.validate import ValidateHost
-from netbox_zabbix.jobs.synchosts import SystemJobHostConfigSyncRefresh
+from netbox_zabbix.jobs.synchosts import SyncHostsNow
+from netbox_zabbix.jobs.system import SystemJobHostConfigSyncRefresh
 from netbox_zabbix.jobs.provision import ProvisionAgent, ProvisionSNMP
 from netbox_zabbix.zabbix import api as zapi
 from netbox_zabbix.models import (
@@ -1933,8 +1934,36 @@ def update_sync_status(request):
         HttpResponseRedirect: Redirect to referring page.
     """
     redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
-    SystemJobHostConfigSyncRefresh.run( cutoff=0 )
+
+    try:
+        result  = SystemJobHostConfigSyncRefresh.run( cutoff=0 )
+        total   = result.get( "total", 0 )
+        updated = result.get( "updated", 0 )
+        failed  = result.get( "failed", 0 )
+        messages.success( request,  mark_safe( f"total: {total} updated: {updated} failed: {failed}" ) )
+    except Exception as e:
+        msg = f"Failed to update sync status: {str(e)}"
+        messages.error( request, msg )
+        logger.error( msg )
+
     return redirect( redirect_url )
+
+
+def sync_all(request):
+    redirect_url = request.GET.get( "return_url" ) or request.META.get( "HTTP_REFERER", "/" )
+
+    try:
+        # Pass result container to job via kwargs
+        result = SyncHostsNow.run_now( user=request.user, name="Sync all hosts now"  )
+        messages.success( request,  mark_safe( result ) )
+
+    except Exception as e:
+        msg = f"Failed to sync NetBox hosts with Zabbix: {str(e)}"
+        messages.error( request, msg )
+        logger.error( msg )
+
+    return redirect( redirect_url )
+
 
 # --------------------------------------------------------------------------
 # Agent Interface

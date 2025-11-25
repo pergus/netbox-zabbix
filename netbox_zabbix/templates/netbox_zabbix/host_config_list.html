@@ -1,19 +1,45 @@
 {% extends 'generic/object_list.html' %}
+{% load permissions_extra %}
+
 
 {% block extra_controls %}
 
-{% if filtered %}
-<a href="?" class="btn btn-primary">Show All</a>
-{% else %}
-<a href="?filtered=1" class="btn btn-primary">Show Out-of-Sync</a>
-{% endif %}
+<div class="dropdown">
+    <button id="add-components" type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown"
+        aria-expanded="false">
+        <i class="mdi mdi-plus-thick" aria-hidden="true"></i> Sync
+    </button>
 
-<div>
-    <a href="{% url 'plugins:netbox_zabbix:hostconfig_updatesyncstatus' %}?return_url={% url 'plugins:netbox_zabbix:hostconfig_list' %}"
-        class="btn btn-primary">
-        <i class="mdi mdi-sync"></i> Update Sync Status
-    </a>
+    <ul class="dropdown-menu" aria-labeled-by="add-components">
+        <li>
+            {% if filtered %}
+            <a class="dropdown-item" href="?" class="btn btn-primary"> <i class="mdi mdi-eye-outline"></i> Show All</a>
+            {% else %}
+            <a class="dropdown-item" href="?filtered=1" class="btn btn-primary"> <i class="mdi mdi-eye-outline"></i> Show
+                Out-of-Sync</a>
+            {% endif %}
+        </li>
+
+        <li>
+            <a class="dropdown-item" href="{% url 'plugins:netbox_zabbix:hostconfig_updatesyncstatus' %}?return_url={% url 'plugins:netbox_zabbix:hostconfig_list' %}"
+                class="btn btn-primary">
+                <i class="mdi mdi-update"></i> Update Status
+            </a>
+        </li>
+        
+        {% if request.user|has_any_model_perm:"netbox_zabbix.zabbixadminpermission" %}
+        <li>
+            <a class="dropdown-item"
+                href="{% url 'plugins:netbox_zabbix:hostconfig_syncall' %}?return_url={% url 'plugins:netbox_zabbix:hostconfig_list' %}"
+                class="btn btn-primary">
+                <i class="mdi mdi-sync"></i> Sync Now
+            </a>
+        </li>
+        {% endif %}
+    
+    </ul>
 </div>
+
 
 
 {% endblock %}

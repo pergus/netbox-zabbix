@@ -191,7 +191,8 @@ urlpatterns = (
     path( 'host-config/<int:pk>/jobs',       views.HostConfigJobsTabView.as_view(),     name='hostconfig_jobs' ),
     path( 'host-config/<int:pk>/difference', views.HostConfigDiffTabView.as_view(),     name='hostconfig_difference' ),
     path( 'host-config/update-sync-status',  views.update_sync_status,                  name='hostconfig_updatesyncstatus' ),
-
+    path( 'host-config/sync-all',            views.sync_all,                            name='hostconfig_syncall' ),
+    
 
     # --------------------------------------------------------------------------
     # Agent Interface

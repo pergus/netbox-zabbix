@@ -230,19 +230,6 @@ def get_host_mapping_for_form(obj, interface_type_id):
         Exception: If content type is unsupported or mapping cannot be resolved.
     """
 
-    # Detect interface type
-    #if hasattr(obj, "agent_interfaces") and obj.agent_interfaces.exists():
-    #    interface_model = models.AgentInterface
-    #elif hasattr(obj, "snmp_interfaces") and obj.snmp_interfaces.exists():
-    #    interface_model = models.SNMPInterface
-    #else:
-    #    interface_model = None
-
-    logger.info ( "get_host_mapping_for_form" )
-    logger.info ( f"interface_type_id: {interface_type_id}" )
-    logger.info ( f"models.InterfaceTypeChoices.Agent: {models.InterfaceTypeChoices.Agent}" )
-    logger.info ( f"models.InterfaceTypeChoices.SNMP:  {models.InterfaceTypeChoices.SNMP}" )
-    
     if int( interface_type_id ) == int( models.InterfaceTypeChoices.Agent ):
         interface_model = models.AgentInterface
     elif int( interface_type_id ) == int( models.InterfaceTypeChoices.SNMP ):
@@ -268,10 +255,11 @@ def get_host_mapping_for_form(obj, interface_type_id):
         return [{"id": o.pk, "display": str(o)} for o in queryset]
 
     return {
-        "host_groups": to_id_display(mapping.host_groups.all()),
-        "templates":   to_id_display(mapping.templates.all()),
-        "proxy":       {"id": mapping.proxy.pk, "display": str(mapping.proxy)} if getattr(mapping, "proxy", None) else None,
-        "proxy_group": {"id": mapping.proxy_group.pk, "display": str(mapping.proxy_group)} if getattr(mapping, "proxy_group", None) else None,
+        "name":        mapping.name,
+        "host_groups": to_id_display( mapping.host_groups.all() ),
+        "templates":   to_id_display( mapping.templates.all() ),
+        "proxy":       {"id": mapping.proxy.pk, "display": str( mapping.proxy )} if getattr( mapping, "proxy", None ) else None,
+        "proxy_group": {"id": mapping.proxy_group.pk, "display": str( mapping.proxy_group )} if getattr( mapping, "proxy_group", None ) else None,
     }
 
 
