@@ -72,8 +72,9 @@ class TemplateFilterSet(NetBoxModelFilterSet):
         if not value.strip():
             return queryset
         return queryset.filter(
-            Q(name__icontains=value) |
-            Q(interface_type__icontains=value)
+            Q( name__icontains=value ) |
+            Q( templateid__icontains=value ) |
+            Q( interface_type__icontains=value )
         ).distinct()
 
 
@@ -104,7 +105,8 @@ class ProxyFilterSet(NetBoxModelFilterSet):
         if not value.strip():
             return queryset
         return queryset.filter(
-            Q(name__icontains=value) 
+            Q( name__icontains=value ) |
+            Q( proxyid__icontains=value )
         ).distinct()
 
 
@@ -135,7 +137,8 @@ class ProxyGroupFilterSet(NetBoxModelFilterSet):
         if not value.strip():
             return queryset
         return queryset.filter(
-            Q(name__icontains=value) 
+            Q( name__icontains=value ) |
+            Q( proxy_groupid__icontains=value )
         ).distinct()
 
 
@@ -166,7 +169,8 @@ class HostGroupFilterSet(NetBoxModelFilterSet):
         if not value.strip():
             return queryset
         return queryset.filter(
-            Q(name__icontains=value)
+            Q( name__icontains=value ) |
+            Q( groupid__icontains=value )
         ).distinct()
 
 

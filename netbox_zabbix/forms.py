@@ -1216,33 +1216,64 @@ class HostConfigForm(NetBoxModelForm):
 
 
 
+#    def save(self, *args, **kwargs):
+#
+#        from netbox_zabbix.jobs.provision import ProvisionAgent, ProvisionSNMP
+#
+#        # Save the HostConfig instance normally
+#        instance = super().save( *args, **kwargs )
+#
+#        # Retrieve the interface_type from cleaned_data
+#        interface_type = self.cleaned_data.get( "interface_type", None )
+#
+#        # Get the request which was added in alter_object() in the view.
+#        request = getattr( instance, "_request", None )
+#        
+#        if int( interface_type ) == int( InterfaceTypeChoices.Agent ):
+#            job = ProvisionAgent.run_job( instance=instance.assigned_object, request=request )
+#            message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> ' f'to create host in Zabbix' )
+#            messages.success( request, message )
+#
+#        elif int( interface_type) == int( InterfaceTypeChoices.SNMP ):
+#            job = ProvisionSNMP.run_job( instance=instance.assigned_object, request=request )
+#            message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> ' f'to create host in Zabbix' )
+#            messages.success( request, message )
+#
+#        else:
+#            messages.error( request, "Did not provision host in Zabbix" )
+#       
+#        return instance
+
     def save(self, *args, **kwargs):
-
         from netbox_zabbix.jobs.provision import ProvisionAgent, ProvisionSNMP
-
+    
+        # Determine if this is a new host or editing an existing one
+        is_new = self.instance.pk is None  # True if adding, False if editing
+    
         # Save the HostConfig instance normally
         instance = super().save( *args, **kwargs )
 
-        # Retrieve the interface_type from cleaned_data
-        interface_type = self.cleaned_data.get( "interface_type", None )
-
-        # Get the request which was added in alter_object() in the view.
-        request = getattr( instance, "_request", None )
-        
-        if int( interface_type ) == int( InterfaceTypeChoices.Agent ):
-            job = ProvisionAgent.run_job( instance=instance.assigned_object, request=request )
-            message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> ' f'to create host in Zabbix' )
-            messages.success( request, message )
-
-        elif int( interface_type) == int( InterfaceTypeChoices.SNMP ):
-            job = ProvisionSNMP.run_job( instance=instance.assigned_object, request=request )
-            message = mark_safe( f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> ' f'to create host in Zabbix' )
-            messages.success( request, message )
-
-        else:
-            messages.error( request, "Did not provision host in Zabbix" )
-       
+        if is_new:
+            # Only run provisioning jobs if this is a new host
+            interface_type = self.cleaned_data.get( "interface_type" )
+            request = getattr( instance, "_request", None )
+            
+            
+            if int(interface_type) == int(InterfaceTypeChoices.Agent):
+                job = ProvisionAgent.run_job(instance=instance.assigned_object, request=request)
+                message = mark_safe(f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to create host in Zabbix')
+                messages.success(request, message)
+    
+            elif int(interface_type) == int(InterfaceTypeChoices.SNMP):
+                job = ProvisionSNMP.run_job(instance=instance.assigned_object, request=request)
+                message = mark_safe(f'Queued job <a href=/core/jobs/{job.id}/>#{job.id}</a> to create host in Zabbix')
+                messages.success(request, message)
+    
+            else:
+                messages.error(request, "Did not provision host in Zabbix")
+            
         return instance
+
 
 # ------------------------------------------------------------------------------
 # Base Host Interface Form
