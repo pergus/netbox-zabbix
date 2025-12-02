@@ -25,7 +25,7 @@ from netbox_zabbix.zabbix.api import get_host_by_id_with_templates
 # Private Helper Functions
 # ------------------------------------------------------------------------------
 
-def _compare_json(obj_a, obj_b, mode="overwrite"):
+def _compare_json(obj_a, obj_b):
     """
     Recursively compare two JSON-compatible objects.
     Supports 'overwrite' and 'relaxed' modes.
@@ -35,7 +35,7 @@ def _compare_json(obj_a, obj_b, mode="overwrite"):
       - Missing ones in Zabbix are reported.
     """
 
-    # --- Case 1: both are dicts ---
+    # Case 1 both are dicts
     if isinstance( obj_a, dict ) and isinstance( obj_b, dict ):
         a_diff, b_diff = {}, {}
         all_keys = set( obj_a ) | set( obj_b )
@@ -47,9 +47,9 @@ def _compare_json(obj_a, obj_b, mode="overwrite"):
             if key in obj_a and key in obj_b:
                 # Apply relaxed rules only for known list-based keys
                 if key in {"tags", "templates", "groups"}:
-                    sub_a, sub_b = _compare_json( a_val, b_val, mode )
+                    sub_a, sub_b = _compare_json( a_val, b_val )
                 else:
-                    sub_a, sub_b = _compare_json( a_val, b_val, mode )
+                    sub_a, sub_b = _compare_json( a_val, b_val )
 
                 if sub_a not in ( {}, [], None ):
                     a_diff[key] = sub_a
@@ -63,7 +63,7 @@ def _compare_json(obj_a, obj_b, mode="overwrite"):
 
         return a_diff, b_diff
 
-    # --- Case 2: both are lists ---
+    # Case 2 both are lists
     if isinstance( obj_a, list ) and isinstance( obj_b, list ):
 
         # Special handling for list of dicts with single keys (tags-like)
@@ -82,9 +82,7 @@ def _compare_json(obj_a, obj_b, mode="overwrite"):
                     # Missing from Zabbix gives difference in both modes
                     a_diff[key] = a_map[key]
                 elif key in b_map:
-                    # Extra in Zabbix gives difference only in overwrite mode
-                    if mode == models.HostSyncModeChoices.OVERWRITE:
-                        b_diff[key] = b_map[key]
+                    b_diff[key] = b_map[key]
 
             return (
                 [{k: v} for k, v in a_diff.items()],
@@ -95,13 +93,9 @@ def _compare_json(obj_a, obj_b, mode="overwrite"):
         a_only = [item for item in obj_a if item not in obj_b]
         b_only = [item for item in obj_b if item not in obj_a]
 
-        # In preserve mode, ignore extra items in Zabbix
-        if mode == models.HostSyncModeChoices.PRESERVE:
-            b_only = []
-
         return ( a_only, b_only )
 
-    # --- Case 3: primitive values ---
+    # Case 3 primitive values
     if obj_a != obj_b:
         return obj_a, obj_b
     return None, None
@@ -188,8 +182,6 @@ def compare_host_configuration(host_config):
         }
     """
     retval = {"differ": False, "netbox": {}, "zabbix": {}}
-    mode = settings.get_host_sync_mode()
-
     payload = builders.payload( host_config, True )
 
     zabbix_host_raw = {}
@@ -202,7 +194,7 @@ def compare_host_configuration(host_config):
     payload_processed = _prepare_host_for_comparison( payload, payload )
     zabbix_processed = _prepare_host_for_comparison( zabbix_host_raw, payload )
 
-    netbox_diff, zabbix_diff = _compare_json( payload_processed, zabbix_processed, mode )
+    netbox_diff, zabbix_diff = _compare_json( payload_processed, zabbix_processed )
 
     retval["differ"] = bool( netbox_diff or zabbix_diff )
     retval["netbox"] = netbox_diff

@@ -460,7 +460,6 @@ def get_host_group(name=None, groupid=None):
         raise e
 
 
-# TODO: Is this used? If not remove it and rename get_host_by_id_with_templates.
 def get_host_by_id(hostid):
     """
     Retrieves detailed information about a single host from Zabbix by hostid.

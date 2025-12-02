@@ -50,11 +50,11 @@ def create_zabbix_host( host_config ):
 
 def update_zabbix_host(host_config, user, request_id):
     """
-    Update an existing Zabbix host based on its HostConfig and host_sync_mode.
+    Update an existing Zabbix host based on its HostConfig.
 
     Performs:
         - Fetching current host state from Zabbix
-        - Determining templates/groups/tags to remove/add according to host_sync_mode
+        - Determining templates/groups/tags to remove/add.
         - Sending host.update() payload to Zabbix
         - Logging changelog entry in NetBox
 
@@ -79,79 +79,24 @@ def update_zabbix_host(host_config, user, request_id):
     except Exception as e:
         raise Exception( f"Failed to get host by id from Zabbix: {str(e)}" )
 
-    sync_mode = settings.get_host_sync_mode()
-
     # Build base payload
     payload = builders.payload( host_config, for_update=True )
     
 
-    if sync_mode == models.HostSyncModeChoices.OVERWRITE:
-        # Current template IDs in Zabbix (directly assigned to host)
-        current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
+    # Current template IDs in Zabbix (directly assigned to host)
+    current_template_ids = set( t["templateid"] for t in pre_data.get( "templates", [] ) )
         
-        # Templates currently assigned in NetBox
-        new_template_ids = set( str( tid ) for tid in host_config.templates.values_list( "templateid", flat=True ) )
+    # Templates currently assigned in NetBox
+    new_template_ids = set( str( tid ) for tid in host_config.templates.values_list( "templateid", flat=True ) )
         
-        # Only remove templates that are no longer assigned
-        removed_template_ids = current_template_ids - new_template_ids
-        templates_clear = [ {"templateid": tid} for tid in removed_template_ids ]
+    # Only remove templates that are no longer assigned
+    removed_template_ids = current_template_ids - new_template_ids
+    templates_clear = [ {"templateid": tid} for tid in removed_template_ids ]
         
-        # Build payload for update
-        payload = builders.payload( host_config, for_update=True )
-        if templates_clear:
-            payload[ "templates_clear" ] = templates_clear
-        
-    elif sync_mode == models.HostSyncModeChoices.PRESERVE:
-        """
-        In PRESERVE mode:
-        - Keep existing templates, groups, and tags from Zabbix
-        - Add any missing ones from NetBox
-        - Do NOT remove anything from Zabbix
-        """
-
-        # Templates
-        current_template_ids = set( str( t["templateid"]) for t in pre_data.get( "templates", [] ) )
-        new_template_ids = set( str( tid ) for tid in host_config.templates.values_list( "templateid", flat=True ) )
-        
-        # Union of Zabbix + NetBox templates
-        merged_template_ids = sorted(current_template_ids | new_template_ids)
-        payload["templates"] = [{"templateid": tid} for tid in merged_template_ids]
-        
-        # Never remove templates in PRESERVE mode
-        payload.pop( "templates_clear", None )
-
-        # Host Groups
-        current_group_ids = set( str(g["groupid"]) for g in pre_data.get("groups", []) )
-        new_group_ids = set( str(gid) for gid in host_config.host_groups.values_list( "groupid", flat=True ) )
-        
-        merged_group_ids = sorted(current_group_ids | new_group_ids)
-        payload["groups"] = [ {"groupid": gid} for gid in merged_group_ids ]
-        
-        # Tags
-        zabbix_tags = pre_data.get( "tags", [] )
-        netbox_tags = builders.get_tags( host_config.assigned_object )
-        
-        merged = {}
-        
-        # Start with existing Zabbix tags
-        for t in zabbix_tags:
-            tag = t.get( "tag" )
-            value = t.get( "value", "" )
-            if tag:
-                merged[tag] = value
-        
-        # Add / overwrite with NetBox tags
-        for t in netbox_tags:
-            tag = t.get( "tag" )
-            value = t.get( "value", "" )
-            if tag:
-                merged[tag] = value
-        
-        # Convert back to Zabbix list-of-dicts format
-        payload["tags"] = [ {"tag": k, "value": v} for k, v in merged.items() ]
-
-    else:
-        raise Exception ( "Illegal Host Sync Mode value" )
+    # Build payload for update
+    payload = builders.payload( host_config, for_update=True )
+    if templates_clear:
+        payload[ "templates_clear" ] = templates_clear
 
     # Update the host in Zabbix
     try:
@@ -169,7 +114,7 @@ def update_zabbix_host(host_config, user, request_id):
     log_update_event( host_config, user, request_id )
 
     return {
-        "message": f"Updated Zabbix host {host_config.hostid} (mode: {sync_mode})",
+        "message": f"Updated Zabbix host {host_config.hostid}",
         "pre_data": pre_data,
         "post_data": payload,
     }

@@ -90,8 +90,6 @@ PLUGIN_SETTINGS = plugin_settings.PLUGINS_CONFIG.get("netbox_zabbix", {})
 # Setting
 # ------------------------------------------------------------------------------
 
-# Since only one instance of the setting is allowed there is no need for 
-# a FilterForm.
 
 class SettingForm(NetBoxModelForm):
     """
@@ -102,7 +100,6 @@ class SettingForm(NetBoxModelForm):
     """
     fieldsets = (
         FieldSet( 'name',
-                  'host_sync_mode',
                   'ip_assignment_method',
                   'event_log_enabled',
                   'auto_validate_importables',

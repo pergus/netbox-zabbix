@@ -304,18 +304,6 @@ class SystemJobIntervalChoices(ChoiceSet):
     )
 
 
-class HostSyncModeChoices(models.IntegerChoices):
-    """
-    Choices for controlling how NetBox synchronizes host configurations with Zabbix.
-
-    Attributes:
-        OVERWRITE: NetBox enforces exact configuration; it overwrites all host settings in Zabbix.
-        PRESERVE: NetBox merges its configuration with existing Zabbix settings, preserving extra items.
-    """
-    OVERWRITE = 0, 'Overwrite'
-    PRESERVE  = 1, 'Preserve'
-
-
 # ------------------------------------------------------------------------------
 # Zabbix Admin Permissions
 # ------------------------------------------------------------------------------
@@ -339,7 +327,6 @@ class Setting(NetBoxModel):
     
     Attributes:
         name (str): Name of the setting.
-        host_sync_mode(int): Overwrite or preserve Zabbix host settings.
         ip_assignment_method (str): Method to assign IPs to host interfaces.
         event_log_enabled (bool): Whether event logging is enabled.
         auto_validate_importables (bool): Automatically validate importable hosts.
@@ -368,11 +355,7 @@ class Setting(NetBoxModel):
 
     # General
     name                      = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the setting." )
-    host_sync_mode            = models.PositiveIntegerField( verbose_name="Host Sync Mode",
-                                                 choices=HostSyncModeChoices,
-                                                 default=HostSyncModeChoices.OVERWRITE, 
-                                                 help_text="Determines how NetBox synchronizes host configurations with Zabbix." )
-    
+
     ip_assignment_method      = models.CharField(
         verbose_name="IP Assignment Method",
         max_length=16,
@@ -872,8 +855,8 @@ class Mapping(NetBoxModel):
     # Configuration Settings
     host_groups = models.ManyToManyField( HostGroup, help_text="Host groups used for matching hosts." )
     templates   = models.ManyToManyField( Template, help_text="Templates used for matching hosts. Multiple templates can be selected." )
-    proxy       = models.ForeignKey( Proxy, on_delete=models.CASCADE, null=True, help_text="Proxy for matching hosts." )
-    proxy_group = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, null=True, help_text="Proxy group for matching hosts." )
+    proxy       = models.ForeignKey( Proxy, on_delete=models.CASCADE, blank=True, null=True, help_text="Proxy for matching hosts." )
+    proxy_group = models.ForeignKey( ProxyGroup, on_delete=models.CASCADE, blank=True, null=True, help_text="Proxy group for matching hosts." )
 
     interface_type = models.IntegerField( verbose_name="Interface Type", choices=InterfaceTypeChoices, default=InterfaceTypeChoices.Any, help_text="Limit mapping to interfaces of this type. Select 'Any' to include all types." )
     
@@ -2043,7 +2026,6 @@ class UnAssignedHostIPAddresses(IPAddress):
     """Proxy model for unassigned IP addresses."""
     class Meta:
         proxy = True
-
 
 
 # ------------------------------------------------------------------------------

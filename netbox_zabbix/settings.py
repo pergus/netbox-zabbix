@@ -19,7 +19,6 @@ from netbox_zabbix.models import (
     SNMPAuthProtocolChoices,
     SNMPPrivProtocolChoices,
     TagNameFormattingChoices,
-    HostSyncModeChoices,
     SystemJobIntervalChoices,
 )
 from netbox_zabbix.logger import logger
@@ -125,17 +124,6 @@ def safe_setting(default=None):
 # ------------------------------------------------------------------------------
 # General
 # ------------------------------------------------------------------------------
-
-
-@safe_setting(HostSyncModeChoices.OVERWRITE)
-def get_host_sync_mode(s):
-    """
-    Retrieve the current setting for host sync mode.
-    
-    Returns:
-        int: The host sync mode.
-    """
-    return s.host_sync_mode
 
 
 @safe_setting(False)
