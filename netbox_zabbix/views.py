@@ -2211,7 +2211,7 @@ class MaintenanceEditView(generic.ObjectEditView):
         Called before rendering the form.
 
         Sets a default unique name for new objects based on the current user.
-       
+
         Note:
             NetBox's ObjectEditView does not pass the current user to the form __init__,
             and does not call get_form or get_form_kwargs in a way we can intercept
@@ -2222,45 +2222,50 @@ class MaintenanceEditView(generic.ObjectEditView):
 
         if user and user.is_authenticated:
             obj._current_user = user
-        
+
         if obj.pk is None and user and user.is_authenticated:
             base_name = f"{user.username}-maintenance"
             name = base_name
             counter = 0
-        
+
             # Keep incrementing until we find a unique name
             while Maintenance.objects.filter( name=name ).exists():
                 counter += 1
                 name = f"{base_name}-{counter}"
-        
+
             obj.name = name
-        
+
         return obj
 
 
     def post(self, request, *args, **kwargs):
         """
         Handle POST request to create or update a Maintenance instance.
-        
+
         - Validates form data.
         - Saves the Maintenance instance and its related objects atomically.
         - Calls Zabbix API to create or update the maintenance window.
         - Displays error messages if external synchronization fails.
         - Redirects to the maintenance list on success.
-        
+
         Args:
             request (HttpRequest): Current HTTP request.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
-        
+
         Returns:
             HttpResponse: Either the form view with errors or a redirect to the maintenance list.
         """
         obj = self.get_object(**kwargs)
+
+        # Inject the current user into the instance for use in the form
+        if not hasattr(  obj,  "_current_user" ):
+            obj._current_user = request.user
+
         form = self.form( data=request.POST, files=request.FILES, instance=obj )
-    
+
         object_created = form.instance.pk is None
-    
+
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -2273,13 +2278,13 @@ class MaintenanceEditView(generic.ObjectEditView):
                         instance.create_maintenance_window()
                     else:
                         instance.update_maintenance_window()
-    
+
             except Exception as e:
                 messages.error(request, f"Failed to sync with external system: {e}")
                 return self.get( request, *args, **kwargs )
 
             return redirect('plugins:netbox_zabbix:maintenance_list')
-    
+
         return self.get( request, *args, **kwargs )
 
 

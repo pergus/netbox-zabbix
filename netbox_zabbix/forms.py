@@ -1545,7 +1545,7 @@ class MaintenanceForm(NetBoxModelForm):
     def __init__(self, *args, **kwargs):
         """
         Initialize form with default initial values for new instance.
-        
+
         Hides 'tags' field.
         """
         super().__init__( *args, **kwargs )
