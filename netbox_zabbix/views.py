@@ -2297,20 +2297,20 @@ class MaintenanceDeleteView(generic.ObjectDeleteView):
     def post(self, request, *args, **kwargs):
         """
         Handle POST request to delete a Maintenance instance.
-        
+
         - Calls the instance's delete method, which may attempt to remove it from Zabbix.
         - Displays a warning message if deletion from Zabbix fails.
         - Redirects to the maintenance list after deletion.
-        
+
         Args:
             request (HttpRequest): Current HTTP request.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
-        
+
         Returns:
             HttpResponse: Redirect to the maintenance list view.
         """
-        obj = self.get_object()
+        obj = self.get_object( **kwargs )
         result = obj.delete()
         
         if isinstance( result, dict ) and result.get( "warning" ):
