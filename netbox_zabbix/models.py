@@ -345,31 +345,8 @@ class ZabbixAdminPermission(NetBoxModel):
 class Setting(NetBoxModel):
     """
     Stores global settings for the netbox-zabbix plugin.
-    
-    Attributes:
-        name (str): Name of the setting.
-        ip_assignment_method (str): Method to assign IPs to host interfaces.
-        event_log_enabled (bool): Whether event logging is enabled.
-        auto_validate_importables (bool): Automatically validate importable hosts.
-        auto_validate_quick_add (bool): Automatically validate hosts eligible for quick add.
-        max_deletions (int): Max deletions allowed during import.
-        max_success_notifications (int): Max success notifications per job.
-        zabbix_import_interval (int): Interval in minutes for Zabbix import job.
-        host_config_sync_interval (int): Interval in minutes for in sync job.
-        cutoff_host_config_sync (int): Time in minutes to consider a HostConfig out-of-sync for the sync job.
-        version (str): Zabbix server version.
-        api_endpoint (str): Zabbix API endpoint URL.
-        web_address (str): Zabbix web interface URL.
-        token (str): Zabbix API token.
-        delete_setting (str): Soft or hard delete behavior.
-        graveyard (str): Host group for soft-deleted hosts.
-        useip(int): Connect via IP or DNS.
-        inventory_mode (int): Inventory population mode.
-        monitored_by (int): Monitoring method.
-        tls_connect / tls_accept (int): TLS configuration for connections.
-        agent_port / snmp_port (int): Default ports for agent and SNMP interfaces.
-        tag_prefix / tag_name_formatting: Tagging settings.
     """
+
     class Meta:
         verbose_name = "Setting"
         verbose_name_plural = "Settings"
@@ -594,15 +571,8 @@ class Setting(NetBoxModel):
 class Template(NetBoxModel):
     """
     Represents a Zabbix template.
-    
-    Attributes:
-        name (str): Template name.
-        templateid (str): Template ID from Zabbix.
-        last_synced (datetime): Last sync timestamp.
-        parents (ManyToMany): Parent templates for dependency management.
-        dependencies (ManyToMany): Trigger dependencies.
-        interface_type (int): Required interface type (Any, Agent, SNMP).
     """
+
     class Meta:
         verbose_name = "Template"
         verbose_name_plural = "Templates"
@@ -656,6 +626,7 @@ class Template(NetBoxModel):
 
 class ProxyGroup(NetBoxModel):
     """Represents a Zabbix Host Group."""
+
     class Meta:
         verbose_name = "Proxy Group"
         verbose_name_plural = "Proxy Groups"
@@ -720,7 +691,7 @@ class ProxyGroup(NetBoxModel):
         """
         Update an existing proxy group in Zabbix.
         """
-        
+
         params = {}
         params["name"]           = self.name
         params["proxy_groupid"]  = self.proxy_groupid
@@ -781,6 +752,7 @@ class ProxyGroup(NetBoxModel):
 
 class Proxy(NetBoxModel):
     """Represents a Zabbix Proxy for host monitoring."""
+
     class Meta:
         verbose_name = "Proxy"
         verbose_name_plural = "Proxies"
@@ -1156,6 +1128,7 @@ class Proxy(NetBoxModel):
 
 class HostGroup(NetBoxModel):
     """Represents a Zabbix Host Group."""
+
     class Meta:
         verbose_name = "Hostgroup"
         verbose_name_plural = "Hostgroups"
@@ -1268,11 +1241,8 @@ class HostGroup(NetBoxModel):
 class TagMapping(NetBoxModel):
     """
     Maps NetBox object fields to Zabbix tags.
-    
-    Attributes:
-        object_type (str): 'device' or 'virtualmachine'.
-        selection (list): List of field paths used as Zabbix tags.
     """
+
     class Meta:
         verbose_name = "Tag Mapping"
         verbose_name_plural = "Tag Mappings"
@@ -1314,11 +1284,8 @@ class TagMapping(NetBoxModel):
 class InventoryMapping(NetBoxModel):
     """
     Maps NetBox object fields to Zabbix inventory items.
-    
-    Attributes:
-        object_type (str): 'device' or 'virtualmachine'.
-        selection (list): List of field paths used for Zabbix inventory.
     """
+
     class Meta:
         verbose_name = "Inventory Mapping"
         verbose_name_plural = "Inventory Mappings"
@@ -1360,16 +1327,8 @@ class InventoryMapping(NetBoxModel):
 class Mapping(NetBoxModel):
     """
     Base mapping for hosts, templates, proxies, and filters.
-    
-    Attributes:
-        name (str): Name of the mapping.
-        description (str): Optional description.
-        default (bool): Whether this mapping is the default.
-        host_groups / templates (ManyToMany): Host groups and templates to match.
-        proxy / proxy_group: Optional proxy configuration.
-        interface_type (int): Limit mapping to a specific interface type.
-        sites / roles / platforms: Filters for hosts to which this mapping applies.
     """
+
     name        = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the mapping." )
     description = models.TextField( blank=True )
     default     = models.BooleanField( default=False )
@@ -1430,11 +1389,8 @@ class Mapping(NetBoxModel):
 class DeviceMapping(Mapping):
     """
     Mapping for Device objects.
-    
-    Methods:
-        get_matching_filter(device, interface_type): Returns the most specific mapping matching a device.
-        get_matching_devices(): Returns Devices matched by this mapping, excluding devices handled by more specific mappings.
     """
+
     class Meta:
         verbose_name = "Device Mapping"
         verbose_name_plural = "Device Mappings"
@@ -1617,11 +1573,8 @@ class DeviceMapping(Mapping):
 class VMMapping(Mapping):
     """
     Mapping for VirtualMachine objects.
-    
-    Methods:
-        get_matching_filter(virtual_machine, interface_type): Returns the most specific mapping for a VM.
-        get_matching_virtual_machines(): Returns VMs matched by this mapping, excluding those handled by more specific mappings.
     """
+
     class Meta:
         verbose_name = "Virtual Machine Mapping"
         verbose_name_plural = "Virtual Machine Mappings"
@@ -1803,24 +1756,8 @@ class VMMapping(Mapping):
 class HostConfig(NetBoxModel, JobsMixin):
     """
     Represents a host configuration in Zabbix.
-    
-    Attributes:
-        name (str): Host name.
-        hostid (int): Zabbix host ID.
-        status (int): Host monitoring status.
-        host_groups / templates: Assigned groups and templates.
-        monitored_by (int): Monitoring source (server, proxy, etc.).
-        proxy / proxy_group: Assigned proxies.
-        content_type / object_id: Generic relation to Device or VirtualMachine.
-    
-    Properties:
-        has_agent_interface: True if an AgentInterface exists.
-        has_snmp_interface: True if an SNMPInterface exists.
-    
-    Methods:
-        get_sync_status(): Check if the host is in sync with Zabbix.
-        get_sync_diff(): Returns differences between NetBox and Zabbix.
     """
+
     class Meta:
         verbose_name = "Host Config"
         verbose_name_plural = "Host Configs"
@@ -1994,13 +1931,8 @@ class HostConfig(NetBoxModel, JobsMixin):
 class BaseInterface(NetBoxModel):
     """
     Base class for Zabbix host interfaces (Agent or SNMP).
-    
-    Attributes:
-        name (str): Interface name.
-        hostid / interfaceid (int): IDs from Zabbix.
-        useip (int): Use IP or DNS for connection.
-        main (int): Whether this is the main interface.
     """
+
     class Meta:
         abstract = True
     
@@ -2099,6 +2031,7 @@ class BaseInterface(NetBoxModel):
 
 class AgentInterface(BaseInterface):
     """Represents an agent interface linked to a HostConfig."""
+
     host_config    = models.ForeignKey( to="HostConfig", on_delete=models.CASCADE, related_name="agent_interfaces" )
     interface_type = models.ForeignKey( ContentType, on_delete=models.CASCADE, limit_choices_to={"model__in": ["interface", "vminterface"]} )
     interface_id   = models.PositiveIntegerField()
@@ -2137,6 +2070,7 @@ class AgentInterface(BaseInterface):
 
 class SNMPInterface(BaseInterface):
     """Represents an SNMP interface linked to a HostConfig."""
+
     host_config    = models.ForeignKey( to="HostConfig", on_delete=models.CASCADE, related_name="snmp_interfaces" )
     interface_type = models.ForeignKey( ContentType, on_delete=models.CASCADE, limit_choices_to={"model__in": ["interface", "vminterface"]} )
     interface_id   = models.PositiveIntegerField()
@@ -2210,21 +2144,6 @@ class Maintenance(NetBoxModel):
     This object defines a time period during which one or more hosts are put
     into maintenance mode in Zabbix. The maintenance can target hosts derived
     from Sites, HostGroups, ProxyGroups, or Clusters.
-
-    Attributes:
-        name (str): Name of the maintenance.
-        description (str): Optional descriptive text.
-        start_time (datetime): When maintenance begins.
-        end_time (datetime): When maintenance ends.
-        disable_data_collection (bool): If True, disables item collection during maintenance.
-        host_config: (ManyToMany): Releated Host Configurtions that is part of the maintenance.
-        sites (ManyToMany): Related Sites whose hosts will be included.
-        host_groups (ManyToMany): Related Zabbix host groups.
-        proxies (ManyToMany): Related Zabbix proxies.
-        proxy_groups (ManyToMany): Related Zabbix proxy groups.
-        clusters (ManyToMany): Related Clusters whose VMs will be included.
-        zabbix_id (str): ID of the maintenance in Zabbix.
-        status (str): Current lifecycle status (pending, active, expired).
     """
 
     STATUS_CHOICES = [
@@ -2433,17 +2352,9 @@ class Maintenance(NetBoxModel):
 
 class EventLog(NetBoxModel):
     """
-    Logs plugin events.
-    
-    Attributes:
-        name (str): Event name.
-        job (Job): Associated job.
-        signal_id / message / exception / data / pre_data / post_data: Event details.
-        created (datetime): Timestamp.
-    
-    Methods:
-        get_job_status_color(): Returns a color code based on job status.
+    Log plugin events.
     """
+
     name      = models.CharField( verbose_name="Name", max_length=256, help_text="Event name." )
     job       = models.ForeignKey( Job, on_delete=models.CASCADE, null=True, related_name='logs', help_text="Job reference." )
     signal_id = models.TextField( verbose_name="Signal ID", blank=True, default="", help_text="Signal ID." )
@@ -2502,6 +2413,7 @@ class EventLog(NetBoxModel):
 
 class UnAssignedHosts(Device):
     """Proxy model for unassigned hosts."""
+
     class Meta:
         proxy = True
 
@@ -2513,6 +2425,7 @@ class UnAssignedHosts(Device):
 
 class UnAssignedAgentInterfaces(Interface):
     """Proxy model for unassigned agent interfaces."""
+
     class Meta:
         proxy = True
 
@@ -2524,6 +2437,7 @@ class UnAssignedAgentInterfaces(Interface):
 
 class UnAssignedSNMPInterfaces(Interface):
     """Proxy model for unassigned SNMP interfaces."""
+
     class Meta:
         proxy = True
 
@@ -2535,6 +2449,7 @@ class UnAssignedSNMPInterfaces(Interface):
 
 class UnAssignedHostInterfaces(Interface):
     """Proxy model for unassigned host interfaces."""
+
     class Meta:
         proxy = True
 
@@ -2546,6 +2461,7 @@ class UnAssignedHostInterfaces(Interface):
 
 class UnAssignedHostIPAddresses(IPAddress):
     """Proxy model for unassigned IP addresses."""
+
     class Meta:
         proxy = True
 
@@ -2557,7 +2473,9 @@ class UnAssignedHostIPAddresses(IPAddress):
 
 class HostMapping(VMMapping):
     """Proxy model for Host Mappings."""
+
     class Meta:
         proxy = True
+
 
 # end
