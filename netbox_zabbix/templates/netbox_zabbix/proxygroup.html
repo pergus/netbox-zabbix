@@ -8,7 +8,6 @@
             <h5 class="card-header">Proxy Group</h5>
             <div class="card-body">
                 <table class="table table-hover attr-table">
-
                     <tr>
                         <th scope="row">Name</th>
                         <td>{{ object.name }}</td>
@@ -18,8 +17,21 @@
                         <td>{{ object.proxy_groupid }}</td>
                     </tr>
                     <tr>
+                        <th scope="row">Failover Period</th>
+                        <td>{{ object.failover_delay }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Minimum Number of Proxies</th>
+                        <td>{{ object.min_online }}</td>
+                    </tr>
+                    <tr>
                         <th scope="row">Last Synced</th>
                         <td>{{ object.last_synced|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Description</th>
+                        <td>{{ object.description }}</td>
                     </tr>
                 </table>
             </div>
