@@ -2514,15 +2514,6 @@ class MaintenanceEditView(generic.ObjectEditView):
         Returns:
             HttpResponse: Either the form view with errors or a redirect to the maintenance list.
         """
-<<<<<<< Updated upstream
-        obj = self.get_object(**kwargs)
-
-        # Inject the current user into the instance for use in the form
-        if not hasattr(  obj,  "_current_user" ):
-            obj._current_user = request.user
-
-        form = self.form( data=request.POST, files=request.FILES, instance=obj )
-=======
         obj = self.get_object( **kwargs )
 
         # Inject the current user into the instance for use in the form
@@ -2530,7 +2521,6 @@ class MaintenanceEditView(generic.ObjectEditView):
             obj._current_user = request.user
 
         form = self.form(data=request.POST, files=request.FILES, instance=obj)
->>>>>>> Stashed changes
 
         object_created = form.instance.pk is None
 
