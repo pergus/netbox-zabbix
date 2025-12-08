@@ -285,7 +285,36 @@ class ProxyTable(NetBoxTable):
         
     class Meta(NetBoxTable.Meta):
         model           = Proxy
-        fields          = ( "name", "proxyid", "proxy_groupid", "last_synced"  )
+        fields          = ( "name", 
+                            "proxyid", 
+                            "proxy_groupid", 
+                            "last_synced",
+                            "proxy_group",
+                            "operating_mode",
+                            "local_address",
+                            "local_port",
+                            "address",
+                            "port",
+                            "allowed_addresses",
+                            "description",
+                            "tls_connect",
+                            "tls_accept",
+                            "tls_issuer",
+                            "tls_subject",
+                            "tls_psk_identity",
+                            "tls_psk",
+                            "custom_timeouts"
+                            "timeout_zabbix_agent",
+                            "timeout_simple_check",
+                            "timeout_snmp_agent",
+                            "timeout_external_check",
+                            "timeout_db_monitor",
+                            "timeout_http_agent",
+                            "timeout_ssh_agent",
+                            "timeout_telnet_agent",
+                            "timeout_script",
+                            "timeout_browser"
+                            )
         default_columns = ( "name", "proxyid", "proxy_groupid", "last_synced"  )
 
 
@@ -302,8 +331,10 @@ class ProxyGroupTable(NetBoxTable):
     
     class Meta(NetBoxTable.Meta):
         model           = ProxyGroup
-        fields          = ( "name", "proxy_groupid", "last_synced"  )
+        fields          = ( "name", "proxy_groupid", "failover_delay", "min_online", "description", "last_synced"  )
         default_columns = ( "name", "proxy_groupid", "last_synced"  )
+
+
 
 
 # ------------------------------------------------------------------------------

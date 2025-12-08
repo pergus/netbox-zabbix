@@ -14,6 +14,7 @@ from netbox_zabbix.models import (
     MonitoredByChoices,
     InventoryModeChoices,
     TLSConnectChoices,
+    TLSAcceptChoices,
     SNMPBulkChoices,
     SNMPSecurityLevelChoices,
     SNMPAuthProtocolChoices,
@@ -425,7 +426,7 @@ def get_tls_connect(s):
     return s.tls_connect
 
 
-@safe_setting(TLSConnectChoices.PSK)
+@safe_setting(TLSAcceptChoices.PSK)
 def get_tls_accept(s):
     """
      Retrieves the default TLS accept type from the configuration.

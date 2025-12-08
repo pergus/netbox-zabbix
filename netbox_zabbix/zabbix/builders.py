@@ -240,7 +240,7 @@ def payload(host_config, for_update=False, pre_data=None) -> dict:
         payload["inventory"] = generate_zabbix_inventory( host_config.assigned_object )
 
     # TLS
-    if settings.get_tls_connect() == models.TLSConnectChoices.PSK or settings.get_tls_accept() == models.TLSConnectChoices.PSK:
+    if settings.get_tls_connect() == models.TLSConnectChoices.PSK or settings.get_tls_accept() == models.TLSAcceptChoices.PSK:
         payload["tls_psk_identity"] = settings.get_tls_psk_identity()
         payload["tls_psk"] = settings.get_tls_psk()
 

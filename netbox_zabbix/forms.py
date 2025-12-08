@@ -25,7 +25,6 @@ from django.utils.timezone import now
 from django.contrib.contenttypes.models import ContentType
 
 # NetBox imports
-from strawberry import interface
 from utilities.forms.fields import (
     ContentTypeChoiceField, 
     DynamicModelChoiceField,
@@ -38,8 +37,10 @@ from virtualization.models import VirtualMachine
 # NetBox Zabbix plugin imports
 from netbox_zabbix.models import (
     # Choices
+    ProxyModeChoices,
     MonitoredByChoices,
     InterfaceTypeChoices,
+    TLSAcceptChoices,
     TLSConnectChoices,
     DeleteSettingChoices,
     InterfaceTypeChoices,
@@ -220,13 +221,14 @@ class SettingForm(NetBoxModelForm):
             
         # Check tls settings
         tls_connect = self.cleaned_data.get( 'tls_connect' )
+        tls_accept = self.cleaned_data.get( 'tls_accept' )
         tls_psk = self.cleaned_data.get( 'tls_psk' )
         tls_psk_identity = self.cleaned_data.get( 'tls_psk_identity' )
     
         # Validate PSK requirements
-        if tls_connect == TLSConnectChoices.PSK:
+        if tls_connect == TLSConnectChoices.PSK or tls_accept == TLSAcceptChoices.PSK:
             if not tls_psk_identity:
-                self.add_error( 'tls_psk_identity', "TLS PSK Identity is required when TLS Connect is set to PSK." )
+                self.add_error( 'tls_psk_identity', "TLS PSK Identity is required when TLS Connect/Accept is set to PSK." )
             if not tls_psk or not re.fullmatch( r'[0-9a-fA-F]{32,}', tls_psk ):
                 self.add_error( 'tls_psk', "TLS PSK must be at least 32 hexadecimal digits." )
     
@@ -332,9 +334,48 @@ class ProxyForm(NetBoxModelForm):
     """
     Form for creating or editing Zabbix Proxies.
     """
+    fieldsets = ( 
+        FieldSet(
+            "name",
+            "proxyid", 
+            "proxy_groupid",
+            "proxy_group",
+            "operating_mode",
+            "local_address",
+            "local_port",
+            "address",
+            "port",
+            "allowed_addresses",
+            "description",
+            name="Main"),
+        FieldSet( 
+            "tls_connect",
+            "tls_accept",
+            "tls_issuer",
+            "tls_subject",
+            "tls_psk_identity",
+            "tls_psk",
+            name="Encryption"
+        ),
+        FieldSet( 
+            "custom_timeouts", 
+            "timeout_zabbix_agent", 
+            "timeout_simple_check", 
+            "timeout_snmp_agent", 
+            "timeout_external_check", 
+            "timeout_db_monitor", 
+            "timeout_http_agent", 
+            "timeout_ssh_agent", 
+            "timeout_telnet_agent", 
+            "timeout_script", 
+            "timeout_browser", 
+            name="Timeouts"
+        )
+    )
+
     class Meta:
         model = Proxy
-        fields = ( "name", "proxyid", "proxy_groupid" )
+        fields = '__all__'
 
     def __init__(self, *args, **kwargs):
         """
@@ -342,10 +383,37 @@ class ProxyForm(NetBoxModelForm):
         
         Hides 'tags' field.
         """
+
+        instance = kwargs.get( 'instance', None )
+        
         super().__init__( *args, **kwargs )
     
         # Hide the 'tags' field on "add" and "edit" view
         self.fields.pop('tags', None)
+
+
+        if instance and instance.pk:
+            # Edit existing proxy
+            self.fields.pop('proxyid', None)
+            self.fields.pop('proxy_groupid', None)
+        else:
+            # New proxy
+            self.fields.pop('proxyid', None)
+            self.fields.pop('proxy_groupid', None)
+
+        # Main
+        self.fields['local_address'].widget.attrs['class'] = 'conditional-field local-field'
+        self.fields['local_port'].widget.attrs['class'] = 'conditional-field local-field'
+        self.fields['address'].widget.attrs['class'] = 'conditional-field remote-field'
+        self.fields['port'].widget.attrs['class'] = 'conditional-field remote-field'
+        self.fields['allowed_addresses'].widget.attrs['class'] = 'conditional-field active-field'
+
+        # Encryption
+        self.fields['tls_psk'].widget.attrs['class'] = 'conditional-field psk-field'
+        self.fields['tls_psk_identity'].widget.attrs['class'] = 'conditional-field psk-field'
+        self.fields['tls_issuer'].widget.attrs['class'] = 'conditional-field cert-field'
+        self.fields['tls_subject'].widget.attrs['class'] = 'conditional-field cert-field'
+
 
 
 class ProxyFilterForm(NetBoxModelFilterSetForm):
@@ -383,7 +451,7 @@ class ProxyGroupForm(NetBoxModelForm):
     """
     class Meta:
         model = ProxyGroup
-        fields = ( "name", "proxy_groupid" )
+        fields = ( "name", "proxy_groupid", "failover_delay", "min_online", "description" )
 
 
     def __init__(self, *args, **kwargs):
@@ -430,7 +498,7 @@ class HostGroupForm(NetBoxModelForm):
     """
     class Meta:
         model = HostGroup
-        fields = [ 'name', 'groupid' ]
+        fields = [ 'name' ]
 
 
     def __init__(self, *args, **kwargs):
@@ -443,6 +511,24 @@ class HostGroupForm(NetBoxModelForm):
     
         # Hide the 'tags' field on "add" and "edit" view
         self.fields.pop('tags', None)
+
+    def clean_name(self):
+        """
+        Validate that no duplicate host group names exists.
+        
+        Returns:
+            str: The cleaned name.
+        
+        Raises:
+            ValidationError: If a host group name already exists.
+        """
+        name = self.cleaned_data['name']
+        qs = HostGroup.objects.filter( name=name )
+        if self.instance.pk:
+            qs = qs.exclude( pk=self.instance.pk )
+        if qs.exists():
+            raise forms.ValidationError( f"A host group named '{name}' already exists." )
+        return name
 
 
 # ------------------------------------------------------------------------------
@@ -542,8 +628,8 @@ class TagMappingForm(NetBoxModelForm):
 
             enabled = self.cleaned_data.get( field_key, False )
             selection.append({
-                "name": tag_name,
-                "value": tag_value,
+                "name":    tag_name,
+                "value":   tag_value,
                 "enabled": enabled,
             })
 
@@ -676,7 +762,7 @@ class DeviceMappingForm(NetBoxModelForm):
     fieldsets = (
         FieldSet( 'name', 'default', name="General" ),
         FieldSet( 'host_groups', 'templates', 'proxy', 'proxy_group', 'interface_type', name="Settings" ),
-        FieldSet( 'sites', 'roles', 'platforms', name="Filters"),
+        FieldSet( 'sites', 'roles', 'platforms', name="Filters" ),
         FieldSet( 'description', name="Optional" )
     )
     
@@ -1548,11 +1634,11 @@ class MaintenanceForm(NetBoxModelForm):
 
         Hides 'tags' field.
         """
+
         super().__init__( *args, **kwargs )
 
         # Hide the 'tags' field on "add" and "edit" view
         self.fields.pop( 'tags', None )
-
 
         user = getattr( self.instance, "_current_user", None )
         if not has_any_model_permission( user, "netbox_zabbix", "zabbixadminpermission" ):

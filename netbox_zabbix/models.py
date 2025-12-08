@@ -18,6 +18,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.utils import timezone
 from django.db.models import Q
+from django.core.validators import MinValueValidator, MaxValueValidator
+
 
 
 # NetBox imports
@@ -67,9 +69,28 @@ class MonitoredByChoices(models.IntegerChoices):
     ProxyGroup   = (2, 'Proxy Group')
 
 
+class ProxyModeChoices(models.IntegerChoices):
+    ACTIVE  = (0, 'Active')
+    PASSIVE = (1, 'Passive')
+
+
 class TLSConnectChoices(models.IntegerChoices):
     """
-    TLS connection options for host communication.
+    TLS connection options for host/proxy communication.
+    
+    Attributes:
+        NoEncryption: Do not use TLS.
+        PSK: Use pre-shared key for TLS.
+        CERTIFICATE: Use certificate-based TLS.
+    """
+    NoEncryption = (1, 'No Encryption')
+    PSK          = (2, 'PSK')
+    CERTIFICATE  = (4, 'Certificate')
+
+
+class TLSAcceptChoices(models.IntegerChoices):
+    """
+    TLS accept options for host/proxy communication.
     
     Attributes:
         NoEncryption: Do not use TLS.
@@ -371,7 +392,7 @@ class Setting(NetBoxModel):
 
 
     # Background Job(s)
-    max_deletions             = models.IntegerField(
+    max_deletions = models.IntegerField(
         verbose_name="Max Deletions On Import",
         default=3,
         help_text="Limits deletions of stale entries on Zabbix imports."
@@ -385,14 +406,14 @@ class Setting(NetBoxModel):
     # System Job(s)
     zabbix_import_interval    = models.PositiveIntegerField( verbose_name="Zabbix Import Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix import. Must be at least 1 minute." )
     host_config_sync_interval = models.PositiveIntegerField( verbose_name="Host Config Sync Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Host Config Sync check. Must be at least 1 minute." )
-    cutoff_host_config_sync = models.PositiveIntegerField( verbose_name="Host Config Sync Cutoff", null=True, blank=True, default=60, help_text="Number of minutes to look back when determining which HostConfigs need syncing with Zabbix. Includes never-synced or outdated objects." )
+    cutoff_host_config_sync   = models.PositiveIntegerField( verbose_name="Host Config Sync Cutoff", null=True, blank=True, default=60, help_text="Number of minutes to look back when determining which HostConfigs need syncing with Zabbix. Includes never-synced or outdated objects." )
 
     # Zabbix Server
     version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
     api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
     web_address              = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to the Zabbix web interface." )
     token                    = models.CharField( verbose_name="Token", max_length=255, help_text="Zabbix access token." )
-    
+
     connection               = models.BooleanField( verbose_name="Connection", default=False )
     last_checked_at          = models.DateTimeField( verbose_name="Last Checked At", null=True, blank=True )
 
@@ -459,8 +480,8 @@ class Setting(NetBoxModel):
 
     tls_accept = models.IntegerField(
         verbose_name="TLS Accept",
-        choices=TLSConnectChoices,
-        default=TLSConnectChoices.PSK,
+        choices=TLSAcceptChoices,
+        default=TLSAcceptChoices.PSK,
         help_text="TLS mode accepted for incoming connections."
     )
 
@@ -565,7 +586,6 @@ class Setting(NetBoxModel):
         schedule_system_jobs()
 
 
-
 # ------------------------------------------------------------------------------
 # Template
 # ------------------------------------------------------------------------------
@@ -630,43 +650,6 @@ class Template(NetBoxModel):
 
 
 # ------------------------------------------------------------------------------
-# Proxy
-# ------------------------------------------------------------------------------
-
-
-class Proxy(NetBoxModel):
-    """Represents a Zabbix Proxy for host monitoring."""
-    class Meta:
-        verbose_name = "Proxy"
-        verbose_name_plural = "Proxies"
-    
-    name          = models.CharField( verbose_name="Proxy", max_length=255, help_text="Name of the proxy." )
-    proxyid       = models.CharField( verbose_name="Proxy ID", max_length=255, help_text="Proxy ID.")
-    proxy_groupid = models.CharField( verbose_name="Proxy Group ID", max_length=255 , help_text="Proxy Group ID.")
-    last_synced   = models.DateTimeField( blank=True, null=True )
-
-    def __str__(self):
-        """
-        Return a human-readable string representation of the object.
-        Typically returns the `name` field or another identifying attribute.
-        
-        Returns:
-            str: Human-readable name of the object.
-        """
-        return self.name
-
-    def get_absolute_url(self):
-        """
-        Return the canonical URL for this object within the plugin UI.
-        This is used for linking to the object's detail page in NetBox.
-        
-        Returns:
-            str: Absolute URL as a string. Can be None if not applicable.
-        """
-        return reverse( "plugins:netbox_zabbix:proxy", args=[self.pk] )
-
-
-# ------------------------------------------------------------------------------
 # Proxy Groups
 # ------------------------------------------------------------------------------
 
@@ -677,9 +660,14 @@ class ProxyGroup(NetBoxModel):
         verbose_name = "Proxy Group"
         verbose_name_plural = "Proxy Groups"
     
-    name          = models.CharField( verbose_name="Proxy Group", max_length=255, help_text="Name of the proxy group." )
-    proxy_groupid = models.CharField( verbose_name="Proxy Group ID", max_length=255, help_text="Proxy Group ID." )
-    last_synced   = models.DateTimeField( blank=True, null=True )
+    name           = models.CharField( verbose_name="Proxy Group", max_length=255, help_text="Name of the proxy group." )
+    proxy_groupid  = models.CharField( verbose_name="Proxy Group ID", max_length=255, blank=True, null=True, help_text="Proxy Group ID." )
+    failover_delay = models.CharField( verbose_name="Failover period", max_length=255, default="1m", help_text="Period during which a proxy in the proxy group must communicate with Zabbix server to be considered online." )
+    min_online     = models.PositiveSmallIntegerField( verbose_name="Minimum number of proxies", default=1, help_text="Minimum number of online proxies required to keep the proxy group online." )
+    description = models.TextField( verbose_name="Description", blank=True, null=True, help_text="Description of the proxy group." )
+
+    last_synced    = models.DateTimeField( blank=True, null=True )
+
 
     def __str__(self):
         """
@@ -702,6 +690,465 @@ class ProxyGroup(NetBoxModel):
         return reverse( "plugins:netbox_zabbix:proxygroup", args=[self.pk] )
 
 
+    def create_new_proxy_group(self):
+        """
+        Create a new proxy group in Zabbix.
+        """
+        
+        try:
+            # Prevent circular imports
+            from netbox_zabbix.zabbix.api import create_proxy_group
+            
+            params = {
+                "name": self.name,
+                "failover_delay": self.failover_delay,
+                "min_online": self.min_online,
+                "description": self.description,
+            }
+
+            result = create_proxy_group( params )
+            self.proxy_groupid = result["proxy_groupid"][0]
+        
+            # Save NetBox object atomically
+            super().save( update_fields=["proxy_groupid"] )
+        
+        except Exception as e:
+            raise e
+
+
+    def update_existing_proxy_group(self):
+        """
+        Update an existing proxy group in Zabbix.
+        """
+        
+        params = {}
+        params["name"]           = self.name
+        params["proxy_groupid"]  = self.proxy_groupid
+        params["failover_delay"] = self.failover_delay
+        params["min_online"]     = self.min_online
+        params["description"]    = self.description
+    
+        try:
+            # Prevent circular imports
+            from netbox_zabbix.zabbix.api import update_proxy_group
+
+            update_proxy_group( params )
+            super().save()
+        except Exception as e:
+            raise e
+    
+    
+    def delete(self, *args, **kwargs):
+        """
+        Attempt to delete Zabbix proxy group. 
+        If it fails, return a warning for the caller to handle.
+        """
+    
+        zbx_failed = False
+        error_msg = ""
+    
+        if self.proxy_groupid:
+            try:
+                # Prevent circular imports
+                from netbox_zabbix.zabbix.api import delete_proxy_group
+                
+                delete_proxy_group( self.proxy_groupid )
+            except Exception as e:
+                zbx_failed = True
+                error_msg = f"Failed to delete proxy group {self.name} from Zabbix: {e}"
+                logger.warning( error_msg )
+                self.proxy_groupid = None
+    
+        super().delete( *args, **kwargs )
+    
+        if zbx_failed:
+            return {
+                "warning": True,
+                "message": (
+                    "Zabbix proxy group could not be deleted from Zabbix, "
+                    "but it has been removed from NetBox."
+                ),
+                "detail": error_msg
+            }
+    
+        return None
+
+
+# ------------------------------------------------------------------------------
+# Proxy
+# ------------------------------------------------------------------------------
+
+
+class Proxy(NetBoxModel):
+    """Represents a Zabbix Proxy for host monitoring."""
+    class Meta:
+        verbose_name = "Proxy"
+        verbose_name_plural = "Proxies"
+    
+    name          = models.CharField( verbose_name="Proxy Name",     max_length=255, help_text="Name of the proxy." )
+    proxyid       = models.CharField( verbose_name="Proxy ID",       max_length=255, blank=True, null=True, help_text="Proxy ID." )
+    proxy_groupid = models.CharField( verbose_name="Proxy Group ID", max_length=255, blank=True, null=True, help_text="Proxy Group ID." )
+    last_synced   = models.DateTimeField( blank=True, null=True )
+
+
+    proxy_group = models.ForeignKey(
+        ProxyGroup,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='proxies',
+        verbose_name="Proxy group",
+        help_text="Zabbix proxy group this proxy belongs to"
+    )
+
+    operating_mode = models.PositiveSmallIntegerField( verbose_name="Operating Mode", choices=ProxyModeChoices, default=ProxyModeChoices.ACTIVE, blank=False, null=False, help_text="Type of proxy." )
+
+
+    # Proxy Group selected i.e. proxy_groupid is not 0
+    local_address = models.GenericIPAddressField( verbose_name="Local Address", default="", blank=True, null=True, help_text="Address for active agents. IP address or DNS name to connect to." )
+    local_port = models.PositiveIntegerField( verbose_name="Local Port", default=10051, blank=True, null=True, help_text="Proxy port number to connect to." )
+
+    # Passive Mode
+    address = models.GenericIPAddressField( verbose_name="Interface Address",  default="127.0.0.1", blank=True, null=True, help_text="IP address or DNS name to connect to." )
+    port = models.PositiveIntegerField( verbose_name="Port", default=10051, blank=True, null=True, help_text="Port number to connect to." )
+
+    # Active Mode
+    allowed_addresses = models.CharField( verbose_name="Allowed Addresses", blank=True, null=True, help_text="Comma-delimited IP addresses or DNS names of active Zabbix proxy." ) 
+
+    description = models.TextField( verbose_name="Description", blank=True, null=True, help_text="Description of the proxy." )
+
+    # Encryption
+    tls_connect = models.PositiveSmallIntegerField( 
+        verbose_name="TLS connect mode", 
+        choices=TLSConnectChoices, 
+        default=TLSConnectChoices.NoEncryption, 
+        help_text="Type of TLS to use for outgoing connections: “No encryption”, “PSK”, or “Certificate”." 
+    )
+
+    tls_accept = models.PositiveSmallIntegerField(
+        choices=TLSAcceptChoices,
+        default=TLSAcceptChoices.NoEncryption,
+        verbose_name="TLS accept mode",
+        help_text="Type of TLS to accept for incoming connections: “No encryption”, “PSK”, or “Certificate”."
+     )
+
+    tls_issuer = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="TLS issuer distinguished name",
+        help_text="Distinguished Name (DN) of the certificate issuer to validate peer certificates. Leave empty to accept any issuer."
+     )
+
+    tls_subject = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="TLS subject distinguished name",
+        help_text="Distinguished Name (DN) of the certificate subject to validate peer certificates. Leave empty to accept any subject."
+    )
+
+    tls_psk_identity = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="TLS PSK identity",
+        help_text="Pre‑shared key (PSK) identity used for TLS connections when “PSK” mode is selected."
+    )
+
+    tls_psk = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="TLS PSK",
+        help_text="Pre‑shared key (PSK) string used for TLS connections when “PSK” mode is selected. Must match the key configured in Zabbix agent/server."
+    )
+
+
+    # Timeouts
+    custom_timeouts = models.BooleanField(
+        verbose_name="Custom timeouts",
+        default=False,
+        help_text="Enable custom timeout settings for this proxy."
+    )
+
+    timeout_zabbix_agent = models.CharField(
+        max_length=255,
+        default="4s",
+        blank=True,
+        null=True,
+        verbose_name="Zabbix agent timeout",
+        help_text="Timeout for Zabbix agent checks (1-600 seconds)"
+    )
+
+    timeout_simple_check = models.CharField(
+        max_length=255,
+        default="4s",
+        blank=True,
+        null=True,
+        verbose_name="Simple check timeout",
+        help_text="Timeout for simple checks (1-600 seconds)"
+    )
+
+    timeout_snmp_agent = models.CharField(
+        max_length=255,
+        default="4s",
+        blank=True,
+        null=True,
+        verbose_name="SNMP agent timeout",
+        help_text="Timeout for SNMP agent checks (1-600 seconds)"
+    )
+
+    timeout_external_check = models.CharField(
+        max_length=255,
+        default="4s",
+        blank=True,
+        null=True,
+        verbose_name="External check timeout",
+        help_text="Timeout for external checks (1-600 seconds)"
+    )
+
+    timeout_db_monitor = models.CharField(
+        max_length=255,
+        default="4s",
+        blank=True,
+        null=True,
+        verbose_name="Database monitor timeout",
+        help_text="Timeout for database monitoring checks (1-600 seconds)"
+    )
+
+    timeout_http_agent = models.CharField(
+        max_length=255,
+        default="4s",
+        blank=True,
+        null=True,
+        verbose_name="HTTP agent timeout",
+        help_text="Timeout for HTTP agent checks (1-600 seconds)"
+    )
+
+    timeout_ssh_agent = models.CharField(
+        max_length=255,
+        default="4s",
+        blank=True,
+        null=True,
+        verbose_name="SSH agent timeout",
+        help_text="Timeout for SSH agent checks (1-600 seconds)"
+    )
+
+    timeout_telnet_agent = models.CharField(
+        max_length=255,
+        default="4s",
+        blank=True,
+        null=True,
+        verbose_name="Telnet agent timeout",
+        help_text="Timeout for Telnet agent checks (1-600 seconds)"
+    )
+
+    timeout_script = models.CharField(
+        max_length=255,
+        default="4s",
+        blank=True,
+        null=True,
+        verbose_name="Script timeout",
+        help_text="Timeout for custom scripts (1-600 seconds)"
+    )
+
+    timeout_browser = models.CharField(
+        max_length=255,
+        default="60s",
+        blank=True,
+        null=True,
+        verbose_name="Browser timeout",
+        help_text="Timeout for browser-based checks (1-600 seconds)"
+    )
+
+
+    def __str__(self):
+        """
+        Return a human-readable string representation of the object.
+        Typically returns the `name` field or another identifying attribute.
+        
+        Returns:
+            str: Human-readable name of the object.
+        """
+        return self.name
+
+
+    def get_absolute_url(self):
+        """
+        Return the canonical URL for this object within the plugin UI.
+        This is used for linking to the object's detail page in NetBox.
+        
+        Returns:
+            str: Absolute URL as a string. Can be None if not applicable.
+        """
+        return reverse( "plugins:netbox_zabbix:proxy", args=[self.pk] )
+
+
+    def _build_params(self):
+        """
+        Construct the parameters dict for Zabbix API create/update proxy call.
+        """
+        params = {
+             "name":                   self.name,
+             "proxyid":                self.proxyid,
+             "proxy_groupid":          self.proxy_groupid,
+             "operating_mode":         self.operating_mode,
+             "local_address":          str( self.local_address ),
+             "local_port":             str( self.local_port ),
+             "address":                str( self.address ),
+             "port":                   str( self.port ),
+             "allowed_addresses":      str( self.allowed_addresses ),
+             "description":            self.description,
+             "tls_connect":            self.tls_connect,
+             "tls_accept":             self.tls_accept,
+             "tls_issuer":             self.tls_issuer,
+             "tls_subject":            self.tls_subject,
+             "tls_psk_identity":       self.tls_psk_identity,
+             "tls_psk":                self.tls_psk,
+             "custom_timeouts":        int( self.custom_timeouts ),
+             "timeout_zabbix_agent":   str( self.timeout_zabbix_agent ),
+             "timeout_simple_check":   str( self.timeout_simple_check ),
+             "timeout_snmp_agent":     str( self.timeout_snmp_agent ),
+             "timeout_external_check": str( self.timeout_external_check ),
+             "timeout_db_monitor":     str( self.timeout_db_monitor ),
+             "timeout_http_agent":     str( self.timeout_http_agent ),
+             "timeout_ssh_agent":      str( self.timeout_ssh_agent ),
+             "timeout_telnet_agent":   str( self.timeout_telnet_agent ),
+             "timeout_script":         str( self.timeout_script ),
+             "timeout_browser":        str( self.timeout_browser )
+        }
+
+        # Main
+        # If proxy group is 0, then no local address and local port.
+        if self.proxy_groupid == 0:
+            params.pop( "local_address", None )
+            params.pop( "local_port", None )
+
+        # If mode active, then allowed_addresses
+        if int( self.operating_mode ) == int( ProxyModeChoices.ACTIVE  ):
+            params.pop( "address", None )
+            params.pop( "port", None )
+
+        # if mode passive, then address & port
+        if int( self.operating_mode ) == int( ProxyModeChoices.PASSIVE  ):
+            params.pop( "allowed_addresses", None )
+        
+
+        # Encryption
+        #if not int( self.tls_connect ) == int( TLSConnectChoices.NoEncryption ):
+        ##params.pop( "tls_connect", None )
+        #params.pop( "tls_accept", None )
+
+        if int( self.tls_connect ) != int( TLSConnectChoices.CERTIFICATE ) and int( self.tls_accept ) != int( TLSConnectChoices.CERTIFICATE ):
+            params.pop( "tls_issuer", None )
+            params.pop( "tls_subject", None )
+
+        if int( self.tls_connect ) != int( TLSConnectChoices.PSK ) and int( self.tls_accept ) != int( TLSConnectChoices.PSK ):
+            params.pop( "tls_psk_identity", None )
+            params.pop( "tls_psk", None )
+
+        # Timeouts
+        if not self.custom_timeouts:
+            params.pop( "timeout_zabbix_agent", None )
+            params.pop( "timeout_simple_check", None )
+            params.pop( "timeout_snmp_agent", None )
+            params.pop( "timeout_external_check", None )
+            params.pop( "timeout_db_monitor", None )
+            params.pop( "timeout_http_agent", None )
+            params.pop( "timeout_ssh_agent", None )
+            params.pop( "timeout_telnet_agent", None )
+            params.pop( "timeout_script", None )
+            params.pop( "timeout_browser", None )
+            
+        logger.info( f"params {params}" )
+        return params
+
+
+    def create_new_proxy(self):
+        """
+        Create a new proxy in Zabbix.
+        """
+
+        try:
+            # Prevent circular imports
+            from netbox_zabbix.zabbix.api import create_proxy
+
+            params = self._build_params()
+            result = create_proxy( params )
+            self.proxyid = result["proxyid"][0]
+
+            # Save NetBox object atomically
+            super().save( update_fields=["proxyid"] )
+
+        except Exception as e:
+            raise e
+
+
+    def update_existing_proxy(self):
+        """
+        Update an existing proxy in Zabbix.
+        """
+
+        try:
+            # Prevent circular imports
+            from netbox_zabbix.zabbix.api import update_proxy
+
+            params = self._build_params()
+            update_proxy( params )
+
+            super().save()
+        except Exception as e:
+            raise e
+
+
+    def delete(self, *args, **kwargs):
+        """
+        Attempt to delete Zabbix proxy. 
+        If it fails, return a warning for the caller to handle.
+        """
+
+        zbx_failed = False
+        error_msg = ""
+
+        if self.proxy_groupid:
+            try:
+                # Prevent circular imports
+                from netbox_zabbix.zabbix.api import delete_proxy
+
+                delete_proxy( self.proxy_groupid )
+
+            except Exception as e:
+                zbx_failed = True
+                error_msg = f"Failed to delete proxy {self.name} from Zabbix: {e}"
+                logger.warning( error_msg )
+                self.proxy_groupid = None
+
+        super().delete( *args, **kwargs )
+
+        if zbx_failed:
+            return {
+                "warning": True,
+                "message": (
+                    "Zabbix proxy could not be deleted from Zabbix, "
+                    "but it has been removed from NetBox."
+                ),
+                "detail": error_msg
+            }
+
+        return None
+
+
+    def save(self, *args, **kwargs):
+
+        if self.proxy_group is None:
+            self.proxy_groupid = 0
+        else:
+            self.proxy_groupid = self.proxy_group.proxy_groupid
+
+        super().save( *args, **kwargs )
+
+
+
 # ------------------------------------------------------------------------------
 # Host Group
 # ------------------------------------------------------------------------------
@@ -714,7 +1161,7 @@ class HostGroup(NetBoxModel):
         verbose_name_plural = "Hostgroups"
     
     name        = models.CharField( max_length=255 )
-    groupid     = models.CharField( max_length=255 )
+    groupid     = models.CharField( max_length=255, blank=True, null=True  )
     last_synced = models.DateTimeField( blank=True, null=True )
 
     def __str__(self):
@@ -736,6 +1183,81 @@ class HostGroup(NetBoxModel):
             str: Absolute URL as a string. Can be None if not applicable.
         """
         return reverse( "plugins:netbox_zabbix:hostgroup", args=[self.pk] )
+
+
+    def create_new_host_group(self):
+        """
+        Create a new host group in Zabbix.
+        """
+    
+        try:
+            # Prevent circular imports
+            from netbox_zabbix.zabbix.api import create_host_group
+            
+            result = create_host_group( { "name": self.name } )
+            self.groupid = result["groupids"][0]
+    
+            # Save NetBox object atomically
+            super().save( update_fields=["groupid"] )
+
+        except Exception as e:
+            raise e
+    
+    
+    def update_existing_host_group(self):
+        """
+        Update an existing host group in Zabbix.
+        """
+        
+        params = {}
+        params["name"] = self.name
+        params["groupid"] = self.groupid
+    
+        try:
+            # Prevent circular imports
+            from netbox_zabbix.zabbix.api import update_host_group
+            
+            update_host_group( params )
+    
+            super().save()
+        except Exception as e:
+            raise e
+    
+    
+    def delete(self, *args, **kwargs):
+        """
+        Attempt to delete Zabbix host group. 
+        If it fails, return a warning for the caller to handle.
+        """
+    
+        zbx_failed = False
+        error_msg = ""
+    
+        if self.groupid:
+            try:
+                # Prevent circular imports
+                from netbox_zabbix.zabbix.api import delete_host_group
+                
+                delete_host_group( self.groupid )
+            except Exception as e:
+                zbx_failed = True
+                error_msg = f"Failed to delete host group {self.name} from Zabbix: {e}"
+                logger.warning( error_msg )
+                self.groupid = None
+    
+        super().delete( *args, **kwargs )
+    
+        if zbx_failed:
+            return {
+                "warning": True,
+                "message": (
+                    "Zabbix host group could not be deleted from Zabbix, "
+                    "but it has been removed from NetBox."
+                ),
+                "detail": error_msg
+            }
+    
+        return None
 
 
 # ------------------------------------------------------------------------------
@@ -1605,7 +2127,7 @@ class AgentInterface(BaseInterface):
             if existing_mains.exists():
                 existing_mains.update( main=MainChoices.NO )
 
-        return super().save(*args, **kwargs)
+        return super().save( *args, **kwargs )
 
 
 # ------------------------------------------------------------------------------
@@ -1673,12 +2195,13 @@ class SNMPInterface(BaseInterface):
             if existing_mains.exists():
                 existing_mains.update( main=MainChoices.NO )
     
-        return super().save(*args, **kwargs)
+        return super().save( *args, **kwargs )
 
 
 # ------------------------------------------------------------------------------
 # Maintenance
 # ------------------------------------------------------------------------------
+
 
 class Maintenance(NetBoxModel):
     """
@@ -1829,13 +2352,12 @@ class Maintenance(NetBoxModel):
         Create a new maintenance window in Zabbix.
         """
         
-        params = self._build_params()
-
         try:
             # Prevent circular imports
             from netbox_zabbix.zabbix.api import create_maintenance
             
-            result = create_maintenance(params)
+            params = self._build_params()
+            result = create_maintenance( params )
             self.zabbix_id = result["maintenanceids"][0]
             self.status = "active"
 
@@ -1853,13 +2375,13 @@ class Maintenance(NetBoxModel):
         if not self.zabbix_id:
             raise ValueError( "Cannot update maintenance: zabbix_id not set." )
         
-        params = self._build_params()
-        params["maintenanceid"] = self.zabbix_id
     
         try:
             # Prevent circular imports
             from netbox_zabbix.zabbix.api import update_maintenance
             
+            params = self._build_params()
+            params["maintenanceid"] = self.zabbix_id
             update_maintenance( params )
     
             self.status = "active"
@@ -1885,11 +2407,11 @@ class Maintenance(NetBoxModel):
                 delete_maintenance( self.zabbix_id )
             except Exception as e:
                 zbx_failed = True
-                error_msg = f"Failed to delete maintenance {self.zabbix_id} from Zabbix: {e}"
+                error_msg = f"Failed to delete maintenance {self.name} from Zabbix: {e}"
                 logger.warning( error_msg )
                 self.zabbix_id = None
     
-        super().delete(*args, **kwargs)
+        super().delete( *args, **kwargs )
 
         if zbx_failed:
             return {

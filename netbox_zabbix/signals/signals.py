@@ -75,7 +75,6 @@ from netbox_zabbix.models import (
     HostConfig,
     AgentInterface,
     SNMPInterface,
-    Maintenance
 )
 from netbox_zabbix.logger import logger
 
@@ -96,7 +95,6 @@ SIGNAL_CODES = {
     AgentInterface:  "AGENT_INERFACE",
     SNMPInterface:   "SNMP_INTERFACE",
     IPAddress:       "IPADDRESS",
-    Maintenance:     "MAINTENANCE"
 }
 
 # ------------------------------------------------------------------------------
@@ -676,7 +674,6 @@ def create_or_update_ip_address(sender, instance, created, **kwargs):
        logger.error( "[%s] no Zabbix update required since '%s' has no Zabbix Configuration." , signal_id, dev_or_vm.name )
 
 
-
 # ------------------------------------------------------------------------------
 # Delete IP Address
 # ------------------------------------------------------------------------------
@@ -725,6 +722,7 @@ def delete_ip_address(sender, instance: IPAddress, **kwargs):
 # ------------------------------------------------------------------------------
 # Update Device or VirtualMachine
 # ------------------------------------------------------------------------------
+
 
 @receiver(pre_save, sender=Device)
 @receiver(pre_save, sender=VirtualMachine)

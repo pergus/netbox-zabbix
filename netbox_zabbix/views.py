@@ -452,7 +452,7 @@ def run_import_templates(request=None):
         logger.error( f"{error_msg} {e}" )
         if request:
             messages.error( request, mark_safe( error_msg + "<br>" + f"{e}" ) )
-        settings.set_connection = False
+        settings.set_connection( status=False )
         settings.set_last_checked = timezone.now()
         return None, None, e
 
@@ -501,7 +501,7 @@ class ProxyEditView(generic.ObjectEditView):
     """
     queryset = Proxy.objects.all()
     form     = forms.ProxyForm
-
+    template_name = "netbox_zabbix/proxy_edit.html"
 
     def dispatch(self, request, *args, **kwargs):
         """
@@ -522,6 +522,51 @@ class ProxyEditView(generic.ObjectEditView):
         else:
             from django.core.exceptions import PermissionDenied
             raise PermissionDenied()
+
+
+    def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to create or update a proxy  instance.
+
+        - Validates form data.
+        - Saves the proxy  instance and its related objects atomically.
+        - Calls Zabbix API to create or update the proxy .
+        - Displays error messages if external synchronization fails.
+        - Redirects to the proxy list on success.
+
+        Args:
+            request (HttpRequest): Current HTTP request.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            HttpResponse: Either the form view with errors or a redirect to the proxy list.
+        """
+        obj = self.get_object( **kwargs )
+        form = self.form( data=request.POST, files=request.FILES, instance=obj )
+
+        object_created = form.instance.pk is None
+
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    instance = form.save( commit=False )
+                    instance.save()
+                    form.save_m2m()
+
+                    # Log creation or update
+                    if object_created:
+                        instance.create_new_proxy()
+                    else:
+                        instance.update_existing_proxy()
+
+            except Exception as e:
+                messages.error(request, f"Failed to create/update proxy: { str( e ) }")
+                return self.get( request, *args, **kwargs )
+
+            return redirect('plugins:netbox_zabbix:proxy_list')
+
+        return self.get( request, *args, **kwargs )
 
 
 class ProxyDeleteView(generic.ObjectDeleteView):
@@ -550,6 +595,31 @@ class ProxyDeleteView(generic.ObjectDeleteView):
         else:
             from django.core.exceptions import PermissionDenied
             raise PermissionDenied()
+
+
+    def post(self, request, *args, **kwargs):
+            """
+            Handle POST request to delete a proxy instance.
+            
+            - Calls the instance's delete method, which may attempt to remove it from Zabbix.
+            - Displays a warning message if deletion from Zabbix fails.
+            - Redirects to the proxy list after deletion.
+            
+            Args:
+                request (HttpRequest): Current HTTP request.
+                *args: Additional positional arguments.
+                **kwargs: Additional keyword arguments.
+            
+            Returns:
+                HttpResponse: Redirect to the proxy list view.
+            """
+            obj = self.get_object( **kwargs )
+            result = obj.delete()
+            
+            if isinstance( result, dict ) and result.get( "warning" ):
+                messages.warning( request, result["message"] )
+        
+            return redirect( self.get_return_url( request, obj ) )
 
 
 class ProxyBulkDeleteView(generic.BulkDeleteView):
@@ -590,6 +660,21 @@ class ProxyBulkDeleteView(generic.BulkDeleteView):
             raise PermissionDenied()
 
 
+    def post(self, request, *args, **kwargs):
+            queryset = self.get_queryset( request ).filter(  pk__in=request.POST.getlist( 'pk' ) )
+            
+            for obj in queryset:
+                try:
+                    result = obj.delete()
+                    if isinstance( result, dict ) and result.get( "warning" ):
+                        messages.warning( request, result["message"] )
+                except Exception as e:
+                    messages.warning(request, f"Failed to delete {obj}: {e}")
+        
+            return redirect( request.GET.get( 'return_url', '/plugins/netbox_zabbix/proxy/' ) )
+
+
+
 def run_import_proxies(request=None):
     """
     Import Zabbix proxies and optionally attach messages to the request.
@@ -626,7 +711,7 @@ def run_import_proxies(request=None):
         logger.error( f"{error_msg} {e}" )
         if request:
             messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
-        settings.set_connection = False
+        settings.set_connection( status=False )
         settings.set_last_checked = timezone.now()
         return None, None, e
 
@@ -698,6 +783,51 @@ class ProxyGroupEditView(generic.ObjectEditView):
             raise PermissionDenied()
 
 
+    def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to create or update a proxy group instance.
+        
+        - Validates form data.
+        - Saves the proxy group instance and its related objects atomically.
+        - Calls Zabbix API to create or update the proxy group.
+        - Displays error messages if external synchronization fails.
+        - Redirects to the proxy group list on success.
+        
+        Args:
+            request (HttpRequest): Current HTTP request.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        
+        Returns:
+            HttpResponse: Either the form view with errors or a redirect to the proxy group list.
+        """
+        obj = self.get_object( **kwargs )
+        form = self.form( data=request.POST, files=request.FILES, instance=obj )
+        
+        object_created = form.instance.pk is None
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    instance = form.save( commit=False )
+                    instance.save()
+                    form.save_m2m()
+        
+                    # Log creation or update
+                    if object_created:
+                        instance.create_new_proxy_group()
+                    else:
+                        instance.update_existing_proxy_group()
+        
+            except Exception as e:
+                messages.error(request, f"Failed to create/update proxy group: {e}")
+                return self.get( request, *args, **kwargs )
+        
+            return redirect('plugins:netbox_zabbix:proxygroup_list')
+        
+        return self.get( request, *args, **kwargs )
+
+
 class ProxyGroupDeleteView(generic.ObjectDeleteView):
     """
     Delete a Zabbix ProxyGroup instance.
@@ -724,6 +854,31 @@ class ProxyGroupDeleteView(generic.ObjectDeleteView):
         else:
             from django.core.exceptions import PermissionDenied
             raise PermissionDenied()
+
+
+    def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to delete a proxy group instance.
+        
+        - Calls the instance's delete method, which may attempt to remove it from Zabbix.
+        - Displays a warning message if deletion from Zabbix fails.
+        - Redirects to the proxy group list after deletion.
+        
+        Args:
+            request (HttpRequest): Current HTTP request.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        
+        Returns:
+            HttpResponse: Redirect to the proxy group list view.
+        """
+        obj = self.get_object( **kwargs )
+        result = obj.delete()
+        
+        if isinstance( result, dict ) and result.get( "warning" ):
+            messages.warning( request, result["message"] )
+    
+        return redirect( self.get_return_url( request, obj ) )
 
 
 class ProxyGroupBulkDeleteView(generic.BulkDeleteView):
@@ -764,6 +919,20 @@ class ProxyGroupBulkDeleteView(generic.BulkDeleteView):
             raise PermissionDenied()
 
 
+    def post(self, request, *args, **kwargs):
+        queryset = self.get_queryset( request ).filter(  pk__in=request.POST.getlist( 'pk' ) )
+        
+        for obj in queryset:
+            try:
+                result = obj.delete()
+                if isinstance( result, dict ) and result.get( "warning" ):
+                    messages.warning( request, result["message"] )
+            except Exception as e:
+                messages.warning(request, f"Failed to delete {obj}: {e}")
+    
+        return redirect( request.GET.get( 'return_url', '/plugins/netbox_zabbix/proxy-groups/' ) )
+
+
 def run_import_proxy_groups(request=None):
     """
     Import Zabbix proxy groups and optionally attach messages to the request.
@@ -799,7 +968,7 @@ def run_import_proxy_groups(request=None):
         logger.error( f"{error_msg} {e}" )
         if request:
             messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
-        settings.set_connection = False
+        settings.set_connection( status=False )
         settings.set_last_checked = timezone.now()
         return None, None, e
 
@@ -870,6 +1039,51 @@ class HostGroupEditView(generic.ObjectEditView):
             raise PermissionDenied()
 
 
+    def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to create or update a host group instance.
+        
+        - Validates form data.
+        - Saves the host group instance and its related objects atomically.
+        - Calls Zabbix API to create or update the host group.
+        - Displays error messages if external synchronization fails.
+        - Redirects to the host group list on success.
+        
+        Args:
+            request (HttpRequest): Current HTTP request.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        
+        Returns:
+            HttpResponse: Either the form view with errors or a redirect to the host group list.
+        """
+        obj = self.get_object( **kwargs )
+        form = self.form( data=request.POST, files=request.FILES, instance=obj )
+        
+        object_created = form.instance.pk is None
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    instance = form.save( commit=False )
+                    instance.save()
+                    form.save_m2m()
+        
+                    # Log creation or update
+                    if object_created:
+                        instance.create_new_host_group()
+                    else:
+                        instance.update_existing_host_group()
+        
+            except Exception as e:
+                messages.error(request, f"Failed to create/update host group: {e}")
+                return self.get( request, *args, **kwargs )
+        
+            return redirect('plugins:netbox_zabbix:hostgroup_list')
+        
+        return self.get( request, *args, **kwargs )
+
+
 class HostGroupDeleteView(generic.ObjectDeleteView):
     """
     Delete a Zabbix HostGroup instance.
@@ -905,6 +1119,32 @@ class HostGroupDeleteView(generic.ObjectDeleteView):
         else:
             from django.core.exceptions import PermissionDenied
             raise PermissionDenied()
+
+
+    def post(self, request, *args, **kwargs):
+        """
+        Handle POST request to delete a host group instance.
+        
+        - Calls the instance's delete method, which may attempt to remove it from Zabbix.
+        - Displays a warning message if deletion from Zabbix fails.
+        - Redirects to the host group list after deletion.
+        
+        Args:
+            request (HttpRequest): Current HTTP request.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        
+        Returns:
+            HttpResponse: Redirect to the host group list view.
+        """
+        obj = self.get_object( **kwargs )
+        result = obj.delete()
+        
+        if isinstance( result, dict ) and result.get( "warning" ):
+            messages.warning( request, result["message"] )
+    
+        return redirect( self.get_return_url( request, obj ) )
+
 
 
 class HostGroupBulkDeleteView(generic.BulkDeleteView):
@@ -945,6 +1185,20 @@ class HostGroupBulkDeleteView(generic.BulkDeleteView):
             raise PermissionDenied()
 
 
+    def post(self, request, *args, **kwargs):
+        queryset = self.get_queryset( request ).filter(  pk__in=request.POST.getlist( 'pk' ) )
+        
+        for obj in queryset:
+            try:
+                result = obj.delete()
+                if isinstance( result, dict ) and result.get( "warning" ):
+                    messages.warning( request, result["message"] )
+            except Exception as e:
+                messages.warning(request, f"Failed to delete {obj}: {e}")
+    
+        return redirect( request.GET.get( 'return_url', '/plugins/netbox_zabbix/host-groups/' ) )
+
+
 def run_import_host_groups(request=None):
     """
     Import Zabbix host groups and optionally attach messages to the request.
@@ -981,7 +1235,7 @@ def run_import_host_groups(request=None):
         logger.error( f"{error_msg} {e}" )
         if request:
             messages.error( request, mark_safe( error_msg + "<br>" + f"{e}") )
-        settings.set_connection = False
+        settings.set_connection( status=False )
         settings.set_last_checked = timezone.now()
         return None, None, e
 
@@ -2201,6 +2455,10 @@ class MaintenanceListView(generic.ObjectListView):
 class MaintenanceEditView(generic.ObjectEditView):
     """
     Create or edit a Zabbix Maintenance window.
+
+    Note: Maintenance windows cannot be created from NetBox scripts since
+    the create_maintenance_window() is called from the post method 
+
     """
     queryset = Maintenance.objects.all()
     form = forms.MaintenanceForm
@@ -2256,6 +2514,7 @@ class MaintenanceEditView(generic.ObjectEditView):
         Returns:
             HttpResponse: Either the form view with errors or a redirect to the maintenance list.
         """
+<<<<<<< Updated upstream
         obj = self.get_object(**kwargs)
 
         # Inject the current user into the instance for use in the form
@@ -2263,6 +2522,15 @@ class MaintenanceEditView(generic.ObjectEditView):
             obj._current_user = request.user
 
         form = self.form( data=request.POST, files=request.FILES, instance=obj )
+=======
+        obj = self.get_object( **kwargs )
+
+        # Inject the current user into the instance for use in the form
+        if not hasattr( obj, "_current_user" ):
+            obj._current_user = request.user
+
+        form = self.form(data=request.POST, files=request.FILES, instance=obj)
+>>>>>>> Stashed changes
 
         object_created = form.instance.pk is None
 

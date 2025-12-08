@@ -4,12 +4,11 @@
 {% block content %}
 
 <div class="row">
-    <div class="col col-md-12">
+    <div class="col col-md-6">
         <div class="card">
             <h5 class="card-header">Proxy</h5>
             <div class="card-body">
                 <table class="table table-hover attr-table">
-
                     <tr>
                         <th scope="row">Name</th>
                         <td>{{ object.name }}</td>
@@ -19,16 +18,168 @@
                         <td>{{ object.proxyid }}</td>
                     </tr>
                     <tr>
+                        <th scope="row">Last Synced</th>
+                        <td>{{ object.last_synced|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Operating Mode</th>
+                        <td>{{ object.get_operating_mode_display }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">Operating Mode</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Operating Mode</th>
+                        <td>{{ object.get_operating_mode_display }} {{ object.operating_mode }} </td>
+                    </tr>
+                    
+                    {% if object.operating_mode == 0 %}
+                        <tr>
+                            <th scope="row">Allowed Addresses</th>
+                            <td>{{ object.allowed_addresses }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <th scope="row">Interface Address</th>
+                            <td>{{ object.address }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Port</th>
+                            <td>{{ object.port }}</td>
+                        </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+
+
+<div class="row">
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">Proxy Group</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Proxy Group</th>
+                        <td>{{ object.proxy_group }}</td>
+                    </tr>
+
+                    <tr>
                         <th scope="row">Proxy Group ID</th>
                         <td>{{ object.proxy_groupid }}</td>
                     </tr>
+
+                    {% if object.proxy_groupid != "0" %}
+                        <tr>
+                            <th scope="row">Local Address</th>
+                            <td>{{ object.address }}</td>
+                        </tr>
+
+                        <tr>
+                            <th scope="row">Local Port</th>
+                            <td>{{ object.port }}</td>
+                        </tr>
+
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">Encryption</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
                     <tr>
-                        <th scope="row">Last Synced</th>
-                        <td>{{ object.last_synced }}</td>
+                        <th scope="row">TLS Connect Mode</th>
+                        <td>{{ object.get_tls_connect_display }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">TLS Accept Mode</th>
+                        <td>{{ object.get_tls_accept_display }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+
+<div class="row">
+    <div class="col col-md-6">
+        <div class="card">
+            <h5 class="card-header">Timeouts</h5>
+            <div class="card-body">
+                <table class="table table-hover attr-table">
+                    <tr>
+                        <th scope="row">Custom Timeout</th>
+                        <td>{{ object.custom_timeouts }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Zabbix agent</th>
+                        <td>{{ object.timeout_zabbix_agent }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Simple check</th>
+                        <td>{{ object.timeout_simple_check }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">SNMP agent</th>
+                        <td>{{ object.timeout_snmp_agent }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">External check</th>
+                        <td>{{ object.timeout_external_check }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Database monitor</th>
+                        <td>{{ object.timeout_db_monitor }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">HTTP agent</th>
+                        <td>{{ object.timeout_http_agent }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">SSH agent</th>
+                        <td>{{ object.timeout_ssh_agent }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">TELNET agent</th>
+                        <td>{{ object.timeout_telnet_agent }}</td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">Script</th>
+                        <td>{{ object.timeout_script }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Browser</th>
+                        <td>{{ object.timeout_browser }}</td>
                     </tr>
                 </table>
             </div>
         </div>
     </div>
 </div>
+
 {% endblock %}

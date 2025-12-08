@@ -18,7 +18,7 @@
                     </tr>
                     <tr>
                         <th scope="row">Last Synced</th>
-                        <td>{{ object.last_synced }}</td>
+                        <td>{{ object.last_synced|date:"Y-m-d H:i:s" }}</td>
                     </tr>
                 </table>
             </div>

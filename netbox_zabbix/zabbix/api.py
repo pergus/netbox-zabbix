@@ -262,7 +262,8 @@ def get_proxies():
     """
     try:
         z = get_zabbix_client()
-        return z.proxy.get( output=["name", "proxyid", "proxy_groupid"], sortfield = "name" )
+#        return z.proxy.get( output=["name", "proxyid", "proxy_groupid"], sortfield = "name" )
+        return z.proxy.get( sortfield = "name" )
     except Exception as e:
         raise e
 
@@ -283,7 +284,7 @@ def get_proxy_groups():
     """
     try:
         z = get_zabbix_client()
-        return z.proxygroup.get( output=["name", "proxy_groupid"], sortfield = "name" )
+        return z.proxygroup.get( output=["name", "proxy_groupid", "failover_delay", "min_online", "description" ], sortfield = "name" )
     except Exception as e:
         raise e
 
@@ -562,7 +563,7 @@ def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item
     except ZabbixSettingNotFound as e:
         raise
     except Exception as e:
-        logger.error( f"Failed to fetch Zabbix {name}" )
+        logger.error( f"Failed to fetch Zabbix {name}: {str( e )}" )
         raise
 
     remote_ids = {item[id_field] for item in items}
@@ -575,11 +576,17 @@ def import_items(*, fetch_remote, model, id_field, extra_fields=None, name="item
     for item in items:
         defaults = {"name": item["name"], "last_synced": now}
         for field in extra_fields:
-            defaults[field] = item[field]
+            if field in item and item[field] != '':
+                defaults[field] = item[field]
 
-        obj, created = model.objects.update_or_create( **{id_field: item[id_field]}, defaults=defaults )
+        try:
+            obj, created = model.objects.update_or_create( **{id_field: item[id_field]}, defaults=defaults )
+        except Exception:
+            logger.info( f"Failed to create object defaults {defaults}" )
+            raise
+
         if created:
-            added.append(item)
+            added.append( item )
 
         if "parentTemplates" in item:
             parent_ids = [ p["templateid"] for p in item["parentTemplates"] ]
@@ -654,10 +661,37 @@ def import_proxies(max_deletions=None):
     Returns:
         tuple: A tuple of (added_proxies, deleted_proxies).
     """
+
+    # Since tls_psk_identity and tls_psk are write only, they are not in
+    # the extra_fields.
+    
     return import_items( fetch_remote=get_proxies, 
                          model=models.Proxy, 
                          id_field="proxyid", 
-                         extra_fields=["proxy_groupid"], 
+                         extra_fields=[ 
+                            "operating_mode",
+                            "local_address",
+                            "local_port",
+                            "address",
+                            "port",
+                            "allowed_addresses",
+                            "description",
+                            "tls_connect",
+                            "tls_accept",
+                            "tls_issuer",
+                            "tls_subject",
+                            "custom_timeouts", 
+                            "timeout_zabbix_agent", 
+                            "timeout_simple_check", 
+                            "timeout_snmp_agent", 
+                            "timeout_external_check", 
+                            "timeout_db_monitor", 
+                            "timeout_http_agent", 
+                            "timeout_ssh_agent", 
+                            "timeout_telnet_agent", 
+                            "timeout_script", 
+                            "timeout_browser"
+                        ], 
                          name="proxy", max_deletions=max_deletions )
 
 
@@ -676,7 +710,8 @@ def import_proxy_groups(max_deletions=None):
     """
     return import_items( fetch_remote=get_proxy_groups, 
                          model=models.ProxyGroup, 
-                         id_field="proxy_groupid", 
+                         id_field="proxy_groupid",
+                         extra_fields=[ "failover_delay", "min_online", "description" ],
                          name="proxy group", 
                          max_deletions=max_deletions )
 
@@ -702,18 +737,159 @@ def import_host_groups(max_deletions=None):
 
 
 # ------------------------------------------------------------------------------
+# Proxy
+# ------------------------------------------------------------------------------
+
+
+def create_proxy(params):
+    """
+    Create a new Zabbix proxy.
+    
+    Connects to the Zabbix API and creates a proxy with the provided parameters.
+    
+    Args:
+        params: Arbitrary keyword arguments representing the proxy configuration.
+    
+    Returns:
+        dict: The response from the Zabbix API containing details of the created proxy.
+    
+    Raises:
+        Exception: If creation fails or API returns an error.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.proxy.create( **params )
+    except Exception as e:
+        raise e
+
+
+def update_proxy(params):
+    """
+     Update an existing Zabbix proxy.
+    
+     Connects to the Zabbix API and updates the proxy with the given parameters.
+    
+     Args:
+         **params: Arbitrary keyword arguments representing the updated proxy configuration 
+                 (must include the id field).
+    
+     Returns:
+         dict: The response from the Zabbix API containing details of the updated proxy.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.proxy.update( **params )
+    except Exception as e:
+        raise e
+
+
+def delete_proxy(id):
+    """
+    Delete a Zabbix proxy.
+    
+    Connects to the Zabbix API and deletes the proxy identified by the
+    provided ID.
+    
+    Args:
+        id (int or str): The unique ID of the proxy to delete.
+    
+    Returns:
+        dict: The response from the Zabbix API confirming deletion of the proxy.
+    
+    Raises:
+        Exception: Propagates any exceptions raised by the Zabbix API client.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.proxy.delete( id )
+    except:
+        raise
+
+
+# ------------------------------------------------------------------------------
+# Proxy Group
+# ------------------------------------------------------------------------------
+
+
+def create_proxy_group(params):
+    """
+    Create a new Zabbix proxy group.
+    
+    Connects to the Zabbix API and creates a proxy group with the provided parameters.
+    
+    Args:
+        params: Arbitrary keyword arguments representing the proxy group configuration
+                     (e.g., name).
+    
+    Returns:
+        dict: The response from the Zabbix API containing details of the created proxy group.
+    
+    Raises:
+        Exception: If creation fails or API returns an error.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.proxygroup.create( **params )
+    except Exception as e:
+        raise e
+
+
+def update_proxy_group(params):
+    """
+     Update an existing Zabbix proxy group.
+    
+     Connects to the Zabbix API and updates the proxy group with the given parameters.
+    
+     Args:
+         **params: Arbitrary keyword arguments representing the updated proxy configuration 
+                 (must include the `groupid` field).
+    
+     Returns:
+         dict: The response from the Zabbix API containing details of the updated proxy group.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.proxygroup.update( **params )
+    except Exception as e:
+        raise e
+
+
+def delete_proxy_group(id):
+    """
+    Delete a Zabbix proxy group.
+    
+    Connects to the Zabbix API and deletes the proxy group identified by the
+    provided group ID.
+    
+    Args:
+        id (int or str): The unique ID of the proxy group to delete.
+    
+    Returns:
+        dict: The response from the Zabbix API confirming deletion of the proxy group.
+    
+    Raises:
+        Exception: Propagates any exceptions raised by the Zabbix API client.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.proxygroup.delete( id )
+    except:
+        raise
+
+
+# ------------------------------------------------------------------------------
 # Host Groups
 # ------------------------------------------------------------------------------
 
 
-def create_host_group(**hostgroup):
+def create_host_group(params):
     """
     Create a new Zabbix host group.
 
     Connects to the Zabbix API and creates a host group with the provided parameters.
 
     Args:
-        **hostgroup: Arbitrary keyword arguments representing the host group configuration
+        params: Arbitrary keyword arguments representing the host group configuration
                      (e.g., name).
 
     Returns:
@@ -724,9 +900,52 @@ def create_host_group(**hostgroup):
     """
     try:
         z = get_zabbix_client()
-        return z.hostgroup.create( **hostgroup )
+        return z.hostgroup.create( **params )
     except Exception as e:
         raise e
+
+
+def update_host_group(params):
+    """
+     Update an existing Zabbix host group.
+    
+     Connects to the Zabbix API and updates the host group with the given parameters.
+    
+     Args:
+         **params: Arbitrary keyword arguments representing the updated host configuration 
+                 (must include the `groupid` field).
+    
+     Returns:
+         dict: The response from the Zabbix API containing details of the updated host group.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.hostgroup.update( **params )
+    except Exception as e:
+        raise e
+
+
+def delete_host_group(id):
+    """
+    Delete a Zabbix host group.
+    
+    Connects to the Zabbix API and deletes the host group identified by the
+    provided group ID.
+    
+    Args:
+        id (int or str): The unique ID of the host group to delete.
+    
+    Returns:
+        dict: The response from the Zabbix API confirming deletion of the host group.
+    
+    Raises:
+        Exception: Propagates any exceptions raised by the Zabbix API client.
+    """
+    try:
+        z = get_zabbix_client()
+        return z.hostgroup.delete( id )
+    except:
+        raise
 
 
 # ------------------------------------------------------------------------------
@@ -871,6 +1090,23 @@ def interface_availability(hostid, interfaceid):
 
 
 def create_maintenance(params):
+    """
+    Create a new Zabbix maintenance window.
+    
+    Connects to the Zabbix API and creates a maintenance entry using the supplied
+    parameters.
+    
+    Args:
+        params (dict): A dictionary of maintenance configuration parameters,
+                       such as name, time periods, and host/group assignments.
+    
+    Returns:
+        dict: The response from the Zabbix API containing information about the
+              newly created maintenance entry.
+    
+    Raises:
+        Exception: Propagates any exceptions raised by the Zabbix API client.
+    """
     try:
         z = get_zabbix_client()
         return z.maintenance.create( **params )
@@ -879,6 +1115,23 @@ def create_maintenance(params):
 
 
 def update_maintenance(params):
+    """
+    Update an existing Zabbix maintenance window.
+    
+    Connects to the Zabbix API and updates an existing maintenance entry with
+    the provided parameters.
+    
+    Args:
+        params (dict): A dictionary of updated maintenance configuration values.
+                       Must include the `maintenanceid` field.
+    
+    Returns:
+        dict: The response from the Zabbix API containing updated maintenance
+              entry details.
+    
+    Raises:
+        Exception: Propagates any exceptions raised by the Zabbix API client.
+    """
     try:
         z = get_zabbix_client()
         return z.maintenance.update( **params )
@@ -887,9 +1140,25 @@ def update_maintenance(params):
 
 
 def delete_maintenance(id):
+    """
+    Delete a Zabbix maintenance window.
+    
+    Connects to the Zabbix API and deletes the maintenance entry identified by
+    the provided maintenance ID.
+    
+    Args:
+        id (int or str): The unique ID of the maintenance entry to delete.
+    
+    Returns:
+        dict: The response from the Zabbix API confirming deletion of the
+              maintenance entry.
+    
+    Raises:
+        Exception: Propagates any exceptions raised by the Zabbix API client.
+    """
     try:
         z = get_zabbix_client()
-        return z.maintenance.delete(id)
+        return z.maintenance.delete( id )
     except:
         raise
 

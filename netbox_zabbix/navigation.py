@@ -38,19 +38,30 @@ menu = PluginMenu(
                     link_text="Proxies", 
                     link="plugins:netbox_zabbix:proxy_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ]
+                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ],
+                    buttons=( 
+                            PluginMenuButton( "plugins:netbox_zabbix:proxy_add", "Add", "mdi mdi-plus-thick" ),
+                        ),
                 ),
                 PluginMenuItem( 
                     link_text="Proxy Groups", 
                     link="plugins:netbox_zabbix:proxygroup_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ]
+                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ],
+                    buttons=( 
+                            PluginMenuButton( "plugins:netbox_zabbix:proxygroup_add", "Add", "mdi mdi-plus-thick" ),
+                        ),
+
                 ), 
                 PluginMenuItem( 
                     link_text="Host Groups", 
                     link="plugins:netbox_zabbix:hostgroup_list",
                     auth_required=True,
-                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ]
+                    permissions=[ "netbox_zabbix.view_zabbixadminpermission" ],
+                    buttons=( 
+                            PluginMenuButton( "plugins:netbox_zabbix:hostgroup_add", "Add", "mdi mdi-plus-thick" ),
+                        ),
+                    
                 ), 
             ),
         ),
@@ -102,6 +113,10 @@ menu = PluginMenu(
                     link_text="Maintenance", 
                     link="plugins:netbox_zabbix:maintenance_list",
                     auth_required=True,
+                    buttons=( 
+                            PluginMenuButton( "plugins:netbox_zabbix:maintenance_add", "Add", "mdi mdi-plus-thick" ),
+                        ),
+                    
                 ),
                 PluginMenuItem( 
                     link_text="Importable Hosts", 

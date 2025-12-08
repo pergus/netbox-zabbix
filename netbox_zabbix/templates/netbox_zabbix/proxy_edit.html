@@ -1,0 +1,163 @@
+{% extends "generic/object_edit.html" %}
+{% load form_helpers %}
+
+{% block tabs %}
+<ul class="nav nav-tabs">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="main-tab" data-bs-toggle="tab" data-bs-target="#main" type="button"
+            role="tab" aria-controls="main" aria-selected="true">
+            Main
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="encryption-tab" data-bs-toggle="tab" data-bs-target="#encryption" type="button"
+            role="tab" aria-controls="encryption" aria-selected="false">
+            Encryption
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="timeouts-tab" data-bs-toggle="tab" data-bs-target="#timeouts" type="button"
+            role="tab" aria-controls="timeouts" aria-selected="false">
+            Timeouts
+        </button>
+    </li>
+</ul>
+{% endblock tabs %}
+
+{% block content %}
+
+<style>
+    #main h2 { display: none; }
+    #encryption h2 { display: none; }
+    #timeouts h2 { display: none; }
+
+</style>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        function updateFields() {
+            
+
+            // BUG - When proxy group is 0, then the local address should not be shown.
+
+            // Main
+
+            const proxyGroup = document.querySelector('[name="proxy_group"]');
+            const operatingMode = document.querySelector('[name="operating_mode"]');
+            const localFields = document.querySelectorAll('.local-field');
+            const remoteFields = document.querySelectorAll('.remote-field'); // address + port
+            const activeFields = document.querySelectorAll('.active-field'); // allowed_addresses
+
+            // Show local_address and local_port only if proxy_group is selected
+            if (proxyGroup && proxyGroup.value){ 
+                localFields.forEach(f => f.closest('.mb-3').style.display = '');
+            } else {
+                localFields.forEach(f => f.closest('.mb-3').style.display = 'none');
+            }
+
+            // operating_mode logic
+            if (operatingMode && operatingMode.value === '0') {
+                // Active mode: show allowed_addresses, hide address + port
+                activeFields.forEach(f => f.closest('.mb-3').style.display = '');
+                remoteFields.forEach(f => f.closest('.mb-3').style.display = 'none');
+            } else if (operatingMode && operatingMode.value === '1') {
+                // Passive mode: show address + port, hide allowed_addresses
+                activeFields.forEach(f => f.closest('.mb-3').style.display = 'none');
+                remoteFields.forEach(f => f.closest('.mb-3').style.display = '');
+            } else {
+                // fallback: hide all conditional fields
+                activeFields.forEach(f => f.closest('.mb-3').style.display = 'none');
+                remoteFields.forEach(f => f.closest('.mb-3').style.display = 'none');
+            }
+
+
+            
+            // Encryption
+
+            const tls_connect = document.querySelector('[name="tls_connect"]');
+            const tls_accept = document.querySelector('[name="tls_accept"]');
+            const pskFields = document.querySelectorAll('.psk-field');
+            const certFields = document.querySelectorAll('.cert-field'); // address + port
+
+            if (tls_connect && tls_accept) {
+                // PSK
+                if (tls_connect.value == '2' || tls_accept.value == '2' ){
+                    pskFields.forEach(f => f.closest('.mb-3').style.display = '');
+                } else {
+                    pskFields.forEach(f => f.closest('.mb-3').style.display = 'none');
+                }
+                
+                // Cert
+                if (tls_connect.value == '4' || tls_accept.value == '4') {
+                    certFields.forEach(f => f.closest('.mb-3').style.display = '');
+                }else {
+                    certFields.forEach(f => f.closest('.mb-3').style.display = 'none');
+                }
+            }
+
+        }
+
+        // Initial update
+        updateFields();
+
+        // Listen for changes
+        const proxyGroupField = document.querySelector('[name="proxy_group"]');
+        const operatingModeField = document.querySelector('[name="operating_mode"]');
+        
+        const tclConnectionField = document.querySelector('[name="tls_connect"]');
+        const tclAcceptField = document.querySelector('[name="tls_accept"]');
+
+        if (proxyGroupField) { proxyGroupField.addEventListener('change', updateFields); }
+        if (operatingModeField) { operatingModeField.addEventListener('change', updateFields); }
+        if (tclConnectionField) { tclConnectionField.addEventListener('change', updateFields); }
+        if (tclAcceptField) { tclAcceptField.addEventListener('change', updateFields); }
+
+    });
+</script>
+
+
+<form action="" method="post" enctype="multipart/form-data" class="object-edit mt-5">
+    {% csrf_token %}
+
+    <div class="tab-content mt-3">
+
+        <div class="tab-pane fade show active" id="main" role="tabpanel" aria-labelledby="main-tab">
+            {% for fieldset in form.fieldsets %}
+                {% if fieldset.name == "Main" %}
+                    {% render_fieldset form fieldset %}
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="tab-pane fade" id="encryption" role="tabpanel" aria-labelledby="encryption-tab">
+            {% for fieldset in form.fieldsets %}
+                {% if fieldset.name == "Encryption" %}
+                    {% render_fieldset form fieldset %}
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="tab-pane fade" id="timeouts" role="tabpanel" aria-labelledby="timeouts-tab">
+            {% for fieldset in form.fieldsets %}
+                {% if fieldset.name == "Timeouts" %}
+                    {% render_fieldset form fieldset %}
+                {% endif %}
+            {% endfor %}
+        </div>
+
+
+    </div>
+
+    <div class="btn-float-group-right mt-3">
+        <a href="{{ return_url }}" class="btn btn-outline-secondary btn-float">Cancel</a>
+        {% if object.pk %}
+            <button type="submit" name="_update" class="btn btn-primary">Save</button>
+        {% else %}
+            <div class="btn-group" role="group" aria-label="Actions">
+                <button type="submit" name="_create" class="btn btn-primary">Create</button>
+                <button type="submit" name="_addanother" class="btn btn-outline-primary btn-float">Create & Add Another"</button>
+            </div>
+        {% endif %}
+    </div>
+</form>
+
+{% endblock content %}
