@@ -18,8 +18,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.utils import timezone
 from django.db.models import Q
-from django.core.validators import MinValueValidator, MaxValueValidator
-
 
 
 # NetBox imports
@@ -381,9 +379,10 @@ class Setting(NetBoxModel):
     )
 
     # System Job(s)
-    zabbix_import_interval    = models.PositiveIntegerField( verbose_name="Zabbix Import Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix import. Must be at least 1 minute." )
-    host_config_sync_interval = models.PositiveIntegerField( verbose_name="Host Config Sync Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Host Config Sync check. Must be at least 1 minute." )
-    cutoff_host_config_sync   = models.PositiveIntegerField( verbose_name="Host Config Sync Cutoff", null=True, blank=True, default=60, help_text="Number of minutes to look back when determining which HostConfigs need syncing with Zabbix. Includes never-synced or outdated objects." )
+    zabbix_import_interval       = models.PositiveIntegerField( verbose_name="Zabbix Import Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix import. Must be at least 1 minute." )
+    host_config_sync_interval    = models.PositiveIntegerField( verbose_name="Host Config Sync Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Host Config Sync check. Must be at least 1 minute." )
+    cutoff_host_config_sync      = models.PositiveIntegerField( verbose_name="Host Config Sync Cutoff", null=True, blank=True, default=60, help_text="Number of minutes to look back when determining which HostConfigs need syncing with Zabbix. Includes never-synced or outdated objects." )
+    maintenance_cleanup_interval = models.PositiveIntegerField( verbose_name="Maintenance cleanup Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between maintenanc cleanup. Must be at least 1 minute." )
 
     # Zabbix Server
     version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
@@ -2175,8 +2174,9 @@ class Maintenance(NetBoxModel):
         verbose_name_plural = "Zabbix Maintenances"
         ordering = ['-start_time']
 
+
     def __str__(self):
-        local_time = timezone.localtime(self.start_time)
+        local_time = timezone.localtime( self.start_time )
         return f"{self.name} ({local_time:%Y-%m-%d %H:%M:%S})"
 
 
@@ -2186,9 +2186,11 @@ class Maintenance(NetBoxModel):
         now = timezone.now()
         return self.start_time <= now <= self.end_time
 
+
     @property
     def disable_data_collection_value(self):
         return  mark_safe( '<span style="color:green;">✔</span>' ) if self.disable_data_collection else mark_safe( '<span style="color:red;">✘</span>' )
+
 
     def get_matching_host_configs(self):
         qs = HostConfig.objects.all()
@@ -2239,7 +2241,6 @@ class Maintenance(NetBoxModel):
             qs = qs.filter( combined_filter ).distinct()
 
         return qs
-
 
 
     def _build_params(self):
@@ -2320,10 +2321,11 @@ class Maintenance(NetBoxModel):
     
         if self.zabbix_id:
             try:
+
                 # Prevent circular imports
                 from netbox_zabbix.zabbix.api import delete_maintenance
-                
                 delete_maintenance( self.zabbix_id )
+
             except Exception as e:
                 zbx_failed = True
                 error_msg = f"Failed to delete maintenance {self.name} from Zabbix: {e}"

@@ -164,6 +164,7 @@ class SettingTable(NetBoxTable):
             'zabbix_import_interval',
             'host_config_sync_interval',
             'cutoff_host_config_sync',
+            'maintenance_cleanup_interval',
             'version',
             'api_endpoint',
             'web_address',

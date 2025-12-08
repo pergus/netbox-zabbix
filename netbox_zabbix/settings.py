@@ -224,6 +224,18 @@ def get_cutoff_host_config_sync(s):
     """
     return s.cutoff_host_config_sync
 
+
+@safe_setting(SystemJobIntervalChoices.INTERVAL_DAILY)
+def get_maintenance_cleanup_interval(s):
+    """
+    Retrieves the Maintenance Cleanup Interval from the configuration.
+    
+    Returns:
+        The Maintenance Cleanup Interval as specified in the configuration.
+    """
+    return s.maintenance_cleanup_interval
+
+
 # ------------------------------------------------------------------------------
 # Zabbix Server
 # ------------------------------------------------------------------------------
@@ -381,6 +393,7 @@ def get_exclude_custom_field_enabled(s):
 # ------------------------------------------------------------------------------
 # Common Defaults
 # ------------------------------------------------------------------------------
+
 
 @safe_setting(UseIPChoices.IP)
 def get_useip(s):

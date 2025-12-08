@@ -28,7 +28,7 @@ from core.models import Job
 # NetBox Zabbix plugin imports
 from netbox_zabbix.jobs.atomicjobrunner import AtomicJobRunner
 from netbox_zabbix.importing import import_zabbix_settings
-from netbox_zabbix.models import HostConfig
+from netbox_zabbix.models import HostConfig, Maintenance
 from netbox_zabbix import settings
 from netbox_zabbix.logger import logger
 
@@ -63,6 +63,7 @@ class SystemJobImportZabbixSettings( AtomicJobRunner ):
         Raises:
             Exception: If import fails.
         """
+
         try:
             return import_zabbix_settings()
         except Exception as e:
@@ -85,6 +86,7 @@ class SystemJobImportZabbixSettings( AtomicJobRunner ):
         Notes:
             - Only one instance of the system job is allowed at a time.
         """
+
         if interval == None:
             logger.error( "Import Zabbix System Job required an interval" )
             return None
@@ -124,6 +126,7 @@ class SystemJobHostConfigSyncRefresh( AtomicJobRunner ):
     """
     System job to refresh HostConfig sync status on a recurring interval.
     """
+
     class Meta:
         name = "System Job HostConfig Sync Refresh"
 
@@ -185,8 +188,9 @@ class SystemJobHostConfigSyncRefresh( AtomicJobRunner ):
         Returns:
             Job: Scheduled job instance.
         """
+
         if interval is None:
-            logger.error("UpdateHostConfigSync requires an interval")
+            logger.error( "Update Host Config Sync requires an interval" )
             return None
 
         name = cls.Meta.name
@@ -206,9 +210,85 @@ class SystemJobHostConfigSyncRefresh( AtomicJobRunner ):
             "schedule_at": timezone.now() + timedelta( minutes=interval ),
         }
 
-        job = cls.enqueue_once(**job_args)
+        job = cls.enqueue_once( **job_args )
         logger.error( f"Scheduled new system job '{name}' with interval {interval}" )
         return job
+
+
+
+
+@register_system_job(settings.get_maintenance_cleanup_interval)
+class SystemJobMaintenanceCleanup( AtomicJobRunner ):
+    """
+    System job to clean up Zabbix Maintenance windows
+    from both NetBox and Zabbix.
+    """
+
+    class Meta:
+        name = "System Job Maintenance Cleanup"
+
+    @classmethod
+    def run(cls, *args, **kwargs):
+        """
+        Delete all expired maintenances whose end_time <= now.
+        """
+
+        now = timezone.now()
+        expired_maintenances = Maintenance.objects.filter( status__in=["pending", "active"], end_time__lte=now )
+        
+        deleted = 0
+        for m in expired_maintenances:
+            try:
+                m.delete()
+                deleted += 1
+                logger.info( f"Deleted expired maintenance: {m.name}" )
+            except Exception as e:
+                logger.warning( f"Failed to delete maintenance {m.name}: {e}" )
+        
+        return {
+            "deleted": deleted,
+            "checked": expired_maintenances.count(),
+            "timestamp": now.strftime( "%Y-%m-%d %H:%M:%S" )
+        }
+
+
+    @classmethod
+    def schedule(cls, interval=None):
+        """
+        Schedule this system job at a recurring interval.
+        
+        Args:
+            interval (int): Interval in minutes.
+        
+        Returns:
+            Job: Scheduled job instance.
+        """
+
+        if interval is None:
+            logger.error( "Maintenance Cleanup requires an interval" )
+            return None
+
+        name = cls.Meta.name
+        jobs = Job.objects.filter( name=name, status__in=["scheduled", "pending", "running"] )
+        existing_job = jobs[0] if jobs.exists() else None
+
+        if existing_job:
+            if existing_job.interval == interval:
+                logger.error( f"No need to update interval for system job {name}" )
+                return existing_job
+            logger.error( f"Deleting old job instance for '{name}'" )
+            existing_job.delete()
+
+        job_args = {
+            "name":        name,
+            "interval":    interval,
+            "schedule_at": timezone.now() + timedelta( minutes=interval ),
+        }
+
+        job = cls.enqueue_once( **job_args )
+        logger.error( f"Scheduled new system job '{name}' with interval {interval}" )
+        return job
+
 
 
 
@@ -224,9 +304,10 @@ def get_current_job_interval(job_cls):
                      or None if the job is not currently scheduled or running.
     
     Example:
-        >>> get_current_job_interval(SystemJobImportZabbixSettings)
+        >>> get_current_job_interval( SystemJobImportZabbixSettings )
         60
     """
+
     name = job_cls.Meta.name
     job = Job.objects.filter( name=name, status__in=["scheduled", "pending", "running"] ).first()
     return job.interval if job else None
@@ -244,10 +325,8 @@ def schedule_system_jobs():
         - Uses SYSTEM_JOB_REGISTRY, a mapping of interval getter functions to job classes.
         - If the job is not yet scheduled, it will be scheduled with the new interval.
         - If the job is already scheduled with a different interval, it will be rescheduled.
-    
-    Example:
-        >>> schedule_system_jobs()
     """
+
     for get_interval, job_cls in SYSTEM_JOB_REGISTRY.items():
         new_interval = get_interval()
         old_interval = get_current_job_interval( job_cls )

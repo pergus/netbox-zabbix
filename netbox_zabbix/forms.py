@@ -112,6 +112,7 @@ class SettingForm(NetBoxModelForm):
         FieldSet( 'zabbix_import_interval',
                   'host_config_sync_interval',
                   'cutoff_host_config_sync',
+                  'maintenance_cleanup_interval',
                   name="System Jobs" ),
         FieldSet( 'api_endpoint',
                   'web_address',
