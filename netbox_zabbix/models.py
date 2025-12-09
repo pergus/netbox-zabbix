@@ -573,10 +573,10 @@ class Setting(NetBoxModel):
             logger.warning( "FERNET_KEY_PATH not configured in plugin settings" )
             return None
         
-        key_file = Path(fernet_path_setting)
+        key_file = Path( fernet_path_setting )
         if not key_file.is_file():
             # Not an existing file treat as relative to plugin dir
-            key_file = Path(dir_path) / key_file
+            key_file = Path( dir_path ) / key_file
         
         if not key_file.exists():
             logger.warning( f"No Fernet key found at {key_file}" )
