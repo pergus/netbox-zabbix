@@ -1,7 +1,12 @@
 
 from django.core.management.base import BaseCommand
 
+from rich.console import Console
+from rich.prompt import Prompt, Confirm
+
+
 class Command(BaseCommand):
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.SUCCESS("TO BE DONE"))
+
+        pass

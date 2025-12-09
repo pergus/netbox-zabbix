@@ -347,12 +347,6 @@ class ZabbixAdminPermission(NetBoxModel):
 # ------------------------------------------------------------------------------
 
 
-# It's a good idea to store a key in your settings securely
-#FERNET_KEY = getattr( settings, "ZABBIX_FERNET_KEY", None )
-#FERNET_KEY = "EyNJXfXCvdw6IJ05jNuz-Iq_OkwC1dwjyajxYrJ2GXM="
-#fernet = Fernet( FERNET_KEY ) if FERNET_KEY else None
-
-
 class Setting(NetBoxModel):
     """
     Stores global settings for the netbox-zabbix plugin.
@@ -362,8 +356,6 @@ class Setting(NetBoxModel):
         verbose_name = "Setting"
         verbose_name_plural = "Settings"
 
-#    FERNET_KEY = PLUGIN_SETTINGS.get( 'FERNET_KEY', None )
-    
 
     # General
     name = models.CharField( verbose_name="Name", 
