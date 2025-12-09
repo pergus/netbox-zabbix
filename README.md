@@ -182,7 +182,7 @@ Select a number [1–2] (Enter to skip):
 
 Step 10. Select the Default Proxy Group (optional — may skip with Enter)
 
-``bash
+```bash
 Enter Default Proxy Group
  1. EU Datacenter
  2. US Datacenter
