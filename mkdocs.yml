@@ -5,6 +5,29 @@ repo_name: pergus/netbox-zabbix
 #strict: true
 nav:
   - Home: index.md
+  - Installation & Setup:
+    - Overview: index.md
+    - Installation: installation.md
+    - Setup Script: setup.md
+  - User Guide:
+    - Main Guide: userguide.md
+    - Jobs User Guide: jobs_user_guide.md
+    - Jobs Summary: jobs_summary.md
+  - Core Models:
+    - Settings Model: settings_model.md
+    - HostConfig Models: hostconfig_models.md
+    - Template Model: template_model.md
+    - Proxy Model: proxy_model.md
+    - ProxyGroup Model: proxygroup_model.md
+    - HostGroup Model: hostgroup_model.md
+    - Mapping Models: mapping_models.md
+    - TagMapping Model: tagmapping_model.md
+    - InventoryMapping Model: inventorymapping_model.md
+    - Maintenance Model: maintenance_model.md
+  - Background Jobs (Programmer):
+    - System/Recurring Jobs: jobs_programmer_system.md
+    - Host Management Jobs: jobs_programmer_host.md
+    - Sync Jobs: jobs_programmer_sync.md
   - Contributing: contributing.md
   - Changelog: changelog.md
 theme:
@@ -41,15 +64,13 @@ markdown_extensions:
   - toc:
       baselevel: 2
       permalink: true
-      slugify: !!python/name:pymdownx.slugs.uslugify
+      slugify: !!python/object/apply:pymdownx.slugs.slugify {kwds: {case: lower}}
   - meta
 plugins:
   - include-markdown
   - search:
       lang: en
-  - mkdocstrings:
-      watch:
-        - netbox-zabbix
+  - mkdocstrings
 extra:
   social:
     - icon: fontawesome/brands/twitter
