@@ -1,4 +1,25 @@
 #!/usr/bin/env python3
+"""
+check_doc.py - Static analysis tool to find Python classes, functions, and methods without docstrings.
+
+This script parses Python files in a directory (optionally recursively) and reports:
+    - Classes without docstrings.
+    - Functions without docstrings.
+    - Methods inside classes without docstrings.
+
+Usage:
+    python check_doc.py [filename] [-r]
+
+Arguments:
+    filename            Optional: check a single Python file (without .py extension)
+    -r, --recursive     Recursively check all subdirectories for Python files
+
+Output:
+    The script prints a Rich table showing all undocumented classes, functions, and methods,
+    including their file paths and line numbers. If everything has a docstring, it prints a
+    confirmation message.
+"""
+
 import ast
 from pathlib import Path
 import argparse

@@ -1,4 +1,25 @@
 #!/usr/bin/env python3
+"""
+check_calls.py - Static analysis tool to identify unused Python functions, methods, and properties.
+
+This script parses Python files in a directory (optionally recursively) and reports:
+    - Functions and methods that are defined but never called.
+    - Properties (via @property) that are defined but never accessed.
+
+Usage:
+    python check_calls.py [-r]
+
+Arguments:
+    -r, --recursive    Analyze subdirectories recursively.
+
+Output:
+    The script prints a Rich table showing all unused functions, methods, and properties along with
+    their file paths and line numbers. If all are used at least once, it prints a corresponding message.
+
+Notes:
+    - It works on plain Python code and uses the `ast` module to parse the syntax tree.
+"""
+
 import ast
 from pathlib import Path
 import argparse

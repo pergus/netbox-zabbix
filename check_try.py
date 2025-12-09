@@ -1,4 +1,35 @@
 #!/usr/bin/env python3
+"""
+check_try.py - Static analysis tool to ensure certain functions are always called inside try-except blocks.
+
+Purpose:
+    This script scans Python source code to detect calls to specific functions that are not wrapped
+    in a try-except block. It helps enforce safe usage of functions that may raise exceptions.
+
+Usage:
+    python check_try.py -f <function_def_file(s)> -t <target_file_or_directory(s)>
+
+Arguments:
+    -f, --functions-file   One or more Python files that define the functions to check.
+    -t, --targets          One or more Python files or directories to scan for function calls.
+
+Behavior:
+    - The script extracts function definitions from the provided function files.
+    - It scans all target files recursively if directories are given.
+    - For each call to a monitored function not inside a try-except block, it reports:
+        - Function name
+        - File and line number
+        - The source code line where the call occurs
+
+Output:
+    Uses Rich to display tables with violations for easy readability.
+    If no violations are found, nothing is reported for that file.
+
+Notes:
+    - Skips the files where functions are defined to avoid false positives.
+"""
+
+
 import ast
 import argparse
 from pathlib import Path
