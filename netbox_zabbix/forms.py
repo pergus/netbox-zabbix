@@ -12,6 +12,7 @@ configuration and mappings are consistent and correctly formatted.
 
 # Standard library imports
 import re
+import token
 
 # Django imports
 from django import forms
@@ -155,9 +156,52 @@ class SettingForm(NetBoxModelForm):
     # Hide the token
     token = forms.CharField( widget=forms.PasswordInput( render_value=True ), help_text="Zabbix API token (hidden input)" )
 
+    dummy_token = "d_u_m_m_y__t_o_k_e_n"
+
     class Meta:
         model = Setting
-        fields = '__all__'
+        fields = (
+            'name',
+            'ip_assignment_method',
+            'event_log_enabled',
+            'auto_validate_importables',
+            'auto_validate_quick_add',
+            'max_deletions',
+            'max_success_notifications',
+            'zabbix_import_interval',
+            'host_config_sync_interval',
+            'cutoff_host_config_sync',
+            'maintenance_cleanup_interval',
+            'api_endpoint',
+            'web_address',
+            'token',
+            'delete_setting',
+            'graveyard',
+            'graveyard_suffix',
+            'exclude_custom_field_name',
+            'exclude_custom_field_enabled',
+            'inventory_mode',
+            'monitored_by',
+            'useip',
+            'tls_connect', 
+            'tls_accept', 
+            'tls_psk_identity', 
+            'tls_psk', 
+            'agent_port', 
+            'snmp_port', 
+            'snmp_bulk',
+            'snmp_max_repetitions',
+            'snmp_contextname',
+            'snmp_securityname',
+            'snmp_securitylevel',
+            'snmp_authprotocol',
+            'snmp_authpassphrase',
+            'snmp_privprotocol',
+            'snmp_privpassphrase',
+            'default_tag', 
+            'tag_prefix', 
+            'tag_name_formatting',
+        )
 
     def __init__(self, *args, **kwargs):
             """
@@ -184,6 +228,11 @@ class SettingForm(NetBoxModelForm):
                 self.initial['api_endpoint'] = f"https://{zhost}/api_jsonrpc.php"
                 self.initial['web_address'] = f"https://{zhost}"
             
+
+            # Set initial for token to show asterisks in the PasswordInput
+            if self.instance.pk and self.instance._encrypted_token:
+                self.initial['token'] = self.dummy_token
+
             # Hide the 'tags' field on "add" and "edit" view
             self.fields.pop('tags', None)
 
@@ -235,7 +284,10 @@ class SettingForm(NetBoxModelForm):
     
         # Check connection/token
         try:
-            zapi.validate_zabbix_credentials( self.cleaned_data['api_endpoint'], self.cleaned_data['token'] )
+            token_value = self.cleaned_data.get( "token" )
+            if token_value != self.dummy_token:
+                zapi.validate_zabbix_credentials( self.cleaned_data['api_endpoint'], token_value )
+
         except Exception:
             self.add_error( 'api_endpoint', mark_safe( "Failed to verify connection to Zabbix.<br>Please check the API address and token." ) )
 
@@ -253,24 +305,36 @@ class SettingForm(NetBoxModelForm):
         exclude_custom_field_name = self.cleaned_data.get( "exclude_custom_field_name" )
         if exclude_custom_field_name:
             defaults = {
-                "label": "Exclude from Zabbix",
-                "type": "boolean",
-                "default": False,
-                "required": False,
+                "label":       "Exclude from Zabbix",
+                "type":        "boolean",
+                "default":     False,
+                "required":    False,
                 "description": "If set, this object will be ignored in Zabbix synchronization."
             }
             create_netbox_custom_field( exclude_custom_field_name, defaults )
 
 
     def save(self, commit=True):
-        instance = super().save(commit=False)
-    
+        instance = super().save( commit=False )
+
         # Update connection fields after validation
         try:
-            zapi.validate_zabbix_credentials(instance.api_endpoint, instance.token)
-            instance.version = zapi.fetch_version_from_credentials(instance.api_endpoint, instance.token)
+            token_value = self.cleaned_data.get( "token" )
+
+            if token_value == self.dummy_token:
+                # The user did not update the token
+                instance._unencrypted_token = None
+                zabbix_token = instance.token
+            else:
+                # The user updated the token
+                instance._unencrypted_token = token_value
+                zabbix_token = token_value
+
+            zapi.validate_zabbix_credentials( instance.api_endpoint, zabbix_token )
+            instance.version = zapi.fetch_version_from_credentials( instance.api_endpoint, zabbix_token )
             instance.connection = True
             instance.last_checked_at = now()
+
         except Exception:
             instance.connection = False
             instance.last_checked_at = None

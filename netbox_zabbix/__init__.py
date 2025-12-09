@@ -19,7 +19,6 @@ __version__ = "2.0.0"
 # NetBox imports
 from netbox.plugins import PluginConfig
 
-
 class NetboxZabbixConfig(PluginConfig):
     """
     NetBox plugin configuration for the netbox-zabbix plugin.
@@ -82,7 +81,8 @@ class NetboxZabbixConfig(PluginConfig):
                 ("Longitude", "location_lon", ["location.site.longitude", "site.longitude"]),
             ]
             
-        }
+        },
+        "FERNET_KEY_PATH": "fernet.key",
     }
 
     def ready(self):
@@ -95,8 +95,9 @@ class NetboxZabbixConfig(PluginConfig):
         
         The property `host_config` is dynamically added via `add_to_class`.
         """
+
         super().ready()
-        
+
         from django.contrib.contenttypes.models import ContentType
         from dcim.models import Device
         from virtualization.models import VirtualMachine
@@ -104,6 +105,7 @@ class NetboxZabbixConfig(PluginConfig):
 
         # Import and register signals
         from .signals import signals
+
 
         def get_hostconfig(self):
             """

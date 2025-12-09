@@ -27,9 +27,10 @@ PLUGINS = [
     'netbox_zabbix',
 ]
 
+
 PLUGINS_CONFIG = {
     'netbox_zabbix': {
-        # Optional configuration overrides
+        "FERNET_KEY_PATH": "/opt/netbox-zabbix/data/fernet.key"
     }
 }
 ```
@@ -49,9 +50,6 @@ supervisorctl restart netbox
 ---
 
 ## Notes
-
-Maintenace, Proxy, Proxy Groups and Host Groups are note desgined to be created
-from NetBox scripts.
 
 
 

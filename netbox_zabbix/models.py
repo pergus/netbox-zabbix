@@ -9,6 +9,12 @@ Models extend NetBox's core models and integrate with the
 content type framework where needed.
 """
 
+
+# Standard library imports
+from cryptography.fernet import Fernet
+from pathlib import Path
+import os
+
 # Django imports
 from django.core.exceptions import ValidationError
 from django.utils.safestring import mark_safe
@@ -18,6 +24,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.utils import timezone
 from django.db.models import Q
+from django.conf import settings as plugin_settings
 
 
 # NetBox imports
@@ -34,7 +41,7 @@ from virtualization.models import Cluster
 from netbox_zabbix.netbox.utils import save_without_signals
 from netbox_zabbix.logger import logger
 
-
+PLUGIN_SETTINGS = plugin_settings.PLUGINS_CONFIG.get( "netbox_zabbix", {} )
 
 # ------------------------------------------------------------------------------
 # Choices
@@ -340,6 +347,12 @@ class ZabbixAdminPermission(NetBoxModel):
 # ------------------------------------------------------------------------------
 
 
+# It's a good idea to store a key in your settings securely
+#FERNET_KEY = getattr( settings, "ZABBIX_FERNET_KEY", None )
+#FERNET_KEY = "EyNJXfXCvdw6IJ05jNuz-Iq_OkwC1dwjyajxYrJ2GXM="
+#fernet = Fernet( FERNET_KEY ) if FERNET_KEY else None
+
+
 class Setting(NetBoxModel):
     """
     Stores global settings for the netbox-zabbix plugin.
@@ -349,16 +362,20 @@ class Setting(NetBoxModel):
         verbose_name = "Setting"
         verbose_name_plural = "Settings"
 
-    # General
-    name                      = models.CharField( verbose_name="Name", max_length=255, help_text="Name of the setting." )
+#    FERNET_KEY = PLUGIN_SETTINGS.get( 'FERNET_KEY', None )
+    
 
-    ip_assignment_method      = models.CharField(
-        verbose_name="IP Assignment Method",
-        max_length=16,
-        choices=IPAssignmentChoices.choices,
-        default=IPAssignmentChoices.PRIMARY,
-        help_text="Method used to assign IPs to host interfaces."
-    )
+    # General
+    name = models.CharField( verbose_name="Name", 
+                            max_length=255, 
+                            help_text="Name of the setting." )
+
+    ip_assignment_method = models.CharField( verbose_name="IP Assignment Method", 
+                                            max_length=16, 
+                                            choices=IPAssignmentChoices.choices, 
+                                            default=IPAssignmentChoices.PRIMARY, 
+                                            help_text="Method used to assign IPs to host interfaces." )
+
     event_log_enabled         = models.BooleanField( verbose_name="Event Log Enabled", default=False )
     auto_validate_importables = models.BooleanField( verbose_name="Validate Importables", default=False, 
                                                     help_text="When enabled, importable hosts are validated automatically." )
@@ -367,53 +384,68 @@ class Setting(NetBoxModel):
 
 
     # Background Job(s)
-    max_deletions = models.IntegerField(
-        verbose_name="Max Deletions On Import",
-        default=3,
-        help_text="Limits deletions of stale entries on Zabbix imports."
-    )    
-    max_success_notifications = models.IntegerField(
-        verbose_name="Maximum Success Notifications",
-        default=3,
-        help_text="Max number of success messages shown per job."
-    )
+    max_deletions = models.IntegerField( verbose_name="Max Deletions On Import",
+                                        default=3,
+                                        help_text="Limits deletions of stale entries on Zabbix imports." )
+
+    max_success_notifications = models.IntegerField( verbose_name="Maximum Success Notifications",
+                                                    default=3,
+                                                    help_text="Max number of success messages shown per job." )
 
     # System Job(s)
-    zabbix_import_interval       = models.PositiveIntegerField( verbose_name="Zabbix Import Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Zabbix import. Must be at least 1 minute." )
-    host_config_sync_interval    = models.PositiveIntegerField( verbose_name="Host Config Sync Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between each Host Config Sync check. Must be at least 1 minute." )
-    cutoff_host_config_sync      = models.PositiveIntegerField( verbose_name="Host Config Sync Cutoff", null=True, blank=True, default=60, help_text="Number of minutes to look back when determining which HostConfigs need syncing with Zabbix. Includes never-synced or outdated objects." )
-    maintenance_cleanup_interval = models.PositiveIntegerField( verbose_name="Maintenance cleanup Interval", null=True, blank=True, choices=SystemJobIntervalChoices, default=SystemJobIntervalChoices.INTERVAL_DAILY, help_text="Interval in minutes between maintenanc cleanup. Must be at least 1 minute." )
+    zabbix_import_interval = models.PositiveIntegerField( verbose_name="Zabbix Import Interval", 
+                                                               null=True, 
+                                                               blank=True, 
+                                                               choices=SystemJobIntervalChoices, 
+                                                               default=SystemJobIntervalChoices.INTERVAL_DAILY, 
+                                                               help_text="Interval in minutes between each Zabbix import. Must be at least 1 minute." )
+    host_config_sync_interval = models.PositiveIntegerField( verbose_name="Host Config Sync Interval", 
+                                                               null=True, 
+                                                               blank=True, 
+                                                               choices=SystemJobIntervalChoices, 
+                                                               default=SystemJobIntervalChoices.INTERVAL_DAILY, 
+                                                               help_text="Interval in minutes between each Host Config Sync check. Must be at least 1 minute." )
+    cutoff_host_config_sync = models.PositiveIntegerField( verbose_name="Host Config Sync Cutoff", 
+                                                               null=True, 
+                                                               blank=True, 
+                                                               default=60, 
+                                                               help_text="Number of minutes to look back when determining which HostConfigs need syncing with Zabbix. Includes never-synced or outdated objects." )
+    maintenance_cleanup_interval = models.PositiveIntegerField( verbose_name="Maintenance cleanup Interval", 
+                                                               null=True, 
+                                                               blank=True, 
+                                                               choices=SystemJobIntervalChoices, 
+                                                               default=SystemJobIntervalChoices.INTERVAL_DAILY, 
+                                                               help_text="Interval in minutes between maintenanc cleanup. Must be at least 1 minute." )
 
     # Zabbix Server
-    version                  = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
-    api_endpoint             = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
-    web_address              = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to the Zabbix web interface." )
-    token                    = models.CharField( verbose_name="Token", max_length=255, help_text="Zabbix access token." )
+    version          = models.CharField( verbose_name="Version", max_length=255, null=True, blank=True )
+    api_endpoint     = models.CharField( verbose_name="API Endpoint", max_length=255, help_text="URL to the Zabbix API endpoint." )
+    web_address      = models.CharField( verbose_name="Web Address", max_length=255, help_text="URL to the Zabbix web interface." )
+    _encrypted_token = models.TextField( db_column="token", blank=True, null=True )
 
-    connection               = models.BooleanField( verbose_name="Connection", default=False )
-    last_checked_at          = models.DateTimeField( verbose_name="Last Checked At", null=True, blank=True )
+    connection      = models.BooleanField( verbose_name="Connection", default=False )
+    last_checked_at = models.DateTimeField( verbose_name="Last Checked At", null=True, blank=True )
 
 
     # Delete Setting
-    delete_setting =  models.CharField( verbose_name="Delete Settings", choices=DeleteSettingChoices, default=DeleteSettingChoices.SOFT, help_text="Delete Settings.")
+    delete_setting =  models.CharField( verbose_name="Delete Settings", 
+                                       choices=DeleteSettingChoices, 
+                                       default=DeleteSettingChoices.SOFT, 
+                                       help_text="Delete Settings.")
 
-    graveyard = models.CharField(
-        verbose_name="Host Group",
+    graveyard = models.CharField( verbose_name="Host Group",
         max_length=255,
         null=True,
         blank=True,
         default="graveyard",
-        help_text="Host Group 'graveyard' for soft deletes."
-    )
+        help_text="Host Group 'graveyard' for soft deletes." )
     
-    graveyard_suffix = models.CharField(
-        verbose_name="Deleted host suffix",
+    graveyard_suffix = models.CharField( verbose_name="Deleted host suffix",
         max_length=255,
         null=True,
         blank=True,
         default="_archived",
-        help_text="Suffix for deleted hosts in the 'graveyard'."
-    )
+        help_text="Suffix for deleted hosts in the 'graveyard'." )
     
     # Additional Settings
 
@@ -423,9 +455,9 @@ class Setting(NetBoxModel):
         null=True,
         blank=True,
         default="Exclude from Zabbix",
-        help_text="If this custom field is set, the object will be excluded from Zabbix synchronization and from listings of devices and virtual machines in NetBox."
-    )
-    
+        help_text="If this custom field is set, the object will be excluded from Zabbix synchronization and from listings of devices and virtual machines in NetBox." )
+
+
     exclude_custom_field_enabled = models.BooleanField( verbose_name="Exclude Custom Field Enabled", default=False )
     
 
@@ -437,45 +469,37 @@ class Setting(NetBoxModel):
         verbose_name="Inventory Mode",
         choices=InventoryModeChoices,
         default=InventoryModeChoices.MANUAL,
-        help_text="Mode for populating inventory."
-    )
+        help_text="Mode for populating inventory." )
 
     monitored_by = models.IntegerField(
         verbose_name="Monitored By",
         choices=MonitoredByChoices,
         default=MonitoredByChoices.ZabbixServer,
-        help_text="Method used to monitor hosts."
-    )
+        help_text="Method used to monitor hosts." )
 
     tls_connect = models.IntegerField(
         verbose_name="TLS Connect",
         choices=TLSConnectChoices,
         default=TLSConnectChoices.PSK,
-        help_text="TLS mode for outgoing connections."
-    )
+        help_text="TLS mode for outgoing connections." )
 
     tls_accept = models.IntegerField(
         verbose_name="TLS Accept",
         choices=TLSAcceptChoices,
         default=TLSAcceptChoices.PSK,
-        help_text="TLS mode accepted for incoming connections."
-    )
+        help_text="TLS mode accepted for incoming connections." )
 
-    tls_psk_identity = models.CharField(
-        verbose_name="PSK Identity",
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text="PSK identity."
-    )
+    tls_psk_identity = models.CharField( verbose_name="PSK Identity",
+                                        max_length=255,
+                                        null=True,
+                                        blank=True,
+                                        help_text="PSK identity." )
 
-    tls_psk = models.CharField(
-        verbose_name="TLS PSK",
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text="Pre-shared key (at least 32 hex digits)."
-    )
+    tls_psk = models.CharField( verbose_name="TLS PSK",
+                                max_length=255,
+                                null=True,
+                                blank=True,
+                                help_text="Pre-shared key (at least 32 hex digits)." )
 
     # Agent Specific Defaults
     agent_port = models.IntegerField( verbose_name="Port", default=10050, help_text="Agent default port." )
@@ -541,8 +565,62 @@ class Setting(NetBoxModel):
         """
         from netbox_zabbix.jobs.system import system_jobs_scheduled
         return mark_safe( '<span style="color:green;">✔</span>' if system_jobs_scheduled() else '<span style="color:red;">✘</span>')
+
+
+
+    def get_fernet(self):
+        """
+        Return a Fernet instance if the key exists.
+        """
+
+
+        dir_path = os.path.dirname( os.path.realpath( __file__ ) )
+        fernet_path_setting = PLUGIN_SETTINGS.get( "FERNET_KEY_PATH", None )
+
+        if not fernet_path_setting:
+            logger.warning( "FERNET_KEY_PATH not configured in plugin settings" )
+            return None
         
+        key_file = Path(fernet_path_setting)
+        if not key_file.is_file():
+            # Not an existing file treat as relative to plugin dir
+            key_file = Path(dir_path) / key_file
+        
+        if not key_file.exists():
+            logger.warning( f"No Fernet key found at {key_file}" )
+            return None
     
+        if not key_file.exists():
+            logger.warning( f"No Fernet key found at {key_file}" )
+            return None
+    
+        key = key_file.read_text().strip()
+        return Fernet( key.encode() )
+
+
+
+    @property
+    def token(self):
+        fernet = self.get_fernet()
+        if not self._encrypted_token or not fernet:
+            return None
+        try:
+            return fernet.decrypt( self._encrypted_token.encode() ).decode()
+        except Exception:
+            return None
+
+
+    @token.setter
+    def token(self, value):
+        fernet = self.get_fernet()
+        
+        if value is None or not fernet:
+            self._encrypted_token = None
+            pass
+        else:
+            self._encrypted_token = fernet.encrypt( value.encode() ).decode()
+
+
     def save(self, *args, **kwargs):
         """
         Save the Setting instance to the database.
@@ -555,6 +633,13 @@ class Setting(NetBoxModel):
             *args: Positional arguments passed to the model save method.
             **kwargs: Keyword arguments passed to the model save method.
         """
+
+        # Encrypt token if present
+        if hasattr(self, "_unencrypted_token") and self._unencrypted_token is not None:
+            logger.info( f"_unencrypted_token {self._unencrypted_token}" )
+            self.token = self._unencrypted_token
+            del self._unencrypted_token
+
         super().save( *args, **kwargs )
 
         # Schedule system jobs
