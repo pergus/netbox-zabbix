@@ -2,11 +2,11 @@ site_name: netbox-zabbix
 site_url: https://pergus.github.io/netbox-zabbix
 repo_url: https://github.com/pergus/netbox-zabbix
 repo_name: pergus/netbox-zabbix
+use_directory_urls: false
 #strict: true
 nav:
   - Home: index.md
   - Installation & Setup:
-    - Overview: index.md
     - Installation: installation.md
     - Setup Script: setup.md
   - User Guide:
