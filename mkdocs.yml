@@ -47,7 +47,8 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
-  - pymdownx.critic
+  - pymdownx.critic:
+      mode: accept
   - pymdownx.caret
   - pymdownx.mark
   - pymdownx.tilde
@@ -69,7 +70,11 @@ markdown_extensions:
 plugins:
   - search:
       lang: en
-  - mkdocstrings
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: false
 extra:
   social:
     - icon: fontawesome/brands/twitter
