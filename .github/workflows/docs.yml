@@ -28,4 +28,6 @@ jobs:
       - run: pip install mkdocs-material
       - run: pip install mkdocs-include-markdown-plugin
       - run: pip install mkdocstrings[python]
+      - run: mkdocs build
+      - run: touch site/.nojekyll
       - run: mkdocs gh-deploy --force
