@@ -38,10 +38,11 @@ class NetboxZabbixConfig(PluginConfig):
         default_settings (dict): Default tag and inventory mappings.
     """
     name         = "netbox_zabbix"
-    verbose_name = "netbox-zabbix"
+    verbose_name = "NetBox Zabbix"
     description  = "NetBox plugin for Zabbix."
     version      = __version__
     author       = __author__
+    author_email = __email__
     email        = __email__
     base_url     = "netbox_zabbix"
 

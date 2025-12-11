@@ -259,17 +259,3 @@ if differences.get("differ"):
     print("Configuration differences found:")
     print(differences)
 ```
-
-## Best Practices
-
-1. **Naming Convention**: Use consistent naming conventions for host configurations to facilitate management.
-
-2. **Sync Management**: Regularly check sync status to ensure NetBox and Zabbix configurations remain consistent.
-
-3. **Interface Configuration**: Ensure that interfaces are properly configured with correct IP addresses and connection methods.
-
-4. **Maintenance Awareness**: Check for active maintenance before deleting host configurations.
-
-5. **Template Assignment**: Use appropriate templates based on the host's role and operating system.
-
-6. **Proxy Assignment**: Assign proxies or proxy groups based on network topology and performance requirements.

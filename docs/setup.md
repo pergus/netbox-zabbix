@@ -1,6 +1,6 @@
-# Setup Script
+# The Setup Zabbix Management Command
 
-The setup script initializes required defaults, mappings, and cryptographic keys.
+The setup zabbix management command initializes required defaults, mappings, and cryptographic keys.
 Below are a description of each individual step in the setup process.
 The setup script is divided into two parts. The first part prompts the user to configure the connection to Zabbix and stores this information securely in the NetBox database. The second part allows the user to configure default Device and VM mappings.
 
@@ -61,6 +61,9 @@ The plugin now contacts Zabbix and loads:
 The script next asks the user to define default mappings for devices and virtual machines.
 These values will be used when automatically assigning Zabbix templates and groups to NetBox objects.
 
+> Important: A new Zabbix installation defines a number of Templates and Host Groups. The default template selected should be compatible with both Zabbix Agent and SNMPv3 interfaces. For broad compatibility, ICMP Ping is recommended.
+
+
 Step 7. Select the default Template (required)
 
 ```bash
@@ -70,6 +73,9 @@ Enter Default Template
  3. SNMP Device
 Select a number [1–3]:
 ```
+
+> Recommendation: Choose ICMP Ping for maximum compatibility across Agents and SNMPv3 devices.
+
 
 Step 8. Select the default Host Group (required)
 Similar numbered list:

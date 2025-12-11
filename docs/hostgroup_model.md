@@ -96,18 +96,6 @@ HostGroup integrates with several other models in the plugin:
 2. **Mapping Models**: DeviceMapping and VMMapping can specify host groups for matching hosts.
 3. **Maintenance Model**: Maintenance windows can target specific host groups.
 
-## Best Practices
-
-1. **Descriptive Naming**: Use clear, descriptive names for host groups to facilitate management and troubleshooting.
-
-2. **Logical Organization**: Organize host groups logically based on function, environment, location, or other meaningful criteria.
-
-3. **Regular Synchronization**: Keep host groups synchronized with Zabbix to ensure accurate monitoring configurations.
-
-4. **Avoid Overlapping Groups**: While hosts can belong to multiple groups, avoid creating overly complex overlapping group structures that make management difficult.
-
-5. **Consistent Naming Convention**: Establish and maintain consistent naming conventions across your organization.
-
 ## Error Handling
 
 The HostGroup model includes robust error handling for Zabbix operations:

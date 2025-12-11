@@ -92,14 +92,3 @@ InventoryMapping integrates with the core NetBox models:
 2. **VirtualMachine Model**: Virtual machine inventory mappings determine which VM attributes become Zabbix inventory items
 3. **HostConfig Model**: Inventory mappings are used when creating Zabbix host configurations
 
-## Best Practices
-
-1. **Relevant Inventory Items**: Only map fields that are meaningful as inventory items in Zabbix, such as hardware specifications, location data, or asset information.
-
-2. **Fallback Fields**: Use multiple field paths in the selection to provide fallback values when primary fields are empty.
-
-3. **Standard Properties**: Map to standard Zabbix inventory properties when possible to leverage built-in functionality.
-
-4. **Data Consistency**: Ensure that mapped fields contain appropriate data types for Zabbix inventory properties.
-
-5. **Regular Updates**: Keep inventory mappings current with changes in NetBox data models or organizational requirements.

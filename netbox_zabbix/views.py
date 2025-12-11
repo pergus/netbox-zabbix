@@ -1146,7 +1146,6 @@ class HostGroupDeleteView(generic.ObjectDeleteView):
         return redirect( self.get_return_url( request, obj ) )
 
 
-
 class HostGroupBulkDeleteView(generic.BulkDeleteView):
     """
     Bulk delete multiple Zabbix HostGroup instances.
@@ -2174,7 +2173,6 @@ class HostConfigBulkDeleteView(generic.BulkDeleteView):
                 messages.success( request, f"HostConfig '{obj_name}' deleted successfully." )
     
         return redirect(request.GET.get("return_url", "/plugins/netbox_zabbix/host-config/"))
-
 
 
 def update_sync_status(request):

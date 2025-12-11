@@ -101,17 +101,6 @@ ProxyGroup integrates with several other models in the plugin:
 2. **HostConfig Model**: Host configurations can be assigned to proxy groups for monitoring.
 3. **Mapping Models**: DeviceMapping and VMMapping can specify proxy groups for matching hosts.
 
-## Best Practices
-
-1. **Failover Planning**: Set appropriate `failover_delay` values based on your network reliability and monitoring requirements.
-
-2. **Minimum Online Proxies**: Configure `min_online` to ensure sufficient redundancy for your monitoring needs.
-
-3. **Descriptive Naming**: Use clear, descriptive names for proxy groups to facilitate management and troubleshooting.
-
-4. **Regular Synchronization**: Keep proxy groups synchronized with Zabbix to ensure accurate monitoring configurations.
-
-5. **Documentation**: Use the `description` field to document the purpose and configuration of each proxy group.
 
 ## Error Handling
 

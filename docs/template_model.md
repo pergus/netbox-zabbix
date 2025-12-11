@@ -99,12 +99,3 @@ Templates are integrated with several other models in the plugin:
 
 3. **Synchronization**: Templates are synchronized with Zabbix to ensure that template information is consistent between both systems.
 
-## Best Practices
-
-1. **Template Organization**: Use the parent-child relationships to organize templates hierarchically, making it easier to manage complex monitoring setups.
-
-2. **Dependency Management**: Properly configure template dependencies to ensure that prerequisite templates are applied before dependent ones.
-
-3. **Interface Compatibility**: Set the correct `interface_type` to ensure templates are only applied to compatible hosts, preventing configuration errors.
-
-4. **Regular Synchronization**: Keep templates synchronized with Zabbix to ensure accurate monitoring configurations.

@@ -50,12 +50,13 @@ manage.py makemigrations netbox_zabbix
 manage.py migrate netbox_zabbix
 ```
 
-4. **Run setup_zabbix management command**:
-The setup script initializes required defaults, mappings, and cryptographic keys.
+4. **Run the setup zabbix management command**:
+The setup zabbix managemetn command initializes required defaults, mappings, and cryptographic keys.
 
 ```bash
 manage.py setup_zabbix
 ```
+
 This interactive command walks the user through two required setup phases, 
 followed by a required configuration change in configuration.py.
 
@@ -64,7 +65,6 @@ followed by a required configuration change in configuration.py.
 5. **Copy the PLUGINS_CONFIG to NetBox configuration** (`configuration.py`):
 Copy the configuration block printed after the setup command and add it to your NetBox configuration.py.
 
-E.g.
 ```bash
 PLUGINS_CONFIG = {
     'netbox_zabbix': {
@@ -80,7 +80,6 @@ Ensure this path is readable only by the NetBox service user.
 6. **Restart NetBox**:
 After modifying the configuration or installing plugins, restart all NetBox services:
 
-E.g.
 ```bash
 sudo systemctl restart netbox netbox-rq
 ```
@@ -88,11 +87,18 @@ sudo systemctl restart netbox netbox-rq
 ---
 
 
-## Setup Script
+## The Setup Zabbix Management Command
 
-The setup script initializes required defaults, mappings, and cryptographic keys.
+The setup zabbix management command initializes required defaults, mappings, and cryptographic keys.
 Below are a description of each individual step in the setup process.
 The setup script is divided into two parts. The first part prompts the user to configure the connection to Zabbix and stores this information securely in the NetBox database. The second part allows the user to configure default Device and VM mappings.
+
+To start the command run:
+
+```bash
+manage.py setup_zabbix
+```
+
 
 
 **Part 1 — Configure Zabbix Connection**

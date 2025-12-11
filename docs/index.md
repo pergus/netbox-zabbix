@@ -2,100 +2,47 @@
 
 ## Introduction
 
-The NetBox Zabbix Plugin provides seamless integration between NetBox, a leading infrastructure resource modeling (IRM) tool, and Zabbix, a powerful enterprise-class monitoring solution. This plugin bridges the gap between your infrastructure documentation and monitoring systems, enabling automated synchronization of devices, virtual machines, and their monitoring configurations.
+The NetBox Zabbix Plugin connects NetBox with Zabbix, integrating your infrastructure documentation with your monitoring system. It automates the synchronization of devices, virtual machines, and their associated monitoring configurations, keeping both platforms aligned.
 
-With this plugin, you can:
-- Automatically synchronize NetBox devices and virtual machines with Zabbix hosts
-- Apply monitoring templates based on device characteristics
-- Manage Zabbix configurations directly from NetBox
-- Organize hosts using NetBox data (sites, roles, platforms)
-- Schedule maintenance windows for planned outages
-- Monitor synchronization status between systems
 
-This integration helps maintain consistency between your infrastructure documentation and monitoring configuration, reducing manual effort and minimizing configuration errors.
+## Objectives
+
+The plugin automates synchronization between NetBox and Zabbix, acting as a bridge between infrastructure documentation and monitoring. Its key goals include:
+
+- Full lifecycle management for Zabbix hosts from NetBox including creation, configuration, and deletion
+- Import existing Zabbix hosts into NetBox
+- Automatically assigning settings to devices and VMs based on their type and role, including which templates, host groups, and proxies to use
+- Managing proxies, proxy groups, and host groups directly from NetBox
+- Scheduling and managing maintenance windows
+
+## Non-Objectives
+
+The plugin does not aim to replace or replicate core Zabbix functionality, nor does it provide direct management of Zabbix server configurations. The focus remains on data synchronization and integration rather than:
+
+- Direct management of Zabbix server settings or configurations
+- Replacement of Zabbix web interface for monitoring tasks
+- Management of Zabbix user accounts or permissions
+- Direct manipulation of Zabbix triggers, graphs, or dashboards
+- Providing alerting mechanisms beyond what Zabbix natively offers
 
 ## Documentation Overview
 
-This documentation provides comprehensive information for both users and developers working with the NetBox Zabbix plugin. It covers installation, configuration, core concepts, and detailed reference material for all plugin components.
+This documentation is organized for three different audiences:
 
-## Table of Contents
+### 1. Users
+If you're using the plugin through the NetBox web interface to manage your monitoring configurations, start with the **User Guide**. This section covers day-to-day operations like creating and managing hosts, understanding job statuses, and troubleshooting common issues.
 
-### Getting Started
-- [User Guide](userguide.md) - Complete guide to installing, configuring, and using the plugin
+### 2. Administrators
+If you're responsible for configuring and maintaining the plugin, the **Admin Guide** provides detailed information about settings, mappings, proxies, and system configuration. This section builds on the User Guide and covers advanced administrative tasks.
 
-### Core Models
-- [Settings Model](settings_model.md) - Plugin configuration and settings management
-- [HostConfig and Interface Models](hostconfig_models.md) - Host configurations and network interfaces
-- [Template Model](template_model.md) - Zabbix template management
-- [Proxy Model](proxy_model.md) - Zabbix proxy configuration
-- [ProxyGroup Model](proxygroup_model.md) - Zabbix proxy group management
-- [HostGroup Model](hostgroup_model.md) - Host group organization
-- [Mapping Models](mapping_models.md) - Device and VM mapping configurations
-- [TagMapping Model](tagmapping_model.md) - Tag mapping configurations
-- [InventoryMapping Model](inventorymapping_model.md) - Inventory mapping configurations
-- [Maintenance Model](maintenance_model.md) - Maintenance window management
+### 3. Developers and Programmers
+If you're extending the plugin, integrating it with other systems, or need to understand the internal workings, the **Programmer's Guide** provides technical documentation about the code structure, models, jobs, and APIs.
 
-### Background Jobs
-- [Jobs Summary](jobs_summary.md) - Overview of the job system
-- [System/Recurring Jobs (Programmer)](jobs_programmer_system.md) - Automated recurring jobs
-- [Host Management Jobs (Programmer)](jobs_programmer_host.md) - Individual host operations
-- [Sync Jobs (Programmer)](jobs_programmer_sync.md) - Bulk synchronization operations
-- [Jobs User Guide](jobs_user_guide.md) - User guide for job management
+## Getting Started
 
-## Key Features
+Choose your poision below:
 
-### Automated Synchronization
-The plugin maintains continuous synchronization between NetBox and Zabbix through:
-- Automatic import of Zabbix configuration objects (templates, proxies, host groups)
-- Real-time sync status monitoring for host configurations
-- Scheduled cleanup of expired maintenance windows
-
-### Flexible Mapping System
-Intelligent mapping rules allow you to:
-- Automatically assign templates based on device characteristics
-- Organize hosts into groups using NetBox data
-- Configure monitoring through proxy or proxy groups
-- Apply different configurations to different device types
-
-### Comprehensive Host Management
-Full lifecycle management for Zabbix hosts:
-- Automatic creation of hosts from NetBox devices and VMs
-- Interface configuration for agent and SNMP monitoring
-- Template and host group assignment
-- Status management (enabled/disabled)
-- Sync status tracking
-
-### Maintenance Window Management
-Robust maintenance scheduling capabilities:
-- Target by individual hosts, host groups, sites, or clusters
-- Flexible scheduling with start/end times
-- Option to disable data collection during maintenance
-- Automatic cleanup of expired windows
-
-### Advanced Configuration Options
-- Tag mapping from NetBox fields to Zabbix tags
-- Inventory mapping for detailed host information
-- Custom field integration for exclusion control
-- Event logging for audit and troubleshooting
-
-## Architecture Overview
-
-The plugin follows a modular architecture with clear separation of concerns:
-
-1. **Models Layer**: Defines the data structures and relationships
-2. **Jobs System**: Handles background operations and synchronization
-3. **Zabbix API Integration**: Communicates with Zabbix server
-4. **NetBox Integration**: Integrates with NetBox UI and data models
-5. **Mapping Engine**: Translates NetBox objects to Zabbix configurations
-
-## Getting Help
-
-For issues, questions, or contributions:
-- Check the official NetBox and Zabbix documentation
-- Review the model-specific documentation in this directory
-- Consult the user guide for operational instructions
-- Examine the jobs documentation for background task information
-
----
-
-*This documentation was generated for NetBox Zabbix Plugin*
+- [Installation](installation.md) - Plugin installation and initial setup
+- [User Guide](user_guide.md) - For day-to-day use of the plugin
+- [Admin Guide](admin_guide.md) - For plugin configuration and administration
+- [Programmer's Guide](programmer_guide.md) - For developers and advanced customization

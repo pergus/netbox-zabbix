@@ -6,38 +6,54 @@ repo_name: pergus/netbox-zabbix
 nav:
   - Home: index.md
   - Installation & Setup:
-    - Overview: index.md
     - Installation: installation.md
-    - Setup Script: setup.md
-  - User Guide:
-    - Main Guide: userguide.md
-    - Jobs User Guide: jobs_user_guide.md
-    - Jobs Summary: jobs_summary.md
-  - Core Models:
-    - Settings Model: settings_model.md
-    - HostConfig Models: hostconfig_models.md
-    - Template Model: template_model.md
-    - Proxy Model: proxy_model.md
-    - ProxyGroup Model: proxygroup_model.md
-    - HostGroup Model: hostgroup_model.md
-    - Mapping Models: mapping_models.md
-    - TagMapping Model: tagmapping_model.md
-    - InventoryMapping Model: inventorymapping_model.md
-    - Maintenance Model: maintenance_model.md
-  - Background Jobs (Programmer):
-    - System/Recurring Jobs: jobs_programmer_system.md
-    - Host Management Jobs: jobs_programmer_host.md
-    - Sync Jobs: jobs_programmer_sync.md
+    - The Setup Zabbix Management Command: setup.md
+  - User Guide: user_guide.md
+  - Admin Guide: admin_guide.md
+  - Programmer's Guide:
+    - Core Concepts: programmer_guide.md
+    - Script Provisioning: script_provisioning.md
+    - Models Reference:
+      - Settings Model: settings_model.md
+      - HostConfig Models: hostconfig_models.md
+      - Template Model: template_model.md
+      - Proxy Model: proxy_model.md
+      - ProxyGroup Model: proxygroup_model.md
+      - HostGroup Model: hostgroup_model.md
+      - Mapping Models: mapping_models.md
+      - DeviceMapping Model: devicemapping_model.md
+      - VMMapping Model: vmmapping_model.md
+      - TagMapping Model: tagmapping_model.md
+      - InventoryMapping Model: inventorymapping_model.md
+      - Maintenance Model: maintenance_model.md
+      - BaseInterface Model: baseinterface_model.md
+      - AgentInterface Model: agentinterface_model.md
+      - SNMPInterface Model: snmpinterface_model.md
+      - EventLog Model: eventlog_model.md
+      - ZabbixAdminPermission Model: zabbixadminpermission_model.md
+    - Jobs Reference:
+      - Jobs Summary: jobs_summary.md
+      - System/Recurring Jobs: jobs_programmer_system.md
+      - Host Management Jobs: jobs_programmer_host.md
+      - Sync Jobs: jobs_programmer_sync.md
   - Contributing: contributing.md
   - Changelog: changelog.md
 theme:
   name: material
   language: en
-  #logo: assets/logo.png
   palette:
-    scheme: preference
-    primary: indigo
-    accent: indigo
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/lightbulb
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to light mode
   features:
     - navigation.indexes
     - navigation.instant
@@ -73,19 +89,9 @@ plugins:
   - mkdocstrings
 extra:
   social:
-    - icon: fontawesome/brands/twitter
-      # replace with your own tweet link below
-      link: https://github.com/netbox-community/cookiecutter-netbox-plugin
-      name: Tweet
-    - icon: fontawesome/brands/facebook
-      # replace with your own facebook link below
-      link: https://github.com/netbox-community/cookiecutter-netbox-plugin
-      name: Facebook
     - icon: fontawesome/brands/github
       link: https://github.com/pergus/netbox-zabbix
       name: Github
-    - icon: material/email
-      link: "mailto:pergus@axis.com"
   # to enable disqus, uncomment the following and put your disqus id below
   # disqus: disqus_id
 # uncomment the following and put your google tracking id below to enable GA

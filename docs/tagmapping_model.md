@@ -122,14 +122,3 @@ TagMapping integrates with the core NetBox models:
 2. **VirtualMachine Model**: Virtual machine tag mappings determine which VM attributes become Zabbix tags
 3. **HostConfig Model**: Tag mappings are used when creating Zabbix host configurations
 
-## Best Practices
-
-1. **Selective Tagging**: Only map fields that are useful for filtering and organizing hosts in Zabbix to avoid cluttering the tag space.
-
-2. **Consistent Naming**: Use consistent field paths across similar object types to maintain uniformity in your Zabbix environment.
-
-3. **Hierarchical Information**: Consider including hierarchical information like region/site/tenant to enable layered filtering in Zabbix.
-
-4. **Performance Considerations**: Be mindful of the number of tags per host, as excessive tags can impact Zabbix performance.
-
-5. **Regular Review**: Periodically review and update tag mappings to ensure they meet evolving organizational needs.

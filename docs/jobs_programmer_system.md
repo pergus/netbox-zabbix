@@ -186,10 +186,3 @@ interval = get_current_job_interval(SystemJobImportZabbixSettings)
 print(f"Import job runs every {interval} minutes")
 ```
 
-## Best Practices
-
-1. **Interval Configuration**: Choose appropriate intervals based on your environment size and change frequency
-2. **Monitoring**: Regularly check job status and logs to ensure proper operation
-3. **Error Handling**: Implement comprehensive error handling in job implementations
-4. **Resource Management**: Consider the impact of frequent job execution on system resources
-5. **Logging**: Use structured logging to facilitate debugging and monitoring

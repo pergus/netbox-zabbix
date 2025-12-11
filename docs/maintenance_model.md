@@ -157,16 +157,5 @@ if maintenance.disable_data_collection:
     print("Data collection is disabled during this maintenance")
 ```
 
-## Best Practices
-
-1. **Descriptive Naming**: Use clear, descriptive names for maintenance windows to facilitate identification and reporting.
-
-2. **Appropriate Duration**: Set realistic maintenance window durations to avoid unnecessarily long periods of reduced monitoring.
-
-3. **Target Precision**: Use the most specific targeting method possible to avoid affecting unintended hosts.
-
-4. **Data Collection Decision**: Carefully consider whether to disable data collection based on the nature of the maintenance work.
-
-5. **Status Monitoring**: Regularly check maintenance status to ensure windows are progressing as expected.
 
 6. **Documentation**: Use the description field to document the purpose, scope, and any special considerations for each maintenance window.

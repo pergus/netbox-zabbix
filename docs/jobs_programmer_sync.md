@@ -114,14 +114,6 @@ When event logging is enabled, sync operations generate detailed logs that can b
 - Performance analysis
 - Troubleshooting sync issues
 
-## Best Practices
-
-1. **Resource Planning**: Schedule full syncs during maintenance windows or low-traffic periods
-2. **Monitoring**: Monitor job progress and completion, especially for large environments
-3. **Failure Analysis**: Review error logs for failed hosts to identify systemic issues
-4. **Incremental Updates**: Prefer targeted updates over full syncs when possible
-5. **User Context**: Always provide user context for auditability
-6. **Progress Tracking**: Use the built-in progress counters to monitor long-running operations
 
 ## Common Use Cases
 

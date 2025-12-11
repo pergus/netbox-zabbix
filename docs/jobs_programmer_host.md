@@ -220,11 +220,3 @@ job = DeleteZabbixHost.run_job(
 )
 ```
 
-## Best Practices
-
-1. **Asynchronous Operations**: Use job enqueuing for long-running operations to maintain UI responsiveness
-2. **Error Recovery**: Implement proper cleanup procedures for failed operations
-3. **Audit Trail**: Always pass user and request information for proper audit logging
-4. **Resource Management**: Consider the impact of concurrent host operations on Zabbix performance
-5. **Validation**: Validate HostConfig objects before enqueuing jobs
-6. **Naming**: Use descriptive job names to facilitate monitoring and debugging

@@ -176,17 +176,6 @@ In active mode, the proxy actively connects to agents to collect data. Configura
 In passive mode, the proxy waits for the Zabbix server to connect and request data. Configuration fields:
 - `address` and `port`: Where the Zabbix server connects to the proxy
 
-## Best Practices
-
-1. **Network Configuration**: Ensure proper network connectivity between proxies, agents, and the Zabbix server based on the operating mode.
-
-2. **Encryption Security**: When using PSK encryption, use strong pre-shared keys with at least 32 hexadecimal digits.
-
-3. **Timeout Tuning**: Adjust timeout values based on network latency and the complexity of checks being performed.
-
-4. **Proxy Group Assignment**: Use proxy groups for critical monitoring infrastructure to ensure high availability.
-
-5. **Resource Planning**: Monitor proxy resource usage (CPU, memory, disk I/O) and plan capacity accordingly.
 
 6. **Descriptive Naming**: Use clear, descriptive names for proxies to facilitate management and troubleshooting.
 

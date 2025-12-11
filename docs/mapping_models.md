@@ -165,14 +165,3 @@ matching_mapping = DeviceMapping.get_matching_filter(device)
 devices = matching_mapping.get_matching_devices()
 ```
 
-## Best Practices
-
-1. **Specificity Ordering**: Create more specific mappings before general ones, as the system selects the most specific match.
-
-2. **Default Mappings**: Always ensure you have default mappings configured to handle devices/VMs that don't match any specific mappings.
-
-3. **Descriptive Names**: Use clear, descriptive names for mappings to facilitate management and troubleshooting.
-
-4. **Filter Strategy**: Use filters judiciously to avoid overly complex matching logic that's hard to maintain.
-
-5. **Regular Review**: Periodically review mappings to ensure they align with current infrastructure organization.
