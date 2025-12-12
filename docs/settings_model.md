@@ -1,101 +1,243 @@
-# NetBox Zabbix Plugin - Settings Model Documentation
-
-The Settings model in the NetBox Zabbix plugin provides a centralized configuration system for managing the integration between NetBox and Zabbix monitoring systems. This comprehensive configuration framework controls how the plugin interacts with Zabbix servers, manages host configurations, and handles synchronization processes while maintaining security and operational flexibility.
+# Setting Model
 
 ## Overview
 
-The Settings model stores global configuration parameters that govern plugin behavior across all operations. This centralized approach ensures consistent configuration management while providing the flexibility needed for diverse operational environments. The model implements robust validation mechanisms to prevent misconfiguration and maintains encrypted storage for sensitive credentials such as API tokens.
+The `Setting` model provides a centralized configuration system for managing the integration between NetBox and Zabbix monitoring systems. This comprehensive configuration framework controls how the plugin interacts with Zabbix servers, manages host configurations, and handles synchronization processes while maintaining security and operational flexibility.
+
+## Model Definition
+
+The Setting model stores global configuration parameters that govern plugin behavior across all operations. This centralized approach ensures consistent configuration management while providing the flexibility needed for diverse operational environments. The model implements robust validation mechanisms to prevent misconfiguration and maintains encrypted storage for sensitive credentials such as API tokens.
 
 Configuration parameters are organized into logical groups that correspond to different aspects of plugin functionality, making it easier for administrators to understand and manage complex integration requirements. The model supports both required and optional configuration elements, allowing organizations to implement monitoring solutions that match their specific operational needs.
 
-## General Settings
+## Fields
 
-General settings control fundamental plugin behavior and user experience characteristics. These parameters influence how the plugin processes infrastructure data and presents information to users through the NetBox interface.
+| Field | Type | Description | Notes |
+|-------|------|-------------|-------|
+| `name` | CharField (max_length=255) | Name of the setting | Human-readable identifier |
+| `ip_assignment_method` | CharField (max_length=16) | Method used to assign IPs to host interfaces | Choices: 'manual', 'primary'. Default: 'primary' |
+| `event_log_enabled` | BooleanField | Enable event logging | Default: False |
+| `auto_validate_importables` | BooleanField | Automatically validate importable hosts | Default: False |
+| `auto_validate_quick_add` | BooleanField | Automatically validate quick-add hosts | Default: False |
+| `max_deletions` | IntegerField | Limits deletions of stale entries on Zabbix imports | Default: 3 |
+| `max_success_notifications` | IntegerField | Max number of success messages shown per job | Default: 3 |
+| `zabbix_import_interval` | PositiveIntegerField | Interval in minutes between each Zabbix import | Choices from SystemJobIntervalChoices |
+| `host_config_sync_interval` | PositiveIntegerField | Interval in minutes between each Host Config Sync check | Choices from SystemJobIntervalChoices |
+| `cutoff_host_config_sync` | PositiveIntegerField | Minutes to look back when determining which HostConfigs need syncing | Default: 60 |
+| `maintenance_cleanup_interval` | PositiveIntegerField | Interval in minutes between maintenance cleanup | Choices from SystemJobIntervalChoices |
+| `version` | CharField (max_length=255) | Zabbix server version | Nullable |
+| `api_endpoint` | CharField (max_length=255) | URL to the Zabbix API endpoint | Required |
+| `web_address` | CharField (max_length=255) | URL to the Zabbix web interface | Required |
+| `_encrypted_token` | TextField | Encrypted API token | Stored in encrypted format |
+| `connection` | BooleanField | Connection status to Zabbix | Default: False |
+| `last_checked_at` | DateTimeField | When connection was last verified | Nullable |
+| `delete_setting` | CharField (max_length=10) | Delete settings mode | Choices: 'soft', 'hard'. Default: 'soft' |
+| `graveyard` | CharField (max_length=255) | Host Group for soft deletes | Default: "graveyard" |
+| `graveyard_suffix` | CharField (max_length=255) | Suffix for deleted hosts | Default: "_archived" |
+| `exclude_custom_field_name` | CharField (max_length=255) | Custom field name for exclusion | Default: "Exclude from Zabbix" |
+| `exclude_custom_field_enabled` | BooleanField | Enable custom field exclusion | Default: False |
+| `useip` | IntegerField | Connect via IP or DNS | Choices from UseIPChoices. Default: IP |
+| `inventory_mode` | IntegerField | Mode for populating inventory | Choices from InventoryModeChoices. Default: MANUAL |
+| `monitored_by` | IntegerField | Method used to monitor hosts | Choices from MonitoredByChoices. Default: ZabbixServer |
+| `tls_connect` | IntegerField | TLS mode for outgoing connections | Choices from TLSConnectChoices. Default: PSK |
+| `tls_accept` | IntegerField | TLS mode accepted for incoming connections | Choices from TLSAcceptChoices. Default: PSK |
+| `tls_psk_identity` | CharField (max_length=255) | PSK identity | Nullable |
+| `tls_psk` | CharField (max_length=255) | Pre-shared key | Nullable |
+| `agent_port` | IntegerField | Agent default port | Default: 10050 |
+| `snmp_port` | IntegerField | SNMP default port | Default: 161 |
+| `snmp_bulk` | IntegerField | Whether to use bulk SNMP requests | Choices from SNMPBulkChoices. Default: YES |
+| `snmp_max_repetitions` | IntegerField | Max repetition value for native SNMP bulk requests | Default: 10 |
+| `snmp_contextname` | CharField (max_length=255) | SNMP context name | Nullable |
+| `snmp_securityname` | CharField (max_length=255) | SNMP security name | Default: "{$SNMPV3_USER}" |
+| `snmp_securitylevel` | IntegerField | SNMP security level | Choices from SNMPSecurityLevelChoices. Default: authPriv |
+| `snmp_authprotocol` | IntegerField | SNMP authentication protocol | Choices from SNMPAuthProtocolChoices. Default: SHA1 |
+| `snmp_authpassphrase` | CharField (max_length=255) | SNMP authentication passphrase | Default: "{$SNMPV3_AUTHPASS}" |
+| `snmp_privprotocol` | IntegerField | SNMP privacy protocol | Choices from SNMPPrivProtocolChoices. Default: AES128 |
+| `snmp_privpassphrase` | CharField (max_length=255) | SNMP privacy passphrase | Default: "{$SNMPV3_PRIVPASS}" |
+| `default_tag` | CharField (max_length=255) | Tag applied to all hosts | Nullable |
+| `tag_prefix` | CharField (max_length=255) | Prefix added to all tags | Nullable |
+| `tag_name_formatting` | CharField (max_length=10) | Tag name formatting | Choices: 'keep', 'upper', 'lower'. Default: 'keep' |
 
-The configuration name serves as a human-readable identifier that helps administrators distinguish between different configuration profiles when multiple settings objects exist. The IP assignment method determines how the plugin selects IP addresses for host interface configuration, with options for manual specification or automatic selection from primary IPv4 addresses.
+## Properties
 
-Event logging capabilities provide detailed audit trails for plugin operations, enabling administrators to troubleshoot issues and maintain compliance with operational standards. The auto-validation features for importable and quick-add hosts streamline provisioning workflows by automatically verifying object eligibility before manual intervention is required.
+### `token`
 
-## Background Job Settings
+Property for getting and setting the encrypted API token.
 
-Background job settings control operational parameters for asynchronous processing tasks that handle time-consuming operations without blocking user interface interactions. These settings balance system performance with operational requirements by limiting concurrent operations and controlling notification verbosity.
+**Getter Returns:**
+- `str` or `None`: Decrypted token or None if decryption fails
 
-The maximum deletions parameter prevents accidental mass deletion events during Zabbix import operations, providing a safety mechanism that protects against catastrophic data loss. Success notification limits control the volume of completion messages generated by background jobs, preventing excessive logging that might impact system performance or obscure important operational information.
+**Setter:**
+- Encrypts and stores the provided token value
 
-## System Job Settings
+## Methods
 
-System job settings govern the frequency and scope of automated synchronization operations that maintain consistency between NetBox and Zabbix systems. These parameters determine how often the plugin checks for configuration drift and updates local caches with current Zabbix object information.
+### `__str__()`
 
-Import intervals control how frequently the plugin retrieves current Zabbix configuration data, ensuring that local object references remain current without overwhelming the Zabbix API with excessive requests. Host configuration sync intervals determine how often the plugin verifies synchronization status between NetBox host configurations and Zabbix monitoring configurations.
+Return a human-readable string representation of the object.
 
-The sync lookback period defines the time window used to identify host configurations that require synchronization checks, optimizing performance by focusing attention on recently modified objects. Maintenance cleanup intervals control how frequently expired maintenance windows are removed from both systems, preventing accumulation of obsolete configuration data.
+**Returns:**
+- `str`: Human-readable name of the object
 
-## Zabbix Server Connection Settings
+### `get_absolute_url()`
 
-Zabbix server connection settings establish and maintain communication pathways between NetBox and Zabbix monitoring systems. These parameters include essential connectivity information and authentication credentials required for API operations.
+Return the canonical URL for this object within the plugin UI.
 
-The API endpoint specifies the complete URL for Zabbix API access, including protocol, hostname, and path information needed to establish communication. The web address provides a user-friendly URL for accessing the Zabbix web interface, enabling seamless navigation between NetBox and Zabbix management interfaces.
+**Returns:**
+- `str`: Absolute URL for the setting
 
-API authentication tokens are stored using strong encryption to protect sensitive credentials while maintaining accessibility for authorized plugin operations. The connection status indicator provides real-time feedback about communication health, helping administrators quickly identify connectivity issues.
+### `get_system_jobs_scheduled()`
 
-Version information tracking enables the plugin to adapt its behavior based on Zabbix server capabilities, ensuring compatibility across different Zabbix versions and feature sets. Last checked timestamps provide temporal context for connection status information, helping administrators understand when connectivity was last verified.
+Return the system job scheduled status.
 
-## Deletion Settings
+**Returns:**
+- HTML-formatted string with checkmark or cross indicating job status
 
-Deletion settings control how the plugin handles removal of monitoring configurations when NetBox objects are deleted or decommissioned. These parameters determine whether deleted objects are permanently removed or relocated to archival locations for potential recovery.
+### `get_fernet()`
 
-Soft deletion modes move decommissioned hosts to designated graveyard host groups rather than permanently removing them from Zabbix, providing a safety net for accidental deletions. Hard deletion modes permanently remove objects from Zabbix, freeing system resources but eliminating recovery options.
+Return a Fernet instance if the key exists.
 
-Graveyard host group specifications identify where soft-deleted hosts are relocated within Zabbix, enabling organized archival of decommissioned monitoring configurations. Hostname suffixes provide clear identification of archived objects, preventing naming conflicts while maintaining traceability to original configurations.
+**Returns:**
+- `Fernet` instance or `None`
 
-## Exclusion Settings
+### `token` (property)
 
-Exclusion settings enable selective omission of NetBox objects from Zabbix synchronization processes, providing fine-grained control over monitoring coverage. These parameters identify objects that should be ignored during provisioning and synchronization operations.
+Getter and setter for the encrypted token.
 
-Custom field names specify which NetBox custom fields are used to mark objects for exclusion from monitoring synchronization. When exclusion fields are enabled, objects with appropriate field values are automatically skipped during provisioning workflows, reducing manual intervention requirements for special-case objects.
+**Returns:**
+- Decrypted token (getter) or None if decryption fails
+- Sets encrypted token (setter)
 
-## Common Protocol Defaults
+### `save(*args, **kwargs)`
 
-Common protocol defaults establish baseline communication parameters for host interface configurations, ensuring consistent monitoring connectivity across diverse infrastructure components. These parameters define default behaviors for IP address resolution, inventory management, and security protocols.
+Save the Setting instance to the database and schedule system jobs.
 
-Connection method settings determine whether monitoring communications use IP addresses or DNS names, accommodating different network architectures and security requirements. Inventory mode configurations control how Zabbix populates host inventory information, supporting manual, automatic, or disabled inventory management approaches.
+**Parameters:**
+- `*args`: Positional arguments passed to the model save method
+- `**kwargs`: Keyword arguments passed to the model save method
 
-Monitoring source specifications determine whether hosts are monitored directly by Zabbix servers or through distributed proxy architectures, enabling scalable monitoring deployments. TLS configuration parameters establish secure communication protocols for encrypted monitoring connections, supporting both pre-shared key and certificate-based authentication methods.
+## Usage Examples
 
-## Agent Interface Defaults
+### Creating a Basic Setting Configuration
+```python
+from netbox_zabbix.models import Setting
 
-Agent interface defaults provide standard configuration parameters for Zabbix agent monitoring connections, ensuring consistent agent-based monitoring across infrastructure components. These parameters establish baseline connectivity settings that can be overridden for specific hosts or environments.
+# Create a basic setting configuration
+setting = Setting.objects.create(
+    name="Production Zabbix",
+    api_endpoint="https://zabbix.example.com/api_jsonrpc.php",
+    web_address="https://zabbix.example.com/",
+    # Add other required fields as needed
+)
+```
 
-Default agent port specifications identify the standard TCP port used for Zabbix agent communications, accommodating both standard and custom port configurations. These defaults streamline agent host provisioning by automatically applying appropriate port settings during interface creation.
+### Configuring Connection Settings
+```python
+# Configure Zabbix server connection
+setting.api_endpoint = "https://zabbix.example.com/api_jsonrpc.php"
+setting.web_address = "https://zabbix.example.com/"
+setting.token = "your-api-token-here"  # Will be encrypted automatically
+setting.save()
+```
 
-## SNMP Interface Defaults
+### Setting Up TLS Configuration
+```python
+from netbox_zabbix.models import TLSConnectChoices, TLSAcceptChoices
 
-SNMP interface defaults establish standard configuration parameters for SNMP-based monitoring connections, supporting diverse network infrastructure components that implement SNMP protocols. These parameters include protocol-specific settings for SNMP versions, security levels, and authentication mechanisms.
+# Configure PSK encryption
+setting.tls_connect = TLSConnectChoices.PSK
+setting.tls_accept = TLSAcceptChoices.PSK
+setting.tls_psk_identity = "my_plugin_identity"
+setting.tls_psk = "a1b2c3d4e5f67890abcdef1234567890"  # Should be at least 32 hex digits
+setting.save()
+```
 
-Port specifications identify standard UDP ports for SNMP communications, while bulk request settings optimize performance for devices that support SNMP bulk operations. Maximum repetition values control the scope of bulk retrieval operations, balancing performance optimization with network resource utilization.
+### Configuring Host Management Settings
+```python
+# Configure deletion settings
+setting.delete_setting = "soft"  # or "hard"
+setting.graveyard = "archived_hosts"
+setting.graveyard_suffix = "_deleted"
+setting.save()
 
-SNMPv3 security configurations enable secure monitoring communications through authentication and privacy protocols, supporting modern security requirements for network infrastructure monitoring. Context names provide SNMPv3 namespace isolation, enabling organized management of complex network environments.
+# Configure exclusion settings
+setting.exclude_custom_field_name = "Exclude from Monitoring"
+setting.exclude_custom_field_enabled = True
+setting.save()
+```
 
-Security name specifications identify SNMPv3 user accounts for authentication purposes, while security level settings determine the extent of authentication and privacy protections applied to monitoring communications. Authentication protocols and passphrases establish credential-based verification for SNMP operations, while privacy protocols and passphrases provide encryption for sensitive monitoring data.
+### Setting Up SNMP Defaults
+```python
+from netbox_zabbix.models import SNMPSecurityLevelChoices, SNMPAuthProtocolChoices, SNMPPrivProtocolChoices
 
-## Tag Settings
+# Configure SNMP defaults
+setting.snmp_port = 161
+setting.snmp_securitylevel = SNMPSecurityLevelChoices.authPriv
+setting.snmp_authprotocol = SNMPAuthProtocolChoices.SHA1
+setting.snmp_privprotocol = SNMPPrivProtocolChoices.AES128
+setting.save()
+```
 
-Tag settings control how the plugin applies metadata labels to synchronized Zabbix hosts, enabling organized management and filtering of monitoring configurations. These parameters determine global tagging behaviors that apply to all synchronized hosts.
+### Configuring System Job Intervals
+```python
+from netbox_zabbix.models import SystemJobIntervalChoices
 
-Default tag specifications identify metadata labels that are automatically applied to all synchronized hosts, providing consistent categorization across monitoring environments. Tag prefix configurations enable namespace organization for plugin-generated tags, preventing conflicts with manually applied labels.
+# Configure system job intervals
+setting.zabbix_import_interval = SystemJobIntervalChoices.INTERVAL_HOURLY
+setting.host_config_sync_interval = SystemJobIntervalChoices.INTERVAL_EVERY_2_HOURS
+setting.maintenance_cleanup_interval = SystemJobIntervalChoices.INTERVAL_DAILY
+setting.save()
+```
 
-Tag name formatting options control how tag identifiers are processed during synchronization, supporting uppercase, lowercase, or preservation of original formatting. These settings ensure consistent tag presentation across different operational environments and user preferences.
+## Integration with Other Models
 
-## Validation and Constraints
+Setting integrates with several other components in the plugin:
 
-The Settings model implements comprehensive validation mechanisms to ensure data integrity and prevent operational misconfigurations. Choice field restrictions limit configuration values to predefined valid options, preventing typos and incompatible settings that might cause operational failures.
+1. **System Jobs**: Settings control the frequency and behavior of automated system jobs for importing Zabbix data and synchronizing host configurations.
 
-Encrypted token storage protects sensitive authentication credentials using industry-standard encryption algorithms, ensuring that API tokens remain secure even if database access is compromised. Data type constraints enforce appropriate value types for numeric, boolean, and text configuration parameters, preventing invalid data from corrupting plugin operations.
+2. **HostConfig Model**: Settings provide default values and configuration parameters that are used when creating and managing HostConfig objects.
 
-Custom validation logic implements business rules that ensure configuration consistency across related parameters, such as requiring TLS identity strings when PSK authentication is enabled. Interface and IP matching validation prevents configuration conflicts that might cause monitoring connectivity failures.
+3. **Proxy and ProxyGroup Models**: Settings define default TLS and connection parameters that are used for proxy configurations.
 
-## Accessing Settings
+4. **Interface Models**: Settings provide default port numbers, TLS configurations, and connection methods for both AgentInterface and SNMPInterface objects.
 
-Settings can be accessed programmatically through helper functions that provide safe, consistent access to configuration parameters with appropriate default values for unset options. These helper functions abstract the complexity of settings retrieval while ensuring that plugin operations continue smoothly even when specific configuration elements are not explicitly defined.
+5. **Zabbix API**: Settings store the connection information and authentication credentials needed to communicate with the Zabbix API.
 
-The settings retrieval system supports both direct object access for comprehensive configuration inspection and specific getter functions for individual parameter access. This dual approach accommodates both general configuration management needs and specific operational requirements that demand targeted parameter access.
+## Description
+
+The Setting model provides a comprehensive configuration framework that controls all aspects of the NetBox Zabbix plugin's operation. It centralizes configuration management, making it easier to maintain consistent settings across different environments and deployment scenarios.
+
+Key configuration areas managed by the Setting model include:
+
+**Connection Management:**
+- Zabbix server API endpoint and web interface URLs
+- Authentication token storage with encryption
+- Connection status monitoring and verification
+
+**Host Configuration:**
+- Default interface settings for agent and SNMP connections
+- IP assignment methods and connection preferences
+- Inventory mode configurations
+- Default monitoring sources (server, proxy, or proxy group)
+
+**Security Configuration:**
+- TLS connection settings for encrypted communications
+- PSK identity and key management
+- Certificate-based authentication parameters
+
+**Operational Parameters:**
+- System job scheduling intervals for imports and synchronization
+- Deletion policies for soft vs. hard deletion of monitoring objects
+- Event logging and notification thresholds
+- Automatic validation settings for importable and quick-add hosts
+
+**Exclusion Management:**
+- Custom field-based exclusion of NetBox objects from monitoring
+- Configuration of exclusion field names and enablement
+
+**Tagging Configuration:**
+- Default tags applied to all synchronized hosts
+- Tag prefix configurations for namespace organization
+- Tag name formatting options (uppercase, lowercase, or preserved)
+
+The model implements robust validation to prevent misconfiguration and ensures that sensitive data like API tokens are properly encrypted. It also provides programmatic access to settings through helper methods and properties, making it easy for other parts of the plugin to retrieve configuration values safely.

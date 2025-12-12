@@ -1,8 +1,10 @@
 # NetBox Zabbix Plugin - HostGroup Documentation
 
-The HostGroup in the NetBox Zabbix plugin represents Zabbix host groups, which are logical containers for organizing and managing hosts in the Zabbix monitoring system. This document explains the HostGroup's structure, fields, methods, and usage.
-
 ## Overview
+
+The HostGroup in the NetBox Zabbix plugin represents Zabbix host groups, which are logical containers for organizing and managing hosts in the Zabbix monitoring system. This document explains the HostGroup's structure, fields, properties, methods, and usage.
+
+## Model Definition
 
 The HostGroup synchronizes with Zabbix host groups and maintains the relationship between NetBox and Zabbix grouping structures. Host groups in Zabbix provide a way to organize hosts logically for easier management, permission control, and applying configurations.
 
@@ -13,8 +15,6 @@ The HostGroup synchronizes with Zabbix host groups and maintains the relationshi
 | `name` | CharField (max_length=255) | Name of the host group | Human-readable identifier |
 | `groupid` | CharField (max_length=255) | Unique identifier in Zabbix | Blank/null allowed, populated during sync |
 | `last_synced` | DateTimeField | Last synchronization timestamp | Blank/null allowed |
-
-## Field Details
 
 ### `name`
 The human-readable name of the host group as it appears in both NetBox and Zabbix. This field is required and serves as the primary identifier for the host group.
@@ -30,11 +30,14 @@ Timestamp indicating when the host group was last synchronized with Zabbix. This
 ### `__str__()`
 Returns the host group name as a human-readable string representation.
 
+**Returns:**
+- `str`: Host group name
+
 ### `get_absolute_url()`
-Returns the canonical URL for this host group within the NetBox plugin UI:
-```
-/plugins/netbox_zabbix/hostgroups/{pk}/
-```
+Returns the canonical URL for this host group within the NetBox plugin UI.
+
+**Returns:**
+- `str`: Absolute URL for the host group
 
 ### `create_new_host_group()`
 Creates a new host group in Zabbix with the current name and updates the `groupid` field with the Zabbix-assigned identifier.
@@ -96,10 +99,13 @@ HostGroup integrates with several other models in the plugin:
 2. **Mapping Models**: DeviceMapping and VMMapping can specify host groups for matching hosts.
 3. **Maintenance Model**: Maintenance windows can target specific host groups.
 
-## Error Handling
+## Description
 
-The HostGroup model includes robust error handling for Zabbix operations:
+The HostGroup model provides synchronization capabilities between NetBox and Zabbix host group structures. It maintains the relationship between organizational units in both systems, enabling consistent grouping and management of monitored hosts.
 
-- If a host group cannot be deleted from Zabbix (e.g., if it contains hosts), it will still be removed from NetBox but will return a warning message.
-- All Zabbix API operations are wrapped in try-except blocks to handle connection issues gracefully.
-- The model preserves the `groupid` field even if Zabbix operations fail, allowing for recovery operations.
+Key features include:
+- Automatic synchronization with Zabbix host groups
+- Bidirectional management of host group membership
+- Robust error handling for Zabbix API operations
+- Integration with HostConfig, Mapping, and Maintenance models
+- Preservation of Zabbix identifiers for recovery operations

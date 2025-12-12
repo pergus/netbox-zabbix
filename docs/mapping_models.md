@@ -1,12 +1,16 @@
-# NetBox Zabbix Plugin - Mapping Documentation
-
-The Mapping in the NetBox Zabbix plugin define how NetBox objects (devices and virtual machines) are mapped to Zabbix monitoring configurations. This document explains the Mapping, DeviceMapping, and VMMapping's structure, fields, and usage.
+# Mapping Models
 
 ## Overview
 
-The Mapping provide a flexible system for defining how NetBox objects should be configured in Zabbix. The base `Mapping`  defines common configuration elements, while `DeviceMapping` and `VMMapping` inherit from it to provide object-specific functionality.
+The Mapping models in the NetBox Zabbix plugin define how NetBox objects (devices and virtual machines) are mapped to Zabbix monitoring configurations. This document explains the Mapping, DeviceMapping, and VMMapping models' structure, fields, properties, methods, and usage.
 
-## Base Mapping Fields
+## Model Definition
+
+The Mapping models provide a flexible system for defining how NetBox objects should be configured in Zabbix. The base `Mapping` model defines common configuration elements, while `DeviceMapping` and `VMMapping` inherit from it to provide object-specific functionality.
+
+Mappings allow administrators to automatically configure Zabbix monitoring for NetBox devices and virtual machines based on their characteristics. More specific mappings (those with more filter criteria) take precedence over less specific ones.
+
+## Fields
 
 | Field | Type | Description | Notes |
 |-------|------|-------------|-------|
@@ -21,44 +25,6 @@ The Mapping provide a flexible system for defining how NetBox objects should be 
 | `sites` | ManyToManyField (Site) | Site filters | Restrict to specific sites |
 | `roles` | ManyToManyField (DeviceRole) | Role filters | Restrict to specific roles |
 | `platforms` | ManyToManyField (Platform) | Platform filters | Restrict to specific platforms |
-
-## DeviceMapping
-
-The DeviceMapping inherits from the base Mapping  and provides device-specific functionality for matching NetBox Device objects to Zabbix configurations.
-
-### Methods
-
-#### `get_matching_filter(cls, device, interface_type=InterfaceTypeChoices.Any)`
-Class method that returns the most specific DeviceMapping that matches a given device based on site, role, and platform filters.
-
-#### `get_matching_devices(self)`
-Returns a queryset of Device objects that match this mapping, excluding devices already covered by more specific mappings.
-
-#### `get_absolute_url(self)`
-Returns the canonical URL for this device mapping within the NetBox plugin UI:
-```
-/plugins/netbox_zabbix/devicemappings/{pk}/
-```
-
-## VMMapping
-
-The VMMapping inherits from the base Mapping model and provides virtual machine-specific functionality for matching NetBox VirtualMachine objects to Zabbix configurations.
-
-### Methods
-
-#### `get_matching_filter(cls, virtual_machine, interface_type=InterfaceTypeChoices.Any)`
-Class method that returns the most specific VMMapping that matches a given virtual machine based on site, role, and platform filters.
-
-#### `get_matching_virtual_machines(self)`
-Returns a queryset of VirtualMachine objects that match this mapping, excluding VMs already covered by more specific mappings.
-
-#### `get_absolute_url(self)`
-Returns the canonical URL for this VM mapping within the NetBox plugin UI:
-```
-/plugins/netbox_zabbix/vmmappings/{pk}/
-```
-
-## Field Details
 
 ### `name`
 Human-readable identifier for the mapping. Should be descriptive and unique within the mapping type.
@@ -94,6 +60,90 @@ Many-to-many relationships that restrict which devices or VMs this mapping appli
 - `platforms`: Restricts to devices/VMs running specific platforms
 
 If any filter field is left empty, that filter is ignored (matches all values for that field).
+
+## Properties
+
+The base Mapping model does not define any computed properties. However, the DeviceMapping and VMMapping subclasses inherit and extend the functionality.
+
+## Methods
+
+### `delete(*args, **kwargs)`
+Delete this mapping instance from the database.
+
+**Raises:**
+- `ValidationError`: If the mapping is marked as default, it cannot be deleted.
+
+**Parameters:**
+- `*args`: Positional arguments passed to the model delete method
+- `**kwargs`: Keyword arguments passed to the model delete method
+
+### `__str__()`
+Return a human-readable string representation of the object.
+
+**Returns:**
+- `str`: Human-readable name of the object
+
+### `get_absolute_url()`
+Return the canonical URL for this object within the plugin UI.
+
+**Returns:**
+- `str`: Absolute URL as a string. Can be None if not applicable.
+
+## DeviceMapping
+
+The DeviceMapping inherits from the base Mapping model and provides device-specific functionality for matching NetBox Device objects to Zabbix configurations.
+
+### Methods
+
+#### `get_matching_filter(cls, device, interface_type=InterfaceTypeChoices.Any)`
+Class method that returns the most specific DeviceMapping that matches a given device based on site, role, and platform filters.
+
+**Parameters:**
+- `device` (Device): Device instance to match
+- `interface_type` (int): Interface type to filter by (default: Any)
+
+**Returns:**
+- `DeviceMapping`: Matching mapping object
+
+#### `get_matching_devices(self)`
+Returns a queryset of Device objects that match this mapping, excluding devices already covered by more specific mappings.
+
+**Returns:**
+- `QuerySet`: Matching Device instances
+
+#### `get_absolute_url(self)`
+Returns the canonical URL for this device mapping within the NetBox plugin UI.
+
+**Returns:**
+- `str`: Absolute URL for the device mapping
+
+## VMMapping
+
+The VMMapping inherits from the base Mapping model and provides virtual machine-specific functionality for matching NetBox VirtualMachine objects to Zabbix configurations.
+
+### Methods
+
+#### `get_matching_filter(cls, virtual_machine, interface_type=InterfaceTypeChoices.Any)`
+Class method that returns the most specific VMMapping that matches a given virtual machine based on site, role, and platform filters.
+
+**Parameters:**
+- `virtual_machine` (VirtualMachine): VM instance to match
+- `interface_type` (int): Interface type to filter by (default: Any)
+
+**Returns:**
+- `VMMapping`: Matching mapping object
+
+#### `get_matching_virtual_machines(self)`
+Returns a queryset of VirtualMachine objects that match this mapping, excluding VMs already covered by more specific mappings.
+
+**Returns:**
+- `QuerySet`: Matching VirtualMachine instances
+
+#### `get_absolute_url(self)`
+Returns the canonical URL for this VM mapping within the NetBox plugin UI.
+
+**Returns:**
+- `str`: Absolute URL for the VM mapping
 
 ## Usage Examples
 
@@ -165,3 +215,50 @@ matching_mapping = DeviceMapping.get_matching_filter(device)
 devices = matching_mapping.get_matching_devices()
 ```
 
+## Integration with Other Models
+
+Mapping models integrate with several other models in the plugin:
+
+1. **HostConfig Model**: Mappings determine which Zabbix configuration is applied to Device and VirtualMachine objects when they are provisioned for monitoring.
+
+2. **HostGroup Model**: Mappings can assign HostGroup objects to devices/VMs for organizational purposes.
+
+3. **Template Model**: Mappings can assign Template objects to devices/VMs for monitoring configuration.
+
+4. **Proxy and ProxyGroup Models**: Mappings can specify which Proxy or ProxyGroup should monitor matching devices/VMs.
+
+5. **Device and VirtualMachine Models**: Mappings filter and match against these core NetBox models based on their characteristics.
+
+6. **Site, DeviceRole, and Platform Models**: Mappings use these models as filter criteria to determine which devices/VMs they apply to.
+
+## Description
+
+The Mapping models provide a powerful and flexible system for automatically configuring Zabbix monitoring based on NetBox object characteristics. This allows administrators to define rules that automatically apply appropriate monitoring configurations to devices and virtual machines without manual intervention.
+
+Key features of the Mapping system include:
+
+**Flexible Filtering:**
+- Filter devices/VMs by site, role, and platform
+- Support for multiple filter criteria combinations
+- Empty filters match all values for that field
+- More specific mappings take precedence over less specific ones
+
+**Configuration Assignment:**
+- Assign multiple host groups to matching objects
+- Apply multiple templates for comprehensive monitoring
+- Specify monitoring via proxy or proxy group
+- Limit mappings to specific interface types (Agent, SNMP, or Any)
+
+**Hierarchical Organization:**
+- Base Mapping model provides common functionality
+- DeviceMapping for device-specific features
+- VMMapping for virtual machine-specific features
+- Default mappings serve as fallback for unmatched objects
+
+**Smart Matching Logic:**
+- Automatic selection of most specific matching mapping
+- Exclusion of objects covered by more specific mappings
+- Support for interface type restrictions
+- Efficient queryset-based matching
+
+The system is designed to scale from simple blanket mappings to complex, highly specific configurations. Default mappings ensure that all objects receive some monitoring configuration, while specific mappings allow for granular control over monitoring setups for different types of infrastructure components.

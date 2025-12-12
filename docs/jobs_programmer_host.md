@@ -10,6 +10,8 @@ Host management jobs handle the lifecycle of Zabbix hosts corresponding to NetBo
 
 This job creates a new Zabbix host from a NetBox HostConfig object.
 
+**Note:** For detailed documentation on this job including usage examples and integration details, see [CreateZabbixHost Job](job_createzabbixhost.md).
+
 #### Class Definition
 ```python
 class CreateZabbixHost(AtomicJobRunner)
@@ -59,6 +61,8 @@ Enqueues a job to create a Zabbix host.
 ### UpdateZabbixHost
 
 This job updates an existing Zabbix host to match the current NetBox HostConfig.
+
+**Note:** For detailed documentation on this job including usage examples and integration details, see [UpdateZabbixHost Job](job_updatezabbixhost.md).
 
 #### Class Definition
 ```python
@@ -115,6 +119,8 @@ Immediately updates a Zabbix host synchronously.
 ### DeleteZabbixHost
 
 This job deletes a Zabbix host, supporting both hard and soft deletion methods.
+
+**Note:** For detailed documentation on this job including usage examples and integration details, see [DeleteZabbixHost Job](job_deletezabbixhost.md).
 
 #### Class Definition
 ```python

@@ -1,4 +1,4 @@
-# Script Provisioning Guide for NetBox Zabbix Plugin
+# Scripting Guide for NetBox Zabbix Plugin
 
 ## Overview
 

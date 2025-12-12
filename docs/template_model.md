@@ -1,8 +1,10 @@
 # NetBox Zabbix Plugin - Template Documentation
 
-The Template in the NetBox Zabbix plugin represents Zabbix templates that can be applied to hosts for monitoring configuration. This document explains the Template's structure, fields, relationships, and usage.
-
 ## Overview
+
+The Template in the NetBox Zabbix plugin represents Zabbix templates that can be applied to hosts for monitoring configuration. This document explains the Template's structure, fields, properties, methods, and usage.
+
+## Model Definition
 
 The Template model synchronizes with Zabbix templates and maintains relationships between templates in both NetBox and Zabbix systems. Templates in Zabbix define the monitoring configuration that can be applied to multiple hosts.
 
@@ -15,33 +17,49 @@ The Template model synchronizes with Zabbix templates and maintains relationship
 | `last_synced` | DateTimeField | Last synchronization timestamp | Nullable, tracks sync status |
 | `interface_type` | IntegerField | Required interface type | Default: `Any` (0). Options: `Any` (0), `Agent` (1), `SNMP` (2) |
 
-## Relationships
+### `name`
+The human-readable name of the Zabbix template as it appears in both NetBox and Zabbix. This field serves as the primary identifier for the template.
 
-| Relationship | Type | Description | Notes |
-|--------------|------|-------------|-------|
-| `parents` | ManyToManyField (self) | Parent templates (linked as children) | Asymmetrical, blank allowed |
-| `children` | RelatedManager | Child templates (reverse of parents) | Automatically created |
-| `dependencies` | ManyToManyField (self) | Template dependencies | Asymmetrical, blank allowed |
-| `dependents` | RelatedManager | Dependent templates (reverse of dependencies) | Automatically created |
+### `templateid`
+The unique identifier assigned by Zabbix for this template. This field is populated automatically when the template is created or synchronized with Zabbix.
 
-## Interface Type Choices
+### `last_synced`
+Timestamp indicating when the template was last synchronized with Zabbix. This helps track the freshness of the data in NetBox compared to Zabbix.
 
-The `interface_type` field determines what kind of interface is required for hosts using this template:
-
+### `interface_type`
+Determines what kind of interface is required for hosts using this template:
 - `Any` (0): Template can be applied to hosts with any interface type
 - `Agent` (1): Template requires a Zabbix agent interface
 - `SNMP` (2): Template requires an SNMP interface
+
+### Template Relationships
+Templates can have complex relationships with other templates:
+
+#### `parents`
+Many-to-many relationship to other Template objects representing parent templates (linked as children). This is asymmetrical, meaning if Template A is a parent of Template B, Template B is not automatically a parent of Template A.
+
+#### `children`
+Related manager for child templates (reverse of parents). This is automatically created by Django and provides access to templates that have this template as their parent.
+
+#### `dependencies`
+Many-to-many relationship to other Template objects representing template dependencies. This is asymmetrical, meaning dependencies are directional.
+
+#### `dependents`
+Related manager for dependent templates (reverse of dependencies). This is automatically created by Django and provides access to templates that depend on this template.
 
 ## Methods
 
 ### `__str__()`
 Returns the template name as a human-readable string representation.
 
+**Returns:**
+- `str`: Template name
+
 ### `get_absolute_url()`
-Returns the canonical URL for this template within the NetBox plugin UI:
-```
-/plugins/netbox_zabbix/templates/{pk}/
-```
+Returns the canonical URL for this template within the NetBox plugin UI.
+
+**Returns:**
+- `str`: Absolute URL for the template
 
 ## Usage Examples
 
@@ -99,3 +117,14 @@ Templates are integrated with several other models in the plugin:
 
 3. **Synchronization**: Templates are synchronized with Zabbix to ensure that template information is consistent between both systems.
 
+## Description
+
+The Template model provides synchronization capabilities between NetBox and Zabbix template structures. It maintains the relationship between monitoring configurations in both systems, enabling consistent template application and management.
+
+Key features include:
+- Automatic synchronization with Zabbix templates
+- Support for template hierarchies through parent-child relationships
+- Dependency management between templates
+- Interface type requirements for proper template-host matching
+- Integration with Mapping and HostConfig models
+- Preservation of Zabbix identifiers for recovery operations

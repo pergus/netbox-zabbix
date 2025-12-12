@@ -10,6 +10,8 @@ Sync jobs handle bulk synchronization operations between NetBox and Zabbix. Thes
 
 This job synchronizes all NetBox HostConfig objects with their corresponding hosts in Zabbix immediately.
 
+**Note:** For detailed documentation on this job including usage examples and integration details, see [SyncHostsNow Job](job_synchostsnow.md).
+
 #### Class Definition
 ```python
 class SyncHostsNow(AtomicJobRunner)

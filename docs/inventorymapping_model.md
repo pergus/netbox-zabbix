@@ -1,8 +1,10 @@
 # NetBox Zabbix Plugin - InventoryMapping Documentation
 
-The InventoryMapping in the NetBox Zabbix plugin defines how NetBox object fields are mapped to Zabbix inventory items for devices and virtual machines. This document explains the InventoryMapping's structure, fields, and usage.
-
 ## Overview
+
+The InventoryMapping in the NetBox Zabbix plugin defines how NetBox object fields are mapped to Zabbix inventory items for devices and virtual machines. This document explains the InventoryMapping's structure, fields, properties, methods, and usage.
+
+## Model Definition
 
 The InventoryMapping provides a flexible way to configure which NetBox object fields should be exported as inventory items in Zabbix. Separate mappings can be defined for devices and virtual machines, allowing different inventory strategies for each object type.
 
@@ -12,8 +14,6 @@ The InventoryMapping provides a flexible way to configure which NetBox object fi
 |-------|------|-------------|-------|
 | `object_type` | CharField (max_length=20) | Type of NetBox object | Choices: 'device', 'virtualmachine'. Must be unique. |
 | `selection` | JSONField | Field paths for Zabbix inventory | Structured array defining inventory mappings |
-
-## Field Details
 
 ### `object_type`
 Specifies which type of NetBox object this mapping applies to. Valid choices are:
@@ -28,16 +28,25 @@ A JSON array with a structured format containing arrays with three elements:
 2. **Zabbix Property**: The Zabbix inventory property name
 3. **Field Paths**: Array of NetBox field paths (in order of preference)
 
+For example:
+```json
+["Name", "name", ["device.name", "vm.name"]]
+```
+This maps either `device.name` or `vm.name` to the Zabbix inventory `name` property, displayed as "Name".
+
 ## Methods
 
 ### `__str__()`
 Returns a human-readable string representation in the format "Inventory Mapping {object_type}".
 
+**Returns:**
+- `str`: Human-readable string representation
+
 ### `get_absolute_url()`
-Returns the canonical URL for this inventory mapping within the NetBox plugin UI:
-```
-/plugins/netbox_zabbix/inventorymappings/{pk}/
-```
+Returns the canonical URL for this inventory mapping within the NetBox plugin UI.
+
+**Returns:**
+- `str`: Absolute URL for the inventory mapping
 
 ## Usage Examples
 
@@ -92,3 +101,13 @@ InventoryMapping integrates with the core NetBox models:
 2. **VirtualMachine Model**: Virtual machine inventory mappings determine which VM attributes become Zabbix inventory items
 3. **HostConfig Model**: Inventory mappings are used when creating Zabbix host configurations
 
+## Description
+
+The InventoryMapping model provides a sophisticated configuration system for mapping NetBox object attributes to Zabbix inventory items. This enables automatic population of host inventory data in Zabbix based on NetBox object properties.
+
+Key features include:
+- Separate mappings for devices and virtual machines
+- Structured selection format with display names, Zabbix properties, and field paths
+- Support for multiple field paths with preference ordering
+- Integration with the HostConfig model for inventory population during provisioning
+- Flexible mapping of nested object attributes to inventory fields

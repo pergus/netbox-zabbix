@@ -1,12 +1,14 @@
 # NetBox Zabbix Plugin - ProxyGroup Documentation
 
-The ProxyGroup in the NetBox Zabbix plugin represents Zabbix proxy groups, which are collections of proxies that can provide high availability and load distribution for monitoring. This document explains the ProxyGroup's structure, fields, methods, and usage.
-
 ## Overview
+
+The ProxyGroup in the NetBox Zabbix plugin represents Zabbix proxy groups, which are collections of proxies that can provide high availability and load distribution for monitoring. This document explains the ProxyGroup's structure, fields, properties, methods, and usage.
+
+## Model Definition
 
 The ProxyGroup synchronizes with Zabbix proxy groups and maintains configuration parameters that define how proxy groups operate in the Zabbix monitoring system. Proxy groups allow for failover and load balancing among multiple proxies.
 
-## Model Fields
+## Fields
 
 | Field | Type | Description | Default/Notes |
 |-------|------|-------------|---------------|
@@ -16,8 +18,6 @@ The ProxyGroup synchronizes with Zabbix proxy groups and maintains configuration
 | `min_online` | PositiveSmallIntegerField | Minimum online proxies | Default: 1 |
 | `description` | TextField | Description of the proxy group | Blank/null allowed |
 | `last_synced` | DateTimeField | Last synchronization timestamp | Blank/null allowed |
-
-## Field Details
 
 ### `name`
 The human-readable name of the proxy group as it appears in both NetBox and Zabbix.
@@ -42,11 +42,14 @@ Timestamp indicating when the proxy group was last synchronized with Zabbix.
 ### `__str__()`
 Returns the proxy group name as a human-readable string representation.
 
+**Returns:**
+- `str`: Proxy group name
+
 ### `get_absolute_url()`
-Returns the canonical URL for this proxy group within the NetBox plugin UI:
-```
-/plugins/netbox_zabbix/proxygroups/{pk}/
-```
+Returns the canonical URL for this proxy group within the NetBox plugin UI.
+
+**Returns:**
+- `str`: Absolute URL for the proxy group
 
 ### `create_new_proxy_group()`
 Creates a new proxy group in Zabbix with the current configuration parameters.
@@ -101,10 +104,13 @@ ProxyGroup integrates with several other models in the plugin:
 2. **HostConfig Model**: Host configurations can be assigned to proxy groups for monitoring.
 3. **Mapping Models**: DeviceMapping and VMMapping can specify proxy groups for matching hosts.
 
+## Description
 
-## Error Handling
+The ProxyGroup model provides high availability and load distribution capabilities for Zabbix monitoring by managing groups of proxies. It enables failover mechanisms and ensures continuous monitoring even when individual proxies become unavailable.
 
-The ProxyGroup model includes robust error handling for Zabbix operations:
-
-- If a proxy group cannot be deleted from Zabbix, it will still be removed from NetBox but will return a warning message.
-- All Zabbix API operations are wrapped in try-except blocks to handle connection issues gracefully.
+Key features include:
+- Automatic synchronization with Zabbix proxy groups
+- Configurable failover delay settings
+- Minimum online proxy requirements
+- Integration with Proxy, HostConfig, and Mapping models
+- Robust error handling for Zabbix API operations

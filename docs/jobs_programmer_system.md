@@ -10,6 +10,8 @@ The NetBox Zabbix plugin implements a robust job system for managing background 
 
 This job periodically imports Zabbix settings (templates, proxies, host groups, etc.) into NetBox to keep the local cache up to date.
 
+**Note:** For detailed documentation on this job including usage examples and integration details, see [SystemJobImportZabbixSettings Job](job_systemjobimportzabbixsettings.md).
+
 #### Class Definition
 ```python
 class SystemJobImportZabbixSettings(AtomicJobRunner)
@@ -45,6 +47,8 @@ The job interval is controlled by the `zabbix_import_interval` setting in the pl
 ### SystemJobHostConfigSyncRefresh
 
 This job periodically refreshes the synchronization status of HostConfig objects to ensure they accurately reflect the state in Zabbix.
+
+**Note:** For detailed documentation on this job including usage examples and integration details, see [SystemJobHostConfigSyncRefresh Job](job_systemjobhostconfigsyncrefresh.md).
 
 #### Class Definition
 ```python
@@ -85,6 +89,8 @@ The job interval is controlled by the `host_config_sync_interval` setting, and t
 ### SystemJobMaintenanceCleanup
 
 This job periodically cleans up expired maintenance windows from both NetBox and Zabbix.
+
+**Note:** For detailed documentation on this job including usage examples and integration details, see [SystemJobMaintenanceCleanup Job](job_systemjobmaintenancecleanup.md).
 
 #### Class Definition
 ```python

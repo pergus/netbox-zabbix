@@ -1,12 +1,14 @@
-# NetBox Zabbix Plugin - HostConfig and Interface Documentation
+# HostConfig Model
 
-The HostConfig and interface in the NetBox Zabbix plugin represent the Zabbix host configurations and their network interfaces. This document explains the structure, fields, properties, methods, and usage.
+## Overview
 
-## HostConfig Model
+The HostConfig model in the NetBox Zabbix plugin represents the Zabbix host configurations that maintain the relationship between NetBox objects (devices or virtual machines) and their Zabbix monitoring configurations.
 
-The HostConfig represents a host configuration in Zabbix and maintains the relationship between NetBox objects (devices or virtual machines) and their Zabbix monitoring configurations.
+## Model Definition
 
-### Model Fields
+The HostConfig represents a host configuration in Zabbix and maintains the relationship between NetBox objects (devices or virtual machines) and their Zabbix monitoring configurations. It serves as the bridge between NetBox infrastructure objects and their corresponding Zabbix monitoring configurations.
+
+## Fields
 
 | Field | Type | Description | Notes |
 |-------|------|-------------|-------|
@@ -25,160 +27,76 @@ The HostConfig represents a host configuration in Zabbix and maintains the relat
 | `object_id` | PositiveIntegerField | Object ID | ID of the assigned NetBox object |
 | `assigned_object` | GenericForeignKey | Assigned object | Generic foreign key to Device or VirtualMachine |
 
-### Properties
+## Properties
 
-#### `has_agent_interface`
+### `has_agent_interface`
 Returns `True` if this host has at least one AgentInterface assigned.
 
-#### `has_snmp_interface`
+### `has_snmp_interface`
 Returns `True` if this host has at least one SNMPInterface assigned.
 
-#### `zabbix_tags`
+### `zabbix_tags`
 Returns tags for this host configuration suitable for templates, generated based on the assigned NetBox object and tag mappings.
 
-#### `active_maintenances`
+### `active_maintenances`
 Returns all active Maintenance objects that include this HostConfig, either directly or indirectly through sites, host groups, proxy groups, or clusters.
 
-#### `in_maintenance`
+### `in_maintenance`
 Returns `True` if this host is currently under any maintenance window.
 
-### Methods
+## Methods
 
-#### `__str__()`
+### `__str__()`
 Returns the host configuration name as a human-readable string representation.
 
-#### `get_absolute_url()`
-Returns the canonical URL for this host configuration within the NetBox plugin UI:
-```
-/plugins/netbox_zabbix/hostconfigs/{pk}/
-```
+**Returns:**
+- `str`: Host configuration name
 
-#### `get_in_sync_status()`
+### `get_absolute_url()`
+Returns the canonical URL for this host configuration within the NetBox plugin UI.
+
+**Returns:**
+- `str`: Absolute URL for the host configuration
+
+### `get_in_sync_status()`
 Checks if the host is in sync with Zabbix by comparing the NetBox configuration with the actual Zabbix configuration.
 
-#### `get_sync_icon()`
+**Returns:**
+- `bool`: False if host differs from Zabbix configuration, False otherwise
+
+### `get_sync_icon()`
 Returns a checkmark or cross to indicate if the Host Config is in Sync with the Zabbix host.
 
-#### `get_sync_diff()`
+**Returns:**
+- HTML-formatted string with checkmark or cross
+
+### `get_sync_diff()`
 Gets differences between NetBox host and Zabbix host configuration as a dictionary describing the differences.
 
-#### `update_sync_status()`
+**Returns:**
+- `dict`: JSON-like dictionary describing differences
+
+### `update_sync_status()`
 Checks if the host is in sync with Zabbix and updates the database without triggering any signal handlers.
 
-#### `save(*args, **kwargs)`
+### `save(*args, **kwargs)`
 Saves the HostConfig instance to the database. If no name is provided, automatically generates one using the assigned object's name with a 'z-' prefix.
 
-#### `delete(request=None, *args, **kwargs)`
+**Parameters:**
+- `*args`: Positional arguments passed to the model save method
+- `**kwargs`: Keyword arguments passed to the model save method
+
+### `delete(request=None, *args, **kwargs)`
 Custom delete method that checks for active maintenance. If the host is in maintenance, either returns a warning (if request is provided) or raises an exception.
 
-## BaseInterface Model
+**Parameters:**
+- `request`: Optional request object for warning message handling
+- `*args`: Positional arguments passed to the model delete method
+- `**kwargs`: Keyword arguments passed to the model delete method
 
-The BaseInterface model (`netbox_zabbix.models.BaseInterface`) is an abstract base class for Zabbix host interfaces (Agent or SNMP).
-
-### Model Fields
-
-| Field | Type | Description | Notes |
-|-------|------|-------------|-------|
-| `name` | CharField (max_length=255) | Interface name in NetBox | Required |
-| `hostid` | IntegerField | Zabbix Host ID | Collected from Zabbix |
-| `interfaceid` | IntegerField | Zabbix Interface ID | Collected from Zabbix |
-| `useip` | IntegerField | Connection method | Default: IP. Options: DNS (0), IP (1) |
-| `main` | IntegerField | Main interface flag | Default: YES. Options: NO (0), YES (1) |
-
-### Properties
-
-#### `resolved_dns_name`
-Returns DNS name for this interface based on the plugin IP assignment method.
-
-#### `resolved_ip_address`
-Returns IP address for this interface based on the plugin IP assignment method.
-
-### Methods
-
-#### `__str__()`
-Returns the interface name as a human-readable string representation.
-
-#### `clean()`
-Validates that the assigned IP address matches the interface, raising a ValidationError if the IP does not belong to the selected interface.
-
-## AgentInterface Model
-
-The AgentInterface model (`netbox_zabbix.models.AgentInterface`) represents a Zabbix agent interface linked to a HostConfig.
-
-### Model Fields
-
-| Field | Type | Description | Notes |
-|-------|------|-------------|-------|
-| `host_config` | ForeignKey (HostConfig) | Parent host config | Related name: agent_interfaces |
-| `interface_type` | ForeignKey (ContentType) | Interface type | Limited to Interface or VMInterface |
-| `interface_id` | PositiveIntegerField | Interface ID | ID of the NetBox interface |
-| `interface` | GenericForeignKey | Assigned interface | Generic foreign key to Interface or VMInterface |
-| `ip_address` | ForeignKey (IPAddress) | Assigned IP | Related name: agent_interface |
-| `type` | IntegerField | Interface type | Default: AGENT (1). Options: AGENT (1), SNMP (2) |
-| `port` | IntegerField | Agent port | Default: 10050 |
-
-### Methods
-
-#### `save(*args, **kwargs)`
-Ensures only one main AgentInterface exists per host_config and validates the instance. Enforces that only one agent interface can be marked as main per host configuration.
-
-## SNMPInterface Model
-
-The SNMPInterface model (`netbox_zabbix.models.SNMPInterface`) represents an SNMP interface linked to a HostConfig.
-
-### Model Fields
-
-| Field | Type | Description | Notes |
-|-------|------|-------------|-------|
-| `host_config` | ForeignKey (HostConfig) | Parent host config | Related name: snmp_interfaces |
-| `interface_type` | ForeignKey (ContentType) | Interface type | Limited to Interface or VMInterface |
-| `interface_id` | PositiveIntegerField | Interface ID | ID of the NetBox interface |
-| `interface` | GenericForeignKey | Assigned interface | Generic foreign key to Interface or VMInterface |
-| `ip_address` | ForeignKey (IPAddress) | Assigned IP | Related name: snmp_interface |
-| `type` | IntegerField | Interface type | Default: SNMP (2). Options: AGENT (1), SNMP (2) |
-| `port` | IntegerField | SNMP port | Default: 161 |
-| `version` | IntegerField | SNMP version | Default: SNMPv3 (3). Options: SNMPv1 (1), SNMPv2c (2), SNMPv3 (3) |
-| `bulk` | IntegerField | Bulk requests | Default: YES (1). Options: NO (0), YES (1) |
-| `max_repetitions` | IntegerField | Max repetitions | Default: 10 |
-| `contextname` | CharField (max_length=255) | Context name | Optional |
-| `securityname` | CharField (max_length=255) | Security name | Default: "{$SNMPV3_USER}" |
-| `securitylevel` | IntegerField | Security level | Default: authPriv (2). Options: noAuthNoPriv (0), authNoPriv (1), authPriv (2) |
-| `authprotocol` | IntegerField | Auth protocol | Default: SHA1 (1). Options: MD5 (0), SHA1 (1), SHA224 (2), SHA256 (3), SHA384 (4), SHA512 (5) |
-| `authpassphrase` | CharField (max_length=255) | Auth passphrase | Default: "{$SNMPV3_AUTHPASS}" |
-| `privprotocol` | IntegerField | Privacy protocol | Default: AES128 (1). Options: DES (0), AES128 (1), AES192 (2), AES256 (3), AES192C (4), AES256C (5) |
-| `privpassphrase` | CharField (max_length=255) | Privacy passphrase | Default: "{$SNMPV3_PRIVPASS}" |
-
-### Methods
-
-#### `save(*args, **kwargs)`
-Ensures only one main SNMPInterface exists per host_config and validates the instance. Enforces that only one SNMP interface can be marked as main per host configuration.
-
-## Field Details
-
-### HostConfig Fields
-
-#### `name`
-The name of the host configuration in Zabbix. If not provided, it's automatically generated using the assigned object's name with a 'z-' prefix.
-
-#### `hostid`
-The unique identifier assigned by Zabbix for this host. This field is populated when the host is created in Zabbix.
-
-#### `status`
-The monitoring status of the host:
-- `ENABLED` (0): Host is enabled for monitoring
-- `DISABLED` (1): Host is disabled for monitoring
-
-#### `in_sync`
-Boolean flag indicating whether the NetBox host configuration matches the actual Zabbix configuration.
-
-#### `last_sync_update`
-Timestamp indicating when the sync status was last checked or updated.
-
-#### `monitored_by`
-Specifies how the host is monitored:
-- `ZabbixServer` (0): Monitored directly by the Zabbix server
-- `Proxy` (1): Monitored via a Zabbix proxy
-- `ProxyGroup` (2): Monitored via a Zabbix proxy group
+**Returns:**
+- Warning dictionary if host is in maintenance and request is provided
+- Raises exception if host is in maintenance and no request provided
 
 ## Usage Examples
 
@@ -259,3 +177,55 @@ if differences.get("differ"):
     print("Configuration differences found:")
     print(differences)
 ```
+
+## Integration with Other Models
+
+HostConfig integrates with several other models in the plugin:
+
+1. **Device and VirtualMachine Models**: HostConfig objects are associated with NetBox Device or VirtualMachine objects through a generic foreign key relationship.
+
+2. **HostGroup Model**: Host configurations can be assigned to multiple host groups for organizational purposes.
+
+3. **Template Model**: Host configurations can have multiple templates applied for monitoring configuration.
+
+4. **Proxy and ProxyGroup Models**: Hosts can be monitored directly by the Zabbix server, via a specific proxy, or via a proxy group.
+
+5. **AgentInterface and SNMPInterface Models**: Host configurations can have multiple agent and SNMP interfaces for different monitoring methods.
+
+6. **Maintenance Model**: Host configurations can be included in maintenance windows either directly or indirectly through sites, host groups, proxy groups, or clusters.
+
+## Description
+
+The HostConfig model is a core component of the NetBox Zabbix plugin that represents the synchronization state between NetBox infrastructure objects and their Zabbix monitoring configurations. Each HostConfig object corresponds to a host in Zabbix and maintains the configuration details needed for monitoring.
+
+Key features of the HostConfig model include:
+
+**Object Association:**
+- Links to NetBox Device or VirtualMachine objects through generic foreign keys
+- Automatically generates host names based on the associated object's name
+
+**Monitoring Configuration:**
+- Tracks the Zabbix host ID for synchronization
+- Manages host status (enabled/disabled)
+- Controls synchronization state with Zabbix
+- Records when the last synchronization check occurred
+
+**Organization:**
+- Associates with HostGroup objects for logical grouping
+- Applies Template objects for monitoring configuration
+- Supports different monitoring sources (direct server, proxy, or proxy group)
+
+**Interface Support:**
+- Works with both AgentInterface and SNMPInterface objects
+- Tracks which interface types are configured for the host
+
+**Maintenance Integration:**
+- Automatically detects when a host is in maintenance
+- Prevents deletion of hosts that are currently under maintenance
+
+**Sync Management:**
+- Provides methods to check synchronization status with Zabbix
+- Offers detailed difference reporting between NetBox and Zabbix configurations
+- Updates sync status without triggering signal handlers for performance
+
+The model is designed to provide a robust foundation for bidirectional synchronization between NetBox and Zabbix, ensuring that infrastructure changes in NetBox are properly reflected in the monitoring system while also tracking the monitoring state of each host.

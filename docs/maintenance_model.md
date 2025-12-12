@@ -1,12 +1,14 @@
 # NetBox Zabbix Plugin - Maintenance Model Documentation
 
+## Overview
+
 The Maintenance model in the NetBox Zabbix plugin represents scheduled maintenance windows for Zabbix hosts. This document explains the Maintenance model's structure, fields, properties, methods, and usage.
 
-## Overview
+## Model Definition
 
 The Maintenance model (`netbox_zabbix.models.Maintenance`) defines time periods during which one or more hosts are put into maintenance mode in Zabbix. Maintenance windows can target hosts derived from Sites, HostGroups, ProxyGroups, Clusters, or specific HostConfig objects.
 
-## Model Fields
+## Fields
 
 | Field | Type | Description | Notes |
 |-------|------|-------------|-------|
@@ -23,42 +25,6 @@ The Maintenance model (`netbox_zabbix.models.Maintenance`) defines time periods 
 | `zabbix_id` | CharField (max_length=50) | Zabbix maintenance ID | Assigned by Zabbix when synced |
 | `status` | CharField | Maintenance status | Default: 'pending'. Options: 'pending', 'active', 'expired', 'failed' |
 | `description` | TextField | Maintenance description | Optional detailed description |
-
-## Properties
-
-### `is_active`
-Returns `True` if the maintenance window is currently active (current time is between start_time and end_time).
-
-### `disable_data_collection_value`
-Returns a formatted HTML string with a green checkmark if data collection is disabled during maintenance, or a red X if it's enabled.
-
-## Methods
-
-### `__str__()`
-Returns a human-readable string representation of the maintenance window in the format: `{name} ({local_start_time})`.
-
-### `get_absolute_url()`
-Returns the canonical URL for this maintenance window within the NetBox plugin UI:
-```
-/plugins/netbox_zabbix/maintenances/{pk}/
-```
-
-### `get_matching_host_configs()`
-Returns a queryset of HostConfig objects that match this maintenance window based on the configured targets (sites, host groups, proxies, proxy groups, clusters, or direct host assignments).
-
-### `_build_params()`
-Constructs the parameters dictionary for Zabbix API create/update maintenance calls. This method resolves all target hosts and builds the appropriate Zabbix API parameters.
-
-### `create_maintenance_window()`
-Creates a new maintenance window in Zabbix with the current configuration and updates the `zabbix_id` and `status` fields.
-
-### `update_maintenance_window()`
-Updates an existing maintenance window in Zabbix. Requires that the `zabbix_id` field is already populated.
-
-### `delete(*args, **kwargs)`
-Attempts to delete the maintenance window from Zabbix. If successful, also removes it from NetBox. If Zabbix deletion fails, returns a warning but still removes from NetBox.
-
-## Field Details
 
 ### `name`
 A human-readable name for the maintenance window that helps identify its purpose.
@@ -84,6 +50,49 @@ Tracks the current state of the maintenance window:
 - `active`: Maintenance is currently in progress
 - `expired`: Maintenance period has passed
 - `failed`: An error occurred during maintenance operations
+
+## Properties
+
+### `is_active`
+Returns `True` if the maintenance window is currently active (current time is between start_time and end_time).
+
+### `disable_data_collection_value`
+Returns a formatted HTML string with a green checkmark if data collection is disabled during maintenance, or a red X if it's enabled.
+
+## Methods
+
+### `__str__()`
+Returns a human-readable string representation of the maintenance window in the format: `{name} ({local_start_time})`.
+
+**Returns:**
+- `str`: Human-readable string representation
+
+### `get_absolute_url()`
+Returns the canonical URL for this maintenance window within the NetBox plugin UI.
+
+**Returns:**
+- `str`: Absolute URL for the maintenance window
+
+### `get_matching_host_configs()`
+Returns a queryset of HostConfig objects that match this maintenance window based on the configured targets (sites, host groups, proxies, proxy groups, clusters, or direct host assignments).
+
+**Returns:**
+- `QuerySet`: Matching HostConfig objects
+
+### `_build_params()`
+Constructs the parameters dictionary for Zabbix API create/update maintenance calls. This method resolves all target hosts and builds the appropriate Zabbix API parameters.
+
+**Returns:**
+- `dict`: Parameters dictionary for Zabbix API calls
+
+### `create_maintenance_window()`
+Creates a new maintenance window in Zabbix with the current configuration and updates the `zabbix_id` and `status` fields.
+
+### `update_maintenance_window()`
+Updates an existing maintenance window in Zabbix. Requires that the `zabbix_id` field is already populated.
+
+### `delete(*args, **kwargs)`
+Attempts to delete the maintenance window from Zabbix. If successful, also removes it from NetBox. If Zabbix deletion fails, returns a warning but still removes from NetBox.
 
 ## Usage Examples
 
@@ -157,5 +166,26 @@ if maintenance.disable_data_collection:
     print("Data collection is disabled during this maintenance")
 ```
 
+## Integration with Other Models
 
-6. **Documentation**: Use the description field to document the purpose, scope, and any special considerations for each maintenance window.
+Maintenance integrates with several other models in the plugin:
+
+1. **HostConfig Model**: Maintenance windows can directly target specific HostConfig objects.
+2. **Site Model**: Maintenance windows can target all hosts associated with specific sites.
+3. **HostGroup Model**: Maintenance windows can target all hosts belonging to specific host groups.
+4. **Proxy Model**: Maintenance windows can target all hosts monitored by specific proxies.
+5. **ProxyGroup Model**: Maintenance windows can target all hosts monitored by specific proxy groups.
+6. **Cluster Model**: Maintenance windows can target all virtual machines in specific clusters.
+
+## Description
+
+The Maintenance model provides comprehensive scheduling capabilities for planned downtime and maintenance activities in Zabbix monitoring. It offers flexible targeting options and integrates seamlessly with NetBox infrastructure objects.
+
+Key features include:
+- Flexible time-based scheduling with start and end times
+- Configurable data collection suppression during maintenance
+- Multiple targeting mechanisms for precise host selection
+- Automatic synchronization with Zabbix maintenance windows
+- Status tracking for maintenance window lifecycle management
+- Integration with core NetBox models for comprehensive targeting
+- Robust error handling for Zabbix API operations

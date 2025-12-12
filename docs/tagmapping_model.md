@@ -1,8 +1,10 @@
 # NetBox Zabbix Plugin - TagMapping Documentation
 
-The TagMapping in the NetBox Zabbix plugin defines how NetBox object fields are mapped to Zabbix tags for devices and virtual machines. This document explains the TagMapping's structure, fields, and usage.
-
 ## Overview
+
+The TagMapping in the NetBox Zabbix plugin defines how NetBox object fields are mapped to Zabbix tags for devices and virtual machines. This document explains the TagMapping's structure, fields, properties, methods, and usage.
+
+## Model Definition
 
 The TagMapping provides a flexible way to configure which NetBox object fields should be exported as tags in Zabbix. Separate mappings can be defined for devices and virtual machines, allowing different tagging strategies for each object type.
 
@@ -12,8 +14,6 @@ The TagMapping provides a flexible way to configure which NetBox object fields s
 |-------|------|-------------|-------|
 | `object_type` | CharField (max_length=20) | Type of NetBox object | Choices: 'device', 'virtualmachine'. Must be unique. |
 | `selection` | JSONField | Field paths for Zabbix tags | List of field paths to use as tags |
-
-## Field Details
 
 ### `object_type`
 Specifies which type of NetBox object this mapping applies to. Valid choices are:
@@ -41,11 +41,14 @@ This would create Zabbix tags for the site name, role name, and platform name of
 ### `__str__()`
 Returns a human-readable string representation in the format "Tag Mapping {object_type}".
 
+**Returns:**
+- `str`: Human-readable string representation
+
 ### `get_absolute_url()`
-Returns the canonical URL for this tag mapping within the NetBox plugin UI:
-```
-/plugins/netbox_zabbix/tagmappings/{pk}/
-```
+Returns the canonical URL for this tag mapping within the NetBox plugin UI.
+
+**Returns:**
+- `str`: Absolute URL for the tag mapping
 
 ## Usage Examples
 
@@ -122,3 +125,13 @@ TagMapping integrates with the core NetBox models:
 2. **VirtualMachine Model**: Virtual machine tag mappings determine which VM attributes become Zabbix tags
 3. **HostConfig Model**: Tag mappings are used when creating Zabbix host configurations
 
+## Description
+
+The TagMapping model provides a flexible configuration system for exporting NetBox object attributes as Zabbix tags. This allows for rich metadata association with monitored hosts, enabling better organization, filtering, and correlation of monitoring data.
+
+Key features include:
+- Separate mappings for devices and virtual machines
+- Flexible field path specification using dot notation
+- Support for nested object attributes
+- Programmatic access to tag mapping configurations
+- Integration with the HostConfig model for tag application during provisioning

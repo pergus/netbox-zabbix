@@ -12,7 +12,7 @@ nav:
   - Admin Guide: admin_guide.md
   - Programmer's Guide:
     - Core Concepts: programmer_guide.md
-    - Script Provisioning: script_provisioning.md
+    - Scripting: script_provisioning.md
     - Models Reference:
       - Settings Model: settings_model.md
       - HostConfig Models: hostconfig_models.md
@@ -32,10 +32,39 @@ nav:
       - EventLog Model: eventlog_model.md
       - ZabbixAdminPermission Model: zabbixadminpermission_model.md
     - Jobs Reference:
-      - Jobs Summary: jobs_summary.md
-      - System/Recurring Jobs: jobs_programmer_system.md
-      - Host Management Jobs: jobs_programmer_host.md
-      - Sync Jobs: jobs_programmer_sync.md
+      - Jobs Overview: jobs_overview.md
+      - Programmer Documentation:
+        - Validation Jobs: jobs_programmer_validation.md
+        - Import Jobs: jobs_programmer_import.md
+        - Provisioning Jobs: jobs_programmer_provision.md
+        - Interface Jobs: jobs_programmer_interface.md
+        - Host Management Jobs: jobs_programmer_host.md
+        - Sync Jobs: jobs_programmer_sync.md
+        - System/Recurring Jobs: jobs_programmer_system.md
+      - Job Classes Reference:
+        - Validation Jobs:
+          - ValidateHost Job: job_validatehost.md
+        - Import Jobs:
+          - ImportZabbixSettings Job: job_importzabbixsettings.md
+          - ImportHost Job: job_importhost.md
+        - Provisioning Jobs:
+          - ProvisionAgent Job: job_provisionagent.md
+          - ProvisionSNMP Job: job_provisionsnmp.md
+        - Interface Jobs:
+          - BaseZabbixInterfaceJob: job_basezabbixinterfacejob.md
+          - CreateZabbixInterface Job: job_createzabbixinterface.md
+          - UpdateZabbixInterface Job: job_updatezabbixinterface.md
+        - Host Management Jobs:
+          - CreateZabbixHost Job: job_createzabbixhost.md
+          - UpdateZabbixHost Job: job_updatezabbixhost.md
+          - DeleteZabbixHost Job: job_deletezabbixhost.md
+        - System Jobs:
+          - SyncHostsNow Job: job_synchostsnow.md
+          - SystemJobImportZabbixSettings: job_systemjobimportzabbixsettings.md
+          - SystemJobHostConfigSyncRefresh: job_systemjobhostconfigsyncrefresh.md
+          - SystemJobMaintenanceCleanup: job_systemjobmaintenancecleanup.md
+        - Base Classes:
+          - AtomicJobRunner: job_atomicjobrunner.md
   - Contributing: contributing.md
   - Changelog: changelog.md
 theme:
